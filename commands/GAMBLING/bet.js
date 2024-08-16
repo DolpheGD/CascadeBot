@@ -4,94 +4,79 @@ const User = require('../../models/User');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('bet')
-        .setDescription('Bet your wood on heads or tails')
+        .setDescription('Bet your wood or stone on a coin flip!')
         .addIntegerOption(option =>
             option.setName('amount')
-                .setDescription('Amount of wood to bet')
-                .setRequired(true)),
-                
+                .setDescription('The amount of wood or stone to bet')
+                .setRequired(true))
+        .addStringOption(option =>
+            option.setName('resource')
+                .setDescription('Choose the resource to bet')
+                .setRequired(true)
+                .addChoices(
+                    { name: 'Wood', value: 'wood' },
+                    { name: 'Stone', value: 'stone' }
+                )),
     async execute(interaction) {
-        const amount = interaction.options.getInteger('amount');
         const userId = interaction.user.id;
-
-        console.log(`User ${interaction.user.username} is trying to bet ${amount} wood`);
-
-        // Fetch the user from the database
+        const betAmount = interaction.options.getInteger('amount');
+        const resource = interaction.options.getString('resource');
         const [user] = await User.findOrCreate({ where: { discordId: userId } });
 
-        // Check if the user has enough wood
-        if (user.wood < amount) {
-            return interaction.reply({ content: 'You do not have enough wood to place this bet!', ephemeral: true });
+        // Check if the user has enough of the selected resource
+        if (user[resource] < betAmount) {
+            return interaction.reply({ content: `You don't have enough ${resource}!`, ephemeral: true });
         }
 
-        // Deduct the bet amount from the user's wood
-        user.wood -= amount;
+        // Deduct the bet amount from the user's resource
+        user[resource] -= betAmount;
         await user.save();
 
-        // Create an embed message for betting
-        const betEmbed = new EmbedBuilder()
+        // Create the initial embed message
+        const embed = new EmbedBuilder()
             .setColor('#0099ff')
-            .setTitle('Bet on Heads or Tails')
-            .setDescription(`You have bet ${amount} 🌲. React with ⚪ for heads or ⚫ for tails.`);
+            .setTitle('Coin Flip!')
+            .setDescription(`You bet **${betAmount}** ${resource === 'wood' ? '🌲' : '🪨'} on the coin flip! React with ⚪ for heads or ⚫ for tails.`);
 
-        const betMessage = await interaction.reply({ embeds: [betEmbed], fetchReply: true });
+        const message = await interaction.reply({ embeds: [embed], fetchReply: true });
+        await message.react('⚪');
+        await message.react('⚫');
 
-        console.log(`Bet message sent with ID: ${betMessage.id}`);
-
-        // Add reaction emojis for heads and tails
-        try {
-            await betMessage.react('⚪'); // Heads
-            await betMessage.react('⚫'); // Tails
-            console.log('Reactions added to the bet message.');
-        } catch (error) {
-            console.error('Error adding reactions:', error);
-        }
-
-        // Set up a reaction collector
+        // Set up the reaction collector
         const filter = (reaction, user) => {
-            console.log(`Received reaction ${reaction.emoji.name} from ${user.username}`);
-            return ['⚪', '⚫'].includes(reaction.emoji.name) && user.id === interaction.user.id;
+            return (reaction.emoji.name === '⚪' || reaction.emoji.name === '⚫') && user.id === interaction.user.id;
         };
 
-        const collector = betMessage.createReactionCollector({ filter, time: 25000 });
+        const collector = message.createReactionCollector({ filter, time: 15000 });
 
-        collector.on('collect', async reaction => {
-            console.log(`Collected ${reaction.emoji.name} from ${interaction.user.username}`);
-            collector.stop(); // Stop collecting after the first reaction
+        collector.on('collect', async (reaction) => {
+            collector.stop(); // Stop the collector on first reaction
 
-            // Determine the outcome
-            const result = Math.random() < 0.5 ? '⚪' : '⚫'; // Randomly choose heads or tails
-            const win = reaction.emoji.name === result;
+            const flipResult = Math.random() < 0.5 ? '⚪' : '⚫';
+            let resultMessage;
 
-            let resultEmbed = new EmbedBuilder()
-                .setColor(win ? '#00ff00' : '#ff0000')
-                .setTitle(win ? 'Congratulations!' : 'You Lost!')
-                .setDescription(win
-                    ? `You won! Your wood has been doubled from ${amount} 🌲 to ${amount * 2} 🌲.`
-                    : `You lost! Your remaining wood is ${user.wood} 🌲.`);
-
-            if (win) {
-                user.wood += amount * 2; // Double the bet
-                await user.save();
+            if (reaction.emoji.name === flipResult) {
+                user[resource] += betAmount * 2;
+                resultMessage = `Congratulations! The coin landed on ${flipResult}. You've won **${betAmount * 2}** ${resource === 'wood' ? '🌲' : '🪨'}!`;
+            } else {
+                resultMessage = `Sorry! The coin landed on ${flipResult}. You lost **${betAmount}** ${resource === 'wood' ? '🌲' : '🪨'}.`;
             }
 
-            await interaction.followUp({ embeds: [resultEmbed] });
+            await user.save();
+
+            const resultEmbed = new EmbedBuilder()
+                .setColor(flipResult === reaction.emoji.name ? '#00ff00' : '#ff0000')
+                .setTitle('Coin Flip Result')
+                .setDescription(resultMessage);
+
+            await interaction.editReply({ embeds: [resultEmbed] });
         });
 
         collector.on('end', async (collected, reason) => {
             if (reason === 'time') {
-                console.log('Reaction collector timed out');
-                
-                // Return the bet amount if the bet times out
-                user.wood += amount;
+                user[resource] += betAmount; // Refund the bet if the collector times out
                 await user.save();
-
-                const timeoutEmbed = new EmbedBuilder()
-                    .setColor('#ff0000')
-                    .setTitle('Bet Timed Out')
-                    .setDescription('You did not react in time. Your bet has been canceled and your wood has been returned.');
-
-                await interaction.followUp({ embeds: [timeoutEmbed] });
+                await interaction.editReply({ content: 'You took too long to respond! Your bet has been refunded.', embeds: [] });
             }
         });
     },

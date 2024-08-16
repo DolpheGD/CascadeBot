@@ -7,30 +7,50 @@ module.exports = {
         .setDescription('Collect 2-5 wood'),
 
     async execute(interaction) {
-        const cooldown = 20 * 1000; // 10 seconds cooldown
+        const cooldown = 20 * 1000; // 20 seconds cooldown
         const userId = interaction.user.id;
-        const user = await User.findOrCreate({ where: { discordId: userId } });
+        const [user] = await User.findOrCreate({ where: { discordId: userId } });
         
-        const lastChop = user[0].lastChop || 0;
+        const lastChop = user.lastChop || 0;
         const now = Date.now();
 
         if (now - lastChop < cooldown) {
             return interaction.reply({ content: `You are chopping too fast! Please wait ${Math.ceil((cooldown - (now - lastChop)) / 1000)} more seconds.`, ephemeral: true });
         }
 
-        const wood = Math.floor(Math.random() * 3) + 2;
-        user[0].wood += wood;
-        user[0].lastChop = now;
-        await user[0].save();
+        let wood = Math.floor(Math.random() * 4) + 1; // Random amount of wood between 1 and 5
+        user.wood += wood;
+        user.lastChop = now;
 
-        // embedded response
+        // Determine if there's a negative or positive event
+        let isNegative = false;
+        let isBonus = false;
+        let bonusWood = 0;
+
+        if (Math.random() < 0.1 && user.wood >= 10) { // 10% chance of negative event
+            isNegative = true;
+        } else if (Math.random() < 0.15) { // 15% chance of bonus
+            isBonus = true;
+            bonusWood = Math.floor(Math.random() * 3) + 4; // Random bonus between 4 and 6
+            user.wood += bonusWood;
+        }
+
+        await user.save();
+
+        // Create the embed message
         const embed = new EmbedBuilder()
-            .setColor('#00ff00')
-            .setTitle('Success!')
-            .addFields(
-                { name: 'Wood Obtained', value: `${wood} 🌲`, inline: false } // Add a field with emoji
-            )
+            .setColor(isNegative ? '#ff0000' : '#00ff00')
+            .setTitle(isNegative ? 'Failure!' : 'Success!')
+            .setDescription(isNegative
+                ? `You angered Josh! He stole ${Math.floor(Math.random() * 7) + 1} 🌲.`
+                : `You obtained ${wood} 🌲`)
+            .setFooter({ text: `Total wood: ${user.wood}` });
 
-        return interaction.reply({embeds: [embed]});
+        // Add bonus field if applicable
+        if (isBonus) {
+            embed.addFields({ name: '**Bonus!**', value: `You chopped down a huge tree! **+${bonusWood}** 🌲!`, inline: false });
+        }
+
+        return interaction.reply({ embeds: [embed] });
     },
 };

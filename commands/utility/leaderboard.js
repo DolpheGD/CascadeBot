@@ -4,39 +4,33 @@ const User = require('../../models/User');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('leaderboard')
-        .setDescription('View the top 10 users with the most wood'),
+        .setDescription('Display the top 10 users by wood or stone')
+        .addStringOption(option =>
+            option.setName('resource')
+                .setDescription('Choose the resource to rank by')
+                .setRequired(true)
+                .addChoices(
+                    { name: 'Wood', value: 'wood' },
+                    { name: 'Stone', value: 'stone' }
+                )),
     async execute(interaction) {
-        try {
-            // Fetch the top 10 users with the most wood
-            const topUsers = await User.findAll({
-                order: [['wood', 'DESC']], // Order by wood in descending order
-                limit: 10 // Limit to the top 10 users
-            });
+        const resource = interaction.options.getString('resource');
 
-            // Create an embed message
-            const embed = new EmbedBuilder()
-                .setColor('#0099ff') // Set the color of the embed
-                .setTitle('Leaderboard:') // Set the title
+        // Find the top 10 users sorted by the selected resource
+        const topUsers = await User.findAll({
+            order: [[resource, 'DESC']],
+            limit: 10,
+        });
 
-            // Fetch usernames for each user and add to embed
-            const promises = topUsers.map(async (user, index) => {
-                const member = await interaction.guild.members.fetch(user.discordId); // Fetch member from the guild
-                return { rank: index + 1, username: member.user.username, wood: user.wood };
-            });
+        const leaderboard = topUsers.map((user, index) => {
+            return `${index + 1}. <@${user.discordId}> - ${user[resource]} ${resource === 'wood' ? '🌲' : '🪨'}`;
+        }).join('\n');
 
-            const leaderboardData = await Promise.all(promises);
+        const embed = new EmbedBuilder()
+            .setColor('#0099ff')
+            .setTitle(`Top 10 Users by ${resource.charAt(0).toUpperCase() + resource.slice(1)}`)
+            .setDescription(leaderboard || 'No data available.');
 
-            leaderboardData.forEach(({ rank, username, wood }) => {
-                embed.addFields(
-                    { name: `${rank}. ${username}`, value: `${wood} 🌲`, inline: false }
-                );
-            });
-
-            // Reply with the embed
-            return interaction.reply({ embeds: [embed] });
-        } catch (error) {
-            console.error('Error fetching leaderboard:', error);
-            return interaction.reply({ content: 'There was an error fetching the leaderboard.', ephemeral: true });
-        }
+        await interaction.reply({ embeds: [embed] });
     },
 };
