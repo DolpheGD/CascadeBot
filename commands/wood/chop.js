@@ -64,7 +64,7 @@ module.exports = {
                 bonusWood = Math.floor(Math.random() * 3) + 4; // Random bonus between 4 and 6
                 inventory.wood += bonusWood;
             }
-            if (Math.random() < 0.33) { // 50% chance of getting palm leaves
+            if (Math.random() < 0.4) { // 40% chance of getting palm leaves
                 palmLeaves = Math.floor(Math.random() * 2) + 1; // Random 1-2 palm leaves
                 inventory.palmLeaves += palmLeaves;
             }
@@ -89,7 +89,7 @@ module.exports = {
             .setColor(isNegative ? '#ff0000' : '#00ff00')
             .setTitle(isNegative ? 'Failure!' : 'Success!')
             .setDescription(isNegative
-                ? `You angered Josh! He stole ${stolenWood} 🪵.`
+                ? `You angered Josh! **-${stolenWood}** 🪵.`
                 : `You obtained ${wood} 🪵`)
             .setFooter({ text: `Total wood: ${inventory.wood}` });
 

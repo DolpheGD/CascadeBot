@@ -24,6 +24,10 @@ const User = sequelize.define('User', {
         type: DataTypes.BIGINT,
         defaultValue: 0,
     },
+    lastExplore: {
+        type: DataTypes.BIGINT,
+        defaultValue: 0,
+    },
 });
 
 // Correct the association alias to match
