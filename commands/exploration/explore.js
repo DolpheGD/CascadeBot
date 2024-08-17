@@ -47,38 +47,84 @@ const events = [
         ],
         imageUrl: 'https://cdn.discordapp.com/attachments/704530416475832342/1274296689481482343/JOSHCAMPFIRE.png?ex=66c1bcc6&is=66c06b46&hm=05c5249f2ec3bc738a830ae66aa757b12de4053c1f629707087eee11fe466362&'
     },
-    {
-        id: 2,
-        description: "You are about to collab with Dolphe, what do you contribute?",
-        choices: [
-            { emoji: '1️⃣', text: 'Give Dolphe 5 🪵', resource: 'wood', cost: 5, result: async (interaction, inventory) => {
-                if (inventory.wood < 5) {
-                    return await handleDolpheSteal(inventory);
+        {
+            id: 2,
+            description: "You are about to collab with Dolphe, what do you contribute?",
+            choices: [
+                {
+                    emoji: '1️⃣', 
+                    text: 'Give Dolphe 5 🪵', 
+                    resource: 'wood', 
+                    cost: 5, 
+                    result: async (interaction, inventory) => {
+                        if (Math.random() < 0.1) { // 10% chance Dolphe gets mad
+                            return await handleDolpheSteal(inventory);
+                        }
+        
+                        if (inventory.wood < 5) {
+                            return await handleDolpheSteal(inventory);
+                        }
+        
+                        inventory.wood -= 5;
+                        await inventory.save();
+                        return { 
+                            message: `Dolphe is actually doing a YouTube video and gives you resources for helping him out!\n**+8** 🪵`, 
+                            color: '#00ff00' 
+                        };
+                    }
+                },
+                {
+                    emoji: '2️⃣', 
+                    text: 'Give Dolphe 5 🪨', 
+                    resource: 'stone', 
+                    cost: 5, 
+                    result: async (interaction, inventory) => {
+                        if (Math.random() < 0.1) { // 10% chance Dolphe gets mad
+                            return await handleDolpheSteal(inventory);
+                        }
+        
+                        if (inventory.stone < 5) {
+                            return await handleDolpheSteal(inventory);
+                        }
+        
+                        inventory.stone -= 5;
+                        await inventory.save();
+                        return { 
+                            message: `Dolphe is actually doing a YouTube video and gives you resources for helping him out!\n**+8** 🪨`, 
+                            color: '#00ff00' 
+                        };
+                    }
+                },
+                {
+                    emoji: '3️⃣', 
+                    text: 'Give Dolphe 5 🌿', 
+                    resource: 'palmLeaves', 
+                    cost: 5, 
+                    result: async (interaction, inventory) => {
+                        if (Math.random() < 0.1) { // 10% chance Dolphe gets mad
+                            return await handleDolpheSteal(inventory);
+                        }
+        
+                        if (inventory.palmLeaves < 5) {
+                            return await handleDolpheSteal(inventory);
+                        }
+        
+                        inventory.palmLeaves -= 5;
+                        await inventory.save();
+                        return { 
+                            message: `Dolphe is actually doing a YouTube video and gives you resources for helping him out!\n**+8** 🌿`, 
+                            color: '#00ff00' 
+                        };
+                    }
+                },
+                {
+                    emoji: '4️⃣', 
+                    text: 'Give Dolphe nothing!!', 
+                    result: async (interaction, inventory) => await handleDolpheSteal(inventory)
                 }
-                inventory.wood -= 5;
-                await inventory.save();
-                return { message: `Dolphe is actually doing a YouTube video and gives you resources for helping him out!\n**+8** 🪵`, color: '#00ff00' };
-            }},
-            { emoji: '2️⃣', text: 'Give Dolphe 5 🪨', resource: 'stone', cost: 5, result: async (interaction, inventory) => {
-                if (inventory.stone < 5) {
-                    return await handleDolpheSteal(inventory);
-                }
-                inventory.stone -= 5;
-                await inventory.save();
-                return { message: `Dolphe is actually doing a YouTube video and gives you resources for helping him out!\n**+8** 🪨`, color: '#00ff00' };
-            }},
-            { emoji: '3️⃣', text: 'Give Dolphe 5 🌿', resource: 'palmLeaves', cost: 5, result: async (interaction, inventory) => {
-                if (inventory.palmLeaves < 5) {
-                    return await handleDolpheSteal(inventory);
-                }
-                inventory.palmLeaves -= 5;
-                await inventory.save();
-                return { message: `Dolphe is actually doing a YouTube video and gives you resources for helping him out!\n**+8** 🌿`, color: '#00ff00' };
-            }},
-            { emoji: '4️⃣', text: 'Give Dolphe nothing!!', result: async (interaction, inventory) => await handleDolpheSteal(inventory)}
-        ],
-        imageUrl: 'https://cdn.discordapp.com/attachments/704530416475832342/1274298451038961774/DOLPHEVENT.png?ex=66c1be6a&is=66c06cea&hm=68f0a3c722745dd10bbabb82880416d4a1c7ce1d16424bcdf52b0ca7fcf3ad34&'
-    },
+            ],
+            imageUrl: 'https://cdn.discordapp.com/attachments/704530416475832342/1274298451038961774/DOLPHEVENT.png?ex=66c1be6a&is=66c06cea&hm=68f0a3c722745dd10bbabb82880416d4a1c7ce1d16424bcdf52b0ca7fcf3ad34&'
+        },
     {
         id: 3,
         description: "You come across Xender, a shady dealer. He requests 1 🪵, 1 🪨, and 1 🌿 for a 10% chance to win 10 🏅",

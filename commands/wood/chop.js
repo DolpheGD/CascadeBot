@@ -76,13 +76,10 @@ module.exports = {
         // Save changes
         user.lastChop = now;
 
-        try {
-            await inventory.save();
-            await user.save();
-            console.log('After saving:', inventory.toJSON());
-        } catch (error) {
-            console.error('Error saving user or inventory:', error);
-        }
+
+        await inventory.save();
+        await user.save();
+
 
         // Create the embed message
         const embed = new EmbedBuilder()
