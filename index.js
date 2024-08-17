@@ -48,10 +48,14 @@ for (const file of eventFiles) {
 	}
 }
 
-
 // Log in to Discord with your client's token
 const sequelize = require('./dbConfig');
 const User = require('./models/User');
+const Inventory = require('./models/Inventory'); // Ensure this path is correct
+
+// Define associations
+User.hasOne(Inventory, { foreignKey: 'userId' });
+Inventory.belongsTo(User, { foreignKey: 'userId' });
 
 sequelize.sync().then(async () => {
     console.log('Database synced');

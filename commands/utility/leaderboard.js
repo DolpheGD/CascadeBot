@@ -1,36 +1,59 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const User = require('../../models/User');
+const Inventory = require('../../models/Inventory');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('leaderboard')
-        .setDescription('Display the top 10 users by wood or stone')
-        .addStringOption(option =>
-            option.setName('resource')
-                .setDescription('Choose the resource to rank by')
-                .setRequired(true)
-                .addChoices(
-                    { name: 'Wood', value: 'wood' },
-                    { name: 'Stone', value: 'stone' }
-                )),
+        .setDescription('Display the top 10 users by power'),
+
     async execute(interaction) {
-        const resource = interaction.options.getString('resource');
+        try {
+            // Fetch all users with their associated inventory
+            const users = await User.findAll({
+                include: {
+                    model: Inventory,
+                    as: 'inventory'
+                }
+            });
 
-        // Find the top 10 users sorted by the selected resource
-        const topUsers = await User.findAll({
-            order: [[resource, 'DESC']],
-            limit: 10,
-        });
+            // Calculate power and prepare leaderboard data
+            const leaderboard = users.map(user => {
+                const inventory = user.inventory || {};
+                const power = inventory.wood + 2 * inventory.stone + 2 * inventory.palmLeaves + 3 * inventory.gold;
+                return {
+                    username: user.username,
+                    power: power,
+                    discordId: user.discordId // Store Discord ID for fetching avatar
+                };
+            });
 
-        const leaderboard = topUsers.map((user, index) => {
-            return `${index + 1}. <@${user.discordId}> - ${user[resource]} ${resource === 'wood' ? '🌲' : '🪨'}`;
-        }).join('\n');
+            // Sort by power in descending order and get top 10
+            leaderboard.sort((a, b) => b.power - a.power);
+            const top10 = leaderboard.slice(0, 10);
 
-        const embed = new EmbedBuilder()
-            .setColor('#0099ff')
-            .setTitle(`Top 10 Users by ${resource.charAt(0).toUpperCase() + resource.slice(1)}`)
-            .setDescription(leaderboard || 'No data available.');
+            // Create leaderboard description
+            const description = top10.map((entry, index) => `${index + 1}. ${entry.username} - ${entry.power}⚡`).join('\n');
 
-        await interaction.reply({ embeds: [embed] });
+            // Fetch the user with the highest power for the thumbnail
+            const topUser = top10[0];
+            const topUserAvatar = topUser ? await interaction.client.users.fetch(topUser.discordId).then(user => user.displayAvatarURL()) : null;
+
+            // Create the embed
+            const embed = new EmbedBuilder()
+                .setColor('#0099ff')
+                .setTitle('Leaderboard (Power)')
+                .setDescription(description)
+                .setFooter({ text: 'Power is calculated as: wood + 2 * stone + 2 * palm leaves + 3 * gold' });
+
+            if (topUserAvatar) {
+                embed.setThumbnail(topUserAvatar);
+            }
+
+            return interaction.reply({ embeds: [embed] });
+        } catch (error) {
+            console.error('Error fetching leaderboard:', error);
+            return interaction.reply({ content: 'An error occurred while fetching the leaderboard. Please try again later.', ephemeral: true });
+        }
     },
 };
