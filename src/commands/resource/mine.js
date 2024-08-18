@@ -8,7 +8,7 @@ module.exports = {
         .setDescription('Mine for 2-4 stone'),
 
     async execute(interaction) {
-        const cooldown = 30 * 1000; // 30 seconds cooldown
+        const cooldown = 25 * 1000; // 30 seconds cooldown
         const userId = interaction.user.id;
 
         try {
