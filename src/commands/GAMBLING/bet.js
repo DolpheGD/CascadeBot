@@ -11,14 +11,17 @@ module.exports = {
         .setDescription('Bet an amount of a resource by flipping a coin.')
         .addStringOption(option =>
             option.setName('resource')
-                .setDescription('The resource you want to bet (wood, stone, palmLeaves, gold, or rope)')
+                .setDescription('The resource you want to bet (wood, stone, palmLeaves, gold, rope, diamond, ruby, copper)')
                 .setRequired(true)
                 .addChoices(
                     { name: 'Wood', value: 'wood' },
                     { name: 'Stone', value: 'stone' },
                     { name: 'Palm Leaves', value: 'palmLeaves' },
                     { name: 'Gold', value: 'gold' },
-                    { name: 'Rope', value: 'rope' }
+                    { name: 'Rope', value: 'rope' },
+                    { name: 'Diamond', value: 'diamond' },
+                    { name: 'Ruby', value: 'ruby' },
+                    { name: 'Copper', value: 'copper' }
                 ))
         .addIntegerOption(option =>
             option.setName('amount')
@@ -36,9 +39,14 @@ module.exports = {
         }
 
         // Valid resources
-        const validResources = ['wood', 'stone', 'palmLeaves', 'gold', 'rope'];
+        const validResources = ['wood', 'stone', 'palmLeaves', 'gold', 'rope', 'diamond', 'ruby', 'copper'];
         if (!validResources.includes(resource)) {
-            return interaction.reply({ content: 'Invalid resource. Please choose from wood, stone, palmLeaves, gold, or rope.', ephemeral: true });
+            return interaction.reply({ content: 'Invalid resource. Please choose from wood, stone, palmLeaves, gold, rope, diamond, ruby, or copper.', ephemeral: true });
+        }
+
+        // Validate the amount
+        if (amount <= 0) {
+            return interaction.reply({ content: 'You must bet a positive amount.', ephemeral: true });
         }
 
         // Check if user has enough of the resource
@@ -56,7 +64,7 @@ module.exports = {
         const embed = new EmbedBuilder()
             .setColor('#0099ff')
             .setTitle('Coin Flip!')
-            .setDescription(`You are betting **${amount}** ${resource}. React with ⚪ for heads or ⚫ for tails.`);
+            .setDescription(`You are betting **${amount}** ${getEmojiForResource(resource)}. React with ⚪ for heads or ⚫ for tails.`);
 
         // Send the embed and add reactions
         const message = await interaction.reply({ embeds: [embed], fetchReply: true });
@@ -116,18 +124,21 @@ function getEmojiForResource(resource) {
         case 'palmLeaves': return '🌿';
         case 'gold': return '✨';
         case 'rope': return '🪢';
+        case 'diamond': return '💎';
+        case 'ruby': return '♦️';
+        case 'copper': return '🔶';
         default: return '';
     }
 }
 
 // Helper function to get a random win message
 function getRandomWinMessage() {
-    const winMessages = ['You won!', 'Congratulations!', 'W moment!'];
+    const winMessages = ['You won!', 'Congratulations!', 'W moment!', 'GG!', 'Lets Gooo!'];
     return winMessages[Math.floor(Math.random() * winMessages.length)];
 }
 
 // Helper function to get a random lose message
 function getRandomLoseMessage() {
-    const loseMessages = ['You Lose!', 'Rip Bozo!', 'Skill issue💀'];
+    const loseMessages = ['You Lose!', 'Rip Bozo!', 'Skill issue💀', 'Sucks to Suck!', 'L '];
     return loseMessages[Math.floor(Math.random() * loseMessages.length)];
 }

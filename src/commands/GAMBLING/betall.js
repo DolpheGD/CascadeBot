@@ -22,7 +22,7 @@ module.exports = {
         activeBets.add(userId);
 
         // Valid resources
-        const validResources = ['wood', 'stone', 'palmLeaves', 'gold', 'rope'];
+        const validResources = ['wood', 'stone', 'palmLeaves', 'gold', 'rope', 'diamond', 'ruby', 'copper'];
 
         // Check if user has enough of any resource to bet
         const [user] = await User.findOrCreate({ where: { discordId: userId } });
@@ -104,18 +104,21 @@ function getEmojiForResource(resource) {
         case 'palmLeaves': return '🌿';
         case 'gold': return '✨';
         case 'rope': return '🪢';
+        case 'diamond': return '💎';
+        case 'ruby': return '♦️';
+        case 'copper': return '🔶';
         default: return '';
     }
 }
 
 // Helper function to get a random win message
 function getRandomWinMessage() {
-    const winMessages = ['OHAMAGAD!!!!', 'GGGGGGGGGG!!!!'];
+    const winMessages = ['OHAMAGAD!!!!', 'GGGGGGGGGG!!!!', 'THE GOAT! THE GOAT!!!', 'YOU DID IT!! YOU WON THE 50/50!!!!!!'];
     return winMessages[Math.floor(Math.random() * winMessages.length)];
 }
 
 // Helper function to get a random lose message
 function getRandomLoseMessage() {
-    const loseMessages = ['Can we get an f in the chat for this guy...', 'BLUD LOST IT ALL!!!!'];
+    const loseMessages = ['Can we get an f in the chat for this guy...', 'BLUD LOST IT ALL!!!!', 'Its okay to cry.... Not everyone is lucky in life....', 'Welp that sucks. However, did you know that 99% of gamblers quit before they win big?'];
     return loseMessages[Math.floor(Math.random() * loseMessages.length)];
 }

@@ -4,6 +4,16 @@ const Inventory = require('../../models/Inventory');
 
 const activeExplores = new Set(); // To keep track of users currently using the explore command
 
+
+
+
+
+
+
+
+
+
+
 //------------------------------------------------
 // EVENTS
 //------------------------------------------------
@@ -234,7 +244,7 @@ const events = [
     },
     {
         id: 5,
-        description: "You meet Duko, an illegal rock dealer. 1 loot rock for **8**🪵 and **3**🪨",
+        description: "You meet Duko, an illegal rock dealer. 1 loot rock for **6**🪵 and **2**🪨",
         choices: [
             { emoji: '1️⃣', text: 'Leave', result: () => ({ message: 'You decide to leave Duko and continue your exploration.', color: '#0099ff' })},
             { emoji: '2️⃣', text: 'Buy 1 rock', result: async (interaction, inventory) => await handleRockPurchase(interaction, inventory, 1) },
@@ -246,6 +256,34 @@ const events = [
         imageUrl: 'https://cdn.discordapp.com/attachments/704530416475832342/1274616296985723056/DUKOEVENTROCKSD.png?ex=66c2e66e&is=66c194ee&hm=806de9a45039aef475a2eb79f82e05a62d7dedf1973aeff36c52a2d7527f71c0&'
     }
 ];
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 //------------------------------------------------
 // HELPER FUNCTIONS:
@@ -277,8 +315,8 @@ async function handleDolpheSteal(inventory) {
 
 //------------------------------------------------
 async function handleRockPurchase(interaction, inventory, quantity) {
-    const woodCost = 8 * quantity;
-    const stoneCost = 3 * quantity;
+    const woodCost = 6 * quantity;
+    const stoneCost = 2 * quantity;
 
     if (inventory.wood < woodCost || inventory.stone < stoneCost) {
         return { message: `You don’t have enough resources to buy ${quantity} rock(s).`, color: '#ff0000' };
@@ -407,9 +445,9 @@ module.exports = {
                     .setDescription(resultMessage)
                     .setImage(event.imageUrl);
 
-                await message.edit({ embeds: [resultEmbed] });
-
                 activeExplores.delete(userId);
+
+                await message.edit({ embeds: [resultEmbed] });
 
                 collector.stop();
             });
@@ -432,6 +470,7 @@ module.exports = {
         catch (error) 
         {
             console.error('Error executing explore command:', error);
+            activeExplores.delete(userId);
             return interaction.reply({ content: 'An error occurred while executing the command. Please try again later.', ephemeral: true });
         } 
     },

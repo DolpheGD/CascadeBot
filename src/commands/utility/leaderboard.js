@@ -20,7 +20,7 @@ module.exports = {
             // Calculate power and prepare leaderboard data
             const leaderboard = users.map(user => {
                 const inventory = user.inventory || {};
-                const power = inventory.wood + 2 * inventory.palmLeaves + 4 * inventory.rope + inventory.stone + 2 * inventory.copper + 5 * inventory.gold + 25 * inventory.ruby + 100 * inventory.diamond;
+                const power = inventory.wood + 2 * inventory.palmLeaves + 4 * inventory.rope + inventory.stone + 2 * inventory.copper + 5 * inventory.gold + 50 * inventory.ruby + 250 * inventory.diamond;
                 return {
                     username: user.username,
                     power: power,
