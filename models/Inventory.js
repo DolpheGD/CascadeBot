@@ -27,11 +27,24 @@ const Inventory = sequelize.define('Inventory', {
         type: DataTypes.INTEGER,
         defaultValue: 0
     },
-    gold: {
+    gold: {   // Update gold field to use ✨
         type: DataTypes.INTEGER,
         defaultValue: 0
     },
     rope: {   // New rope field
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
+    
+    diamond: { // New diamond field
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
+    ruby: {    // New ruby field
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
+    copper: {  // New copper field
         type: DataTypes.INTEGER,
         defaultValue: 0
     },

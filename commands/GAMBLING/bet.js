@@ -114,7 +114,7 @@ function getEmojiForResource(resource) {
         case 'wood': return '🪵';
         case 'stone': return '🪨';
         case 'palmLeaves': return '🌿';
-        case 'gold': return '🏅';
+        case 'gold': return '✨';
         case 'rope': return '🪢';
         default: return '';
     }

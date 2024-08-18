@@ -68,10 +68,10 @@ module.exports = {
                 if (amount > 0) {
                     if (isWin) {
                         inventory[resource] += amount;
-                        embed.addFields({ name: '\u200B', value: `+${amount} ${getEmojiForResource(resource)}`, inline: true });
+                        embed.addFields({ name: '\u200B', value: `+**${amount}** ${getEmojiForResource(resource)}`, inline: true });
                     } else {
                         inventory[resource] = 0;
-                        embed.addFields({ name: '\u200B', value: `-${amount} ${getEmojiForResource(resource)}`, inline: true });
+                        embed.addFields({ name: '\u200B', value: `-**${amount}** ${getEmojiForResource(resource)}`, inline: true });
                     }
                 }
             });
@@ -102,7 +102,7 @@ function getEmojiForResource(resource) {
         case 'wood': return '🪵';
         case 'stone': return '🪨';
         case 'palmLeaves': return '🌿';
-        case 'gold': return '🏅';
+        case 'gold': return '✨';
         case 'rope': return '🪢';
         default: return '';
     }

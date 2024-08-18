@@ -8,7 +8,7 @@ module.exports = {
         .setDescription('Chop 2-5 wood'),
 
     async execute(interaction) {
-        const cooldown = 20 * 1000; // 20 seconds cooldown
+        const cooldown = 15 * 1000; // 20 seconds cooldown
         const userId = interaction.user.id;
         const username = interaction.user.username; // Get the username
 
@@ -45,7 +45,7 @@ module.exports = {
         }
 
         // Update wood
-        let wood = Math.floor(Math.random() * 4) + 1; // Random amount of wood between 1 and 5
+        let wood = Math.floor(Math.random() * 3) + 2; // Random amount of wood between 1 and 5
         inventory.wood += wood;
 
         // Determine if there's a negative or positive event
@@ -66,8 +66,8 @@ module.exports = {
                 bonusWood = Math.floor(Math.random() * 3) + 4; // Random bonus between 4 and 6
                 inventory.wood += bonusWood;
             }
-            if (Math.random() < 0.4) { // 40% chance of getting palm leaves
-                palmLeaves = Math.floor(Math.random() * 2) + 1; // Random 1-2 palm leaves
+            if (Math.random() < 0.5) { // 50% chance of getting palm leaves
+                palmLeaves = Math.floor(Math.random() * 3) + 2; // Random 1-4 palm leaves
                 inventory.palmLeaves += palmLeaves;
             }
             if (Math.random() < 0.04) { // 4% chance of getting rope
@@ -102,7 +102,7 @@ module.exports = {
 
         // Add rope field if applicable
         if (rope > 0) {
-            embed.addFields({ name: '**Bonus!**', value: `You found some leftover rope! **+${rope}** 🪢!`, inline: false });
+            embed.addFields({ name: '**Rare Bonus!**', value: `You found some leftover rope! **+${rope}** 🪢!`, inline: false });
         }
 
         return interaction.reply({ embeds: [embed] });
