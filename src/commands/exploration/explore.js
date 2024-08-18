@@ -2,11 +2,6 @@ const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const User = require('../../models/User');
 const Inventory = require('../../models/Inventory');
 
-const activeExplores = new Set(); // To keep track of users currently using the explore command
-
-
-
-
 
 
 
@@ -227,7 +222,7 @@ const events = [
                         const resources = ['wood', 'stone', 'palmLeaves'];
                         resources.forEach(async (resource) => {
                             if (inventory[resource] > 0) {
-                                const amount = Math.min(inventory[resource], 5);
+                                const amount = Math.min(inventory[resource], 10);
                                 inventory[resource] -= amount;
                                 resultMessage += `**-${amount}** ${resource === 'wood' ? '🪵' : resource === 'stone' ? '🪨' : '🌿'}`;
                             }
@@ -376,9 +371,23 @@ async function handleRockPurchase(interaction, inventory, quantity) {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
 //------------------------------------------------
 // THE COMMAND
 //------------------------------------------------
+
+const activeExplores = new Set();
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('explore')
@@ -387,6 +396,7 @@ module.exports = {
     async execute(interaction) {
         const userId = interaction.user.id;
 
+        // Check if the user is already exploring
         if (activeExplores.has(userId)) {
             return interaction.reply({
                 content: 'You are already exploring! Please wait until your current exploration is finished.',
@@ -394,23 +404,24 @@ module.exports = {
             });
         }
 
+        // Find or create the user and their inventory
+        const [user] = await User.findOrCreate({ where: { discordId: userId } });
+        const [inventory] = await Inventory.findOrCreate({ where: { userId: user.id } });
+
+        // Cooldown check
+        const now = Date.now();
+        const cooldown = 60 * 1000; // 60 seconds
+        const lastExplore = user.lastExplore || 0;
+
+        if (now - lastExplore < cooldown) {
+            const remainingTime = Math.ceil((cooldown - (now - lastExplore)) / 1000);
+            return interaction.reply({ content: `Please wait ${remainingTime} seconds before exploring again.`, ephemeral: true });
+        }
+
+        // Add user to active explores set
         activeExplores.add(userId);
 
         try {
-            // Find or create the user and their inventory
-            const [user] = await User.findOrCreate({ where: { discordId: userId } });
-            const [inventory] = await Inventory.findOrCreate({ where: { userId: user.id } });
-
-            // Cooldown check
-            const now = Date.now();
-            const cooldown = 60 * 1000; // 60 seconds
-            const lastExplore = user.lastExplore || 0;
-
-            if (now - lastExplore < cooldown) {
-                const remainingTime = Math.ceil((cooldown - (now - lastExplore)) / 1000);
-                return interaction.reply({ content: `Please wait ${remainingTime} seconds before exploring again.`, ephemeral: true });
-            }
-
             // Update the lastExplore time
             user.lastExplore = now;
             await user.save();
@@ -422,6 +433,7 @@ module.exports = {
             const embed = new EmbedBuilder()
                 .setColor('#0099ff')
                 .setTitle('Exploration Event!')
+                .setThumbnail(interaction.user.displayAvatarURL()) // Add the user's avatar as a thumbnail
                 .setDescription(event.description)
                 .setImage(event.imageUrl)
                 .addFields(event.choices.map(choice => ({ name: choice.emoji, value: choice.text, inline: true })))

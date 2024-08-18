@@ -39,6 +39,7 @@ module.exports = {
         // Create the embed for betting
         const embed = new EmbedBuilder()
             .setColor('#0099ff')
+            .setThumbnail(interaction.user.displayAvatarURL()) // Add the user's avatar as a thumbnail
             .setTitle('Coin Flip!')
             .setDescription(`You are betting your entire inventory. React with ⚪ for heads or ⚫ for tails.`);
 

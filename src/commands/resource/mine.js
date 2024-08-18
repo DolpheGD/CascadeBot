@@ -59,7 +59,7 @@ module.exports = {
 
                     const embed = new EmbedBuilder()
                         .setColor('#ff0000')
-                        .setTitle('Oh No!')
+                        .setTitle('Failure!')
                         .setDescription(`You bump into Josh in the mines and he steals some stone from you!\n**-${stoneLost}** 🪨`)
                         .setFooter({ text: `Total stone: ${inventory.stone}` });
 
@@ -72,7 +72,7 @@ module.exports = {
 
                     const embed = new EmbedBuilder()
                         .setColor('#ff0000')
-                        .setTitle('Oh No!')
+                        .setTitle('Failure!')
                         .setDescription(`You find Rohan, who is jealous of your gold and attacks you!\n**-${goldLost}** ✨`)
                         .setFooter({ text: `Total gold: ${inventory.gold}` });
 
@@ -93,6 +93,7 @@ module.exports = {
             const embed = new EmbedBuilder()
                 .setColor('#00ff00')
                 .setTitle('Success!')
+                .setThumbnail(interaction.user.displayAvatarURL()) // Add the user's avatar as a thumbnail
                 .setDescription(`You obtained ${stone} 🪨`)
                 .setFooter({ text: `Total stone: ${inventory.stone}` });
 

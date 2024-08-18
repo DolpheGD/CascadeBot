@@ -64,6 +64,7 @@ module.exports = {
         const embed = new EmbedBuilder()
             .setColor('#0099ff')
             .setTitle('Coin Flip!')
+            .setThumbnail(interaction.user.displayAvatarURL()) // Add the user's avatar as a thumbnail
             .setDescription(`You are betting **${amount}** ${getEmojiForResource(resource)}. React with ⚪ for heads or ⚫ for tails.`);
 
         // Send the embed and add reactions

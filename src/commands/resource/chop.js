@@ -84,6 +84,7 @@ module.exports = {
         // Create the embed message
         const embed = new EmbedBuilder()
             .setColor(isNegative ? '#ff0000' : '#00ff00')
+            .setThumbnail(interaction.user.displayAvatarURL()) // Add the user's avatar as a thumbnail
             .setTitle(isNegative ? 'Failure!' : 'Success!')
             .setDescription(isNegative
                 ? `You angered Josh! **-${stolenWood}** 🪵.`
