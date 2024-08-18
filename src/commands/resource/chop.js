@@ -67,10 +67,10 @@ module.exports = {
                 inventory.wood += bonusWood;
             }
             if (Math.random() < 0.5) { // 50% chance of getting palm leaves
-                palmLeaves = Math.floor(Math.random() * 3) + 2; // Random 1-4 palm leaves
+                palmLeaves = Math.floor(Math.random() * 4) + 2; // Random 2-6 palm leaves
                 inventory.palmLeaves += palmLeaves;
             }
-            if (Math.random() < 0.04) { // 4% chance of getting rope
+            if (Math.random() < 0.09) { // 9% chance of getting rope
                 rope = Math.floor(Math.random() * 2) + 1; // Random 1-2 rope
                 inventory.rope += rope;
             }

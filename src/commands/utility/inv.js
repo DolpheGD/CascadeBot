@@ -38,8 +38,8 @@ module.exports = {
                     { name: 'Ruby', value: `♦️ ${inventory.ruby}`, inline: true },
                     { name: 'Diamond', value: `💎 ${inventory.diamond}`, inline: true }
                 )
-                .setFooter({ text: `Total Power: ${inventory.wood + 2 * inventory.palmLeaves + 4 * inventory.rope + 
-                                            inventory.stone + 2 * inventory.copper + 5 * inventory.gold + 25 * inventory.ruby + 100 * inventory.diamond} ⚡` });
+                .setFooter({ text: `Total Power: ${inventory.wood + inventory.palmLeaves + 4 * inventory.rope + 
+                                            inventory.stone + 2 * inventory.copper + 5 * inventory.gold + 50 * inventory.ruby + 250 * inventory.diamond} ⚡` });
 
             return interaction.reply({ embeds: [embed] });
         } catch (error) {

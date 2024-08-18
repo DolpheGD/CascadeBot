@@ -2,6 +2,15 @@ const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const User = require('../../models/User');
 const Inventory = require('../../models/Inventory');
 
+const resourceEmojiMap = {
+    wood: '🪵',
+    stone: '🪨',
+    palmLeaves: '🍃',
+    copper: '🔶',
+    rope: '🪢',
+    gold: '✨',
+    ruby: '💎'
+};
 
 
 
@@ -204,7 +213,7 @@ const events = [
                         inventory.gold = (inventory.gold || 0) + 5;
                         inventory.rope = (inventory.rope || 0) + 5;
                         await inventory.save();
-                        resultMessage = '**You overpower Rex and defeat him!**\n**+5** ✨n**+5** 🪢';
+                        resultMessage = '**You overpower Rex and defeat him!**\n**+5**✨ **+5**🪢';
                     } else if (chance < 0.75) { // 55% chance you and Rex have a scuffle
                         resultMessage = '**You and Rex have a scuffle, tossing your items around!**\n';
                         const resources = ['wood', 'stone', 'palmLeaves'];
@@ -249,7 +258,205 @@ const events = [
             { emoji: '6️⃣', text: 'Buy 20 rocks', result: async (interaction, inventory) => await handleRockPurchase(interaction, inventory, 20) }
         ],
         imageUrl: 'https://cdn.discordapp.com/attachments/704530416475832342/1274616296985723056/DUKOEVENTROCKSD.png?ex=66c2e66e&is=66c194ee&hm=806de9a45039aef475a2eb79f82e05a62d7dedf1973aeff36c52a2d7527f71c0&'
+    },
+    {
+        id: 6,
+        description: "You encounter Triv, a feared swordsman, who challenges you to a 1v1 battle.",
+        imageUrl: "https://cdn.discordapp.com/attachments/704530416475832342/1274674180419489822/1v1Triv.png?ex=66c31c56&is=66c1cad6&hm=566990eab2e9890a657e0f2c018f84c724f4a9776bd0ea3bb684af8f13b62df6&",
+        choices: [
+            {
+                emoji: '1️⃣',
+                text: 'Flee',
+                async result(interaction, inventory) {
+                    const resources = ['wood', 'stone', 'palmLeaves', 'copper', 'rope'];
+                    let resultMessage = "You flee from Triv, but you drop some resources in the process!\n";
+                    
+                    // Track resource losses
+                    resources.forEach(resource => {
+                        if (inventory[resource] > 0) {
+                            inventory[resource] -= 1;
+                            resultMessage += `-1 ${resourceEmojiMap[resource]}\n`;
+                        }
+                    });
+    
+                    await inventory.save();
+                    return { message: resultMessage, color: '#ff0000' };
+                }
+            },
+            {
+                emoji: '2️⃣',
+                text: 'Fight unprepared',
+                async result(interaction, inventory) {
+                    const outcome = Math.random();
+                    let resultMessage = "";
+                    let color;
+    
+                    if (outcome <= 0.7) {
+                        resultMessage = "Triv destroys you in combat!\n";
+                        const resources = ['wood', 'stone', 'palmLeaves', 'copper', 'rope', 'gold'];
+    
+                        // Track resource losses
+                        resources.forEach(resource => {
+                            if (inventory[resource] > 0) {
+                                inventory[resource] -= 2;
+                                resultMessage += `-2 ${resourceEmojiMap[resource]}\n`;
+                            }
+                        });
+                        color = '#ff0000';
+                    } else if (outcome <= 0.9) {
+                        resultMessage = "You and Triv exchange blows, resulting in a stalemate...";
+                        color = '#ffff00';
+                    } else {
+                        resultMessage = "You best Triv in battle and he flees!\n";
+                        const resources = {
+                            wood: [3, 6],
+                            stone: [3, 6],
+                            palmLeaves: [3, 6],
+                            copper: [3, 6],
+                            rope: [3, 6],
+                            gold: [3, 6]
+                        };
+    
+                        // Track resource gains
+                        for (const [resource, range] of Object.entries(resources)) {
+                            const gained = Math.floor(Math.random() * (range[1] - range[0] + 1)) + range[0];
+                            inventory[resource] += gained;
+                            resultMessage += `+${gained} ${resourceEmojiMap[resource]}\n`;
+                        }
+                        if (Math.random() <= 0.5) {
+                            inventory.ruby += 1;
+                            resultMessage += `+1 💎\n`;
+                        }
+                        color = '#00ff00';
+                    }
+    
+                    await inventory.save();
+                    return { message: resultMessage, color };
+                }
+            },
+            {
+                emoji: '3️⃣',
+                text: 'Fight prepared (-1🪢 -4🪨 -4🪵)',
+                async result(interaction, inventory) {
+                    // Check if the user has enough resources
+                    if (inventory.rope < 1 || inventory.stone < 4 || inventory.wood < 4) {
+                        return await events[1].choices[1].result(interaction, inventory); // Fallback to unprepared fight result
+                    }
+    
+                    inventory.rope -= 1;
+                    inventory.stone -= 4;
+                    inventory.wood -= 4;
+    
+                    let resultMessage = "-1 🪢, -4 🪨, -4 🪵\n"; // Deducted resources
+                    const outcome = Math.random();
+                    let color;
+    
+                    if (outcome <= 0.3) {
+                        resultMessage += "Triv destroys you in combat!\n";
+                        const resources = ['wood', 'stone', 'palmLeaves', 'copper', 'rope', 'gold'];
+    
+                        // Track resource losses
+                        resources.forEach(resource => {
+                            if (inventory[resource] > 0) {
+                                inventory[resource] -= 2;
+                                resultMessage += `-2 ${resourceEmojiMap[resource]}\n`;
+                            }
+                        });
+                        color = '#ff0000';
+                    } else if (outcome <= 0.7) {
+                        resultMessage += "You and Triv exchange blows, resulting in a stalemate...";
+                        color = '#ffff00';
+                    } else {
+                        resultMessage += "You best Triv in battle and he flees!\n";
+                        const resources = {
+                            wood: [3, 6],
+                            stone: [3, 6],
+                            palmLeaves: [3, 6],
+                            copper: [3, 6],
+                            rope: [3, 6],
+                            gold: [3, 6]
+                        };
+    
+                        // Track resource gains
+                        for (const [resource, range] of Object.entries(resources)) {
+                            const gained = Math.floor(Math.random() * (range[1] - range[0] + 1)) + range[0];
+                            inventory[resource] += gained;
+                            resultMessage += `+${gained} ${resourceEmojiMap[resource]}\n`;
+                        }
+                        if (Math.random() <= 0.5) {
+                            inventory.ruby += 1;
+                            resultMessage += `+1 💎\n`;
+                        }
+                        color = '#00ff00';
+                    }
+    
+                    await inventory.save();
+                    return { message: resultMessage, color };
+                }
+            },
+            {
+                emoji: '4️⃣',
+                text: 'Fight well prepared (-3🪢 -5🪨 -5🪵 -5🔶 -2✨)',
+                async result(interaction, inventory) {
+                    // Check if the user has enough resources
+                    if (inventory.rope < 3 || inventory.stone < 5 || inventory.wood < 5 || inventory.copper < 5 || inventory.gold < 2) {
+                        return await events[1].choices[1].result(interaction, inventory); // Fallback to unprepared fight result
+                    }
+    
+                    inventory.rope -= 3;
+                    inventory.stone -= 5;
+                    inventory.wood -= 5;
+                    inventory.copper -= 5;
+                    inventory.gold -= 2;
+    
+                    let resultMessage = "-3 🪢, -5 🪨, -5 🪵, -5 🔶, -2 ✨\n"; // Deducted resources
+                    const outcome = Math.random();
+                    let color;
+    
+                    if (outcome <= 0.1) {
+                        resultMessage += "Triv destroys you in combat!\n";
+                        const resources = ['wood', 'stone', 'palmLeaves', 'copper', 'rope', 'gold'];
+    
+                        // Track resource losses
+                        resources.forEach(resource => {
+                            if (inventory[resource] > 0) {
+                                inventory[resource] -= 2;
+                                resultMessage += `-2 ${resourceEmojiMap[resource]}\n`;
+                            }
+                        });
+                        color = '#ff0000';
+                    } else if (outcome <= 0.3) {
+                        resultMessage += "You and Triv exchange blows, resulting in a stalemate...";
+                        color = '#ffff00';
+                    } else {
+                        resultMessage += "You obliterate Triv in battle! You gain a wealth of resources.\n";
+                        const resources = {
+                            wood: [3, 7],
+                            stone: [3, 7],
+                            palmLeaves: [3, 7],
+                            copper: [3, 7],
+                            rope: [3, 7],
+                            gold: [3, 7]
+                        };
+    
+                        // Track resource gains
+                        for (const [resource, range] of Object.entries(resources)) {
+                            const gained = Math.floor(Math.random() * (range[1] - range[0] + 1)) + range[0];
+                            inventory[resource] += gained;
+                            resultMessage += `+${gained} ${resourceEmojiMap[resource]}\n`;
+                        }
+                        inventory.ruby += 1; // Guaranteed ruby
+                        resultMessage += `+1 💎\n`;
+                        color = '#00ff00';
+                    }
+    
+                    await inventory.save();
+                    return { message: resultMessage, color };
+                }
+            }
+        ]
     }
+
 ];
 
 
@@ -410,7 +617,7 @@ module.exports = {
 
         // Cooldown check
         const now = Date.now();
-        const cooldown = 60 * 1000; // 60 seconds
+        const cooldown = 1 * 1000; // 60 seconds
         const lastExplore = user.lastExplore || 0;
 
         if (now - lastExplore < cooldown) {
@@ -420,7 +627,7 @@ module.exports = {
 
         // Add user to active explores set
         activeExplores.add(userId);
-
+        
         try {
             // Update the lastExplore time
             user.lastExplore = now;
