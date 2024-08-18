@@ -27,7 +27,8 @@ module.exports = {
                 wood: 0,
                 stone: 0,
                 palmLeaves: 0,
-                gold: 0
+                gold: 0,
+                rope: 0 // Initialize rope to 0
             }
         });
 
@@ -53,10 +54,11 @@ module.exports = {
         let bonusWood = 0;
         let stolenWood = 0;
         let palmLeaves = 0;
+        let rope = 0;
 
-        if (Math.random() < 0.1 && inventory.wood >= 10) { // 10% chance of negative event
+        if (Math.random() < 0.1 && inventory.wood >= 6) { // 10% chance of negative event
             isNegative = true;
-            stolenWood = Math.floor(Math.random() * 7) + 1;
+            stolenWood = Math.floor(Math.random() * 3) + 1;
             inventory.wood -= stolenWood;
         } else {
             if (Math.random() < 0.15) { // 15% chance of bonus
@@ -68,18 +70,16 @@ module.exports = {
                 palmLeaves = Math.floor(Math.random() * 2) + 1; // Random 1-2 palm leaves
                 inventory.palmLeaves += palmLeaves;
             }
+            if (Math.random() < 0.04) { // 4% chance of getting rope
+                rope = Math.floor(Math.random() * 2) + 1; // Random 1-2 rope
+                inventory.rope += rope;
+            }
         }
-
-        // Log inventory for debugging
-        console.log('Before saving:', inventory.toJSON());
 
         // Save changes
         user.lastChop = now;
-
-
         await inventory.save();
         await user.save();
-
 
         // Create the embed message
         const embed = new EmbedBuilder()
@@ -98,6 +98,11 @@ module.exports = {
         // Add palm leaves field if applicable
         if (palmLeaves > 0) {
             embed.addFields({ name: '**Bonus!**', value: `You picked up some huge leaves! **+${palmLeaves}** 🍃!`, inline: false });
+        }
+
+        // Add rope field if applicable
+        if (rope > 0) {
+            embed.addFields({ name: '**Bonus!**', value: `You found some leftover rope! **+${rope}** 🪢!`, inline: false });
         }
 
         return interaction.reply({ embeds: [embed] });

@@ -20,7 +20,7 @@ module.exports = {
             // Calculate power and prepare leaderboard data
             const leaderboard = users.map(user => {
                 const inventory = user.inventory || {};
-                const power = inventory.wood + 2 * inventory.stone + 2 * inventory.palmLeaves + 3 * inventory.gold;
+                const power = inventory.wood + 2 * inventory.stone + 2 * inventory.palmLeaves + 4 * inventory.rope + 4 * inventory.gold;
                 return {
                     username: user.username,
                     power: power,
@@ -44,7 +44,7 @@ module.exports = {
                 .setColor('#0099ff')
                 .setTitle('Leaderboard (Power)')
                 .setDescription(description)
-                .setFooter({ text: 'Power is calculated as: wood + 2 * stone + 2 * palm leaves + 3 * gold' });
+                .setFooter({ text: 'Power is calculated using a weighted sum of items' });
 
             if (topUserAvatar) {
                 embed.setThumbnail(topUserAvatar);

@@ -32,9 +32,10 @@ module.exports = {
                     { name: 'Wood', value: `🪵 ${inventory.wood}`, inline: true },
                     { name: 'Stone', value: `🪨 ${inventory.stone}`, inline: true },
                     { name: 'Palm Leaves', value: `🌿 ${inventory.palmLeaves}`, inline: true },
-                    { name: 'Gold', value: `🏅 ${inventory.gold}`, inline: true }
+                    { name: 'Gold', value: `🏅 ${inventory.gold}`, inline: true },
+                    { name: 'Rope', value: `🪢 ${inventory.rope}`, inline: true }
                 )
-                .setFooter({ text: `Total Power: ${inventory.wood + 2 * inventory.stone + 2 * inventory.palmLeaves + 3 * inventory.gold} ⚡` });
+                .setFooter({ text: `Total Power: ${inventory.wood + 2 * inventory.stone + 2 * inventory.palmLeaves + 4 * inventory.rope + 4 * inventory.gold} ⚡` });
 
             return interaction.reply({ embeds: [embed] });
         } catch (error) {

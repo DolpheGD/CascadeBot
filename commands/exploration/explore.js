@@ -12,14 +12,14 @@ const events = [
                 let resultMessage = '';
                 let embedColor = '#00ff00'; // Default to green
 
-                if (chance < 0.5) { // 50% chance for ambush
+                if (chance < 0.4) { // 40% chance for ambush
                     let resourceFound = false;
                     resultMessage = 'Josh ambushes you and steals your resources!\n';
                     
                     while (!resourceFound) {
                         const resources = ['wood', 'stone', 'palmLeaves'];
                         const resource = resources[Math.floor(Math.random() * resources.length)];
-                        const amount = Math.floor(Math.random() * 4) + 1; // 1 to 4
+                        const amount = Math.floor(Math.random() * 5) + 1; // 1 to 5
 
                         if (inventory[resource] >= amount) {
                             inventory[resource] -= amount;
@@ -35,7 +35,7 @@ const events = [
                     }
                     embedColor = '#ff0000'; // Red color for ambush
                 } else {
-                    const woodGained = Math.floor(Math.random() * (7 - 3 + 1)) + 3;
+                    const woodGained = Math.floor(Math.random() * 4) + 3;
                     inventory.wood += woodGained;
                     await inventory.save();
                     resultMessage = `You approach Josh and he runs away! You collect the leftover wood.\n**+${woodGained}** 🪵`;
@@ -51,77 +51,66 @@ const events = [
             id: 2,
             description: "You are about to collab with Dolphe, what do you contribute?",
             choices: [
-                {
-                    emoji: '1️⃣', 
-                    text: 'Give Dolphe 5 🪵', 
-                    resource: 'wood', 
-                    cost: 5, 
-                    result: async (interaction, inventory) => {
-                        if (Math.random() < 0.1) { // 10% chance Dolphe gets mad
-                            return await handleDolpheSteal(inventory);
+                    {
+                        emoji: '1️⃣', 
+                        text: 'Give Dolphe 5 🪵', 
+                        resource: 'wood', 
+                        cost: 5, 
+                        result: async (interaction, inventory) => {
+                            if (inventory.wood < 5) {
+                                return await handleDolpheSteal(inventory);
+                            }
+                    
+                            inventory.wood -= 5;
+                            await inventory.save();
+                            return { 
+                                message: `Dolphe is actually doing a YouTube video and gives you resources for helping him out!\n**+8** 🪵`, 
+                                color: '#00ff00' 
+                            };
                         }
-        
-                        if (inventory.wood < 5) {
-                            return await handleDolpheSteal(inventory);
+                    },
+                    {
+                        emoji: '2️⃣', 
+                        text: 'Give Dolphe 5 🪨', 
+                        resource: 'stone', 
+                        cost: 5, 
+                        result: async (interaction, inventory) => {
+                            if (inventory.stone < 5) {
+                                return await handleDolpheSteal(inventory);
+                            }
+                    
+                            inventory.stone -= 5;
+                            await inventory.save();
+                            return { 
+                                message: `Dolphe is actually doing a YouTube video and gives you resources for helping him out!\n**+8** 🪨`, 
+                                color: '#00ff00' 
+                            };
                         }
-        
-                        inventory.wood -= 5;
-                        await inventory.save();
-                        return { 
-                            message: `Dolphe is actually doing a YouTube video and gives you resources for helping him out!\n**+8** 🪵`, 
-                            color: '#00ff00' 
-                        };
+                    },
+                    {
+                        emoji: '3️⃣', 
+                        text: 'Give Dolphe 5 🌿', 
+                        resource: 'palmLeaves', 
+                        cost: 5, 
+                        result: async (interaction, inventory) => {
+                            if (inventory.palmLeaves < 5) {
+                                return await handleDolpheSteal(inventory);
+                            }
+                    
+                            inventory.palmLeaves -= 5;
+                            await inventory.save();
+                            return { 
+                                message: `Dolphe is actually doing a YouTube video and gives you resources for helping him out!\n**+8** 🌿`, 
+                                color: '#00ff00' 
+                            };
+                        }
+                    },
+                    {
+                        emoji: '4️⃣', 
+                        text: 'Give Dolphe nothing!!', 
+                        result: async (interaction, inventory) => await handleDolpheSteal(inventory)
                     }
-                },
-                {
-                    emoji: '2️⃣', 
-                    text: 'Give Dolphe 5 🪨', 
-                    resource: 'stone', 
-                    cost: 5, 
-                    result: async (interaction, inventory) => {
-                        if (Math.random() < 0.1) { // 10% chance Dolphe gets mad
-                            return await handleDolpheSteal(inventory);
-                        }
-        
-                        if (inventory.stone < 5) {
-                            return await handleDolpheSteal(inventory);
-                        }
-        
-                        inventory.stone -= 5;
-                        await inventory.save();
-                        return { 
-                            message: `Dolphe is actually doing a YouTube video and gives you resources for helping him out!\n**+8** 🪨`, 
-                            color: '#00ff00' 
-                        };
-                    }
-                },
-                {
-                    emoji: '3️⃣', 
-                    text: 'Give Dolphe 5 🌿', 
-                    resource: 'palmLeaves', 
-                    cost: 5, 
-                    result: async (interaction, inventory) => {
-                        if (Math.random() < 0.1) { // 10% chance Dolphe gets mad
-                            return await handleDolpheSteal(inventory);
-                        }
-        
-                        if (inventory.palmLeaves < 5) {
-                            return await handleDolpheSteal(inventory);
-                        }
-        
-                        inventory.palmLeaves -= 5;
-                        await inventory.save();
-                        return { 
-                            message: `Dolphe is actually doing a YouTube video and gives you resources for helping him out!\n**+8** 🌿`, 
-                            color: '#00ff00' 
-                        };
-                    }
-                },
-                {
-                    emoji: '4️⃣', 
-                    text: 'Give Dolphe nothing!!', 
-                    result: async (interaction, inventory) => await handleDolpheSteal(inventory)
-                }
+                    
             ],
             imageUrl: 'https://cdn.discordapp.com/attachments/704530416475832342/1274298451038961774/DOLPHEVENT.png?ex=66c1be6a&is=66c06cea&hm=68f0a3c722745dd10bbabb82880416d4a1c7ce1d16424bcdf52b0ca7fcf3ad34&'
         },
@@ -155,7 +144,90 @@ const events = [
             { emoji: '2️⃣', text: 'Leave', result: () => ({ message: 'You leave Xender and continue your exploration.', color: '#00ff00' })}
         ],
         imageUrl: 'https://cdn.discordapp.com/attachments/704530416475832342/1274325004007374921/XENDERCRACKPIPE.png?ex=66c1d724&is=66c085a4&hm=3917ed9d266c67b65fc2186bc45da7fe5a7d35b78250a0dd497bdfc4b14dd828&'
+    },
+    {
+        id: 4,
+        description: "You meet Rex, an old crafter. He offers to craft your palm leaves into rope.",
+        choices: [
+            { 
+                emoji: '1️⃣', 
+                text: 'Craft 4 🌿 into 2 🪢', 
+                result: async (interaction, inventory) => {
+                    if (inventory.palmLeaves >= 4) {
+                        inventory.palmLeaves -= 4;
+                        inventory.rope = (inventory.rope || 0) + 2;
+                        await inventory.save();
+                        return { message: 'Rex crafts 2 🪢 for you.', color: '#00ff00' };
+                    } else {
+                        return { message: 'You don’t have enough palm leaves!', color: '#ff0000' };
+                    }
+                }
+            },
+            { 
+                emoji: '2️⃣', 
+                text: 'Craft 8 🌿 into 4 🪢', 
+                result: async (interaction, inventory) => {
+                    if (inventory.palmLeaves >= 8) {
+                        inventory.palmLeaves -= 8;
+                        inventory.rope = (inventory.rope || 0) + 4;
+                        await inventory.save();
+                        return { message: 'Rex crafts 4 🪢 for you.', color: '#00ff00' };
+                    } else {
+                        return { message: 'You don’t have enough palm leaves!', color: '#ff0000' };
+                    }
+                }
+            },
+            { 
+                emoji: '3️⃣', 
+                text: 'Leave', 
+                result: () => ({ message: 'You decide to leave Rex and continue your exploration.', color: '#00ff00' })
+            },
+            { 
+                emoji: '4️⃣', 
+                text: 'Ambush Rex', 
+                result: async (interaction, inventory) => {
+                    const chance = Math.random();
+                    let resultMessage = '';
+                    let embedColor = '#00ff00'; 
+    
+                    if (chance < 0.1) { // 10% chance you overpower Rex
+                        inventory.gold = (inventory.gold || 0) + 5;
+                        inventory.rope = (inventory.rope || 0) + 5;
+                        await inventory.save();
+                        resultMessage = '**You overpower Rex and defeat him!**\n**+5** 🏅\n**+5** 🪢';
+                    } else if (chance < 0.75) { // 65% chance you and Rex have a scuffle
+                        resultMessage = '**You and Rex have a scuffle, tossing your items around!**\n';
+                        const resources = ['wood', 'stone', 'palmLeaves'];
+                        resources.forEach(async (resource) => {
+                            if (inventory[resource] > 0) {
+                                const amount = Math.min(inventory[resource], 1);
+                                inventory[resource] -= amount;
+                                resultMessage += `-${amount} ${resource === 'wood' ? '🪵' : resource === 'stone' ? '🪨' : '🌿'}`;
+                            }
+                        });
+                        await inventory.save();
+                        embedColor = '#ffa500'; // Orange color for scuffle
+                    } else { // 25% chance Rex overpowers you
+                        resultMessage = '**Rex overpowers you and loots your resources!**\n';
+                        const resources = ['wood', 'stone', 'palmLeaves'];
+                        resources.forEach(async (resource) => {
+                            if (inventory[resource] > 0) {
+                                const amount = Math.min(inventory[resource], 5);
+                                inventory[resource] -= amount;
+                                resultMessage += `-${amount} ${resource === 'wood' ? '🪵' : resource === 'stone' ? '🪨' : '🌿'}`;
+                            }
+                        });
+                        await inventory.save();
+                        embedColor = '#ff0000'; // Red color for Rex overpowering
+                    }
+    
+                    return { message: resultMessage, color: embedColor };
+                }
+            }
+        ],
+        imageUrl: 'https://cdn.discordapp.com/attachments/704530416475832342/1274572311445635173/REXEVENT.png?ex=66c2bd77&is=66c16bf7&hm=51b48f281e43a17933bde33d083b48f70d8ea1dbe63c55d276a0ba0a0af0923e&'
     }
+    
 ];
 
 async function handleDolpheSteal(inventory) {
@@ -198,7 +270,7 @@ module.exports = {
 
             // Cooldown check
             const now = Date.now();
-            const cooldown = 80000; // 80 seconds
+            const cooldown = 70 * 1000; // 70 seconds
             const lastExplore = user.lastExplore || 0;
 
             if (now - lastExplore < cooldown) {

@@ -31,6 +31,10 @@ const Inventory = sequelize.define('Inventory', {
         type: DataTypes.INTEGER,
         defaultValue: 0
     },
+    rope: {   // New rope field
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
 });
 
 module.exports = Inventory;
