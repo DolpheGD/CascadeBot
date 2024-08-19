@@ -422,7 +422,7 @@ const events = [
                     const outcome = Math.random();
                     let color;
                 
-                    if (outcome <= 0.2) {
+                    if (outcome <= 0.1) {
                         resultMessage += "Triv destroys you in combat!\n";
                         const resources = ['wood', 'stone', 'copper', 'gold'];
                 
@@ -434,7 +434,7 @@ const events = [
                             }
                         });
                         color = '#ff0000';
-                    } else if (outcome <= 0.5) {
+                    } else if (outcome <= 0.25) {
                         resultMessage += "You and Triv exchange blows, resulting in a stalemate...";
                         color = '#ffff00';
                     } else {
@@ -656,7 +656,7 @@ async function handleRockPurchase(interaction, inventory, quantity) {
         } else if (chance < 5.5) { // 3.7% chance to get 1-2♦️
             const rubyAmount = Math.floor(Math.random() * 2) + 1;
             inventory.ruby = (inventory.ruby || 0) + rubyAmount;
-            resultMessage += `**** You got ${rubyAmount} ♦️!\n`;
+            resultMessage += `**《【EPIC】》** You got ${rubyAmount} ♦️!\n`;
         } else if (chance < 10.0) { // 4.5% chance to get 4-7✨
             const goldAmount = Math.floor(Math.random() * 4) + 4;
             inventory.gold = (inventory.gold || 0) + goldAmount;
@@ -732,7 +732,7 @@ module.exports = {
         
             // Cooldown check
             const now = Date.now();
-            const cooldown = 35 * 1000; // 30 seconds
+            const cooldown = 30 * 1000; // 30 seconds
             const lastExplore = user.lastExplore || 0;
         
             if (now - lastExplore < cooldown) {

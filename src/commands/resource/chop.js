@@ -9,7 +9,7 @@ module.exports = {
         .setDescription('Chop 3-6 wood with an axe or 1-5 wood without an axe'),
 
     async execute(interaction) {
-        let cooldown = 20 * 1000; // 20 seconds cooldown
+        let cooldown = 15 * 1000; // 15 seconds cooldown
         const userId = interaction.user.id;
         const username = interaction.user.username;
 
@@ -31,7 +31,7 @@ module.exports = {
         const hasAxe = tool && tool.metalAxe && tool.metalAxeDurability > 0;
 
         if (hasAxe) {
-            cooldown = 10 * 1000; // 10 seconds cooldown
+            cooldown = 8 * 1000; // 8 seconds cooldown
         }
 
         const lastChop = user.lastChop || 0;
@@ -66,47 +66,53 @@ module.exports = {
             await tool.save();
         }
 
-        if (Math.random() < 0.05) { // negative event 5%
+        if (Math.random() < 0.1) { // negative event 10%
             isNegative = true;
-            if (Math.random() < 0.5) { 
+            const isJoshEvent = Math.random() < 0.5;
+
+            if (isJoshEvent) {
                 if (hasAxe) {
-                    tool.metalAxeDurability -= 2; 
+                    tool.metalAxeDurability -= 2;
                     bonusWood = 4;
                     rope = 1;
                     inventory.wood += bonusWood;
                     inventory.rope += rope;
+                    await tool.save();
                 } else {
                     stolenWood = Math.floor(Math.random() * 3) + 1;
                     inventory.wood -= stolenWood;
                 }
-            } else if (inventory.palmLeaves > 4) { 
-                if (hasAxe) {
-                    tool.metalAxeDurability -= 2; 
-                    bonusWood = 4;
-                    palmLeaves = 1;
-                    inventory.wood += bonusWood;
-                    inventory.palmLeaves += palmLeaves;
-                } else {
-                    stolenLeaves = Math.floor(Math.random() * 5) + 1;
-                    inventory.palmLeaves -= stolenLeaves;
+            } else {
+                if (inventory.palmLeaves > 4) {
+                    if (hasAxe) {
+                        tool.metalAxeDurability -= 2;
+                        bonusWood = 4;
+                        palmLeaves = 1;
+                        inventory.wood += bonusWood;
+                        inventory.palmLeaves += palmLeaves;
+                        await tool.save();
+                    } else {
+                        stolenLeaves = Math.floor(Math.random() * 5) + 1;
+                        inventory.palmLeaves -= stolenLeaves;
+                    }
                 }
             }
         } else {
             // extra stuff from axe
-            if (Math.random() < (hasAxe ? 0.3 : 0.15)) { 
+            if (Math.random() < (hasAxe ? 0.3 : 0.15)) {
                 isBonus = true;
                 bonusWood = Math.floor(Math.random() * (hasAxe ? 5 : 3)) + 4;
                 inventory.wood += bonusWood;
             }
-            if (Math.random() < (hasAxe ? 0.65 : 0.5)) { 
+            if (Math.random() < (hasAxe ? 0.65 : 0.5)) {
                 palmLeaves = Math.floor(Math.random() * 4) + 2;
                 inventory.palmLeaves += palmLeaves;
             }
-            if (Math.random() < (hasAxe ? 0.15 : 0.05)) { 
-                rope += 1; 
+            if (Math.random() < (hasAxe ? 0.15 : 0.05)) {
+                rope += 1;
                 inventory.rope += rope;
             }
-            if (hasAxe && Math.random() < 0.02) { 
+            if (hasAxe && Math.random() < 0.02) {
                 extraBonusWood = Math.floor(Math.random() * 16) + 15;
                 inventory.wood += extraBonusWood;
             }
@@ -124,7 +130,7 @@ module.exports = {
                 (isNegative ? 'Failure!' : 'Success!') + (hasAxe ? ' [🪓]' : '')
             )
             .setDescription(isNegative
-                ? `You angered ${rohanEvent ? 'Rohan' : 'Josh'}! **-${stolenLeaves || stolenWood}** ${rohanEvent ? '🍃' : '🪵'}.`
+                ? (isJoshEvent ? `Josh tried to steal your wood, but you fended him off! **+4 🪵** and **+1 🪢**.` : `Rohan stole ${stolenLeaves} 🍃 while you weren't looking!`)
                 : `You obtained ${wood} 🪵`)
             .setFooter({ text: `Total wood: ${inventory.wood}` });
 
