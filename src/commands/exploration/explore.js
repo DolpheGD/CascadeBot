@@ -9,7 +9,7 @@ const resourceEmojiMap = {
     copper: '🔶',
     rope: '🪢',
     gold: '✨',
-    ruby: '💎'
+    ruby: '♦️'
 };
 
 
@@ -26,43 +26,107 @@ const events = [
         id: 1,
         description: "You spot Josh near a campfire",
         choices: [
-            { emoji: '1️⃣', text: 'Approach Josh', result: async (interaction, inventory) => {
-                const chance = Math.random();
-                let resultMessage = '';
-                let embedColor = '#00ff00'; // Default to green
-
-                if (chance < 0.4) { // 40% chance for ambush
-                    let resourceFound = false;
-                    resultMessage = 'Josh ambushes you and steals your resources!\n';
-                    
-                    while (!resourceFound) {
-                        const resources = ['wood', 'stone', 'palmLeaves'];
-                        const resource = resources[Math.floor(Math.random() * resources.length)];
-                        const amount = Math.floor(Math.random() * 5) + 1; // 1 to 5
-
-                        if (inventory[resource] >= amount) {
-                            inventory[resource] -= amount;
-                            await inventory.save();
-                            resultMessage += `**-${amount}** ${resource === 'wood' ? '🪵' : resource === 'stone' ? '🪨' : '🌿'}`;
-                            resourceFound = true;
+            {
+                emoji: '1️⃣',
+                text: 'Ambush Josh',
+                result: async (interaction, inventory) => {
+                    const chance = Math.random();
+                    let resultMessage = '';
+                    let embedColor = '#00ff00'; // Default to green
+    
+                    if (chance < 0.4) { // 40% chance for ambush
+                        let resourceFound = false;
+                        resultMessage = 'Josh beats you up and steals your resources!\n';
+    
+                        while (!resourceFound) {
+                            const resources = ['wood', 'stone', 'palmLeaves'];
+                            const resource = resources[Math.floor(Math.random() * resources.length)];
+                            const amount = Math.floor(Math.random() * 5) + 1; // 1 to 5
+    
+                            if (inventory[resource] >= amount) {
+                                inventory[resource] -= amount;
+                                await inventory.save();
+                                resultMessage += `**-${amount}** ${resource === 'wood' ? '🪵' : resource === 'stone' ? '🪨' : '🌿'}`;
+                                resourceFound = true;
+                            }
+    
+                            if (resources.every(r => inventory[r] < 1)) {
+                                resultMessage = 'Josh ambushes you but you don\'t have enough resources to lose.';
+                                resourceFound = true;
+                            }
                         }
-
-                        if (resources.every(r => inventory[r] < 1)) {
-                            resultMessage = 'Josh ambushes you but you don\'t have enough resources to lose.';
-                            resourceFound = true;
-                        }
+                        embedColor = '#ff0000'; // Red color for ambush
+                    } else {
+                        const woodGained = Math.floor(Math.random() * 4) + 3;
+                        inventory.wood += woodGained;
+                        await inventory.save();
+                        resultMessage = `You approach Josh and he runs away! You collect the leftover wood.\n**+${woodGained}** 🪵`;
                     }
-                    embedColor = '#ff0000'; // Red color for ambush
-                } else {
-                    const woodGained = Math.floor(Math.random() * 4) + 3;
-                    inventory.wood += woodGained;
-                    await inventory.save();
-                    resultMessage = `You approach Josh and he runs away! You collect the leftover wood.\n**+${woodGained}** 🪵`;
+    
+                    return { message: resultMessage, color: embedColor };
                 }
-
-                return { message: resultMessage, color: embedColor };
-            }},
-            { emoji: '2️⃣', text: 'Leave', result: () => ({ message: 'You run away!', color: '#0099ff' })}
+            },
+            {
+                emoji: '2️⃣',
+                text: 'Leave',
+                result: () => ({ message: 'You run away!', color: '#0099ff' })
+            },
+            {
+                emoji: '3️⃣',
+                text: 'Barter gold for wood',
+                result: async (interaction, inventory) => {
+                    let resultMessage = '';
+                    let embedColor = '#00ff00'; // Default to green
+    
+                    if (inventory.gold >= 2) {
+                        inventory.gold -= 2;
+                        const chance = Math.random();
+    
+                        if (chance < 0.95) { // 95% chance of getting wood
+                            const woodGained = Math.floor(Math.random() * 8) + 5; // 5 to 12 wood
+                            inventory.wood += woodGained;
+                            resultMessage = `Josh accepts your gold and gives you some spare wood!\n**+${woodGained}** 🪵`;
+                        } else { // 5% chance of getting scammed
+                            resultMessage = 'Josh takes your gold and runs away!';
+                            embedColor = '#ff0000'; // Red color for scam
+                        }
+                    } else {
+                        resultMessage = 'You don’t have enough gold to barter!';
+                        embedColor = '#ff0000'; // Red color for failure
+                    }
+    
+                    await inventory.save();
+                    return { message: resultMessage, color: embedColor };
+                }
+            },
+            {
+                emoji: '4️⃣',
+                text: 'Barter rubies for wood',
+                result: async (interaction, inventory) => {
+                    let resultMessage = '';
+                    let embedColor = '#00ff00'; // Default to green
+    
+                    if (inventory.ruby >= 2) {
+                        inventory.ruby -= 2;
+                        const chance = Math.random();
+    
+                        if (chance < 0.98) { // 98% chance of getting a huge stack of wood
+                            const woodGained = Math.floor(Math.random() * 61) + 50; // 50 to 110 wood
+                            inventory.wood += woodGained;
+                            resultMessage = `Josh accepts your rubies and gives you a huge stack of wood!\n**+${woodGained}** 🪵`;
+                        } else { // 2% chance of getting scammed
+                            resultMessage = 'Josh takes your rubies and runs away!';
+                            embedColor = '#ff0000'; // Red color for scam
+                        }
+                    } else {
+                        resultMessage = 'You don’t have enough rubies to barter!';
+                        embedColor = '#ff0000'; // Red color for failure
+                    }
+    
+                    await inventory.save();
+                    return { message: resultMessage, color: embedColor };
+                }
+            }
         ],
         imageUrl: 'https://cdn.discordapp.com/attachments/704530416475832342/1274296689481482343/JOSHCAMPFIRE.png?ex=66c1bcc6&is=66c06b46&hm=05c5249f2ec3bc738a830ae66aa757b12de4053c1f629707087eee11fe466362&'
     },
@@ -268,7 +332,7 @@ const events = [
                 emoji: '1️⃣',
                 text: 'Flee',
                 async result(interaction, inventory) {
-                    const resources = ['wood', 'stone', 'palmLeaves', 'copper', 'rope'];
+                    const resources = ['wood', 'stone', 'palmLeaves', 'copper'];
                     let resultMessage = "You flee from Triv, but you drop some resources in the process!\n";
                     
                     // Track resource losses
@@ -303,18 +367,18 @@ const events = [
                             }
                         });
                         color = '#ff0000';
-                    } else if (outcome <= 0.9) {
+                    } else if (outcome <= 0.95) {
                         resultMessage = "You and Triv exchange blows, resulting in a stalemate...";
                         color = '#ffff00';
                     } else {
                         resultMessage = "You best Triv in battle and he flees!\n";
                         const resources = {
-                            wood: [3, 6],
-                            stone: [3, 6],
-                            palmLeaves: [3, 6],
-                            copper: [3, 6],
-                            rope: [3, 6],
-                            gold: [3, 6]
+                            wood: [1, 6],
+                            stone: [1, 6],
+                            palmLeaves: [1, 6],
+                            copper: [1, 6],
+                            rope:  [1, 6],
+                            gold: [1, 6]
                         };
     
                         // Track resource gains
@@ -325,7 +389,7 @@ const events = [
                         }
                         if (Math.random() <= 0.5) {
                             inventory.ruby += 1;
-                            resultMessage += `+1 💎\n`;
+                            resultMessage += `+1♦️ \n`;
                         }
                         color = '#00ff00';
                     }
@@ -340,21 +404,34 @@ const events = [
                 async result(interaction, inventory) {
                     // Check if the user has enough resources
                     if (inventory.rope < 1 || inventory.stone < 4 || inventory.wood < 4) {
-                        return await events[1].choices[1].result(interaction, inventory); // Fallback to unprepared fight result
+                        // User is defeated due to lack of resources
+                        let resultMessage = "You attempt to fight Triv unprepared and are swiftly defeated!\n";
+                        const resources = ['wood', 'stone', 'palmLeaves', 'copper', 'rope', 'gold'];
+            
+                        // Track resource losses
+                        resources.forEach(resource => {
+                            if (inventory[resource] > 0) {
+                                inventory[resource] -= 2;
+                                resultMessage += `-2 ${resourceEmojiMap[resource]}\n`;
+                            }
+                        });
+                        await inventory.save();
+                        return { message: resultMessage, color: '#ff0000' };
                     }
-    
+            
+                    // Deduct resources and continue with the normal outcome logic
                     inventory.rope -= 1;
                     inventory.stone -= 4;
                     inventory.wood -= 4;
-    
+            
                     let resultMessage = "-1 🪢, -4 🪨, -4 🪵\n"; // Deducted resources
                     const outcome = Math.random();
                     let color;
-    
-                    if (outcome <= 0.3) {
+            
+                    if (outcome <= 0.45) {
                         resultMessage += "Triv destroys you in combat!\n";
                         const resources = ['wood', 'stone', 'palmLeaves', 'copper', 'rope', 'gold'];
-    
+            
                         // Track resource losses
                         resources.forEach(resource => {
                             if (inventory[resource] > 0) {
@@ -363,20 +440,20 @@ const events = [
                             }
                         });
                         color = '#ff0000';
-                    } else if (outcome <= 0.7) {
+                    } else if (outcome <= 0.85) {
                         resultMessage += "You and Triv exchange blows, resulting in a stalemate...";
                         color = '#ffff00';
                     } else {
                         resultMessage += "You best Triv in battle and he flees!\n";
                         const resources = {
-                            wood: [3, 6],
-                            stone: [3, 6],
-                            palmLeaves: [3, 6],
-                            copper: [3, 6],
-                            rope: [3, 6],
-                            gold: [3, 6]
+                            wood: [1, 6],
+                            stone: [1, 6],
+                            palmLeaves: [1, 6],
+                            copper: [1, 6],
+                            rope:  [1, 6],
+                            gold: [1, 6]
                         };
-    
+            
                         // Track resource gains
                         for (const [resource, range] of Object.entries(resources)) {
                             const gained = Math.floor(Math.random() * (range[1] - range[0] + 1)) + range[0];
@@ -385,11 +462,11 @@ const events = [
                         }
                         if (Math.random() <= 0.5) {
                             inventory.ruby += 1;
-                            resultMessage += `+1 💎\n`;
+                            resultMessage += `+1♦️ \n`;
                         }
                         color = '#00ff00';
                     }
-    
+            
                     await inventory.save();
                     return { message: resultMessage, color };
                 }
@@ -400,23 +477,36 @@ const events = [
                 async result(interaction, inventory) {
                     // Check if the user has enough resources
                     if (inventory.rope < 3 || inventory.stone < 5 || inventory.wood < 5 || inventory.copper < 5 || inventory.gold < 2) {
-                        return await events[1].choices[1].result(interaction, inventory); // Fallback to unprepared fight result
+                        // User is defeated due to lack of resources
+                        let resultMessage = "You attempt to fight Triv unprepared and are swiftly defeated!\n";
+                        const resources = ['wood', 'stone', 'palmLeaves', 'copper', 'rope', 'gold'];
+            
+                        // Track resource losses
+                        resources.forEach(resource => {
+                            if (inventory[resource] > 0) {
+                                inventory[resource] -= 2;
+                                resultMessage += `-2 ${resourceEmojiMap[resource]}\n`;
+                            }
+                        });
+                        await inventory.save();
+                        return { message: resultMessage, color: '#ff0000' };
                     }
-    
+            
+                    // Deduct resources and continue with the normal outcome logic
                     inventory.rope -= 3;
                     inventory.stone -= 5;
                     inventory.wood -= 5;
                     inventory.copper -= 5;
                     inventory.gold -= 2;
-    
+            
                     let resultMessage = "-3 🪢, -5 🪨, -5 🪵, -5 🔶, -2 ✨\n"; // Deducted resources
                     const outcome = Math.random();
                     let color;
-    
-                    if (outcome <= 0.1) {
+            
+                    if (outcome <= 0.2) {
                         resultMessage += "Triv destroys you in combat!\n";
                         const resources = ['wood', 'stone', 'palmLeaves', 'copper', 'rope', 'gold'];
-    
+            
                         // Track resource losses
                         resources.forEach(resource => {
                             if (inventory[resource] > 0) {
@@ -425,38 +515,39 @@ const events = [
                             }
                         });
                         color = '#ff0000';
-                    } else if (outcome <= 0.3) {
+                    } else if (outcome <= 0.5) {
                         resultMessage += "You and Triv exchange blows, resulting in a stalemate...";
                         color = '#ffff00';
                     } else {
                         resultMessage += "You obliterate Triv in battle! You gain a wealth of resources.\n";
                         const resources = {
-                            wood: [3, 7],
-                            stone: [3, 7],
-                            palmLeaves: [3, 7],
-                            copper: [3, 7],
-                            rope: [3, 7],
-                            gold: [3, 7]
+                            wood: [1, 6],
+                            stone: [1, 6],
+                            palmLeaves: [1, 6],
+                            copper: [1, 6],
+                            rope:  [1, 6],
+                            gold: [1, 6]
                         };
-    
+            
                         // Track resource gains
                         for (const [resource, range] of Object.entries(resources)) {
                             const gained = Math.floor(Math.random() * (range[1] - range[0] + 1)) + range[0];
                             inventory[resource] += gained;
                             resultMessage += `+${gained} ${resourceEmojiMap[resource]}\n`;
                         }
-                        inventory.ruby += 1; // Guaranteed ruby
-                        resultMessage += `+1 💎\n`;
+                        if (Math.random() <= 0.5) {
+                            inventory.ruby += 1;
+                            resultMessage += `+1♦️ \n`;
+                        }
                         color = '#00ff00';
                     }
-    
+            
                     await inventory.save();
                     return { message: resultMessage, color };
                 }
             }
         ]
     }
-
 ];
 
 
@@ -543,20 +634,20 @@ async function handleRockPurchase(interaction, inventory, quantity) {
             const rubyAmount = Math.floor(Math.random() * 2) + 1;
             inventory.ruby = (inventory.ruby || 0) + rubyAmount;
             resultMessage += `**[EPIC]** You got ${rubyAmount} ♦️!\n`;
-        } else if (chance < 10.0) { // 4.5% chance to get 3-7✨
-            const goldAmount = Math.floor(Math.random() * 5) + 3;
+        } else if (chance < 10.0) { // 4.5% chance to get 4-7✨
+            const goldAmount = Math.floor(Math.random() * 4) + 4;
             inventory.gold = (inventory.gold || 0) + goldAmount;
             resultMessage += `**[EPIC]** You got ${goldAmount} ✨!\n`;
         } else if (chance < 19.0) { // 9% chance to get 1-3✨
             const goldAmount = Math.floor(Math.random() * 3) + 1;
             inventory.gold = (inventory.gold || 0) + goldAmount;
             resultMessage += `**[RARE]** You got ${goldAmount} ✨!\n`;
-        } else if (chance < 30.0) { // 11% chance to get 5-8🔶
-            const copperAmount = Math.floor(Math.random() * 4) + 5;
+        } else if (chance < 30.0) { // 11% chance to get 4-7🔶
+            const copperAmount = Math.floor(Math.random() * 4) + 4;
             inventory.copper = (inventory.copper || 0) + copperAmount;
             resultMessage += `**[RARE]** You got ${copperAmount} 🔶!\n`;
-        } else if (chance < 45.0) { // 15% chance to get 2-4🔶
-            const copperAmount = Math.floor(Math.random() * 3) + 2;
+        } else if (chance < 45.0) { // 15% chance to get 2-3🔶
+            const copperAmount = Math.floor(Math.random() * 2) + 2;
             inventory.copper = (inventory.copper || 0) + copperAmount;
             resultMessage += `**[UNCOMMON]** You got ${copperAmount} 🔶!\n`;
         } else if (chance < 60.0) { // 15% chance to get 2-4🪨
@@ -617,7 +708,7 @@ module.exports = {
 
         // Cooldown check
         const now = Date.now();
-        const cooldown = 45 * 1000; // 45 seconds
+        const cooldown = 35 * 1000; // 45 seconds
         const lastExplore = user.lastExplore || 0;
 
         if (now - lastExplore < cooldown) {
