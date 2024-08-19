@@ -732,7 +732,7 @@ module.exports = {
         
             // Cooldown check
             const now = Date.now();
-            const cooldown = 30 * 1000; // 30 seconds
+            const cooldown = 35 * 1000; // 30 seconds
             const lastExplore = user.lastExplore || 0;
         
             if (now - lastExplore < cooldown) {
