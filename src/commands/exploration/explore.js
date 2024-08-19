@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const User = require('../../models/User');
 const Inventory = require('../../models/Inventory');
+const Tool = require('../../models/Tool'); // Adjust the path as needed
 
 const resourceEmojiMap = {
     wood: '🪵',
@@ -60,7 +61,7 @@ const events = [
                         const woodGained = Math.floor(Math.random() * 4) + 3;
                         inventory.wood += woodGained;
                         await inventory.save();
-                        resultMessage = `You approach Josh and he runs away! You collect the leftover wood.\n**+${woodGained}** 🪵`;
+                        resultMessage = `You ambush Josh and he flees! You collect the leftover wood.\n**+${woodGained}** 🪵`;
                     }
     
                     return { message: resultMessage, color: embedColor };
@@ -68,12 +69,7 @@ const events = [
             },
             {
                 emoji: '2️⃣',
-                text: 'Leave',
-                result: () => ({ message: 'You run away!', color: '#0099ff' })
-            },
-            {
-                emoji: '3️⃣',
-                text: 'Barter gold for wood',
+                text: 'Barter 2✨ for wood',
                 result: async (interaction, inventory) => {
                     let resultMessage = '';
                     let embedColor = '#00ff00'; // Default to green
@@ -100,8 +96,8 @@ const events = [
                 }
             },
             {
-                emoji: '4️⃣',
-                text: 'Barter rubies for wood',
+                emoji: '3️⃣',
+                text: 'Barter 2♦️ for wood',
                 result: async (interaction, inventory) => {
                     let resultMessage = '';
                     let embedColor = '#00ff00'; // Default to green
@@ -126,6 +122,11 @@ const events = [
                     await inventory.save();
                     return { message: resultMessage, color: embedColor };
                 }
+            },
+            {
+                emoji: '4️⃣',
+                text: 'Leave',
+                result: () => ({ message: 'You run away!', color: '#0099ff' })
             }
         ],
         imageUrl: 'https://cdn.discordapp.com/attachments/704530416475832342/1274296689481482343/JOSHCAMPFIRE.png?ex=66c1bcc6&is=66c06b46&hm=05c5249f2ec3bc738a830ae66aa757b12de4053c1f629707087eee11fe466362&'
@@ -312,7 +313,7 @@ const events = [
     },
     {
         id: 5,
-        description: "You meet Duko, an illegal rock dealer. 1 loot rock for **6**🪵 and **2**🪨",
+        description: "You meet Duko, an illegal rock dealer. 1 loot rock for **6**🪵 and **3**🪨",
         choices: [
             { emoji: '1️⃣', text: 'Leave', result: () => ({ message: 'You decide to leave Duko and continue your exploration.', color: '#0099ff' })},
             { emoji: '2️⃣', text: 'Buy 1 rock', result: async (interaction, inventory) => await handleRockPurchase(interaction, inventory, 1) },
@@ -332,7 +333,7 @@ const events = [
                 emoji: '1️⃣',
                 text: 'Flee',
                 async result(interaction, inventory) {
-                    const resources = ['wood', 'stone', 'palmLeaves', 'copper'];
+                    const resources = ['wood', 'stone', 'copper'];
                     let resultMessage = "You flee from Triv, but you drop some resources in the process!\n";
                     
                     // Track resource losses
@@ -349,36 +350,34 @@ const events = [
             },
             {
                 emoji: '2️⃣',
-                text: 'Fight unprepared',
+                text: 'Fight with fists',
                 async result(interaction, inventory) {
                     const outcome = Math.random();
                     let resultMessage = "";
                     let color;
     
-                    if (outcome <= 0.7) {
+                    if (outcome <= 0.40) {
                         resultMessage = "Triv destroys you in combat!\n";
-                        const resources = ['wood', 'stone', 'palmLeaves', 'copper', 'rope', 'gold'];
+                        const resources = ['wood', 'stone', 'copper', 'gold'];
     
                         // Track resource losses
                         resources.forEach(resource => {
                             if (inventory[resource] > 0) {
-                                inventory[resource] -= 2;
-                                resultMessage += `-2 ${resourceEmojiMap[resource]}\n`;
+                                inventory[resource] -= 1;
+                                resultMessage += `-1 ${resourceEmojiMap[resource]}\n`;
                             }
                         });
                         color = '#ff0000';
-                    } else if (outcome <= 0.95) {
+                    } else if (outcome <= 0.60) {
                         resultMessage = "You and Triv exchange blows, resulting in a stalemate...";
                         color = '#ffff00';
                     } else {
-                        resultMessage = "You best Triv in battle and he flees!\n";
+                        resultMessage = "You disarm triv in battle and he flees, dropping resources!\n";
                         const resources = {
-                            wood: [1, 6],
-                            stone: [1, 6],
-                            palmLeaves: [1, 6],
-                            copper: [1, 6],
-                            rope:  [1, 6],
-                            gold: [1, 6]
+                            wood: [1, 3],
+                            stone: [1, 3],
+                            copper: [1, 3],
+                            gold: [1, 3]
                         };
     
                         // Track resource gains
@@ -386,10 +385,6 @@ const events = [
                             const gained = Math.floor(Math.random() * (range[1] - range[0] + 1)) + range[0];
                             inventory[resource] += gained;
                             resultMessage += `+${gained} ${resourceEmojiMap[resource]}\n`;
-                        }
-                        if (Math.random() <= 0.5) {
-                            inventory.ruby += 1;
-                            resultMessage += `+1♦️ \n`;
                         }
                         color = '#00ff00';
                     }
@@ -400,118 +395,42 @@ const events = [
             },
             {
                 emoji: '3️⃣',
-                text: 'Fight prepared (-1🪢 -4🪨 -4🪵)',
-                async result(interaction, inventory) {
-                    // Check if the user has enough resources
-                    if (inventory.rope < 1 || inventory.stone < 4 || inventory.wood < 4) {
-                        // User is defeated due to lack of resources
-                        let resultMessage = "You attempt to fight Triv unprepared and are swiftly defeated!\n";
-                        const resources = ['wood', 'stone', 'palmLeaves', 'copper', 'rope', 'gold'];
-            
+                text: 'Fight with your Axe (🪓 -10 Durability)',
+                async result(interaction, inventory, tools) {
+                    // Check if the user has an axe and enough durability
+                    if (!tools.metalAxe || tools.metalAxeDurability < 10) {
+                        // User is defeated due to lack of durability
+                        let resultMessage = "You fumble around and are swiftly defeated!\n";
+                        const resources = ['wood', 'stone', 'copper', 'gold'];
+                
                         // Track resource losses
                         resources.forEach(resource => {
                             if (inventory[resource] > 0) {
-                                inventory[resource] -= 2;
-                                resultMessage += `-2 ${resourceEmojiMap[resource]}\n`;
+                                inventory[resource] -= 1;
+                                resultMessage += `-1 ${resourceEmojiMap[resource]}\n`;
                             }
                         });
                         await inventory.save();
                         return { message: resultMessage, color: '#ff0000' };
                     }
-            
-                    // Deduct resources and continue with the normal outcome logic
-                    inventory.rope -= 1;
-                    inventory.stone -= 4;
-                    inventory.wood -= 4;
-            
-                    let resultMessage = "-1 🪢, -4 🪨, -4 🪵\n"; // Deducted resources
+                
+                    // Deduct axe durability
+                    tools.metalAxeDurability -= 10;
+                    await tools.save();
+                
+                    let resultMessage = "Fight with your Axe (🪓 -10 Durability)\n";
                     const outcome = Math.random();
                     let color;
-            
-                    if (outcome <= 0.45) {
-                        resultMessage += "Triv destroys you in combat!\n";
-                        const resources = ['wood', 'stone', 'palmLeaves', 'copper', 'rope', 'gold'];
-            
-                        // Track resource losses
-                        resources.forEach(resource => {
-                            if (inventory[resource] > 0) {
-                                inventory[resource] -= 2;
-                                resultMessage += `-2 ${resourceEmojiMap[resource]}\n`;
-                            }
-                        });
-                        color = '#ff0000';
-                    } else if (outcome <= 0.85) {
-                        resultMessage += "You and Triv exchange blows, resulting in a stalemate...";
-                        color = '#ffff00';
-                    } else {
-                        resultMessage += "You best Triv in battle and he flees!\n";
-                        const resources = {
-                            wood: [1, 6],
-                            stone: [1, 6],
-                            palmLeaves: [1, 6],
-                            copper: [1, 6],
-                            rope:  [1, 6],
-                            gold: [1, 6]
-                        };
-            
-                        // Track resource gains
-                        for (const [resource, range] of Object.entries(resources)) {
-                            const gained = Math.floor(Math.random() * (range[1] - range[0] + 1)) + range[0];
-                            inventory[resource] += gained;
-                            resultMessage += `+${gained} ${resourceEmojiMap[resource]}\n`;
-                        }
-                        if (Math.random() <= 0.5) {
-                            inventory.ruby += 1;
-                            resultMessage += `+1♦️ \n`;
-                        }
-                        color = '#00ff00';
-                    }
-            
-                    await inventory.save();
-                    return { message: resultMessage, color };
-                }
-            },
-            {
-                emoji: '4️⃣',
-                text: 'Fight well prepared (-3🪢 -5🪨 -5🪵 -5🔶 -2✨)',
-                async result(interaction, inventory) {
-                    // Check if the user has enough resources
-                    if (inventory.rope < 3 || inventory.stone < 5 || inventory.wood < 5 || inventory.copper < 5 || inventory.gold < 2) {
-                        // User is defeated due to lack of resources
-                        let resultMessage = "You attempt to fight Triv unprepared and are swiftly defeated!\n";
-                        const resources = ['wood', 'stone', 'palmLeaves', 'copper', 'rope', 'gold'];
-            
-                        // Track resource losses
-                        resources.forEach(resource => {
-                            if (inventory[resource] > 0) {
-                                inventory[resource] -= 2;
-                                resultMessage += `-2 ${resourceEmojiMap[resource]}\n`;
-                            }
-                        });
-                        await inventory.save();
-                        return { message: resultMessage, color: '#ff0000' };
-                    }
-            
-                    // Deduct resources and continue with the normal outcome logic
-                    inventory.rope -= 3;
-                    inventory.stone -= 5;
-                    inventory.wood -= 5;
-                    inventory.copper -= 5;
-                    inventory.gold -= 2;
-            
-                    let resultMessage = "-3 🪢, -5 🪨, -5 🪵, -5 🔶, -2 ✨\n"; // Deducted resources
-                    const outcome = Math.random();
-                    let color;
-            
+                
                     if (outcome <= 0.2) {
                         resultMessage += "Triv destroys you in combat!\n";
-                        const resources = ['wood', 'stone', 'palmLeaves', 'copper', 'rope', 'gold'];
-            
+                        const resources = ['wood', 'stone', 'copper', 'gold'];
+                
                         // Track resource losses
                         resources.forEach(resource => {
                             if (inventory[resource] > 0) {
-                                inventory[resource] -= 2;
-                                resultMessage += `-2 ${resourceEmojiMap[resource]}\n`;
+                                inventory[resource] -= 1;
+                                resultMessage += `-1 ${resourceEmojiMap[resource]}\n`;
                             }
                         });
                         color = '#ff0000';
@@ -519,31 +438,135 @@ const events = [
                         resultMessage += "You and Triv exchange blows, resulting in a stalemate...";
                         color = '#ffff00';
                     } else {
-                        resultMessage += "You obliterate Triv in battle! You gain a wealth of resources.\n";
+                        resultMessage += "You slay Triv in battle! You gain a wealth of resources.\n";
                         const resources = {
-                            wood: [1, 6],
-                            stone: [1, 6],
-                            palmLeaves: [1, 6],
-                            copper: [1, 6],
-                            rope:  [1, 6],
-                            gold: [1, 6]
+                            wood: [5, 15],
+                            palmLeaves: [5, 15],
+                            stone: [5, 15],
+                            copper: [5, 15],
+                            gold: [5, 15]
                         };
-            
+                
                         // Track resource gains
                         for (const [resource, range] of Object.entries(resources)) {
                             const gained = Math.floor(Math.random() * (range[1] - range[0] + 1)) + range[0];
                             inventory[resource] += gained;
                             resultMessage += `+${gained} ${resourceEmojiMap[resource]}\n`;
                         }
-                        if (Math.random() <= 0.5) {
+                        if (Math.random() <= 0.25) { // 25% small chance for ruby
                             inventory.ruby += 1;
                             resultMessage += `+1♦️ \n`;
                         }
                         color = '#00ff00';
                     }
-            
+                
                     await inventory.save();
                     return { message: resultMessage, color };
+                }
+            }                  
+        ]
+    },
+    {
+        id: 7,
+        description: "You encounter NF89, a blacksmith, who offers to craft tools or buy items.",
+        imageUrl: "https://cdn.discordapp.com/attachments/704530416475832342/1274977215314133023/NFTHEBLACKSMITH.png?ex=66c43690&is=66c2e510&hm=8278fd5ea5fba7b55b544de5ab4a92043c1d68dd830ec432576f34a5510e3593&", // Use an appropriate image URL
+        choices: [
+            {
+                emoji: '1️⃣',
+                text: 'Craft Axe\n-25🪵 -50🪨 -50🔶 -10🪢 -10✨',
+                async result(interaction, inventory, tools) {
+                    // Check if the user has enough resources
+                    if (inventory.wood < 25 || inventory.stone < 50 || inventory.copper < 50 || inventory.rope < 10 || inventory.gold < 10) {
+                        let resultMessage = "You don’t have enough resources to craft an axe. NF89 shakes his head in disappointment.\n";
+    
+                        await inventory.save();
+                        return { message: resultMessage, color: '#ff0000' };
+                    }
+    
+                    // Deduct resources
+                    inventory.wood -= 25;
+                    inventory.stone -= 50;
+                    inventory.copper -= 50;
+                    inventory.rope -= 10;
+                    inventory.gold -= 10;
+    
+                    // Check if user already has an axe and update durability or add a new one
+                    if (tools.metalAxe) {
+                        tools.metalAxeDurability = 50;
+                    } else {
+                        tools.metalAxe = true;
+                        tools.metalAxeDurability = 50;
+                    }
+    
+                    await tools.save();
+                    await inventory.save();
+    
+                    let resultMessage = "NF89 crafts you a new axe 🪓!\n";
+                    return { message: resultMessage, color: '#00ff00' };
+                }
+            },
+            {
+                emoji: '2️⃣',
+                text: 'Craft Pickaxe\n-25🪵 -50🪨 -50🔶 -10🪢 -10✨',
+                async result(interaction, inventory, tools) {
+                    // Check if the user has enough resources
+                    if (inventory.wood < 25 || inventory.stone < 50 || inventory.copper < 50 || inventory.rope < 10 || inventory.gold < 10) {
+                        let resultMessage = "You don’t have enough resources to craft a pickaxe. NF89 shakes his head in disappointment.\n";
+    
+                        await inventory.save();
+                        return { message: resultMessage, color: '#ff0000' };
+                    }
+    
+                    // Deduct resources
+                    inventory.wood -= 25;
+                    inventory.stone -= 50;
+                    inventory.copper -= 50;
+                    inventory.rope -= 10;
+                    inventory.gold -= 10;
+    
+                    // Check if user already has a pickaxe and update durability or add a new one
+                    if (tools.metalPickaxe) {
+                        tools.metalPickaxeDurability = 50;
+                    } else {
+                        tools.metalPickaxe = true;
+                        tools.metalPickaxeDurability = 50;
+                    }
+    
+                    await tools.save();
+                    await inventory.save();
+    
+                    let resultMessage = "NF89 crafts you a new pickaxe ⛏️!\n";
+                    return { message: resultMessage, color: '#00ff00' };
+                }
+            },
+            {
+                emoji: '3️⃣',
+                text: 'Trade 50 🪨 for 1♦️',
+                async result(interaction, inventory) {
+                    // Check if the user has enough resources
+                    if (inventory.stone < 50) {
+                        let resultMessage = "You don’t have enough stone to trade. NF89 shakes his head in disappointment.\n";
+    
+                        await inventory.save();
+                        return { message: resultMessage, color: '#ff0000' };
+                    }
+    
+                    // Deduct resources and give ruby
+                    inventory.stone -= 50;
+                    inventory.ruby += 1;
+    
+                    await inventory.save();
+    
+                    let resultMessage = "NF89 trades you 1 ♦️ for 50 🪨!\n";
+                    return { message: resultMessage, color: '#00ff00' };
+                }
+            },
+            {
+                emoji: '4️⃣',
+                text: 'Leave',
+                async result() {
+                    let resultMessage = "You decide to leave NF89’s workshop and continue on your journey.\n";
+                    return { message: resultMessage, color: '#ffff00' };
                 }
             }
         ]
@@ -609,7 +632,7 @@ async function handleDolpheSteal(inventory) {
 //------------------------------------------------
 async function handleRockPurchase(interaction, inventory, quantity) {
     const woodCost = 6 * quantity;
-    const stoneCost = 2 * quantity;
+    const stoneCost = 3 * quantity;
 
     if (inventory.wood < woodCost || inventory.stone < stoneCost) {
         return { message: `You don’t have enough resources to buy ${quantity} rock(s).`, color: '#ff0000' };
@@ -625,41 +648,41 @@ async function handleRockPurchase(interaction, inventory, quantity) {
 
         if (chance < 0.8) { // 0.8% chance to get 1💎
             inventory.diamond = (inventory.diamond || 0) + 1;
-            resultMessage += '**[LEGENDARY]** You got 1 💎!\n';
-        } else if (chance < 2.0) { // 1.2% chance to get 3-4♦️
+            resultMessage += '**《◊【༺LEGENDARY༻】◊》** You got 1 💎!\n';
+        } else if (chance < 1.8) { // 1% chance to get 3-4♦️
             const rubyAmount = Math.floor(Math.random() * 2) + 3;
             inventory.ruby = (inventory.ruby || 0) + rubyAmount;
-            resultMessage += `**[LEGENDARY]** You got ${rubyAmount} ♦️!\n`;
-        } else if (chance < 5.5) { // 3.5% chance to get 1-2♦️
+            resultMessage += `**《◊【༺LEGENDARY༻】◊》** You got ${rubyAmount} ♦️!\n`;
+        } else if (chance < 5.5) { // 3.7% chance to get 1-2♦️
             const rubyAmount = Math.floor(Math.random() * 2) + 1;
             inventory.ruby = (inventory.ruby || 0) + rubyAmount;
-            resultMessage += `**[EPIC]** You got ${rubyAmount} ♦️!\n`;
+            resultMessage += `**** You got ${rubyAmount} ♦️!\n`;
         } else if (chance < 10.0) { // 4.5% chance to get 4-7✨
             const goldAmount = Math.floor(Math.random() * 4) + 4;
             inventory.gold = (inventory.gold || 0) + goldAmount;
-            resultMessage += `**[EPIC]** You got ${goldAmount} ✨!\n`;
+            resultMessage += `**《【EPIC】》** You got ${goldAmount} ✨!\n`;
         } else if (chance < 19.0) { // 9% chance to get 1-3✨
             const goldAmount = Math.floor(Math.random() * 3) + 1;
             inventory.gold = (inventory.gold || 0) + goldAmount;
-            resultMessage += `**[RARE]** You got ${goldAmount} ✨!\n`;
+            resultMessage += `**【RARE】** You got ${goldAmount} ✨!\n`;
         } else if (chance < 30.0) { // 11% chance to get 4-7🔶
             const copperAmount = Math.floor(Math.random() * 4) + 4;
             inventory.copper = (inventory.copper || 0) + copperAmount;
-            resultMessage += `**[RARE]** You got ${copperAmount} 🔶!\n`;
+            resultMessage += `**【RARE】** You got ${copperAmount} 🔶!\n`;
         } else if (chance < 45.0) { // 15% chance to get 2-3🔶
             const copperAmount = Math.floor(Math.random() * 2) + 2;
             inventory.copper = (inventory.copper || 0) + copperAmount;
-            resultMessage += `**[UNCOMMON]** You got ${copperAmount} 🔶!\n`;
+            resultMessage += `**〈UNCOMMON〉** You got ${copperAmount} 🔶!\n`;
         } else if (chance < 60.0) { // 15% chance to get 2-4🪨
             const stoneAmount = Math.floor(Math.random() * 3) + 2;
             inventory.stone = (inventory.stone || 0) + stoneAmount;
-            resultMessage += `**[UNCOMMON]** You got ${stoneAmount} 🪨!\n`;
+            resultMessage += `**〈UNCOMMON〉** You got ${stoneAmount} 🪨!\n`;
         } else if (chance < 80.0) { // 20% chance to get 1🪨
             inventory.stone = (inventory.stone || 0) + 1;
-            resultMessage += '**[COMMON]** You got 1 🪨!\n';
+            resultMessage += '**COMMON** You got 1 🪨!\n';
         } else if (chance < 100.0) { // 20% chance to get 1🔶
             inventory.copper = (inventory.copper || 0) + 1;
-            resultMessage += '**[COMMON]** You got 1 🔶!\n';
+            resultMessage += '**COMMON** You got 1 🔶!\n';
         }
     }
 
@@ -691,97 +714,103 @@ module.exports = {
         .setName('explore')
         .setDescription('Explore and make choices to gain or lose resources.'),
     
-    async execute(interaction) {
-        const userId = interaction.user.id;
-
-        // Check if the user is already exploring
-        if (activeExplores.has(userId)) {
-            return interaction.reply({
-                content: 'You are already exploring! Please wait until your current exploration is finished.',
-                ephemeral: true
-            });
-        }
-
-        // Find or create the user and their inventory
-        const [user] = await User.findOrCreate({ where: { discordId: userId } });
-        const [inventory] = await Inventory.findOrCreate({ where: { userId: user.id } });
-
-        // Cooldown check
-        const now = Date.now();
-        const cooldown = 35 * 1000; // 45 seconds
-        const lastExplore = user.lastExplore || 0;
-
-        if (now - lastExplore < cooldown) {
-            const remainingTime = Math.ceil((cooldown - (now - lastExplore)) / 1000);
-            return interaction.reply({ content: `Please wait ${remainingTime} seconds before exploring again.`, ephemeral: true });
-        }
-
-        // Add user to active explores set
-        activeExplores.add(userId);
+        async execute(interaction) {
+            const userId = interaction.user.id;
         
-        try {
-            // Update the lastExplore time
-            user.lastExplore = now;
-            await user.save();
-
-            // Choose a random event
-            const event = events[Math.floor(Math.random() * events.length)];
-
-            // Create an embed for the event
-            const embed = new EmbedBuilder()
-                .setColor('#0099ff')
-                .setTitle('Exploration Event!')
-                .setThumbnail(interaction.user.displayAvatarURL()) // Add the user's avatar as a thumbnail
-                .setDescription(event.description)
-                .setImage(event.imageUrl)
-                .addFields(event.choices.map(choice => ({ name: choice.emoji, value: choice.text, inline: true })))
-                .setFooter({ text: 'React with the number corresponding to your choice.' });
-
-            // Send the embed and add reactions
-            const message = await interaction.reply({ embeds: [embed], fetchReply: true });
-            event.choices.forEach(choice => message.react(choice.emoji));
-
-            // Set up a reaction collector
-            const filter = (reaction, user) => event.choices.map(choice => choice.emoji).includes(reaction.emoji.name) && user.id === interaction.user.id;
-            const collector = message.createReactionCollector({ filter, time: 60000 }); // 1 minute
-
-            collector.on('collect', async (reaction) => {
-                const choice = event.choices.find(c => c.emoji === reaction.emoji.name);
-                const { message: resultMessage, color: embedColor } = await choice.result(interaction, inventory);
-
-                const resultEmbed = new EmbedBuilder()
-                    .setColor(embedColor)
-                    .setTitle('Event Result')
-                    .setDescription(resultMessage)
-                    .setImage(event.imageUrl);
-
+            // Check if the user is already exploring
+            if (activeExplores.has(userId)) {
+                return interaction.reply({
+                    content: 'You are already exploring! Please wait until your current exploration is finished.',
+                    ephemeral: true
+                });
+            }
+        
+            // Find or create the user, inventory, and tools
+            const [user] = await User.findOrCreate({ where: { discordId: userId } });
+            const [inventory] = await Inventory.findOrCreate({ where: { userId: user.id } });
+            const [tools] = await Tool.findOrCreate({ where: { userId: user.id } });
+        
+            // Cooldown check
+            const now = Date.now();
+            const cooldown = 30 * 1000; // 30 seconds
+            const lastExplore = user.lastExplore || 0;
+        
+            if (now - lastExplore < cooldown) {
+                const remainingTime = Math.ceil((cooldown - (now - lastExplore)) / 1000);
+                return interaction.reply({ content: `Please wait ${remainingTime} seconds before exploring again.`, ephemeral: true });
+            }
+        
+            // Add user to active explores set
+            activeExplores.add(userId);
+            
+            try {
+                // Update the lastExplore time
+                user.lastExplore = now;
+                await user.save();
+        
+                // Choose a random event
+                const event = events[Math.floor(Math.random() * events.length)];
+                console.log(`event ID: ${event.id}`);
+                // Create an embed for the event
+                const embed = new EmbedBuilder()
+                    .setColor('#0099ff')
+                    .setTitle('Exploration Event!')
+                    .setThumbnail(interaction.user.displayAvatarURL()) // Add the user's avatar as a thumbnail
+                    .setDescription(event.description)
+                    .setImage(event.imageUrl)
+                    .addFields(event.choices.map(choice => ({ name: choice.emoji, value: choice.text, inline: true })))
+                    .setFooter({ text: 'React with the number corresponding to your choice.' });
+        
+                // Send the embed and add reactions
+                const message = await interaction.reply({ embeds: [embed], fetchReply: true });
+                event.choices.forEach(choice => message.react(choice.emoji));
+        
+                // Set up a reaction collector
+                const filter = (reaction, user) => event.choices.map(choice => choice.emoji).includes(reaction.emoji.name) && user.id === interaction.user.id;
+                const collector = message.createReactionCollector({ filter, time: 60000 }); // 1 minute
+        
+                collector.on('collect', async (reaction) => {
+                    const choice = event.choices.find(c => c.emoji === reaction.emoji.name);
+                    // Ensure tools is defined and passed correctly
+                    if (tools) {
+                        const { message: resultMessage, color: embedColor } = await choice.result(interaction, inventory, tools);
+        
+                        const resultEmbed = new EmbedBuilder()
+                            .setColor(embedColor)
+                            .setTitle('Event Result')
+                            .setDescription(resultMessage)
+                            .setImage(event.imageUrl);
+        
+                        activeExplores.delete(userId);
+        
+                        await message.edit({ embeds: [resultEmbed] });
+        
+                        collector.stop();
+                    } else {
+                        console.error('Tools not found for user:', userId);
+                    }
+                });
+        
+                collector.on('end', (collected, reason) => {
+                    if (reason === 'time') {
+                        const timeoutEmbed = new EmbedBuilder()
+                            .setColor('#ff0000')
+                            .setTitle('Timeout')
+                            .setDescription('You did not react in time. Please use the command again.')
+                            .setImage(event.imageUrl);
+        
+                        message.edit({ embeds: [timeoutEmbed] });
+        
+                        activeExplores.delete(userId);
+                    }
+                });
+        
+            } 
+            catch (error) 
+            {
+                console.error('Error executing explore command:', error);
                 activeExplores.delete(userId);
-
-                await message.edit({ embeds: [resultEmbed] });
-
-                collector.stop();
-            });
-
-            collector.on('end', (collected, reason) => {
-                if (reason === 'time') {
-                    const timeoutEmbed = new EmbedBuilder()
-                        .setColor('#ff0000')
-                        .setTitle('Timeout')
-                        .setDescription('You did not react in time. Please use the command again.')
-                        .setImage(event.imageUrl);
-
-                    message.edit({ embeds: [timeoutEmbed] });
-
-                    activeExplores.delete(userId);
-                }
-            });
-
+                return interaction.reply({ content: 'An error occurred while executing the command. Please try again later.', ephemeral: true });
+            } 
         } 
-        catch (error) 
-        {
-            console.error('Error executing explore command:', error);
-            activeExplores.delete(userId);
-            return interaction.reply({ content: 'An error occurred while executing the command. Please try again later.', ephemeral: true });
-        } 
-    },
 };

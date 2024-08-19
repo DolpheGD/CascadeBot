@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../dbConfig'); // Ensure this path is correct
+const Tool = require('./Tool');
 
 const User = sequelize.define('User', {
     id: {
@@ -32,5 +33,16 @@ const User = sequelize.define('User', {
 
 // Correct the association alias to match
 User.hasOne(require('./Inventory'), { foreignKey: 'userId', as: 'inventory' });
+
+
+User.hasOne(Tool, {
+    foreignKey: 'userId',
+    as: 'tools'
+});
+
+Tool.belongsTo(User, {
+    foreignKey: 'userId'
+});
+
 
 module.exports = User;

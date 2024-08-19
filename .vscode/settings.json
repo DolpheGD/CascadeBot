@@ -4,9 +4,9 @@
         {
             "previewLimit": 50,
             "driver": "SQLite",
-            "name": "Josh",
-            "group": "HSOUH",
-            "database": "${workspaceFolder:Joshbot}/database.sqlite"
+            "name": "e",
+            "group": "e",
+            "database": "${workspaceFolder:CascadeBot}/database.sqlite"
         }
     ]
 }
