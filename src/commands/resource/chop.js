@@ -66,9 +66,9 @@ module.exports = {
             await tool.save();
         }
 
+        const isJoshEvent = Math.random() < 0.5;
         if (Math.random() < 0.1) { // negative event 10%
             isNegative = true;
-            const isJoshEvent = Math.random() < 0.5;
 
             if (isJoshEvent) {
                 if (hasAxe) {
