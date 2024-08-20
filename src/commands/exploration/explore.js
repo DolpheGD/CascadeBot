@@ -129,105 +129,132 @@ const events = [
                 result: () => ({ message: 'You run away!', color: '#0099ff' })
             }
         ],
-        imageUrl: 'https://cdn.discordapp.com/attachments/704530416475832342/1274296689481482343/JOSHCAMPFIRE.png?ex=66c1bcc6&is=66c06b46&hm=05c5249f2ec3bc738a830ae66aa757b12de4053c1f629707087eee11fe466362&'
+        imageUrl: 'https://cdn.discordapp.com/attachments/704530416475832342/1275352717501665332/JOSHCAMPFIRE_1.png?ex=66c59446&is=66c442c6&hm=ab921b1d1c60330420fb37749ee9e02ecd2902672ea3cc5b4bdd230706dee121&'
     },
-        {
-            id: 2,
-            description: "You are about to collab with Dolphe, what do you contribute?",
-            choices: [
-                    {
-                        emoji: '1️⃣', 
-                        text: 'Give Dolphe 5 🪵', 
-                        resource: 'wood', 
-                        cost: 5, 
-                        result: async (interaction, inventory) => {
-                            if (inventory.wood < 5) {
-                                return await handleDolpheSteal(inventory);
-                            }
-                    
-                            inventory.wood -= 5;
+    {
+        id: 2,
+        description: "You spot a homeless Dolphe on the sidewalk.",
+        choices: [
+            {
+                emoji: '1️⃣',
+                text: 'Donate 5🪵',
+                result: async (interaction, inventory) => {
+                    return await handleDolpheDonation(interaction, inventory, 'wood', '🪵');
+                }
+            },
+            {
+                emoji: '2️⃣',
+                text: 'Donate 5🪨',
+                result: async (interaction, inventory) => {
+                    return await handleDolpheDonation(interaction, inventory, 'stone', '🪨');
+                }
+            },
+            {
+                emoji: '3️⃣',
+                text: 'Donate 5🌿',
+                result: async (interaction, inventory) => {
+                    return await handleDolpheDonation(interaction, inventory, 'palmLeaves', '🌿');
+                }
+            },
+            {
+                emoji: '4️⃣',
+                text: 'Donate 5🔶',
+                result: async (interaction, inventory) => {
+                    return await handleDolpheDonation(interaction, inventory, 'copper', '🔶');
+                }
+            },
+            {
+                emoji: '5️⃣',
+                text: 'Donate nothing!!',
+                result: async (interaction, inventory) => {
+                    const chance = Math.random();
+                    let resultMessage = '';
+    
+                    if (chance < 0.5) {
+                        resultMessage = 'Dolphe looks at you with a pitiful stare.';
+                    } else {
+                        const resourcesLost = {
+                            wood: Math.min(1, inventory.wood),
+                            stone: Math.min(1, inventory.stone),
+                            palmLeaves: Math.min(1, inventory.palmLeaves),
+                            copper: Math.min(1, inventory.copper)
+                        };
+    
+                        if (resourcesLost.wood > 0 || resourcesLost.stone > 0 || resourcesLost.palmLeaves > 0 || resourcesLost.copper > 0) {
+                            resultMessage = `Dolphe attacks you for your resources! You lose:\n` +
+                                            `**-${resourcesLost.wood}** 🪵\n` +
+                                            `**-${resourcesLost.stone}** 🪨\n` +
+                                            `**-${resourcesLost.palmLeaves}** 🌿\n` +
+                                            `**-${resourcesLost.copper}** 🔶`;
+    
+                            inventory.wood -= resourcesLost.wood;
+                            inventory.stone -= resourcesLost.stone;
+                            inventory.palmLeaves -= resourcesLost.palmLeaves;
+                            inventory.copper -= resourcesLost.copper;
                             await inventory.save();
-                            return { 
-                                message: `Dolphe is actually doing a YouTube video and gives you resources for helping him out!\n**+3** 🪵`, 
-                                color: '#00ff00' 
-                            };
+                        } else {
+                            resultMessage = 'Dolphe tries to attack you, but you have no resources to lose!';
                         }
-                    },
-                    {
-                        emoji: '2️⃣', 
-                        text: 'Give Dolphe 5 🪨', 
-                        resource: 'stone', 
-                        cost: 5, 
-                        result: async (interaction, inventory) => {
-                            if (inventory.stone < 5) {
-                                return await handleDolpheSteal(inventory);
-                            }
-                    
-                            inventory.stone -= 5;
-                            await inventory.save();
-                            return { 
-                                message: `Dolphe is actually doing a YouTube video and gives you resources for helping him out!\n**+3** 🪨`, 
-                                color: '#00ff00' 
-                            };
-                        }
-                    },
-                    {
-                        emoji: '3️⃣', 
-                        text: 'Give Dolphe 5 🌿', 
-                        resource: 'palmLeaves', 
-                        cost: 5, 
-                        result: async (interaction, inventory) => {
-                            if (inventory.palmLeaves < 5) {
-                                return await handleDolpheSteal(inventory);
-                            }
-                    
-                            inventory.palmLeaves -= 5;
-                            await inventory.save();
-                            return { 
-                                message: `Dolphe is actually doing a YouTube video and gives you resources for helping him out!\n**+3** 🌿`, 
-                                color: '#00ff00' 
-                            };
-                        }
-                    },
-                    {
-                        emoji: '4️⃣', 
-                        text: 'Give Dolphe nothing!!', 
-                        result: async (interaction, inventory) => await handleDolpheSteal(inventory)
                     }
-                    
-            ],
-            imageUrl: 'https://cdn.discordapp.com/attachments/704530416475832342/1274298451038961774/DOLPHEVENT.png?ex=66c1be6a&is=66c06cea&hm=68f0a3c722745dd10bbabb82880416d4a1c7ce1d16424bcdf52b0ca7fcf3ad34&'
-        },
+    
+                    return { message: resultMessage, color: '#ff0000' }; // Red color for attack
+                }
+            }
+        ],
+        imageUrl: 'https://cdn.discordapp.com/attachments/704530416475832342/1275348918305161216/HOMELESSDOLPHE.png?ex=66c590bc&is=66c43f3c&hm=91d0541edbb46f3b392800d8cc055eb7d62d56367f61c9d964b47f36f2a5292b&' 
+    },
     {
         id: 3,
-        description: "You come across Xender, a shady dealer. He requests 1 🪵, 1 🪨, and 1 🌿 for a 10% chance to win 10 ✨",
+        description: "You come across Xender, a shady businessman\n\n[NOT SCAM Lottery] 1🪵, 1🪨, 1🌿, and 1🔶 for a chance to win 10✨\n[SUPER NOT SCAM Lottery] 10✨ for a chance to win 1💎",
         choices: [
-            { emoji: '1️⃣', text: 'Accept the deal', result: async (interaction, inventory) => {
-                if (inventory.wood >= 1 && inventory.stone >= 1 && inventory.palmLeaves >= 1) {
+            { emoji: '1️⃣', text: 'Enter NOT SCAM lottery', result: async (interaction, inventory) => {
+                if (inventory.wood >= 1 && inventory.stone >= 1 && inventory.palmLeaves >= 1 && inventory.copper >= 1 ) {
                     inventory.wood -= 1;
                     inventory.stone -= 1;
                     inventory.palmLeaves -= 1;
+                    inventory.copper -= 1;
                     await inventory.save();
 
                     const winChance = Math.random();
-                    let resultMessage = 'You accepted the deal.';
+                    let resultMessage = '[NOT SCAM lottery]';
 
                     if (winChance < 0.1) { // 10% chance to win 10 gold
-                        inventory.gold = (inventory.gold || 0) + 10;
+                        inventory.gold += 10;
                         await inventory.save();
-                        resultMessage += '\nCongratulations! You won!\n**+10** ✨';
+                        resultMessage += '\nCongratulations! You won!\n**+10**✨';
                         return { message: resultMessage, color: '#00ff00' }; // Green color for winning
                     } else {
-                        resultMessage += '\nSorry, you didn\'t win anything.';
+                        resultMessage += '\nSorry, you got scammed';
                         return { message: resultMessage, color: '#ff0000' }; // Red color for losing
                     }
                 } else {
                     return { message: 'You do not have enough resources to accept the deal.', color: '#ff0000' }; // Red color for insufficient resources
                 }
             }},
-            { emoji: '2️⃣', text: 'Leave', result: () => ({ message: 'You leave Xender and continue your exploration.', color: '#0099ff' })}
+            { emoji: '2️⃣', text: '[SUPER NOT SCAM lottery]', result: async (interaction, inventory) => {
+                if (inventory.gold >= 10) {
+                    inventory.gold -= 10;
+                    await inventory.save();
+
+                    const winChance = Math.random();
+                    let resultMessage = 'You entered the SUPER NOT SCAM lottery';
+
+                    if (winChance < 0.05) { // 5% chance to win 1 diamond
+                        inventory.diamond += 1;
+                        await inventory.save();
+                        resultMessage += '\nNo way! You actually won!\n**+1**💎';
+                        return { message: resultMessage, color: '#00ff00' }; // Green color for winning
+                    } else {
+                        resultMessage += '\nSorry, you got SUPER scammed';
+                        return { message: resultMessage, color: '#ff0000' }; // Red color for losing
+                    }
+                } else {
+                    return { message: 'You do not have enough resources to accept the deal.', color: '#ff0000' }; // Red color for insufficient resources
+                }
+            }},
+            { emoji: '3️⃣', text: 'Leave', result: () => ({ message: 'You leave Xender and continue your exploration.', color: '#0099ff' })}
         ],
-        imageUrl: 'https://cdn.discordapp.com/attachments/704530416475832342/1274325004007374921/XENDERCRACKPIPE.png?ex=66c1d724&is=66c085a4&hm=3917ed9d266c67b65fc2186bc45da7fe5a7d35b78250a0dd497bdfc4b14dd828&'
+        imageUrl: 'https://cdn.discordapp.com/attachments/704530416475832342/1275340818382721024/XENDERCRACKPIPE_1.png?ex=66c58931&is=66c437b1&hm=80d6a37f392521c4d15142e9cabe0ee42097f54c98f0469517305a0378d1dabe&'
     },
     {
         id: 4,
@@ -320,7 +347,10 @@ const events = [
             { emoji: '3️⃣', text: 'Buy 3 rocks', result: async (interaction, inventory) => await handleRockPurchase(interaction, inventory, 3) },
             { emoji: '4️⃣', text: 'Buy 5 rocks', result: async (interaction, inventory) => await handleRockPurchase(interaction, inventory, 5) },
             { emoji: '5️⃣', text: 'Buy 10 rocks', result: async (interaction, inventory) => await handleRockPurchase(interaction, inventory, 10) },
-            { emoji: '6️⃣', text: 'Buy 20 rocks', result: async (interaction, inventory) => await handleRockPurchase(interaction, inventory, 20) }
+            { emoji: '6️⃣', text: 'Buy 20 rocks', result: async (interaction, inventory) => await handleRockPurchase(interaction, inventory, 20) },
+            { emoji: '7️⃣', text: 'Buy 50 rocks', result: async (interaction, inventory) => await handleRockPurchase(interaction, inventory, 50) },
+            { emoji: '8️⃣', text: 'Buy 100 rocks', result: async (interaction, inventory) => await handleRockPurchase(interaction, inventory, 100) },
+            { emoji: '9️⃣', text: 'Buy 200 rocks', result: async (interaction, inventory) => await handleRockPurchase(interaction, inventory, 200) }
         ],
         imageUrl: 'https://cdn.discordapp.com/attachments/704530416475832342/1274616296985723056/DUKOEVENTROCKSD.png?ex=66c2e66e&is=66c194ee&hm=806de9a45039aef475a2eb79f82e05a62d7dedf1973aeff36c52a2d7527f71c0&'
     },
@@ -468,15 +498,15 @@ const events = [
     },
     {
         id: 7,
-        description: "You encounter NF89, a blacksmith, who offers to craft tools or buy items.",
+        description: "You encounter NF89, a blacksmith, who offers to craft tools or sell items.",
         imageUrl: "https://cdn.discordapp.com/attachments/704530416475832342/1274977215314133023/NFTHEBLACKSMITH.png?ex=66c43690&is=66c2e510&hm=8278fd5ea5fba7b55b544de5ab4a92043c1d68dd830ec432576f34a5510e3593&", // Use an appropriate image URL
         choices: [
             {
                 emoji: '1️⃣',
-                text: 'Craft Axe\n-25🪵 -50🪨 -50🔶 -10🪢 -10✨',
+                text: 'Craft Axe\n-30🪵 -60🪨 -60🔶 -15🪢 -15✨',
                 async result(interaction, inventory, tools) {
                     // Check if the user has enough resources
-                    if (inventory.wood < 25 || inventory.stone < 50 || inventory.copper < 50 || inventory.rope < 10 || inventory.gold < 10) {
+                    if (inventory.wood < 30 || inventory.stone < 60 || inventory.copper < 60 || inventory.rope < 15 || inventory.gold < 15) {
                         let resultMessage = "You don’t have enough resources to craft an axe. NF89 shakes his head in disappointment.\n";
     
                         await inventory.save();
@@ -484,11 +514,11 @@ const events = [
                     }
     
                     // Deduct resources
-                    inventory.wood -= 25;
-                    inventory.stone -= 50;
-                    inventory.copper -= 50;
-                    inventory.rope -= 10;
-                    inventory.gold -= 10;
+                    inventory.wood -= 30;
+                    inventory.stone -= 60;
+                    inventory.copper -= 60;
+                    inventory.rope -= 15;
+                    inventory.gold -= 15;
     
                     // Check if user already has an axe and update durability or add a new one
                     if (tools.metalAxe) {
@@ -507,10 +537,10 @@ const events = [
             },
             {
                 emoji: '2️⃣',
-                text: 'Craft Pickaxe\n-25🪵 -50🪨 -50🔶 -10🪢 -10✨',
+                text: 'Craft Pickaxe\n-30🪵 -60🪨 -60🔶 -15🪢 -15✨',
                 async result(interaction, inventory, tools) {
                     // Check if the user has enough resources
-                    if (inventory.wood < 25 || inventory.stone < 50 || inventory.copper < 50 || inventory.rope < 10 || inventory.gold < 10) {
+                    if (inventory.wood < 30 || inventory.stone < 60 || inventory.copper < 60 || inventory.rope < 15 || inventory.gold < 15) {
                         let resultMessage = "You don’t have enough resources to craft a pickaxe. NF89 shakes his head in disappointment.\n";
     
                         await inventory.save();
@@ -518,11 +548,11 @@ const events = [
                     }
     
                     // Deduct resources
-                    inventory.wood -= 25;
-                    inventory.stone -= 50;
-                    inventory.copper -= 50;
-                    inventory.rope -= 10;
-                    inventory.gold -= 10;
+                    inventory.wood -= 30;
+                    inventory.stone -= 60;
+                    inventory.copper -= 60;
+                    inventory.rope -= 15;
+                    inventory.gold -= 15;
     
                     // Check if user already has a pickaxe and update durability or add a new one
                     if (tools.metalPickaxe) {
@@ -541,28 +571,34 @@ const events = [
             },
             {
                 emoji: '3️⃣',
-                text: 'Trade 50 🪨 for 1♦️',
+                text: 'Trade 1♦️ for 50🪵',
                 async result(interaction, inventory) {
-                    // Check if the user has enough resources
-                    if (inventory.stone < 50) {
-                        let resultMessage = "You don’t have enough stone to trade. NF89 shakes his head in disappointment.\n";
-    
-                        await inventory.save();
-                        return { message: resultMessage, color: '#ff0000' };
-                    }
-    
-                    // Deduct resources and give ruby
-                    inventory.stone -= 50;
-                    inventory.ruby += 1;
-    
-                    await inventory.save();
-    
-                    let resultMessage = "NF89 trades you 1 ♦️ for 50 🪨!\n";
-                    return { message: resultMessage, color: '#00ff00' };
+                    return await handleTrade(interaction, inventory, 'wood', '🪵', 50);
                 }
             },
             {
                 emoji: '4️⃣',
+                text: 'Trade 1♦️ for 50🪨',
+                async result(interaction, inventory) {
+                    return await handleTrade(interaction, inventory, 'stone', '🪨', 50);
+                }
+            },
+            {
+                emoji: '5️⃣',
+                text: 'Trade 1♦️ for 50🍃',
+                async result(interaction, inventory) {
+                    return await handleTrade(interaction, inventory, 'palmLeaves', '🍃', 50);
+                }
+            },
+            {
+                emoji: '6️⃣',
+                text: 'Trade 1♦️ for 50🔶',
+                async result(interaction, inventory) {
+                    return await handleTrade(interaction, inventory, 'copper', '🔶', 50);
+                }
+            },
+            {
+                emoji: '7️⃣',
                 text: 'Leave',
                 async result() {
                     let resultMessage = "You decide to leave NF89’s workshop and continue on your journey.\n";
@@ -570,6 +606,111 @@ const events = [
                 }
             }
         ]
+    },
+    {
+        id: 8,
+        description: "You encounter HHyper, an extra-large man who needs a lot of your resources.",
+        choices: [
+            {
+                emoji: '1️⃣',
+                text: 'Trade 100 🪵 for 2 ♦️',
+                result: async (interaction, inventory) => {
+                    if (inventory.wood >= 100) {
+                        inventory.wood -= 100;
+                        inventory.ruby += 2;
+                        await inventory.save();
+                        return { message: 'You trade 100 🪵 for 2 ♦️.', color: '#00ff00' };
+                    } else {
+                        return { message: 'You don’t have enough wood to trade!', color: '#ff0000' };
+                    }
+                }
+            },
+            {
+                emoji: '2️⃣',
+                text: 'Trade 100 🪨 for 2 ♦️',
+                result: async (interaction, inventory) => {
+                    if (inventory.stone >= 100) {
+                        inventory.stone -= 100;
+                        inventory.ruby += 2;
+                        await inventory.save();
+                        return { message: 'You trade 100 🪨 for 2 ♦️.', color: '#00ff00' };
+                    } else {
+                        return { message: 'You don’t have enough stone to trade!', color: '#ff0000' };
+                    }
+                }
+            },
+            {
+                emoji: '3️⃣',
+                text: 'Trade 100 🌿 for 2 ♦️',
+                result: async (interaction, inventory) => {
+                    if (inventory.palmLeaves >= 100) {
+                        inventory.palmLeaves -= 100;
+                        inventory.ruby += 2;
+                        await inventory.save();
+                        return { message: 'You trade 100 🌿 for 2 ♦️.', color: '#00ff00' };
+                    } else {
+                        return { message: 'You don’t have enough palm leaves to trade!', color: '#ff0000' };
+                    }
+                }
+            },
+            {
+                emoji: '4️⃣',
+                text: 'Trade 100 🔶 for 2 ♦️',
+                result: async (interaction, inventory) => {
+                    if (inventory.copper >= 100) {
+                        inventory.copper -= 100;
+                        inventory.ruby += 2;
+                        await inventory.save();
+                        return { message: 'You trade 100 🔶 for 2 ♦️.', color: '#00ff00' };
+                    } else {
+                        return { message: 'You don’t have enough copper to trade!', color: '#ff0000' };
+                    }
+                }
+            },
+            {
+                emoji: '5️⃣',
+                text: 'Ambush HHyper',
+                result: async (interaction, inventory) => {
+                    const chance = Math.random();
+                    if (chance < 0.95){
+                        let maxResource = 'wood';
+                        let maxAmount = inventory.wood;
+    
+                        if (inventory.stone > maxAmount) {
+                            maxResource = 'stone';
+                            maxAmount = inventory.stone;
+                        }
+                        if (inventory.palmLeaves > maxAmount) {
+                            maxResource = 'palmLeaves';
+                            maxAmount = inventory.palmLeaves;
+                        }
+                        if (inventory.copper > maxAmount) {
+                            maxResource = 'copper';
+                            maxAmount = inventory.copper;
+                        }
+    
+                        const amountLost = Math.min(30, maxAmount);
+                        inventory[maxResource] -= amountLost;
+                        await inventory.save();
+    
+                        return {
+                            message: `HHyper is too big for you to fight, and you get obliterated! -${amountLost} ${maxResource === 'wood' ? '🪵' : maxResource === 'stone' ? '🪨' : maxResource === 'palmLeaves' ? '🌿' : '🔶'}`,
+                            color: '#ff0000'
+                        };
+                    } else { // 5% chance to succeed
+                        inventory.gold += 10;
+                        await inventory.save();
+                        return { message: 'Somehow you managed to defeat HHyper?? +10 ✨', color: '#00ff00' };
+                    }
+                }
+            },
+            {
+                emoji: '6️⃣',
+                text: 'Leave',
+                result: () => ({ message: 'You decide to leave HHyper alone and walk away.', color: '#0099ff' })
+            }
+        ],
+        imageUrl: 'https://cdn.discordapp.com/attachments/704530416475832342/1275334030816051200/HHYPER.png?ex=66c582df&is=66c4315f&hm=5bdda92f6c089fc4c019cf897ebadeca70f43d4c1dc951546df732211a57dbd3&'
     }
 ];
 
@@ -588,47 +729,48 @@ const events = [
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 //------------------------------------------------
-// HELPER FUNCTIONS:
+// HELPER FGUNCTIONS
 //------------------------------------------------
-async function handleDolpheSteal(inventory) {
-    const resources = ['wood', 'stone', 'palmLeaves'];
-    let resultMessage = 'Dolphe gets mad and takes your resources!\n';
-    let resourceFound = false;
+async function handleDolpheDonation(interaction, inventory, resource, emoji) {
+    if (inventory[resource] >= 5) {
+        inventory[resource] -= 5;
+        const chance = Math.random();
+        let resultMessage = '';
 
-    while (!resourceFound) {
-        const resource = resources[Math.floor(Math.random() * resources.length)];
-        const amount = Math.floor(Math.random() * 3) + 1; // 1 to 3
-
-        if (inventory[resource] >= amount) {
-            inventory[resource] -= amount;
-            await inventory.save();
-            resultMessage += `**-${amount}** ${resource === 'wood' ? '🪵' : resource === 'stone' ? '🪨' : '🌿'}`;
-            resourceFound = true;
+        if (chance < 0.85) {
+            const resourceGained = 10;
+            inventory[resource] += resourceGained;
+            resultMessage = `Dolphe is actually MrBeast and gives you stuff in return!\n**+${resourceGained}** ${emoji}`;
+        } else {
+            resultMessage = `Dolphe graciously accepts your donation of **-5** ${emoji}.`;
         }
 
-        if (resources.every(r => inventory[r] < 1)) {
-            resultMessage = 'Dolphe gets mad but you don\'t have enough resources to lose.';
-            resourceFound = true;
-        }
+        await inventory.save();
+        return { message: resultMessage, color: '#00ff00' }; // Green color for success
+    } else {
+        return { message: `You don't have enough ${emoji} to donate!`, color: '#ff0000' }; // Red color for failure
+    }
+}
+//------------------------------------------------
+async function handleTrade(interaction, inventory, resource, resourceEmoji, tradeAmount) {
+    // Check if the user has enough rubies
+    if (inventory.ruby < 1) {
+        let resultMessage = "You don’t have enough rubies to trade. NF89 shakes his head in disappointment.\n";
+
+        await inventory.save();
+        return { message: resultMessage, color: '#ff0000' }; // Red color for failure
     }
 
-    return { message: resultMessage, color: '#ff0000' }; // Red color for Dolphe stealing
-}
+    // Deduct resources and add the traded resource
+    inventory[resource] += tradeAmount;
+    inventory.ruby -= 1;
 
+    await inventory.save();
+
+    let resultMessage = `NF89 trades you ${tradeAmount}${resourceEmoji} for 1♦️!\n`;
+    return { message: resultMessage, color: '#00ff00' }; // Green color for success
+}
 //------------------------------------------------
 async function handleRockPurchase(interaction, inventory, quantity) {
     const woodCost = 6 * quantity;
@@ -732,7 +874,7 @@ module.exports = {
         
             // Cooldown check
             const now = Date.now();
-            const cooldown = 30 * 1000; // 30 seconds
+            const cooldown = 25 * 1000; // 30 seconds
             const lastExplore = user.lastExplore || 0;
         
             if (now - lastExplore < cooldown) {

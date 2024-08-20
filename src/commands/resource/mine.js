@@ -48,10 +48,10 @@ module.exports = {
 
             if (hasPickaxe) {
                 stone = Math.floor(Math.random() * 5) + 2; // 2-6 stone
-                goldChance = 0.16; // 16% chance for gold
-                bonusStoneChance = 0.45; // 45% chance for bonus stone
-                copperChance = 0.35; // 35% chance for copper
-                hugeCopperVeinChance = 0.10; // 10% chance for huge copper vein
+                goldChance = 0.18; // 18% chance for gold
+                bonusStoneChance = 0.42; // 42% chance for bonus stone
+                copperChance = 0.37; // 37% chance for copper
+                hugeCopperVeinChance = 0.14; // 14 chance for huge copper vein
 
                 // Decrease pickaxe durability
                 tool.metalPickaxeDurability -= 1;
@@ -64,7 +64,7 @@ module.exports = {
                 goldChance = 0.04; // 4% chance for gold
                 bonusStoneChance = 0.25; // 25% chance for bonus stone
                 copperChance = 0.2; // 20% chance for copper
-                hugeCopperVeinChance = 0.03; // 3% chance for huge copper vein
+                hugeCopperVeinChance = 0.04; // 4% chance for huge copper vein
             }
             
             // chances
@@ -77,13 +77,16 @@ module.exports = {
 
             // Pickaxe chances
             if (hasPickaxe) {
-                if (Math.random() < 0.02) { // 2% chance for huge gold vein
+                if (Math.random() < 0.03) { // 3% chance for huge gold vein
                     hugeGoldVein = Math.floor(Math.random() * 6) + 4 ; // 4-9 gold
                 }
-                if (Math.random() < 0.01) { // 1% chance for rubies
+                if (Math.random() < 0.02) { // 2% chance for rubies
                     bonusruby = Math.floor(Math.random() * 2) + 1 ; // 1-2 rubies
                 }
             }
+
+            const thieves = ['JD', 'Rohan', 'Josh', 'Dolphe', 'Tbnr', 'Bio', 'Verx', 'Doggy', 'NF89', 'Triv', 'Rex', 'Duko', 'Arkiver', 'Caliper'];
+            const thiefName = thieves[Math.floor(Math.random() * thieves.length)]; // Randomly select a thief's name
 
             // Negative events (unchanged)
             const negativeEventChance = Math.random();
@@ -96,7 +99,7 @@ module.exports = {
                     const embed = new EmbedBuilder()
                         .setColor('#ff0000')
                         .setTitle('Failure!')
-                        .setDescription(`You bump into Josh in the mines and he steals some stone from you!\n**-${stoneLost}** 🪨`)
+                        .setDescription(`You bump into ${thiefName} in the mines and they steal some stone from you!\n**-${stoneLost}** 🪨`)
                         .setFooter({ text: `Total stone: ${inventory.stone}` });
 
                     return interaction.reply({ embeds: [embed] });
@@ -108,7 +111,7 @@ module.exports = {
                     const embed = new EmbedBuilder()
                         .setColor('#ff0000')
                         .setTitle('Failure!')
-                        .setDescription(`You find Rohan, who is jealous of your gold and attacks you!\n**-${goldLost}** ✨`)
+                        .setDescription(`You find ${thiefName}, who is jealous of your gold and attacks you!\n**-${goldLost}** ✨`)
                         .setFooter({ text: `Total gold: ${inventory.gold}` });
 
                     return interaction.reply({ embeds: [embed] });
@@ -130,35 +133,35 @@ module.exports = {
                 .setColor('#00ff00')
                 .setTitle('Success!' + titleSuffix)
                 .setThumbnail(interaction.user.displayAvatarURL())
-                .setDescription(`You obtained ${stone} 🪨`)
+                .setDescription(`You mined some stone!\n**+${stone}**🪨`)
                 .setFooter({ text: `Total stone: ${inventory.stone}` });
 
             if (bonusStone > 0) {
-                embed.addFields({ name: 'Bonus!', value: `You mined extra stone!\n**+${bonusStone}** 🪨`, inline: false });
+                embed.addFields({ name: 'Bonus!', value: `You mined extra stone!\n**+${bonusStone}**🪨`, inline: false });
             }
 
             if (copper > 0) {
-                embed.addFields({ name: 'Bonus!', value: `You mined some copper!\n**+${copper}** 🔶`, inline: false });
+                embed.addFields({ name: 'Bonus!', value: `You mined some copper!\n**+${copper}**🔶`, inline: false });
             }
 
             if (gold > 0) {
-                embed.addFields({ name: 'Rare Bonus!', value: `You mined something shiny!\n**+${gold}** ✨`, inline: false });
+                embed.addFields({ name: '〈Rare Bonus!〉', value: `You mined something shiny!\n**+${gold}**✨`, inline: false });
             }
 
             if (hugeCopperVein > 0) {
-                embed.addFields({ name: 'Rare Bonus!', value: `You struck a huge copper vein!\n**+${hugeCopperVein}** 🔶`, inline: false });
+                embed.addFields({ name: '〈Rare Bonus!〉', value: `You struck a huge copper vein!\n**+${hugeCopperVein}**🔶`, inline: false });
             }
 
             if (hugeGoldVein > 0) {
-                    embed.addFields({ name: '✨ULTRA RARE BONUS!✨', value: `You found a huge gold vein!\n**+${ultraRareBonus.amount}** ✨`, inline: false });
+                    embed.addFields({ name: '【✨ULTRA RARE BONUS!✨】', value: `You found a huge gold vein!\n**+${hugeGoldVein}**✨`, inline: false });
             }
             
             if (bonusruby > 0) {
-                    embed.addFields({ name: '♦️ULTRA RARE BONUS!♦️', value: `You found some rare rubies!\n**+${ultraRareBonus.amount}** ♦️`, inline: false });
+                    embed.addFields({ name: '【♦️ULTRA RARE BONUS!♦️】', value: `You found some rare rubies!\n**+${bonusruby}**♦️`, inline: false });
             }
 
             if (hasPickaxe && tool.metalPickaxeDurability === 0) {
-                embed.addFields({ name: '**Pickaxe Broken!**', value: ``, inline: false });
+                embed.addFields({ name: '**Pickaxe Broken!**', value: 'Durabilty: 0', inline: false });
             }
 
             return interaction.reply({ embeds: [embed] });

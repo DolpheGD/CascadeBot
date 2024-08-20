@@ -5,29 +5,35 @@ const Inventory = require('../../models/Inventory');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('inv')
-        .setDescription('Check your inventory'),
+        .setDescription('Check your inventory or someone else\'s inventory')
+        .addUserOption(option => 
+            option.setName('target')
+                .setDescription('The user whose inventory you want to check')
+                .setRequired(false)),
 
     async execute(interaction) {
-        const userId = interaction.user.id;
+        // Get the target user if provided, otherwise use the command issuer
+        const targetUser = interaction.options.getUser('target') || interaction.user;
+        const userId = targetUser.id;
 
         try {
             // Find the user
             const user = await User.findOne({ where: { discordId: userId } });
             if (!user) {
-                return interaction.reply({ content: 'You do not have an inventory yet. Use commands like /chop or /mine to gather resources.', ephemeral: true });
+                return interaction.reply({ content: `${targetUser.username} does not have an inventory yet. They need to use commands like /chop or /mine to gather resources.`, ephemeral: true });
             }
 
-            // Find the user's inventory using the correct foreign key
-            const inventory = await Inventory.findOne({ where: { userId: user.id } }); // Use user.id here
+            // Find the user's inventory
+            const inventory = await Inventory.findOne({ where: { userId: user.id } });
             if (!inventory) {
-                return interaction.reply({ content: 'Your inventory is empty. Use commands like /chop or /mine to gather resources.', ephemeral: true });
+                return interaction.reply({ content: `${targetUser.username}'s inventory is empty. They need to use commands like /chop or /mine to gather resources.`, ephemeral: true });
             }
 
             // Create an embed to display the inventory
             const embed = new EmbedBuilder()
                 .setColor('#0099ff')
-                .setTitle(`${interaction.user.username}'s Inventory`)
-                .setThumbnail(interaction.user.displayAvatarURL()) // Add the user's avatar as a thumbnail
+                .setTitle(`${targetUser.username}'s Inventory`)
+                .setThumbnail(targetUser.displayAvatarURL()) // Add the user's avatar as a thumbnail
                 .addFields(
                     { name: 'Wood', value: `🪵 ${inventory.wood}`, inline: true },
                     { name: 'Stone', value: `🪨 ${inventory.stone}`, inline: true },
@@ -44,7 +50,7 @@ module.exports = {
             return interaction.reply({ embeds: [embed] });
         } catch (error) {
             console.error('Error fetching inventory:', error);
-            return interaction.reply({ content: 'An error occurred while fetching your inventory. Please try again later.', ephemeral: true });
+            return interaction.reply({ content: 'An error occurred while fetching the inventory. Please try again later.', ephemeral: true });
         }
     },
 };
