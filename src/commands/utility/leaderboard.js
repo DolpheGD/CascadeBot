@@ -20,7 +20,14 @@ module.exports = {
             // Calculate power and prepare leaderboard data
             const leaderboard = users.map(user => {
                 const inventory = user.inventory || {};
-                const power = inventory.wood + inventory.palmLeaves + 3 * inventory.rope + inventory.stone + 2 * inventory.copper + 5 * inventory.gold + 50 * inventory.ruby + 250 * inventory.diamond;
+                const power =   inventory.gold + 
+                                10 * inventory.ruby + 
+                                100 * inventory.diamond +
+                                inventory.fish +
+                                2 * inventory.rareFish +
+                                5 * inventory.superRareFish + 
+                                10 * inventory.legendaryFish +
+                                1000 * inventory.negadomBattery;
                 return {
                     username: user.username,
                     power: power,
@@ -33,7 +40,7 @@ module.exports = {
             const top10 = leaderboard.slice(0, 10);
 
             // Create leaderboard description
-            const description = top10.map((entry, index) => `${index + 1}. ${entry.username} - ${entry.power}⚡`).join('\n');
+            const description = top10.map((entry, index) => `${index + 1}. ${entry.username}: ${entry.power}⚡`).join('\n');
 
             // Fetch the user with the highest power for the thumbnail
             const topUser = top10[0];

@@ -29,11 +29,14 @@ const User = sequelize.define('User', {
         type: DataTypes.BIGINT,
         defaultValue: 0,
     },
+    lastFish: {  // New lastFish field to track fishing cooldown
+        type: DataTypes.BIGINT,
+        defaultValue: 0,
+    },
 });
 
 // Correct the association alias to match
 User.hasOne(require('./Inventory'), { foreignKey: 'userId', as: 'inventory' });
-
 
 User.hasOne(Tool, {
     foreignKey: 'userId',
@@ -43,6 +46,5 @@ User.hasOne(Tool, {
 Tool.belongsTo(User, {
     foreignKey: 'userId'
 });
-
 
 module.exports = User;

@@ -66,7 +66,7 @@ module.exports = {
             await tool.save();
         }
 
-        const thieves = ['JD', 'Rohan', 'Josh', 'Dolphe', 'Tbnr', 'Bio', 'Verx', 'Doggy', 'NF89', 'Triv', 'Rex', 'Duko', 'Arkiver', 'Caliper'];
+        const thieves = ['JD', 'Nesjonat', 'VRT Gaming', 'Aizer', 'Rohan', 'Josh', 'Dolphe', 'Tbnr', 'Bio', 'Verx', 'Doggy', 'NF89', 'Triv', 'Rex', 'Duko', 'Arkiver', 'Caliper'];
         const thiefName = thieves[Math.floor(Math.random() * thieves.length)]; // Randomly select a thief's name
 
         const isJoshEvent = Math.random() < 0.5;

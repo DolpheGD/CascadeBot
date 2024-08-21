@@ -85,7 +85,7 @@ module.exports = {
                 }
             }
 
-            const thieves = ['JD', 'Rohan', 'Josh', 'Dolphe', 'Tbnr', 'Bio', 'Verx', 'Doggy', 'NF89', 'Triv', 'Rex', 'Duko', 'Arkiver', 'Caliper'];
+            const thieves = ['JD', 'Nesjonat', 'VRT Gaming', 'Aizer', 'Rohan', 'Josh', 'Dolphe', 'Tbnr', 'Bio', 'Verx', 'Doggy', 'NF89', 'Triv', 'Rex', 'Duko', 'Arkiver', 'Caliper'];
             const thiefName = thieves[Math.floor(Math.random() * thieves.length)]; // Randomly select a thief's name
 
             // Negative events (unchanged)
@@ -161,7 +161,7 @@ module.exports = {
             }
 
             if (hasPickaxe && tool.metalPickaxeDurability === 0) {
-                embed.addFields({ name: '**Pickaxe Broken!**', value: 'Durabilty: 0', inline: false });
+                embed.addFields({ name: '**Pickaxe Broken!**', value: 'Your pickaxe has broken!', inline: false });
             }
 
             return interaction.reply({ embeds: [embed] });

@@ -35,7 +35,6 @@ const Inventory = sequelize.define('Inventory', {
         type: DataTypes.INTEGER,
         defaultValue: 0
     },
-    
     diamond: { // New diamond field
         type: DataTypes.INTEGER,
         defaultValue: 0
@@ -48,6 +47,26 @@ const Inventory = sequelize.define('Inventory', {
         type: DataTypes.INTEGER,
         defaultValue: 0
     },
+    fish: {    // New fish field
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
+    rareFish: {  // New rare fish field
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
+    superRareFish: {  // New super rare fish field
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
+    legendaryFish: {  // New legendary fish field
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
+    negadomBattery: {  // New Negadom Destroyer battery field
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+    }
 });
 
 module.exports = Inventory;

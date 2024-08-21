@@ -38,6 +38,19 @@ Tool.init({
             min: 0,
             max: 50
         }
+    },
+    fishingRod: {  // New fishing rod field
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        allowNull: false
+    },
+    fishingRodDurability: {  // New fishing rod durability field
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
+        validate: {
+            min: 0,
+            max: 100
+        }
     }
 }, {
     sequelize,

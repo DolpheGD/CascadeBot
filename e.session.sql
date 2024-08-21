@@ -1,0 +1,1 @@
+ALTER TABLE Tools_new RENAME TO Tools;

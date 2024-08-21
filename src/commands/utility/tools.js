@@ -30,7 +30,7 @@ module.exports = {
                 .setTitle(`${interaction.user.username}'s Tools`)
                 .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
                 .setColor('#0099ff')
-                .setFooter({ text: `Tools increase resources obtained and decrease cooldowns`});
+                .setFooter({ text: `Tools increase resources obtained and decrease cooldowns` });
 
             if (tools.metalAxe) {
                 embed.addFields({ name: '🪓 Metal Axe', value: `Durability: ${tools.metalAxeDurability}/50`, inline: true });
@@ -42,6 +42,13 @@ module.exports = {
                 embed.addFields({ name: '⛏️ Metal Pickaxe', value: `Durability: ${tools.metalPickaxeDurability}/50`, inline: true });
             } else {
                 embed.addFields({ name: '⛏️ Metal Pickaxe', value: 'Not owned', inline: true });
+            }
+
+            // Add fishing rod to the embed
+            if (tools.fishingRod) {
+                embed.addFields({ name: '🎣 Fishing Rod', value: `Durability: ${tools.fishingRodDurability}/100`, inline: true });
+            } else {
+                embed.addFields({ name: '🎣 Fishing Rod', value: 'Not owned', inline: true });
             }
 
             // Reply to the interaction with the embed
