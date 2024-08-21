@@ -599,7 +599,7 @@ const events = [
         choices: [
             {
                 emoji: '1️⃣',
-                text: 'Sell 100 🪵 for 2 ♦️',
+                text: 'Sell 100🪵 for 2♦️',
                 result: async (interaction, inventory) => {
                     if (inventory.wood >= 100) {
                         inventory.wood -= 100;
@@ -613,7 +613,7 @@ const events = [
             },
             {
                 emoji: '2️⃣',
-                text: 'Sell 100 🪨 for 2 ♦️',
+                text: 'Sell 100🪨 for 2♦️',
                 result: async (interaction, inventory) => {
                     if (inventory.stone >= 100) {
                         inventory.stone -= 100;
@@ -627,7 +627,7 @@ const events = [
             },
             {
                 emoji: '3️⃣',
-                text: 'Sell 100 🌿 for 2 ♦️',
+                text: 'Sell 100🌿 for 2♦️',
                 result: async (interaction, inventory) => {
                     if (inventory.palmLeaves >= 100) {
                         inventory.palmLeaves -= 100;
@@ -658,7 +658,7 @@ const events = [
                 text: 'Ambush HHyper',
                 result: async (interaction, inventory) => {
                     const chance = Math.random();
-                    if (chance < 0.95){
+                    if (chance < 0.99){
                         let maxResource = 'wood';
                         let maxAmount = inventory.wood;
     
@@ -684,9 +684,9 @@ const events = [
                             color: '#ff0000'
                         };
                     } else { // 5% chance to succeed
-                        inventory.gold += 10;
+                        inventory.gold += 100;
                         await inventory.save();
-                        return { message: 'Somehow you managed to defeat HHyper??\n**+10**✨', color: '#00ff00' };
+                        return { message: 'Somehow you managed to defeat HHyper??\n**+100**✨', color: '#00ff00' };
                     }
                 }
             },
@@ -724,7 +724,7 @@ const events = [
             },
             {
                 emoji: '2️⃣',
-                text: 'Buy 100🪨 for 2 ♦️',
+                text: 'Buy 100🪨 for 2♦️',
                 result: async (interaction, inventory) => {
                     let resultMessage = '';
                     let embedColor = '#00ff00'; // Default to green
@@ -807,6 +807,24 @@ const events = [
             },
             {
                 emoji: '6️⃣',
+                text: 'Buy 40🪢 for 30✨ 3♦️',
+                result: async (interaction, inventory) => {
+                    let resultMessage = '';
+                    let embedColor = '#00ff00'; // Default to green
+    
+                    if (inventory.gold >= 30 && inventory.ruby >= 3) {
+                        inventory.rope += 40;
+                        await inventory.save();
+                        resultMessage = 'You buy tons of rope!\n**+40🪢**';
+                    } else {
+                        resultMessage = 'You don’t have enough gold or rubies.';
+                        embedColor = '#ff0000'; // Red color for failure
+                    }
+                    return { message: resultMessage, color: embedColor };
+                }
+            },
+            {
+                emoji: '7️⃣',
                 text: 'Leave',
                 result: () => ({ message: 'You decide to leave the shopkeeper and continue your journey.', color: '#0099ff' })
             }
