@@ -11,7 +11,7 @@ module.exports = {
         .setDescription('Bet an amount of a resource by flipping a coin.')
         .addStringOption(option =>
             option.setName('resource')
-                .setDescription('The resource you want to bet (wood, stone, palmLeaves, gold, rope, diamond, ruby, copper)')
+                .setDescription('The resource you want to bet')
                 .setRequired(true)
                 .addChoices(
                     { name: 'Wood', value: 'wood' },
@@ -21,7 +21,11 @@ module.exports = {
                     { name: 'Rope', value: 'rope' },
                     { name: 'Diamond', value: 'diamond' },
                     { name: 'Ruby', value: 'ruby' },
-                    { name: 'Copper', value: 'copper' }
+                    { name: 'Copper', value: 'copper' },
+                    { name: 'Fish', value: 'fish' },
+                    { name: 'Rare Fish', value: 'rareFish' },
+                    { name: 'Super Rare Fish', value: 'superRareFish' },
+                    { name: 'Legendary Fish', value: 'legendaryFish' }
                 ))
         .addIntegerOption(option =>
             option.setName('amount')
@@ -39,9 +43,9 @@ module.exports = {
         }
 
         // Valid resources
-        const validResources = ['wood', 'stone', 'palmLeaves', 'gold', 'rope', 'diamond', 'ruby', 'copper'];
+        const validResources = ['wood', 'stone', 'palmLeaves', 'gold', 'rope', 'diamond', 'ruby', 'copper', 'fish', 'rareFish', 'superRareFish', 'legendaryFish'];
         if (!validResources.includes(resource)) {
-            return interaction.reply({ content: 'Invalid resource. Please choose from wood, stone, palmLeaves, gold, rope, diamond, ruby, or copper.', ephemeral: true });
+            return interaction.reply({ content: 'Invalid resource. Please choose a valid resource to bet.', ephemeral: true });
         }
 
         // Validate the amount
@@ -128,18 +132,22 @@ function getEmojiForResource(resource) {
         case 'diamond': return '💎';
         case 'ruby': return '♦️';
         case 'copper': return '🔶';
+        case 'fish': return '🐟';
+        case 'rareFish': return '🐠';
+        case 'superRareFish': return '🐡';
+        case 'legendaryFish': return '🦈';
         default: return '';
     }
 }
 
 // Helper function to get a random win message
 function getRandomWinMessage() {
-    const winMessages = ['You won!', 'Congratulations!', 'W moment!', 'GG!', 'Lets Gooo!'];
+    const winMessages = ['You won!', 'Congratulations!', 'W moment!', 'GG!', 'Lets Gooo!', 'LETS GO GAMBLING!'];
     return winMessages[Math.floor(Math.random() * winMessages.length)];
 }
 
 // Helper function to get a random lose message
 function getRandomLoseMessage() {
-    const loseMessages = ['You Lose!', 'Rip Bozo!', 'Skill issue💀', 'Sucks to Suck!', 'L '];
+    const loseMessages = ['You Lose!', 'Rip Bozo!', 'Skill issue💀 ', 'Sucks to Suck!', 'L ', 'Try being lucky next time.'];
     return loseMessages[Math.floor(Math.random() * loseMessages.length)];
 }

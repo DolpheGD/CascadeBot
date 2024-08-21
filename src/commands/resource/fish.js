@@ -81,15 +81,15 @@ module.exports = {
                 inventory.legendaryFish += 1;
                 await inventory.save();
                 resultMessage = 'You caught a legendary fish!\n**+1** 🦈';
-            } else if (chance < 0.995) { // crate stuff
+            } else if (chance < 0.99) { // crate stuff
                 // Define the possible items and their quantity ranges
                 const items = [
                     { type: 'gold', emoji: '✨', min: 1, max: 3 },
                     { type: 'rope', emoji: '🪢', min: 1, max: 3 },
-                    { type: 'wood', emoji: '🪵', min: 1, max: 5 },
-                    { type: 'stone', emoji: '🪨', min: 1, max: 5 },
-                    { type: 'palmLeaves', emoji: '🌿', min: 1, max: 5 },
-                    { type: 'copper', emoji: '🔶', min: 1, max: 5 }
+                    { type: 'wood', emoji: '🪵', min: 1, max: 7 },
+                    { type: 'stone', emoji: '🪨', min: 1, max: 7 },
+                    { type: 'palmLeaves', emoji: '🌿', min: 1, max: 7 },
+                    { type: 'copper', emoji: '🔶', min: 1, max: 7}
                 ];
 
                 // Shuffle items and pick the first 3

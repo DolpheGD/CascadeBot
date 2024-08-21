@@ -365,7 +365,6 @@ const events = [
             { emoji: '6️⃣', text: 'Buy 20 rocks', result: async (interaction, inventory) => await handleRockPurchase(interaction, inventory, 20) },
             { emoji: '7️⃣', text: 'Buy 50 rocks', result: async (interaction, inventory) => await handleRockPurchase(interaction, inventory, 50) },
             { emoji: '8️⃣', text: 'Buy 100 rocks', result: async (interaction, inventory) => await handleRockPurchase(interaction, inventory, 100) },
-            { emoji: '9️⃣', text: 'Buy 200 rocks', result: async (interaction, inventory) => await handleRockPurchase(interaction, inventory, 200) }
         ],
         imageUrl: 'https://cdn.discordapp.com/attachments/704530416475832342/1274616296985723056/DUKOEVENTROCKSD.png?ex=66c2e66e&is=66c194ee&hm=806de9a45039aef475a2eb79f82e05a62d7dedf1973aeff36c52a2d7527f71c0&'
     },
@@ -884,12 +883,13 @@ async function handleDolpheDonation(interaction, inventory, resource, emoji) {
         const chance = Math.random();
         let resultMessage = '';
 
-        if (chance < 0.85) {
+        if (chance < 0.8) {
             const resourceGained = 10;
             inventory[resource] += resourceGained;
             resultMessage = `Dolphe is actually MrBeast and gives you stuff in return!\n**+${resourceGained}** ${emoji}`;
         } else {
             resultMessage = `Dolphe graciously accepts your donation!\n**-5** ${emoji}.`;
+            return { message: resultMessage, color: '#ffff00' }; // Green color for success
         }
 
         await inventory.save();
@@ -1001,7 +1001,7 @@ module.exports = {
         
             // Cooldown check
             const now = Date.now();
-            const cooldown = 1 * 1000; // 20 seconds
+            const cooldown = 20 * 1000; // 20 seconds
             const lastExplore = user.lastExplore || 0;
         
             if (now - lastExplore < cooldown) {
