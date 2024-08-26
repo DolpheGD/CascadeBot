@@ -36,14 +36,22 @@ module.exports = {
             if (inventory.stone > 0) inventoryDisplay += `**Stone**: ${inventory.stone}🪨\n`;
             if (inventory.palmLeaves > 0) inventoryDisplay += `**Palm Leaves**: ${inventory.palmLeaves}🌿\n`;
             if (inventory.rope > 0) inventoryDisplay += `**Rope**: ${inventory.rope}🪢\n`;
+
+            if (inventory.berries > 0) inventoryDisplay += `**Berries**: ${inventory.berries}🫐\n`;
+            if (inventory.apples > 0) inventoryDisplay += `**Apples**: ${inventory.apples}🍎\n`;
+            if (inventory.watermelon > 0) inventoryDisplay += `**Watermelon**: ${inventory.watermelon}🍉\n`;
+
             if (inventory.copper > 0) inventoryDisplay += `**Copper**: ${inventory.copper}🔶\n`;
             if (inventory.gold > 0) inventoryDisplay += `**Gold**: ${inventory.gold}✨\n`;
             if (inventory.ruby > 0) inventoryDisplay += `**Ruby**: ${inventory.ruby}♦️\n`;
             if (inventory.diamond > 0) inventoryDisplay += `**Diamond**: ${inventory.diamond}💎\n`;
+            
             if (inventory.fish > 0) inventoryDisplay += `**Fish**: ${inventory.fish}🐟\n`;
             if (inventory.rareFish > 0) inventoryDisplay += `**Rare Fish**: ${inventory.rareFish}🐠\n`;
             if (inventory.superRareFish > 0) inventoryDisplay += `**Super Rare Fish**: ${inventory.superRareFish}🐡\n`;
             if (inventory.legendaryFish > 0) inventoryDisplay += `**Legendary Fish**: ${inventory.legendaryFish}🦈\n`;
+            
+            if (inventory.metalParts > 0) inventoryDisplay += `**Metal Parts**: ${inventory.metalParts}⚙️\n`;
             if (inventory.negadomBattery) inventoryDisplay += `**Negadom Destroyer Battery**: 1🔋\n`;
 
             if (!inventoryDisplay) {
@@ -65,7 +73,8 @@ module.exports = {
                         2 * inventory.rareFish +
                         5 * inventory.superRareFish + 
                         15 * inventory.legendaryFish +
-                        1000 * inventory.negadomBattery
+                        100 * inventory.negadomBattery + 
+                        10 * inventory.metalParts
                     } ⚡`
                 });
 

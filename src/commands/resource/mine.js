@@ -9,7 +9,7 @@ module.exports = {
         .setDescription('Mine for resources'),
 
     async execute(interaction) {
-        let cooldown = 25 * 1000; // 25 seconds cooldown
+        let cooldown = 20 * 1000; // 20 seconds cooldown
         const userId = interaction.user.id;
 
         try {
@@ -33,7 +33,7 @@ module.exports = {
 
             let hasPickaxe = tool?.metalPickaxe && tool.metalPickaxeDurability > 0;
             if (hasPickaxe){
-                cooldown = 13 * 1000; // 13 seconds cooldown
+                cooldown = 10 * 1000; // 13 seconds cooldown
             }
 
             if (now - lastMine < cooldown) {
@@ -85,13 +85,14 @@ module.exports = {
                 }
             }
 
-            const thieves = ['JD', 'Nesjonat', 'VRT Gaming', 'Aizer', 'Rohan', 'Josh', 'Dolphe', 'Tbnr', 'Bio', 'Verx', 'Doggy', 'NF89', 'Triv', 'Rex', 'Duko', 'Arkiver', 'Caliper'];
+            const thieves = ['JD', 'JC23GDFFMI', 'Nesjonat', 'VRT Gaming', 'Aizer', 'Rohan', 'Josh', 'Dolphe', 'Tbnr', 'Bio', 'Verx', 'Doggy', 'NF89', 'Triv', 'Rex', 'Duko', 'Arkiver', 'Caliper'];
             const thiefName = thieves[Math.floor(Math.random() * thieves.length)]; // Randomly select a thief's name
+            const thiefName2 = thieves.filter(t => t !== thiefName)[Math.floor(Math.random() * (thieves.length - 1))];
 
-            // Negative events (unchanged)
+            // Negative events
             const negativeEventChance = Math.random();
             if (negativeEventChance < 0.1) { // 10% chance for negative events
-                if (inventory.stone > 3 && Math.random() < 0.8) { // 80% of the negative events being stone theft
+                if (Math.random() < 0.6 && inventory.stone > 3) { // 60% chance to lose stone
                     const stoneLost = Math.floor(Math.random() * 3) + 1;
                     inventory.stone = Math.max(inventory.stone - stoneLost, 0);
                     await inventory.save();
@@ -103,7 +104,8 @@ module.exports = {
                         .setFooter({ text: `Total stone: ${inventory.stone}` });
 
                     return interaction.reply({ embeds: [embed] });
-                } else if (inventory.gold > 1) { // The other 20% of negative events being gold theft
+
+                } else if (Math.random() < 0.5 && inventory.gold > 1) { // 20% chance to lose gold
                     const goldLost = Math.floor(Math.random() * 2) + 1;
                     inventory.gold = Math.max(inventory.gold - goldLost, 0);
                     await inventory.save();
@@ -115,6 +117,29 @@ module.exports = {
                         .setFooter({ text: `Total gold: ${inventory.gold}` });
 
                     return interaction.reply({ embeds: [embed] });
+                } else if (Math.random() < 0.4) { // 20% chance for the new event
+                    if (inventory.wood > 0 || inventory.palmLeaves > 0 || inventory.stone > 0 || inventory.copper > 0) {
+                        inventory.wood = Math.max(inventory.wood - 1, 0);
+                        inventory.palmLeaves = Math.max(inventory.palmLeaves - 1, 0);
+                        inventory.stone = Math.max(inventory.stone - 1, 0);
+                        inventory.copper = Math.max(inventory.copper - 1, 0);
+                        await inventory.save();
+
+                        const embed = new EmbedBuilder()
+                            .setColor('#ff0000')
+                            .setTitle('Failure!')
+                            .setDescription(`You, ${thiefName}, and ${thiefName2} got into a scuffle at the fishing dock!\n**-1** 🪵, **-1** 🌿, **-1** 🪨, **-1** 🔶`)
+                            .setFooter({ text: `Resources left: Wood: ${inventory.wood}, Palm Leaves: ${inventory.palmLeaves}, Stone: ${inventory.stone}, Copper: ${inventory.copper}` });
+
+                        return interaction.reply({ embeds: [embed] });
+                    } else { // Default message if the user doesn't have enough resources
+                        const embed = new EmbedBuilder()
+                            .setColor('#ff0000')
+                            .setTitle('Failure!')
+                            .setDescription(`${thiefName} saw you at the mines and laughed at how poor you were!`);
+
+                        return interaction.reply({ embeds: [embed] });
+                    }
                 }
             }
 

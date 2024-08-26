@@ -25,6 +25,7 @@ const User = sequelize.define('User', {
         type: DataTypes.BIGINT,
         defaultValue: 0,
     },
+    
     lastExplore: {
         type: DataTypes.BIGINT,
         defaultValue: 0,
@@ -32,6 +33,15 @@ const User = sequelize.define('User', {
     lastFish: {  // New lastFish field to track fishing cooldown
         type: DataTypes.BIGINT,
         defaultValue: 0,
+    },
+    lastForage: {  // New lastFish field to track fishing cooldown
+        type: DataTypes.BIGINT,
+        defaultValue: 0,
+    },
+
+    lastDaily: {
+        type: DataTypes.DATE, // Add this line for daily tracking
+        allowNull: true,
     },
 });
 

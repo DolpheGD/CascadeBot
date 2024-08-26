@@ -15,6 +15,8 @@ const Inventory = sequelize.define('Inventory', {
         },
         allowNull: false
     },
+
+    // chop resources
     wood: {
         type: DataTypes.INTEGER,
         defaultValue: 0
@@ -27,11 +29,30 @@ const Inventory = sequelize.define('Inventory', {
         type: DataTypes.INTEGER,
         defaultValue: 0
     },
-    gold: {   // Update gold field to use ✨
+    rope: {   // New rope field
         type: DataTypes.INTEGER,
         defaultValue: 0
     },
-    rope: {   // New rope field
+
+
+    // forage resources
+    berries: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
+    apples: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
+    watermelon: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
+
+
+
+    // mine/ore resources
+    gold: {   // Update gold field to use ✨
         type: DataTypes.INTEGER,
         defaultValue: 0
     },
@@ -47,6 +68,11 @@ const Inventory = sequelize.define('Inventory', {
         type: DataTypes.INTEGER,
         defaultValue: 0
     },
+
+
+
+
+    // fish resources
     fish: {    // New fish field
         type: DataTypes.INTEGER,
         defaultValue: 0
@@ -63,9 +89,18 @@ const Inventory = sequelize.define('Inventory', {
         type: DataTypes.INTEGER,
         defaultValue: 0
     },
+
+
+
+
+    // mechanical resources
     negadomBattery: {  // New Negadom Destroyer battery field
         type: DataTypes.BOOLEAN,
         defaultValue: false
+    },
+    metalParts: {  // METAL PARTS
+        type: DataTypes.INTEGER,
+        defaultValue: 0
     }
 });
 

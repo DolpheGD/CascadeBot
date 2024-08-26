@@ -125,7 +125,64 @@ const events = [
                 }
             },
             {
+                emoji: '3️⃣',
+                text: 'Barter 2♦️ for wood',
+                result: async (interaction, inventory) => {
+                    let resultMessage = '';
+                    let embedColor = '#00ff00'; // Default to green
+    
+                    if (inventory.ruby >= 2) {
+                        inventory.ruby -= 2;
+                        const chance = Math.random();
+    
+                        if (chance < 0.98) { // 98% chance of getting a huge stack of wood
+                            const woodGained = Math.floor(Math.random() * 61) + 50; // 50 to 110 wood
+                            inventory.wood += woodGained;
+                            resultMessage = `Josh accepts your rubies and gives you a huge stack of wood!\n**+${woodGained}** 🪵`;
+                        } else { // 2% chance of getting scammed
+                            resultMessage = 'Josh takes your rubies and runs away!';
+                            embedColor = '#ff0000'; // Red color for scam
+                        }
+                    } else {
+                        resultMessage = 'You don’t have enough rubies to barter!';
+                        embedColor = '#ff0000'; // Red color for failure
+                    }
+    
+                    await inventory.save();
+                    return { message: resultMessage, color: embedColor };
+                }
+            },
+            {
                 emoji: '4️⃣',
+                text: 'Give Josh fish -10🐟',
+                result: async (interaction, inventory) => {
+                    let resultMessage = '';
+                    let embedColor = '#00ff00'; // Default to green
+    
+                    if (inventory.fish >= 10) {
+                        inventory.fish -= 10;
+                        const chance = Math.random();
+    
+                        if (chance <= 0.5) { 
+                            const goldgained = Math.floor(Math.random() * 3) + 1;
+                            inventory.gold += goldgained;
+                            resultMessage = `Josh cooks your fish and gives you gold!\n**+${goldgained}**🪵`;
+                        } else { 
+                            const woodGained = Math.floor(Math.random() * 10) + 6;
+                            inventory.wood += woodGained;
+                            resultMessage = `Josh cooks your fish and gives you wood!\n**+${woodGained}**🪵`;
+                        }
+                    } else {
+                        resultMessage = 'You don’t have enough fish!';
+                        embedColor = '#ff0000'; // Red color for failure
+                    }
+    
+                    await inventory.save();
+                    return { message: resultMessage, color: embedColor };
+                }
+            },
+            {
+                emoji: '5️⃣',
                 text: 'Leave',
                 result: () => ({ message: 'You run away!', color: '#0099ff' })
             }
@@ -585,6 +642,32 @@ const events = [
             },
             {
                 emoji: '3️⃣',
+                text: 'Craft 5⚙️\n -100🔶 -75🪨 -15✨ -2♦️',
+                async result(interaction, inventory, tools) {
+                    // Check if the user has enough resources
+                    if (inventory.stone < 75 || inventory.copper < 100 || inventory.gold < 15 || inventory.ruby < 2) {
+                        let resultMessage = "You don’t have enough resources to metal parts.\n";
+    
+                        await inventory.save();
+                        return { message: resultMessage, color: '#ff0000' };
+                    }
+    
+                    // Deduct resources
+                    inventory.stone -= 75;
+                    inventory.copper -= 100;
+                    inventory.gold -= 15;
+                    inventory.ruby -= 2;
+                    // gain metal parts
+                    inventory.metalParts += 5;
+                
+                    await inventory.save();
+    
+                    let resultMessage = "NF89 crafts you metal parts!\n**+5**⚙️";
+                    return { message: resultMessage, color: '#00ff00' };
+                }
+            },
+            {
+                emoji: '4️⃣',
                 text: 'Leave',
                 async result() {
                     let resultMessage = "You decide to leave NF89’s workshop and continue on your journey.\n";
@@ -833,7 +916,7 @@ const events = [
     },    
     {
         id: 10,
-        description: "Poor people... But I was once like them...\nAll of them, Josh, Rex, Tbnr, Dolphe...\nIf only we could activate the Negadom Destroyer...\n",
+        description: "You meet JD the fisherman.\n**JD:** Poor people... But I was once like them...\nAll of them, Josh, Rex, Tbnr, Dolphe...\nIf only we could activate the Negadom Destroyer...\n",
         choices: [
             {
                 emoji: '1️⃣',
@@ -850,11 +933,11 @@ const events = [
                         inventory.gold -= 40;
                         inventory.wood -= 80;
                         inventory.rope -= 60;
-                        
+    
                         // Set fishing rod with full durability
                         tools.fishingRod = 1;
                         tools.fishingRodDurability = 100;
-                        
+    
                         await tools.save();
                         await inventory.save();
                         resultMessage = 'JD helps you craft a fishing rod!\n**Fishing Rod crafted!** 🎣';
@@ -868,11 +951,127 @@ const events = [
             },
             {
                 emoji: '2️⃣',
+                text: 'Ambush JD',
+                result: async (interaction, inventory) => {
+                    const randomOutcome = Math.random();
+                    let resultMessage = '';
+                    let embedColor = '#ff0000'; // Default to red for failure
+    
+                    if (randomOutcome < 0.35) { // 35% chance to loot items
+                        const berriesLoot = Math.floor(Math.random() * 3) + 1;
+                        const fishLoot = Math.floor(Math.random() * 3) + 1;
+                        const watermelonLoot = Math.random() < 0.5 ? Math.floor(Math.random() * 1) : 0;
+    
+                        inventory.berries += berriesLoot;
+                        inventory.fish += fishLoot;
+                        inventory.watermelon += watermelonLoot;
+                        await inventory.save();
+    
+                        resultMessage = `You caught JD by surprise and looted his items!\n**+${berriesLoot}** 🫐 **+${fishLoot}** 🐟 **+${watermelonLoot}** 🍉`;
+                        embedColor = '#00ff00'; // Green for success
+    
+                    } else if (randomOutcome < 0.65) { // 30% chance to fail due to Rohan and Josh
+                        resultMessage = "Rohan and Josh are in the store too. I can't get away with ambushing JD now...";
+                    } else { // 35% chance JD fights back
+                        const goldLoss = Math.floor(Math.random() * 2) + 1;
+    
+                        inventory.gold = Math.max(0, inventory.gold - goldLoss);
+                        await inventory.save();
+    
+                        resultMessage = `JD is prepared and knocks you out!\n**-${goldLoss}** ✨`;
+                    }
+    
+                    return { message: resultMessage, color: embedColor };
+                }
+            },
+            {
+                emoji: '3️⃣',
                 text: 'Leave',
-                result: () => ({ message: 'You decide to leave JD and continue exploring.', color: '#0099ff' })
+                result: () => ({ message: 'You decide to leave JD and continue exploring.', color: '#0099ff' }) // Blue for neutral
             }
         ],
         imageUrl: 'https://cdn.discordapp.com/attachments/935416283976048680/1275704210377412639/New_Piskel_2.png?ex=66c6dba1&is=66c58a21&hm=b9597c82245e578b102cbc907f3541a053c3f478d42d14d1ad3a5a1776f07578&'
+    },    
+    {
+        id: 11,
+        description: "You meet Rohan the fruit vendor.\n**Rohan:** If you ever see Josh around, don't talk to him.\nHe can't be trusted...",
+        choices: [
+            {
+                emoji: '1️⃣',
+                text: 'Sell 40🫐 for 5✨',
+                result: async (interaction, inventory) => {
+                    if (inventory.berries >= 40) {
+                        inventory.berries -= 40;
+                        inventory.gold += 5;
+                        await inventory.save();
+                        return { message: 'You sold berries to Rohan!\n**+5**✨', color: '#00ff00' }; // Green for success
+                    } else {
+                        return { message: 'You do not have enough berries.', color: '#ff0000' }; // Red for failure
+                    }
+                }
+            },
+            {
+                emoji: '2️⃣',
+                text: 'Sell 20🍎 for 5✨',
+                result: async (interaction, inventory) => {
+                    if (inventory.apples >= 20) {
+                        inventory.apples -= 20;
+                        inventory.gold += 5;
+                        await inventory.save();
+                        return { message: 'You sold apples to Rohan!\n**+5**✨', color: '#00ff00' }; // Green for success
+                    } else {
+                        return { message: 'You do not have enough apples.', color: '#ff0000' }; // Red for failure
+                    }
+                }
+            },
+            {
+                emoji: '3️⃣',
+                text: 'Sell 10🍉 for 1♦️',
+                result: async (interaction, inventory) => {
+                    if (inventory.watermelon >= 10) {
+                        inventory.watermelon -= 10;
+                        inventory.ruby += 1;
+                        await inventory.save();
+                        return { message: 'You sold watermelon to Rohan!\n**+1**♦️', color: '#00ff00' }; // Green for success
+                    } else {
+                        return { message: 'You do not have enough watermelon.', color: '#ff0000' }; // Red for failure
+                    }
+                }
+            },
+            {
+                emoji: '4️⃣',
+                text: 'Ambush Rohan',
+                result: async (interaction, inventory) => {
+                    if (Math.random() < 0.9) { // 90% chance of failure
+                        // Determine the most abundant resource
+                        const resources = [
+                            { type: 'wood', amount: inventory.wood },
+                            { type: 'stone', amount: inventory.stone },
+                            { type: 'copper', amount: inventory.copper },
+                            { type: 'palmLeaves', amount: inventory.palmLeaves },
+                            { type: 'berries', amount: inventory.berries },
+                            { type: 'apples', amount: inventory.apples }
+                        ];
+                        const mostAbundantResource = resources.reduce((max, resource) => resource.amount > max.amount ? resource : max, resources[0]);
+                        
+                        // Deduct resources
+                        const lossAmount = Math.min(20, mostAbundantResource.amount);
+                        inventory[mostAbundantResource.type] -= lossAmount;
+                        await inventory.save();
+                        
+                        return { message: `You tried to ambush Rohan, but he used his divine powers to destroy you!\n**-${lossAmount}** ${mostAbundantResource.type === 'wood' ? '🪵' : mostAbundantResource.type === 'stone' ? '🪨' : mostAbundantResource.type === 'copper' ? '🔶' : mostAbundantResource.type === 'palmLeaves' ? '🌿' : mostAbundantResource.type === 'berries' ? '🫐' : '🍎'}`, color: '#ff0000' }; // Red for failure
+                    } else {
+                        return { message: 'You managed to ambush Rohan successfully!\n', color: '#00ff00' }; // Green for success
+                    }
+                }
+            },
+            {
+                emoji: '5️⃣',
+                text: 'Leave',
+                result: () => ({ message: 'You decide to leave Rohan and continue exploring.', color: '#0099ff' }) // Blue for neutral
+            }
+        ],
+        imageUrl: 'https://cdn.discordapp.com/attachments/935416283976048680/1277522580164575284/ROHANfruitvendor.png?ex=66cd791e&is=66cc279e&hm=579a404fdb45f84946d0f0f214bdc0c3ed16f6be0eef1551c2f95bc0ac7cb078&'
     }
     
 ];

@@ -25,7 +25,11 @@ module.exports = {
                     { name: 'Fish', value: 'fish' },
                     { name: 'Rare Fish', value: 'rareFish' },
                     { name: 'Super Rare Fish', value: 'superRareFish' },
-                    { name: 'Legendary Fish', value: 'legendaryFish' }
+                    { name: 'Legendary Fish', value: 'legendaryFish' },
+                    { name: 'Berries', value: 'berries' },
+                    { name: 'Apples', value: 'apples' },
+                    { name: 'Watermelon', value: 'watermelon' },
+                    { name: 'Metal Parts', value: 'metalParts' }
                 ))
         .addIntegerOption(option =>
             option.setName('amount')
@@ -43,7 +47,7 @@ module.exports = {
         }
 
         // Valid resources
-        const validResources = ['wood', 'stone', 'palmLeaves', 'gold', 'rope', 'diamond', 'ruby', 'copper', 'fish', 'rareFish', 'superRareFish', 'legendaryFish'];
+        const validResources = ['wood', 'stone', 'palmLeaves', 'gold', 'rope', 'diamond', 'ruby', 'copper', 'fish', 'rareFish', 'superRareFish', 'legendaryFish', 'berries', 'apples', 'watermelon', 'metalparts'];
         if (!validResources.includes(resource)) {
             return interaction.reply({ content: 'Invalid resource. Please choose a valid resource to bet.', ephemeral: true });
         }
@@ -136,6 +140,10 @@ function getEmojiForResource(resource) {
         case 'rareFish': return '🐠';
         case 'superRareFish': return '🐡';
         case 'legendaryFish': return '🦈';
+        case 'berries': return '🫐';
+        case 'apples': return '🍎';
+        case 'watermelon': return '🍉';
+        case 'metalparts': return '⚙️';
         default: return '';
     }
 }

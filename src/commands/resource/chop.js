@@ -9,7 +9,7 @@ module.exports = {
         .setDescription('Chop wood'),
 
     async execute(interaction) {
-        let cooldown = 15 * 1000; // 15 seconds cooldown
+        let cooldown = 10 * 1000; // 15 seconds cooldown
         const userId = interaction.user.id;
         const username = interaction.user.username;
 
@@ -31,7 +31,7 @@ module.exports = {
         const hasAxe = tool && tool.metalAxe && tool.metalAxeDurability > 0;
 
         if (hasAxe) {
-            cooldown = 8 * 1000; // 8 seconds cooldown
+            cooldown = 5 * 1000; // 8 seconds cooldown
         }
 
         const lastChop = user.lastChop || 0;
@@ -44,7 +44,7 @@ module.exports = {
             });
         }
 
-        let wood = hasAxe ? Math.floor(Math.random() * 4) + 3 : Math.floor(Math.random() * 5) + 1;
+        let wood = hasAxe ? Math.floor(Math.random() * 5) + 3 : Math.floor(Math.random() * 5) + 1;
         inventory.wood += wood;
 
         let isNegative = false;
@@ -55,6 +55,7 @@ module.exports = {
         let stolenLeaves = 0;
         let palmLeaves = 0;
         let rope = 0;
+        let bonusApple = 0;
 
         if (hasAxe) { // check for axe durability
             tool.metalAxeDurability -= 1;
@@ -66,7 +67,7 @@ module.exports = {
             await tool.save();
         }
 
-        const thieves = ['JD', 'Nesjonat', 'VRT Gaming', 'Aizer', 'Rohan', 'Josh', 'Dolphe', 'Tbnr', 'Bio', 'Verx', 'Doggy', 'NF89', 'Triv', 'Rex', 'Duko', 'Arkiver', 'Caliper'];
+        const thieves = ['JD', 'JC23GDFFMI', 'Nesjonat', 'VRT Gaming', 'Aizer', 'Rohan', 'Josh', 'Dolphe', 'Tbnr', 'Bio', 'Verx', 'Doggy', 'NF89', 'Triv', 'Rex', 'Duko', 'Arkiver', 'Caliper'];
         const thiefName = thieves[Math.floor(Math.random() * thieves.length)]; // Randomly select a thief's name
 
         const isJoshEvent = Math.random() < 0.5;
@@ -114,17 +115,22 @@ module.exports = {
                 inventory.wood += bonusWood;
             }
             if (Math.random() < (hasAxe ? 0.7 : 0.5)) {
-                palmLeaves = Math.floor(Math.random() * 4) + 2;
+                palmLeaves = Math.floor(Math.random() * 4) + 1;
                 inventory.palmLeaves += palmLeaves;
             }
             if (Math.random() < (hasAxe ? 0.2 : 0.05)) {
                 rope += 1;
                 inventory.rope += rope;
             }
+            if (Math.random() < (hasAxe ? 0.2 : 0.1)) {
+                bonusApple += 1;
+                inventory.apples += bonusApple;
+            }
             if (hasAxe && Math.random() < 0.03) {
                 extraBonusWood = Math.floor(Math.random() * 16) + 15;
                 inventory.wood += extraBonusWood;
             }
+            
         }
 
         // Save the tool, inventory, and user data
@@ -142,14 +148,14 @@ module.exports = {
 
         if (isNegative){
             if (isJoshEvent){
-                if (hasAxe){
+                if (hasAxe){ // wood 
                     embed.setDescription(`${thiefName} tried to steal your wood, but you fended them off! **+4🪵** and **+1🪢**\n🪓 -1 durability`)
                 }
                 else{
                     embed.setDescription(`${thiefName} stole your wood while you were chopping!\n-**${stolenWood}**🪵`)
                 }
             }
-            else{ // rohan
+            else{ // Leaf event
                 if (hasAxe){
                     embed.setDescription(`${thiefName} tried to steal your leaves, but you fended them off! **+4🍃** and **+1🪢**\n🪓 -1 durability`)
                 }
@@ -170,6 +176,10 @@ module.exports = {
 
         if (palmLeaves > 0) {
             embed.addFields({ name: '**Bonus!**', value: `You picked up some huge leaves! **+${palmLeaves}**🍃!`, inline: false });
+        }
+
+        if (bonusApple > 0) {
+            embed.addFields({ name: '**Bonus!**', value: `You plucked an apple! **+${bonusApple}**🍎!`, inline: false });
         }
 
         if (rope > 0) {
