@@ -1,9 +1,4 @@
 
-ALTER TABLE Inventories
-ADD COLUMN apples INTEGER DEFAULT 0;
 
-ALTER TABLE Inventories
-ADD COLUMN watermelon INTEGER DEFAULT 0;
-
-ALTER TABLE Inventories
-ADD COLUMN metalParts INTEGER DEFAULT 0;
+INSERT INTO Tools (id, userId, metalAxe, metalAxeDurability, metalPickaxe, metalPickaxeDurability, fishingRod, fishingRodDurability)
+VALUES (7, 19, 0, 0, 1, 7, 0, 0);

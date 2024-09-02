@@ -110,35 +110,7 @@ const events = [
                         if (chance < 0.98) { // 98% chance of getting a huge stack of wood
                             const woodGained = Math.floor(Math.random() * 61) + 50; // 50 to 110 wood
                             inventory.wood += woodGained;
-                            resultMessage = `Josh accepts your rubies and gives you a huge stack of wood!\n**+${woodGained}** 🪵`;
-                        } else { // 2% chance of getting scammed
-                            resultMessage = 'Josh takes your rubies and runs away!';
-                            embedColor = '#ff0000'; // Red color for scam
-                        }
-                    } else {
-                        resultMessage = 'You don’t have enough rubies to barter!';
-                        embedColor = '#ff0000'; // Red color for failure
-                    }
-    
-                    await inventory.save();
-                    return { message: resultMessage, color: embedColor };
-                }
-            },
-            {
-                emoji: '3️⃣',
-                text: 'Barter 2♦️ for wood',
-                result: async (interaction, inventory) => {
-                    let resultMessage = '';
-                    let embedColor = '#00ff00'; // Default to green
-    
-                    if (inventory.ruby >= 2) {
-                        inventory.ruby -= 2;
-                        const chance = Math.random();
-    
-                        if (chance < 0.98) { // 98% chance of getting a huge stack of wood
-                            const woodGained = Math.floor(Math.random() * 61) + 50; // 50 to 110 wood
-                            inventory.wood += woodGained;
-                            resultMessage = `Josh accepts your rubies and gives you a huge stack of wood!\n**+${woodGained}** 🪵`;
+                            resultMessage = `Josh accepts your rubies and gives you a huge stack of wood!\n**+${woodGained}**🪵`;
                         } else { // 2% chance of getting scammed
                             resultMessage = 'Josh takes your rubies and runs away!';
                             embedColor = '#ff0000'; // Red color for scam
@@ -163,10 +135,10 @@ const events = [
                         inventory.fish -= 10;
                         const chance = Math.random();
     
-                        if (chance <= 0.5) { 
+                        if (chance <= 0.7) { 
                             const goldgained = Math.floor(Math.random() * 3) + 1;
                             inventory.gold += goldgained;
-                            resultMessage = `Josh cooks your fish and gives you gold!\n**+${goldgained}**🪵`;
+                            resultMessage = `Josh cooks your fish and gives you gold!\n**+${goldgained}**✨`;
                         } else { 
                             const woodGained = Math.floor(Math.random() * 10) + 6;
                             inventory.wood += woodGained;
@@ -966,8 +938,11 @@ const events = [
                         inventory.fish += fishLoot;
                         inventory.watermelon += watermelonLoot;
                         await inventory.save();
-    
-                        resultMessage = `You caught JD by surprise and looted his items!\n**+${berriesLoot}** 🫐 **+${fishLoot}** 🐟 **+${watermelonLoot}** 🍉`;
+                        
+                        if (watermelonLoot > 0)
+                            resultMessage = `You caught JD by surprise and looted his items!\n**+${berriesLoot}**🫐 **+${fishLoot}**🐟 **+${watermelonLoot}**🍉`;
+                        else
+                            resultMessage = `You caught JD by surprise and looted his items!\n**+${berriesLoot}**🫐 **+${fishLoot}**🐟`;
                         embedColor = '#00ff00'; // Green for success
     
                     } else if (randomOutcome < 0.65) { // 30% chance to fail due to Rohan and Josh
@@ -998,11 +973,11 @@ const events = [
         choices: [
             {
                 emoji: '1️⃣',
-                text: 'Sell 40🫐 for 5✨',
+                text: 'Sell 40🫐 for 4✨',
                 result: async (interaction, inventory) => {
                     if (inventory.berries >= 40) {
                         inventory.berries -= 40;
-                        inventory.gold += 5;
+                        inventory.gold += 4;
                         await inventory.save();
                         return { message: 'You sold berries to Rohan!\n**+5**✨', color: '#00ff00' }; // Green for success
                     } else {
@@ -1012,11 +987,11 @@ const events = [
             },
             {
                 emoji: '2️⃣',
-                text: 'Sell 20🍎 for 5✨',
+                text: 'Sell 20🍎 for 4✨',
                 result: async (interaction, inventory) => {
                     if (inventory.apples >= 20) {
                         inventory.apples -= 20;
-                        inventory.gold += 5;
+                        inventory.gold += 4;
                         await inventory.save();
                         return { message: 'You sold apples to Rohan!\n**+5**✨', color: '#00ff00' }; // Green for success
                     } else {
@@ -1061,7 +1036,7 @@ const events = [
                         
                         return { message: `You tried to ambush Rohan, but he used his divine powers to destroy you!\n**-${lossAmount}** ${mostAbundantResource.type === 'wood' ? '🪵' : mostAbundantResource.type === 'stone' ? '🪨' : mostAbundantResource.type === 'copper' ? '🔶' : mostAbundantResource.type === 'palmLeaves' ? '🌿' : mostAbundantResource.type === 'berries' ? '🫐' : '🍎'}`, color: '#ff0000' }; // Red for failure
                     } else {
-                        return { message: 'You managed to ambush Rohan successfully!\n', color: '#00ff00' }; // Green for success
+                        return { message: 'You managed to ambush Rohan successfully! You gained nothing lmao.\n', color: '#00ff00' }; // Green for success
                     }
                 }
             },
@@ -1072,8 +1047,363 @@ const events = [
             }
         ],
         imageUrl: 'https://cdn.discordapp.com/attachments/935416283976048680/1277522580164575284/ROHANfruitvendor.png?ex=66cd791e&is=66cc279e&hm=579a404fdb45f84946d0f0f214bdc0c3ed16f6be0eef1551c2f95bc0ac7cb078&'
-    }
+    },
+    {
+        id: 12,
+        description: "You encounter Daffysamlake who spots a cave in the distance. He suggests that you go explore the cave with him.",
+        imageUrl: "https://cdn.discordapp.com/attachments/1135808718492139521/1280078811680997448/Daffysamlake.png?ex=66d6c5cb&is=66d5744b&hm=146e266445515a61fd8feae066021d157ab9e77a960e77baf45162fbcc0128c9&",
+        choices: [
+            {
+                emoji: '1️⃣',
+                text: 'Explore the cave with Daffysamlake',
+                async result(interaction, inventory) {
+                    let resultMessage = "You explore the cave with Daffysamlake and gain resources!\n";
     
+                    // Guaranteed resources
+                    const stoneGain = Math.floor(Math.random() * 5) + 1; // 1-5 stone
+                    const copperGain = Math.floor(Math.random() * 3) + 1; // 1-3 copper
+                    inventory.stone += stoneGain;
+                    inventory.copper += copperGain;
+                    resultMessage += `+${stoneGain} 🪨\n+${copperGain} 🔶\n`;
+    
+                    // 75% chance for wood
+                    if (Math.random() <= 0.75) {
+                        const woodGain = Math.floor(Math.random() * 4) + 1; // 1-4 wood
+                        inventory.wood += woodGain;
+                        resultMessage += `+${woodGain} 🪵\n`;
+                    }
+    
+                    // 75% chance for berries
+                    if (Math.random() <= 0.75) {
+                        const berriesGain = Math.floor(Math.random() * 3) + 1; // 1-3 berries
+                        inventory.berries += berriesGain;
+                        resultMessage += `+${berriesGain} 🍇\n`;
+                    }
+    
+                    // 20% chance for rope
+                    if (Math.random() <= 0.20) {
+                        const ropeGain = Math.floor(Math.random() * 2) + 1; // 1-2 rope
+                        inventory.rope += ropeGain;
+                        resultMessage += `+${ropeGain} 🪢\n`;
+                    }
+    
+                    // 20% chance for palm leaves
+                    if (Math.random() <= 0.20) {
+                        const palmLeavesGain = Math.floor(Math.random() * 3) + 1; // 1-3 palm leaves
+                        inventory.palmLeaves += palmLeavesGain;
+                        resultMessage += `+${palmLeavesGain} 🍃\n`;
+                    }
+    
+                    // 10% chance for gold
+                    if (Math.random() <= 0.10) {
+                        inventory.gold += 1;
+                        resultMessage += `+1 ✨\n`;
+                    }
+    
+                    await inventory.save();
+                    return { message: resultMessage, color: '#00ff00' };
+                }
+            },
+            {
+                emoji: '2️⃣',
+                text: 'Explore the cave by yourself (⛏️ -5 durability)',
+                async result(interaction, inventory, tools) {
+                    let resultMessage = "";
+                    const outcome = Math.random();
+    
+                    // Deduct 5 durability from the pickaxe if the user has one
+                    if (tools.metalPickaxe) {
+                        tools.metalPickaxeDurability -= 5;
+                        await tools.save();
+                    }
+    
+                    if (outcome <= 0.85) { // 85% chance for a positive result
+                        resultMessage = "You explore the cave on your own and gain a multitude of resources!\n";
+    
+                        // Guaranteed resources
+                        const stoneGain = Math.floor(Math.random() * 10) + 2; // 2-11 stone
+                        const copperGain = Math.floor(Math.random() * 6) + 2; // 2-7 copper
+                        const woodGain = Math.floor(Math.random() * 6) + 2; // 2-7 wood
+                        inventory.stone += stoneGain;
+                        inventory.copper += copperGain;
+                        inventory.wood += woodGain;
+                        resultMessage += `+${stoneGain} 🪨\n+${copperGain} 🔶\n+${woodGain} 🪵\n`;
+    
+                        // 80% chance for berries
+                        if (Math.random() <= 0.80) {
+                            const berriesGain = Math.floor(Math.random() * 5) + 1; // 1-5 berries
+                            inventory.berries += berriesGain;
+                            resultMessage += `+${berriesGain} 🫐\n`;
+                        }
+    
+                        // 75% chance for rope
+                        if (Math.random() <= 0.75) {
+                            const ropeGain = Math.floor(Math.random() * 5) + 1; // 1-5 rope
+                            inventory.rope += ropeGain;
+                            resultMessage += `+${ropeGain} 🪢\n`;
+                        }
+    
+                        // 75% chance for palm leaves
+                        if (Math.random() <= 0.75) {
+                            const palmLeavesGain = Math.floor(Math.random() * 4) + 1; // 1-4 palm leaves
+                            inventory.palmLeaves += palmLeavesGain;
+                            resultMessage += `+${palmLeavesGain} 🍃\n`;
+                        }
+    
+                        // 50% chance for gold
+                        if (Math.random() <= 0.50) {
+                            const goldGain = Math.floor(Math.random() * 4) + 1; // 1-4 gold
+                            inventory.gold += goldGain;
+                            resultMessage += `+${goldGain} ✨\n`;
+                        }
+    
+                        // 6% chance for ruby
+                        if (Math.random() <= 0.06) {
+                            inventory.ruby += 1;
+                            resultMessage += `+1 ♦️\n`;
+                        }
+    
+                        // 2% chance for metal parts
+                        if (Math.random() <= 0.02) {
+                            inventory.metalParts += 1;
+                            resultMessage += `+1⚙️\n`;
+                        }
+    
+                        await inventory.save();
+                        return { message: resultMessage, color: '#00ff00' };
+                    } else { // 15% chance for a negative result
+                        resultMessage = "You explore the cave but Daffysamlake got all of it first!\n";
+                        
+                        // Minimal resources
+                        const stoneGain = Math.floor(Math.random() * 2) + 1; // 1-2 stone
+                        const woodGain = Math.floor(Math.random() * 2) + 1; // 1-2 wood
+                        inventory.stone += stoneGain;
+                        inventory.wood += woodGain;
+                        resultMessage += `+${stoneGain} 🪨\n+${woodGain} 🪵\n`;
+    
+                        await inventory.save();
+                        return { message: resultMessage, color: '#ff0000' };
+                    }
+                }
+            }
+        ]
+    },
+    {
+        id: 13,
+        description: "You stumble upon thedoggyp's abandoned shack.",
+        imageUrl: "https://cdn.discordapp.com/attachments/1135808718492139521/1280078811379011604/FrancisShack.png?ex=66d6c5cb&is=66d5744b&hm=0345e04f90f924040942f2a99fda32cb4c181ab0c12dc1aa12c51a2275371286&", // Placeholder URL, replace with actual image if available
+        choices: [
+            {
+                emoji: '1️⃣',
+                text: 'Loot the house',
+                async result(interaction, inventory) {
+                    const outcome = Math.random();
+                    let resultMessage = "";
+    
+                    if (outcome <= 0.85) {
+                        resultMessage = "You find some loot in the shack!\n";
+                        const resources = {
+                            wood: [1, 4],
+                            stone: [1, 2],
+                            rope: [0, 2]
+                        };
+    
+                        for (const [resource, range] of Object.entries(resources)) {
+                            const gained = Math.floor(Math.random() * (range[1] - range[0] + 1)) + range[0];
+                            if (gained > 0) {  // Only add to message if resource > 0
+                                inventory[resource] += gained;
+                                resultMessage += `+${gained} ${resourceEmojiMap[resource]}\n`;
+                            }
+                        }
+    
+                    } else {
+                        resultMessage = "Turns out thedoggyp is still in his shack! He attacks you!\n";
+                        const losses = {
+                            stone: 1,
+                            palmLeaves: 1,
+                            berries: 1
+                        };
+    
+                        for (const [resource, loss] of Object.entries(losses)) {
+                            if (inventory[resource] > 0) {
+                                inventory[resource] -= loss;
+                                resultMessage += `-${loss} ${resourceEmojiMap[resource]}\n`;
+                            }
+                        }
+                    }
+    
+                    await inventory.save();
+                    return { message: resultMessage, color: outcome <= 0.85 ? '#00ff00' : '#ff0000' };
+                }
+            },
+            {
+                emoji: '2️⃣',
+                text: 'Deconstruct the house (🪓 -5 Durability)',
+                async result(interaction, inventory, tools) {
+                    // Check if the user has an axe and enough durability
+                    if (!tools.metalAxe || tools.metalAxeDurability < 5) {
+                        // No axe or not enough durability
+                        return {
+                            message: "You don't have a sturdy enough axe to deconstruct the house!",
+                            color: '#ff0000'
+                        };
+                    }
+    
+                    // Deduct axe durability
+                    tools.metalAxeDurability -= 5;
+                    await tools.save();
+    
+                    // Gain materials from deconstructing the house
+                    let resultMessage = "You deconstruct the house and gather materials!\n";
+                    const resources = {
+                        wood: [5, 25],
+                        stone: [2, 10],
+                        rope: [2, 5]
+                    };
+    
+                    for (const [resource, range] of Object.entries(resources)) {
+                        const gained = Math.floor(Math.random() * (range[1] - range[0] + 1)) + range[0];
+                        inventory[resource] += gained;
+                        resultMessage += `+${gained} ${resourceEmojiMap[resource]}\n`;
+                    }
+    
+                    // Bonus loot if thedoggyp was in the house
+                    if (Math.random() <= 0.30) {
+                        resultMessage += "Turns out thedoggyp was in his shack! He runs away in terror, dropping some loot!\n";
+                        const bonusLoot = {
+                            gold: [1, 2],
+                            copper: [2, 5]
+                        };
+    
+                        for (const [resource, range] of Object.entries(bonusLoot)) {
+                            const gained = Math.floor(Math.random() * (range[1] - range[0] + 1)) + range[0];
+                            inventory[resource] += gained;
+                            resultMessage += `+${gained} ${resourceEmojiMap[resource]}\n`;
+                        }
+                    }
+    
+                    await inventory.save();
+                    return { message: resultMessage, color: '#00ff00' };
+                }
+            },
+            {
+                emoji: '3️⃣',
+                text: 'Forage outside the house',
+                async result(interaction, inventory) {
+                    // Gather fruit around the house
+                    let resultMessage = "You find some fruit around the house!\n";
+                    const resources = {
+                        berries: [1, 4],
+                        apples: [1, 4]
+                    };
+    
+                    for (const [resource, range] of Object.entries(resources)) {
+                        const gained = Math.floor(Math.random() * (range[1] - range[0] + 1)) + range[0];
+                        inventory[resource] += gained;
+                        resultMessage += `+${gained} ${resourceEmojiMap[resource]}\n`;
+                    }
+    
+                    await inventory.save();
+                    return { message: resultMessage, color: '#00ff00' };
+                }
+            }
+        ]
+    },
+    {
+        id: 14,
+        description: "You, Tbnr, and Josh paint a picture of Hu Tao from Genshin Impact.",
+        imageUrl: "https://cdn.discordapp.com/attachments/1135808718492139521/1280090730525884479/hutao_tbnr_UPDATE.png?ex=66d6d0e5&is=66d57f65&hm=fc3807ed503c57ff78d77f2b541fd6dfd7f4d3ddc745db984a6262e5b6ecc721&",
+        choices: [
+            {
+                emoji: '1️⃣',
+                text: 'Sell the painting',
+                async result(interaction, inventory) {
+                    const buyers = ['Dolphe', 'thedoggyp', 'Rex', 'Bioniq', 'caliper', 'Rohan'];
+                    const randomBuyer = buyers[Math.floor(Math.random() * buyers.length)];
+                    const goldEarned = Math.floor(Math.random() * 2) + 1;
+                    
+                    inventory.gold += goldEarned;
+                    await inventory.save();
+    
+                    const resultMessage = `You sold the painting to ${randomBuyer} and split the profits!\n+${goldEarned} ✨`;
+                    return { message: resultMessage, color: '#00ff00' };
+                }
+            },
+            {
+                emoji: '2️⃣',
+                text: 'Backstab Tbnr and Josh',
+                async result(interaction, inventory) {
+                    const outcome = Math.random();
+                    let resultMessage = "";
+    
+                    if (outcome <= 0.50) {
+                        const goldEarned = Math.floor(Math.random() * 4) + 2;
+                        inventory.gold += goldEarned;
+                        resultMessage = `You backstab Tbnr and Josh and sell the painting yourself!\n+${goldEarned} ✨`;
+                    } else {
+                        const losses = {
+                            gold: 1,
+                            wood: 3,
+                            stone: 3,
+                            copper: 3
+                        };
+    
+                        for (const [resource, loss] of Object.entries(losses)) {
+                            if (inventory[resource] > 0) {
+                                inventory[resource] -= loss;
+                                resultMessage += `-${loss} ${resourceEmojiMap[resource]}\n`;
+                            }
+                        }
+    
+                        resultMessage = "You attempt to backstab Tbnr and Josh, but they destroy you in the process!\n";
+                    }
+    
+                    await inventory.save();
+                    return { message: resultMessage, color: outcome <= 0.50 ? '#00ff00' : '#ff0000' };
+                }
+            },
+            {
+                emoji: '3️⃣',
+                text: 'Destroy the painting! (🪓 -2 Durability)',
+                async result(interaction, inventory, tools) {
+                    // Check if the user has an axe and enough durability
+                    if (!tools.metalAxe || tools.metalAxeDurability < 2) {
+                        // No axe or not enough durability
+                        return {
+                            message: "You don't have a sturdy enough axe to destroy the painting!",
+                            color: '#ff0000'
+                        };
+                    }
+    
+                    // Deduct axe durability
+                    tools.metalAxeDurability -= 2;
+                    await tools.save();
+    
+                    // Gain rewards for destroying the painting
+                    let resultMessage = "You destroy the painting! NF89 gives you a reward for being based!\n";
+                    const resources = {
+                        gold: [2, 5],
+                        copper: [2, 5]
+                    };
+    
+                    for (const [resource, range] of Object.entries(resources)) {
+                        const gained = Math.floor(Math.random() * (range[1] - range[0] + 1)) + range[0];
+                        inventory[resource] += gained;
+                        resultMessage += `+${gained} ${resourceEmojiMap[resource]}\n`;
+                    }
+    
+                    // 5% chance to get a ruby
+                    if (Math.random() <= 0.05) {
+                        inventory.ruby += 1;
+                        resultMessage += `+1♦️`;
+                    }
+    
+                    await inventory.save();
+                    return { message: resultMessage, color: '#00ff00' };
+                }
+            }
+        ]
+    }    
 ];
 
 
@@ -1218,7 +1548,7 @@ module.exports = {
         
             // Cooldown check
             const now = Date.now();
-            const cooldown = 20 * 1000; // 20 seconds
+            const cooldown = 14 * 1000; // 20 seconds
             const lastExplore = user.lastExplore || 0;
         
             if (now - lastExplore < cooldown) {

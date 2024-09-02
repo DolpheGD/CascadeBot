@@ -22,7 +22,11 @@ module.exports = {
             // Fetch the user's tools
             let tools = await Tool.findOne({ where: { userId: user.id } });
 
-            if (!tools || !tools.fishingRod) {
+            if (!tools) {
+                tools = await Tool.create({ userId: user.id });
+            }
+
+            if (!tools.fishingRod) {
                 return interaction.reply({ content: 'You do not own a fishing rod.', ephemeral: true });
             }
 

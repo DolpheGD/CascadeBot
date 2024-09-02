@@ -131,26 +131,26 @@ module.exports = {
 
             // Bonuses
             let bonusChance = Math.random();
-            if (bonusChance < 0.25) { // 25% chance to get 1-3 apples
+            if (bonusChance < 0.3) { // 30% chance to get 1-3 apples
                 const applesAmount = Math.floor(Math.random() * 3) + 1;
                 inventory.apples += applesAmount;
                 bonuses.normal.push(`**+${applesAmount}** 🍎`);
             }
 
             bonusChance = Math.random();
-            if (bonusChance < 0.09) { // 9% chance to get 1 watermelon
+            if (bonusChance < 0.06) { // 6% chance to get 1 watermelon
                 inventory.watermelon += 1;
                 bonuses.rare.push(`**+1** 🍉`);
             }
 
             bonusChance = Math.random();
-            if (bonusChance < 0.04) { // 4% chance to get 1 rope
+            if (bonusChance < 0.08) { // 8% chance to get 1 rope
                 inventory.rope += 1;
                 bonuses.rare.push(`**+1** 🪢`);
             }
 
             bonusChance = Math.random();
-            if (bonusChance < 0.15) { // 15% chance to find 1-2 stone
+            if (bonusChance < 0.2) { // 20% chance to find 1-2 stone
                 const stoneAmount = Math.floor(Math.random() * 2) + 1;
                 inventory.stone += stoneAmount;
                 bonuses.normal.push(`**+${stoneAmount}** 🪨`);
@@ -160,14 +160,14 @@ module.exports = {
             // Tool bonuses
             if (bonusChance < 0.002 && !tools.pickaxe) { // 0.2% chance to find a pickaxe
                 const pickaxeDurability = Math.floor(Math.random() * 6) + 5; // 5 to 10 durability
-                tools.pickaxe = true;
-                tools.pickaxeDurability = pickaxeDurability;
+                tools.metalPickaxe = true;
+                tools.metalPickaxeDurability = pickaxeDurability;
                 bonuses.ultraRare.push(`You found a pickaxe with **${pickaxeDurability}** durability! ⛏️`);
             }
             if (bonusChance < 0.004 && bonusChance >= 0.002 && !tools.axe) { // 0.2% chance to find an axe
                 const axeDurability = Math.floor(Math.random() * 6) + 5; // 5 to 10 durability
-                tools.axe = true;
-                tools.axeDurability = axeDurability;
+                tools.metalAxe = true;
+                tools.metalAxeDurability = axeDurability;
                 bonuses.ultraRare.push(`You found an axe with **${axeDurability}** durability! 🪓`);
             }
             if (bonusChance < 0.005 && bonusChance >= 0.004 && !tools.fishingRod) { // 0.1% chance to find a fishing rod
