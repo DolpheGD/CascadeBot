@@ -22,7 +22,7 @@ module.exports = {
         activeBets.add(userId);
 
         // Valid resources
-        const validResources = ['wood', 'stone', 'palmLeaves', 'gold', 'rope', 'diamond', 'ruby', 'copper'];
+        const validResources = ['wood', 'stone', 'palmLeaves', 'gold', 'rope', 'diamond', 'ruby', 'copper', 'fish', 'rareFish', 'superRareFish', 'legendaryFish', 'berries', 'apples', 'watermelon', 'metalParts'];
 
         // Check if user has enough of any resource to bet
         const [user] = await User.findOrCreate({ where: { discordId: userId } });
@@ -108,6 +108,14 @@ function getEmojiForResource(resource) {
         case 'diamond': return '💎';
         case 'ruby': return '♦️';
         case 'copper': return '🔶';
+        case 'fish': return '🐟';
+        case 'rareFish': return '🐠';
+        case 'superRareFish': return '🐡';
+        case 'legendaryFish': return '🦈';
+        case 'berries': return '🫐';
+        case 'apples': return '🍎';
+        case 'watermelon': return '🍉';
+        case 'metalParts': return '⚙️';
         default: return '';
     }
 }

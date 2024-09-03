@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const User = require('../../models/User');
 const Inventory = require('../../models/Inventory');
 const Tool = require('../../models/Tool');
+const { trackQuestProgress } = require('../../commands/utility/quest.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -12,19 +13,21 @@ module.exports = {
         const discordId = interaction.user.id;
 
         try {
+            await interaction.reply('Processing forage...');
+            
             // Fetch the user data
             const user = await User.findOne({ where: { discordId } });
 
             if (!user) {
-                return interaction.reply({ content: 'User not found.', ephemeral: true });
+                return interaction.editReply({ content: 'User not found.', ephemeral: true });
             }
 
             // Check cooldown
             const now = Date.now();
-            const cooldown = 25 * 1000; // 25 seconds
+            const cooldown = 20 * 1000; // 20 seconds
             if (now - user.lastForage < cooldown) {
                 const secondsLeft = Math.ceil((cooldown - (now - user.lastForage)) / 1000);
-                return interaction.reply({ content: `You need to wait ${secondsLeft} seconds before foraging again.`, ephemeral: true });
+                return interaction.editReply({ content: `You need to wait ${secondsLeft} seconds before foraging again.`, ephemeral: true });
             }
 
             // Update last forage time
@@ -42,7 +45,7 @@ module.exports = {
             if (!tools) {
                 tools = await Tool.create({ userId: user.id });
             }
-
+            
             // Negative event (10% chance)
             if (Math.random() < 0.1) {
                 const thieves = ['JD', 'JC23GDFFMI', 'Nesjonat', 'VRT Gaming', 'Aizer', 'Rohan', 'Josh', 'Dolphe', 'Tbnr', 'Bio', 'Verx', 'Doggy', 'NF89', 'Triv', 'Rex', 'Duko', 'Arkiver', 'Caliper'];
@@ -105,7 +108,7 @@ module.exports = {
                     .setColor('#ff0000');
 
                 // Reply with the negative event result
-                return interaction.reply({ embeds: [embed] });
+                return interaction.editReply({content: '', embeds: [embed] });
             }
 
             // If no negative event, proceed with foraging logic
@@ -200,10 +203,26 @@ module.exports = {
             }
 
             // Reply with the forage result
-            return interaction.reply({ embeds: [embed] });
+            await interaction.editReply({content: '', embeds: [embed] });
+
+            // Success foraging -> progress updates
+            const questResult = await trackQuestProgress(interaction.user.id, 'forage', interaction); 
+
+            // Send quest result message if there are quest updates
+            if (questResult != 'No active quest found.') {
+                const questEmbed = new EmbedBuilder()
+                    .setTitle('Quest Update')
+                    .setDescription(questResult)
+                    .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
+                    .setColor('#00ff00');
+                return interaction.followUp({content: '', embeds: [questEmbed] });
+            }
+
+            return;
+
         } catch (error) {
             console.error(error);
-            return interaction.reply({ content: 'There was an error while executing the command.', ephemeral: true });
+            return interaction.editReply({ content: 'There was an error while executing the command.', ephemeral: true });
         }
     },
 };

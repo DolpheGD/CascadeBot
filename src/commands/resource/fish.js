@@ -26,7 +26,7 @@ module.exports = {
                 tools = await Tool.create({ userId: user.id });
             }
 
-            if (!tools.fishingRod) {
+            if (!tools || !tools.fishingRod) {
                 return interaction.reply({ content: 'You do not own a fishing rod.', ephemeral: true });
             }
 
@@ -45,7 +45,7 @@ module.exports = {
             // Decrease fishing rod durability
             tools.fishingRodDurability -= 1;
             if (tools.fishingRodDurability <= 0) {
-                tools.fishingRod = null; // Remove fishing rod if durability is 0
+                tools.fishingRod = 0; 
                 tools.fishingRodDurability = 0;
                 await tools.save();
                 return interaction.reply({ content: 'Your fishing rod has broken!', ephemeral: true });

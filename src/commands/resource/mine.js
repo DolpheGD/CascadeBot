@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const User = require('../../models/User');
 const Inventory = require('../../models/Inventory');
 const Tool = require('../../models/Tool');
+const { trackQuestProgress } = require('../../commands/utility/quest.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -9,10 +10,12 @@ module.exports = {
         .setDescription('Mine for resources'),
 
     async execute(interaction) {
-        let cooldown = 20 * 1000; // 20 seconds cooldown
+        let cooldown = 1 * 1000; // 20 seconds cooldown
         const userId = interaction.user.id;
 
         try {
+            await interaction.reply('Processing mine...');
+
             // Find or create the user
             const [user] = await User.findOrCreate({
                 where: { discordId: userId },
@@ -37,7 +40,7 @@ module.exports = {
             }
 
             if (now - lastMine < cooldown) {
-                return interaction.reply({
+                return interaction.editReply({
                     content: `You are mining too fast! Please wait ${Math.ceil((cooldown - (now - lastMine)) / 1000)} more seconds.`,
                     ephemeral: true
                 });
@@ -103,7 +106,7 @@ module.exports = {
                         .setDescription(`You bump into ${thiefName} in the mines and they steal some stone from you!\n**-${stoneLost}** 🪨`)
                         .setFooter({ text: `Total stone: ${inventory.stone}` });
 
-                    return interaction.reply({ embeds: [embed] });
+                    return interaction.editReply({content: '', embeds: [embed] });
 
                 } else if (Math.random() < 0.5 && inventory.gold > 1) { // 20% chance to lose gold
                     const goldLost = Math.floor(Math.random() * 2) + 1;
@@ -116,7 +119,7 @@ module.exports = {
                         .setDescription(`You find ${thiefName}, who is jealous of your gold and attacks you!\n**-${goldLost}** ✨`)
                         .setFooter({ text: `Total gold: ${inventory.gold}` });
 
-                    return interaction.reply({ embeds: [embed] });
+                    return interaction.editReply({content: '', embeds: [embed] });
                 } else if (Math.random() < 0.4) { // 20% chance for the new event
                     if (inventory.wood > 0 || inventory.palmLeaves > 0 || inventory.stone > 0 || inventory.copper > 0) {
                         inventory.wood = Math.max(inventory.wood - 1, 0);
@@ -128,17 +131,17 @@ module.exports = {
                         const embed = new EmbedBuilder()
                             .setColor('#ff0000')
                             .setTitle('Failure!')
-                            .setDescription(`You, ${thiefName}, and ${thiefName2} got into a scuffle at the fishing dock!\n**-1** 🪵, **-1** 🌿, **-1** 🪨, **-1** 🔶`)
+                            .setDescription(`You, ${thiefName}, and ${thiefName2} got into a scuffle at the mines!\n**-1** 🪵, **-1** 🌿, **-1** 🪨, **-1** 🔶`)
                             .setFooter({ text: `Resources left: Wood: ${inventory.wood}, Palm Leaves: ${inventory.palmLeaves}, Stone: ${inventory.stone}, Copper: ${inventory.copper}` });
 
-                        return interaction.reply({ embeds: [embed] });
+                        return interaction.editReply({content: '', embeds: [embed] });
                     } else { // Default message if the user doesn't have enough resources
                         const embed = new EmbedBuilder()
                             .setColor('#ff0000')
                             .setTitle('Failure!')
                             .setDescription(`${thiefName} saw you at the mines and laughed at how poor you were!`);
 
-                        return interaction.reply({ embeds: [embed] });
+                        return interaction.editReply({content: '', embeds: [embed] });
                     }
                 }
             }
@@ -189,7 +192,21 @@ module.exports = {
                 embed.addFields({ name: '**Pickaxe Broken!**', value: 'Your pickaxe has broken!', inline: false });
             }
 
-            return interaction.reply({ embeds: [embed] });
+            await interaction.editReply({content: '', embeds: [embed] });
+
+                        // Success mining -> progress updates
+                        const questResult = await trackQuestProgress(interaction.user.id, 'mine', interaction); 
+
+                        // Send quest result message if there are quest updates
+                        if (questResult != 'No active quest found.') {
+                            const questEmbed = new EmbedBuilder()
+                                .setTitle('Quest Update')
+                                .setDescription(questResult)
+                                .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
+                                .setColor('#00ff00');
+                            return interaction.followUp({content: '', embeds: [questEmbed] });
+                        }
+                        return;
         } catch (error) {
             console.error('Error mining:', error);
             return interaction.reply({ content: 'An error occurred while mining. Please try again later.', ephemeral: true });

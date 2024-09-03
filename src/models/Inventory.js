@@ -52,6 +52,10 @@ const Inventory = sequelize.define('Inventory', {
 
 
     // mine/ore resources
+    copper: {  // New copper field
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
     gold: {   // Update gold field to use ✨
         type: DataTypes.INTEGER,
         defaultValue: 0
@@ -61,10 +65,6 @@ const Inventory = sequelize.define('Inventory', {
         defaultValue: 0
     },
     ruby: {    // New ruby field
-        type: DataTypes.INTEGER,
-        defaultValue: 0
-    },
-    copper: {  // New copper field
         type: DataTypes.INTEGER,
         defaultValue: 0
     },

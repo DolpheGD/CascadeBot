@@ -3,6 +3,7 @@ const User = require('../../models/User');
 const Inventory = require('../../models/Inventory');
 const Tool = require('../../models/Tool'); // Adjust the path as needed
 const tools = require('../utility/tools');
+const { trackQuestProgress } = require('../../commands/utility/quest.js');
 
 const resourceEmojiMap = {
     wood: '🪵',
@@ -11,9 +12,12 @@ const resourceEmojiMap = {
     copper: '🔶',
     rope: '🪢',
     gold: '✨',
-    ruby: '♦️'
+    ruby: '♦️',
+    diamond: '💎',
+    berries: '🫐',
+    apples: '🍎',
+    watermelon: '🍉'
 };
-
 
 
 
@@ -468,10 +472,10 @@ const events = [
             },
             {
                 emoji: '3️⃣',
-                text: 'Fight with your Axe (🪓 -10 Durability)',
+                text: 'Fight with your Axe (🪓 -5 Durability)',
                 async result(interaction, inventory, tools) {
                     // Check if the user has an axe and enough durability
-                    if (!tools.metalAxe || tools.metalAxeDurability < 10) {
+                    if (!tools.metalAxe || tools.metalAxeDurability < 5) {
                         // User is defeated due to lack of durability
                         let resultMessage = "You fumble around and are swiftly defeated!\n";
                         const resources = ['wood', 'stone', 'copper', 'gold'];
@@ -488,10 +492,10 @@ const events = [
                     }
                 
                     // Deduct axe durability
-                    tools.metalAxeDurability -= 10;
+                    tools.metalAxeDurability -= 5;
                     await tools.save();
                 
-                    let resultMessage = "Fight with your Axe (🪓 -10 Durability)\n";
+                    let resultMessage = "Fight with your Axe (🪓 -5 Durability)\n";
                     const outcome = Math.random();
                     let color;
                 
@@ -507,17 +511,17 @@ const events = [
                             }
                         });
                         color = '#ff0000';
-                    } else if (outcome <= 0.25) {
+                    } else if (outcome <= 0.20) {
                         resultMessage += "You and Triv exchange blows, resulting in a stalemate...";
                         color = '#ffff00';
                     } else {
                         resultMessage += "You slay Triv in battle! You gain a wealth of resources.\n";
                         const resources = {
-                            wood: [5, 15],
-                            palmLeaves: [5, 15],
-                            stone: [5, 15],
-                            copper: [5, 15],
-                            gold: [2, 12]
+                            wood: [4, 11],
+                            palmLeaves: [4, 11],
+                            stone: [4, 11],
+                            copper: [4, 11],
+                            gold: [3, 7]
                         };
                 
                         // Track resource gains
@@ -526,7 +530,7 @@ const events = [
                             inventory[resource] += gained;
                             resultMessage += `+${gained} ${resourceEmojiMap[resource]}\n`;
                         }
-                        if (Math.random() <= 0.25) { // 25% small chance for ruby
+                        if (Math.random() <= 0.2) { // 20% small chance for ruby
                             inventory.ruby += 1;
                             resultMessage += `+1♦️ \n`;
                         }
@@ -1077,7 +1081,7 @@ const events = [
                     if (Math.random() <= 0.75) {
                         const berriesGain = Math.floor(Math.random() * 3) + 1; // 1-3 berries
                         inventory.berries += berriesGain;
-                        resultMessage += `+${berriesGain} 🍇\n`;
+                        resultMessage += `+${berriesGain} 🫐\n`;
                     }
     
                     // 20% chance for rope
@@ -1203,8 +1207,8 @@ const events = [
                     if (outcome <= 0.85) {
                         resultMessage = "You find some loot in the shack!\n";
                         const resources = {
-                            wood: [1, 4],
-                            stone: [1, 2],
+                            wood: [1, 6],
+                            stone: [1, 6],
                             rope: [0, 2]
                         };
     
@@ -1256,9 +1260,9 @@ const events = [
                     // Gain materials from deconstructing the house
                     let resultMessage = "You deconstruct the house and gather materials!\n";
                     const resources = {
-                        wood: [5, 25],
-                        stone: [2, 10],
-                        rope: [2, 5]
+                        wood: [10, 30],
+                        stone: [5, 15],
+                        rope: [2, 6]
                     };
     
                     for (const [resource, range] of Object.entries(resources)) {
@@ -1532,10 +1536,11 @@ module.exports = {
     
         async execute(interaction) {
             const userId = interaction.user.id;
-        
+            await interaction.reply('Processing explore...');
+            
             // Check if the user is already exploring
             if (activeExplores.has(userId)) {
-                return interaction.reply({
+                return interaction.editReply({
                     content: 'You are already exploring! Please wait until your current exploration is finished.',
                     ephemeral: true
                 });
@@ -1548,12 +1553,12 @@ module.exports = {
         
             // Cooldown check
             const now = Date.now();
-            const cooldown = 14 * 1000; // 20 seconds
+            const cooldown = 14 * 1000; // 14 seconds
             const lastExplore = user.lastExplore || 0;
         
             if (now - lastExplore < cooldown) {
                 const remainingTime = Math.ceil((cooldown - (now - lastExplore)) / 1000);
-                return interaction.reply({ content: `Please wait ${remainingTime} seconds before exploring again.`, ephemeral: true });
+                return interaction.editReply({ content: `Please wait ${remainingTime} seconds before exploring again.`, ephemeral: true });
             }
         
             // Add user to active explores set
@@ -1578,7 +1583,7 @@ module.exports = {
                     .setFooter({ text: 'React with the number corresponding to your choice.' });
         
                 // Send the embed and add reactions
-                const message = await interaction.reply({ embeds: [embed], fetchReply: true });
+                const message = await interaction.editReply({content: '', embeds: [embed], fetchReply: true });
                 event.choices.forEach(choice => message.react(choice.emoji));
         
                 // Set up a reaction collector
@@ -1599,8 +1604,20 @@ module.exports = {
         
                         activeExplores.delete(userId);
         
-                        await message.edit({ embeds: [resultEmbed] });
-        
+                        await message.edit({content: '', embeds: [resultEmbed] });
+
+                        // Success exploring -> progress updates
+                        const questResult = await trackQuestProgress(interaction.user.id, 'explore', interaction); 
+                        
+                        if (questResult != 'No active quest found.') {
+                            const questEmbed = new EmbedBuilder()
+                                .setTitle('Quest Update')
+                                .setDescription(questResult)
+                                .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
+                                .setColor('#00ff00');
+                            return interaction.followUp({content: '', embeds: [questEmbed] });
+                        }
+
                         collector.stop();
                     } else {
                         console.error('Tools not found for user:', userId);
@@ -1615,7 +1632,7 @@ module.exports = {
                             .setDescription('You did not react in time. Please use the command again.')
                             .setImage(event.imageUrl);
         
-                        message.edit({ embeds: [timeoutEmbed] });
+                        message.edit({content: '', embeds: [timeoutEmbed] });
         
                         activeExplores.delete(userId);
                     }
@@ -1626,7 +1643,7 @@ module.exports = {
             {
                 console.error('Error executing explore command:', error);
                 activeExplores.delete(userId);
-                return interaction.reply({ content: 'An error occurred while executing the command. Please try again later.', ephemeral: true });
+                return interaction.editReply({ content: 'An error occurred while executing the command. Please try again later.', ephemeral: true });
             } 
         } 
 };

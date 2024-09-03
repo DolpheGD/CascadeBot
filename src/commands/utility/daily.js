@@ -1,7 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const User = require('../../models/User');
 const Inventory = require('../../models/Inventory');
-const { Op } = require('sequelize');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -17,9 +16,22 @@ module.exports = {
 
         const now = new Date();
 
-        // Check if 24 hours have passed since the last daily claim
-        if (user.lastDaily && now - user.lastDaily < 24 * 60 * 60 * 1000) {
-            const hoursLeft = Math.ceil((24 * 60 * 60 * 1000 - (now - user.lastDaily)) / (60 * 60 * 1000));
+        // Convert current time to UTC-7 (Pacific Time)
+        const utc7Offset = -7 * 60;
+        const utc7Time = new Date(now.getTime() + (utc7Offset * 60 * 1000));
+
+        // Determine the last reset time (12:00 AM UTC-7)
+        const lastReset = new Date(utc7Time);
+        lastReset.setUTCHours(7, 0, 0, 0); // Set time to 12:00 AM UTC-7
+
+        if (utc7Time < lastReset) {
+            lastReset.setDate(lastReset.getDate() - 1); // If it's before 12:00 AM, last reset was the previous day
+        }
+
+        // Check if the user has already claimed their daily reward
+        if (user.lastDaily && user.lastDaily >= lastReset) {
+            const resetTimeLeft = lastReset.getTime() + 24 * 60 * 60 * 1000 - utc7Time.getTime();
+            const hoursLeft = Math.ceil(resetTimeLeft / (60 * 60 * 1000));
             return interaction.reply({ content: `You have already claimed your daily reward! Please wait ${hoursLeft} more hour(s) before claiming again.`, ephemeral: true });
         }
 
@@ -41,7 +53,7 @@ module.exports = {
         await inventory.save();
 
         // Update the lastDaily timestamp
-        user.lastDaily = now;   
+        user.lastDaily = now;
         await user.save();
 
         // Create an embed to show the awarded resources
@@ -57,7 +69,7 @@ module.exports = {
                 { name: 'Palm Leaves 🌿', value: `+${reward.palmLeaves}`, inline: true },
                 { name: 'Gold ✨', value: `+${reward.gold}`, inline: true }
             )
-            .setFooter({ text: 'Come back in 24 hours to claim again!' });
+            .setFooter({ text: 'Come back after the next reset to claim again!' });
 
         await interaction.reply({ embeds: [embed] });
     },

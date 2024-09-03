@@ -1,6 +1,7 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../dbConfig'); // Ensure this path is correct
 const Tool = require('./Tool');
+const Quest = require('./Quest'); // Import the Quest model
 
 const User = sequelize.define('User', {
     id: {
@@ -40,9 +41,14 @@ const User = sequelize.define('User', {
     },
 
     lastDaily: {
-        type: DataTypes.DATE, // Add this line for daily tracking
+        type: DataTypes.DATE, 
         allowNull: true,
     },
+    // QUESTSSS
+    lastQuest: { 
+        type: DataTypes.BIGINT,
+        defaultValue: 0,
+    }
 });
 
 // Correct the association alias to match
@@ -53,7 +59,16 @@ User.hasOne(Tool, {
     as: 'tools'
 });
 
+User.hasOne(Quest, { // Change this to hasOne
+    foreignKey: 'userId',
+    as: 'quest'
+});
+
 Tool.belongsTo(User, {
+    foreignKey: 'userId'
+});
+
+Quest.belongsTo(User, {
     foreignKey: 'userId'
 });
 

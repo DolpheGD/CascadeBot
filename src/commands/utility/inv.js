@@ -66,15 +66,14 @@ module.exports = {
                 .setDescription(inventoryDisplay)
                 .setFooter({ 
                     text: `Total Power: ${
-                        inventory.gold + 
-                        10 * inventory.ruby + 
-                        100 * inventory.diamond +
-                        inventory.fish +
-                        2 * inventory.rareFish +
-                        5 * inventory.superRareFish + 
+                        inventory.wood + inventory.stone + inventory.palmLeaves + inventory.copper + inventory.berries + inventory.fish +
+                        2 * inventory.apples + 3 * inventory.rope + 3 * inventory.watermelon + 3 * inventory.rareFish +
+                        5 * inventory.superRareFish + 5 * inventory.gold + 
                         15 * inventory.legendaryFish +
-                        100 * inventory.negadomBattery + 
-                        10 * inventory.metalParts
+                        15 * inventory.metalParts + 
+                        50 * inventory.ruby + 
+                        150 * inventory.diamond + 
+                        250 * inventory.negadomBattery
                     } ⚡`
                 });
 
