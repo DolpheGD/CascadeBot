@@ -12,7 +12,7 @@ module.exports = {
     async execute(interaction) {
         let cooldown = 15 * 1000; // 15 seconds cooldown
         try{
-            await interaction.reply('Processing chop...');
+            await interaction.deferReply();
             const userId = interaction.user.id;
             const username = interaction.user.username;
             

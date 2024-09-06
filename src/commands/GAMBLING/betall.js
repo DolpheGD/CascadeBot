@@ -12,10 +12,12 @@ module.exports = {
 
     async execute(interaction) {
         const userId = interaction.user.id;
+        
+        await interaction.deferReply();
 
         // Check if the user is already in an active bet
         if (activeBets.has(userId)) {
-            return interaction.reply({ content: 'You already have an ongoing bet. Please wait until it finishes.', ephemeral: true });
+            return interaction.editReply({ content: 'You already have an ongoing bet. Please wait until it finishes.', ephemeral: true });
         }
 
         // Add the user to the active bets set
@@ -33,7 +35,7 @@ module.exports = {
         if (totalBet === 0) {
             // Remove the user from the active bets set
             activeBets.delete(userId);
-            return interaction.reply({ content: `You do not have any resources to bet.`, ephemeral: true });
+            return interaction.editReply({ content: `You do not have any resources to bet.`, ephemeral: true });
         }
 
         // Create the embed for betting
@@ -44,7 +46,7 @@ module.exports = {
             .setDescription(`You are betting your entire inventory. React with ⚪ for heads or ⚫ for tails.`);
 
         // Send the embed and add reactions
-        const message = await interaction.reply({ embeds: [embed], fetchReply: true });
+        const message = await interaction.editReply({ embeds: [embed], fetchReply: true });
         await message.react('⚪');
         await message.react('⚫');
 

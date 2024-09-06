@@ -13,7 +13,7 @@ module.exports = {
         const discordId = interaction.user.id;
 
         try {
-            await interaction.reply('Processing forage...');
+            await interaction.deferReply();
             
             // Fetch the user data
             const user = await User.findOne({ where: { discordId } });

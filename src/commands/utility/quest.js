@@ -4,8 +4,7 @@ const User = require('../../models/User');
 const Inventory = require('../../models/Inventory');
 const { Op } = require('sequelize');
 
-const questTypes = ['mine'];
-//const questTypes = ['chop', 'mine', 'forage', 'explore'];
+const questTypes = ['chop', 'mine', 'forage', 'explore'];
 const questCooldown = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
 
 module.exports = {
@@ -14,6 +13,7 @@ module.exports = {
         .setDescription('Get or view your quests'),
     async execute(interaction) {
         const userId = interaction.user.id;
+        await interaction.deferReply();
 
         // Find or create the user
         const [user] = await User.findOrCreate({ where: { discordId: userId } });
@@ -45,14 +45,14 @@ module.exports = {
                 embed.setFooter({ text: 'You can claim another quest after completing this one.' });
             }
 
-            return interaction.reply({ embeds: [embed] });
+            return interaction.editReply({ embeds: [embed] });
         }
 
         // Check if the user is eligible for a new quest
         const timeSinceLastQuest = Date.now() - user.lastQuest;
         if (timeSinceLastQuest < questCooldown) {
             const timeLeft = Math.ceil((questCooldown - timeSinceLastQuest) / (60 * 1000));
-            return interaction.reply({ content: `You can claim a new quest in ${timeLeft} minutes.`, ephemeral: true });
+            return interaction.editReply({ content: `You can claim a new quest in ${timeLeft} minutes.`, ephemeral: true });
         }
 
         // Assign a new random quest
@@ -76,7 +76,7 @@ module.exports = {
             .setThumbnail(interaction.user.displayAvatarURL())
             .setFooter({ text: 'You can claim another quest after completing this one.' });
 
-        await interaction.reply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
     },
 
     async trackQuestProgress(discordId, questType, interaction) {

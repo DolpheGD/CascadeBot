@@ -12,11 +12,13 @@ module.exports = {
         const discordId = interaction.user.id;
 
         try {
+            await interaction.deferReply();
+            
             // Fetch the user data
             const user = await User.findOne({ where: { discordId } });
 
             if (!user) {
-                return interaction.reply({ content: 'User not found.', ephemeral: true });
+                return interaction.editReply({ content: 'User not found.', ephemeral: true });
             }
 
             // Fetch the user's tools
@@ -27,7 +29,7 @@ module.exports = {
             }
 
             if (!tools || !tools.fishingRod) {
-                return interaction.reply({ content: 'You do not own a fishing rod.', ephemeral: true });
+                return interaction.editReply({ content: 'You do not own a fishing rod.', ephemeral: true });
             }
 
             // Check cooldown
@@ -35,7 +37,7 @@ module.exports = {
             const cooldown = 30 * 1000; // 30 seconds
             if (now - user.lastFish < cooldown) {
                 const secondsLeft = Math.ceil((cooldown - (now - user.lastFish)) / 1000);
-                return interaction.reply({ content: `You need to wait ${secondsLeft} seconds before fishing again.`, ephemeral: true });
+                return interaction.editReply({ content: `You need to wait ${secondsLeft} seconds before fishing again.`, ephemeral: true });
             }
 
             // Update last fish time
@@ -48,7 +50,7 @@ module.exports = {
                 tools.fishingRod = 0; 
                 tools.fishingRodDurability = 0;
                 await tools.save();
-                return interaction.reply({ content: 'Your fishing rod has broken!', ephemeral: true });
+                return interaction.editReply({ content: 'Your fishing rod has broken!', ephemeral: true });
             }
             await tools.save();
 
@@ -180,11 +182,11 @@ module.exports = {
             }
 
             // Send the embed
-            await interaction.reply({ embeds: [embed] });
+            await interaction.editReply({ embeds: [embed] });
 
         } catch (error) {
             console.error('Error during fishing:', error);
-            await interaction.reply({ content: 'An error occurred while fishing. Please try again later.', ephemeral: true });
+            await interaction.editReply({ content: 'An error occurred while fishing. Please try again later.', ephemeral: true });
         }
     }
 };

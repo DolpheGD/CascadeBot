@@ -41,20 +41,22 @@ module.exports = {
         const amount = interaction.options.getInteger('amount');
         const userId = interaction.user.id;
 
+        await interaction.deferReply();
+
         // Check if the user already has an active bet
         if (activeBets.has(userId)) {
-            return interaction.reply({ content: 'You already have an active bet! Please wait until it is resolved.', ephemeral: true });
+            return interaction.editReply({ content: 'You already have an active bet! Please wait until it is resolved.', ephemeral: true });
         }
 
         // Valid resources
         const validResources = ['wood', 'stone', 'palmLeaves', 'gold', 'rope', 'diamond', 'ruby', 'copper', 'fish', 'rareFish', 'superRareFish', 'legendaryFish', 'berries', 'apples', 'watermelon', 'metalparts'];
         if (!validResources.includes(resource)) {
-            return interaction.reply({ content: 'Invalid resource. Please choose a valid resource to bet.', ephemeral: true });
+            return interaction.editReply({ content: 'Invalid resource. Please choose a valid resource to bet.', ephemeral: true });
         }
 
         // Validate the amount
         if (amount <= 0) {
-            return interaction.reply({ content: 'You must bet a positive amount.', ephemeral: true });
+            return interaction.editReply({ content: 'You must bet a positive amount.', ephemeral: true });
         }
 
         // Check if user has enough of the resource
@@ -62,7 +64,7 @@ module.exports = {
         const [inventory] = await Inventory.findOrCreate({ where: { userId: user.id } });
 
         if (inventory[resource] < amount) {
-            return interaction.reply({ content: `You do not have enough ${resource} to bet.`, ephemeral: true });
+            return interaction.editReply({ content: `You do not have enough ${resource} to bet.`, ephemeral: true });
         }
 
         // Mark the user as having an active bet
@@ -76,7 +78,7 @@ module.exports = {
             .setDescription(`You are betting **${amount}** ${getEmojiForResource(resource)}. React with ⚪ for heads or ⚫ for tails.`);
 
         // Send the embed and add reactions
-        const message = await interaction.reply({ embeds: [embed], fetchReply: true });
+        const message = await interaction.editReply({ embeds: [embed], fetchReply: true });
         await message.react('⚪');
         await message.react('⚫');
 

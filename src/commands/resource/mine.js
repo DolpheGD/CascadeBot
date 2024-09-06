@@ -10,11 +10,11 @@ module.exports = {
         .setDescription('Mine for resources'),
 
     async execute(interaction) {
-        let cooldown = 1 * 1000; // 20 seconds cooldown
+        let cooldown = 20 * 1000; // 20 seconds cooldown
         const userId = interaction.user.id;
 
         try {
-            await interaction.reply('Processing mine...');
+            await interaction.deferReply();
 
             // Find or create the user
             const [user] = await User.findOrCreate({

@@ -11,11 +11,13 @@ module.exports = {
         const discordId = interaction.user.id;
 
         try {
+            await interaction.deferReply();
+
             // Fetch the user's data
             const user = await User.findOne({ where: { discordId } });
 
             if (!user) {
-                return interaction.reply('User not found.');
+                return interaction.editReply('User not found.');
             }
 
             // Fetch or create the user's tools
@@ -52,10 +54,10 @@ module.exports = {
             }
 
             // Reply to the interaction with the embed
-            return interaction.reply({ embeds: [embed] });
+            return interaction.editReply({ embeds: [embed] });
         } catch (error) {
             console.error('Error fetching tools:', error);
-            return interaction.reply('There was an error fetching your tools.');
+            return interaction.editReply('There was an error fetching your tools.');
         }
     },
 };

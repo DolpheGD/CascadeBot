@@ -934,9 +934,9 @@ const events = [
                     let embedColor = '#ff0000'; // Default to red for failure
     
                     if (randomOutcome < 0.35) { // 35% chance to loot items
-                        const berriesLoot = Math.floor(Math.random() * 3) + 1;
-                        const fishLoot = Math.floor(Math.random() * 3) + 1;
-                        const watermelonLoot = Math.random() < 0.5 ? Math.floor(Math.random() * 1) : 0;
+                        const berriesLoot = Math.floor(Math.random() * 6) + 1;
+                        const fishLoot = Math.floor(Math.random() * 6) + 1;
+                        const watermelonLoot = Math.random() < 0.7 ? Math.floor(Math.random() * 2) + 1: 0;
     
                         inventory.berries += berriesLoot;
                         inventory.fish += fishLoot;
@@ -1536,7 +1536,7 @@ module.exports = {
     
         async execute(interaction) {
             const userId = interaction.user.id;
-            await interaction.reply('Processing explore...');
+            await interaction.deferReply();
             
             // Check if the user is already exploring
             if (activeExplores.has(userId)) {

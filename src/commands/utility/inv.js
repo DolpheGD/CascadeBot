@@ -17,16 +17,18 @@ module.exports = {
         const userId = targetUser.id;
 
         try {
+            await interaction.deferReply();
+            
             // Find the user
             const user = await User.findOne({ where: { discordId: userId } });
             if (!user) {
-                return interaction.reply({ content: `${targetUser.username} does not have an inventory yet. They need to use commands like /chop or /mine to gather resources.`, ephemeral: true });
+                return interaction.editReply({ content: `${targetUser.username} does not have an inventory yet. They need to use commands like /chop or /mine to gather resources.`, ephemeral: true });
             }
 
             // Find the user's inventory
             const inventory = await Inventory.findOne({ where: { userId: user.id } });
             if (!inventory) {
-                return interaction.reply({ content: `${targetUser.username}'s inventory is empty. They need to use commands like /chop or /mine to gather resources.`, ephemeral: true });
+                return interaction.editReply({ content: `${targetUser.username}'s inventory is empty. They need to use commands like /chop or /mine to gather resources.`, ephemeral: true });
             }
 
             // Build the inventory display string conditionally
@@ -55,7 +57,7 @@ module.exports = {
             if (inventory.negadomBattery) inventoryDisplay += `**Negadom Destroyer Battery**: 1🔋\n`;
 
             if (!inventoryDisplay) {
-                return interaction.reply({ content: `${targetUser.username}'s inventory is empty.`, ephemeral: true });
+                return interaction.editReply({ content: `${targetUser.username}'s inventory is empty.`, ephemeral: true });
             }
 
             // Create an embed to display the inventory
@@ -77,10 +79,10 @@ module.exports = {
                     } ⚡`
                 });
 
-            return interaction.reply({ embeds: [embed] });
+            return interaction.editReply({ embeds: [embed] });
         } catch (error) {
             console.error('Error fetching inventory:', error);
-            return interaction.reply({ content: 'An error occurred while fetching the inventory. Please try again later.', ephemeral: true });
+            return interaction.editReply({ content: 'An error occurred while fetching the inventory. Please try again later.', ephemeral: true });
         }
     },
 };

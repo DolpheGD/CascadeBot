@@ -9,6 +9,8 @@ module.exports = {
 
     async execute(interaction) {
         try {
+            await interaction.deferReply();
+            
             // Fetch all users with their associated inventory
             const users = await User.findAll({
                 include: {
@@ -57,10 +59,10 @@ module.exports = {
                 embed.setThumbnail(topUserAvatar);
             }
 
-            return interaction.reply({ embeds: [embed] });
+            return interaction.editReply({ embeds: [embed] });
         } catch (error) {
             console.error('Error fetching leaderboard:', error);
-            return interaction.reply({ content: 'An error occurred while fetching the leaderboard. Please try again later.', ephemeral: true });
+            return interaction.editReply({ content: 'An error occurred while fetching the leaderboard. Please try again later.', ephemeral: true });
         }
     },
 };
