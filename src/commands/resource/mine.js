@@ -10,7 +10,7 @@ module.exports = {
         .setDescription('Mine for resources'),
 
     async execute(interaction) {
-        let cooldown = 20 * 1000; // 20 seconds cooldown
+        let cooldown = 15 * 1000; // 20 seconds cooldown
         const userId = interaction.user.id;
 
         try {
@@ -36,7 +36,7 @@ module.exports = {
 
             let hasPickaxe = tool?.metalPickaxe && tool.metalPickaxeDurability > 0;
             if (hasPickaxe){
-                cooldown = 10 * 1000; // 13 seconds cooldown
+                cooldown = 5 * 1000; // 13 seconds cooldown
             }
 
             if (now - lastMine < cooldown) {

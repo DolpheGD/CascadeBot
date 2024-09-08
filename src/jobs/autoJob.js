@@ -14,7 +14,7 @@ cron.schedule('0 * * * *', async () => {
         const machines = await AutoMachine.findAll();
         
         for (const machine of machines) {
-            const hoursElapsed = Math.floor((now - new Date(machine.lastCollected)) / (60 * 60 * 1000));
+            const hoursElapsed = Math.floor((now - new Date(machine.lastCollected)) / (59 * 60 * 1000));
 
             if (hoursElapsed > 0) {
                 let woodCollected = 0, ropeCollected = 0, stoneCollected = 0, copperCollected = 0;

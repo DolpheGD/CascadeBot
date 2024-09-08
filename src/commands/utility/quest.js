@@ -5,7 +5,7 @@ const Inventory = require('../../models/Inventory');
 const { Op } = require('sequelize');
 
 const questTypes = ['chop', 'mine', 'forage', 'explore'];
-const questCooldown = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+const questCooldown = 60 * 60 * 1000; // 1 hours in milliseconds
 
 module.exports = {
     data: new SlashCommandBuilder()

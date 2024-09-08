@@ -10,7 +10,7 @@ module.exports = {
         .setDescription('Chop wood'),
 
     async execute(interaction) {
-        let cooldown = 15 * 1000; // 15 seconds cooldown
+        let cooldown = 10 * 1000; // 15 seconds cooldown
         try{
             await interaction.deferReply();
             const userId = interaction.user.id;
@@ -34,7 +34,7 @@ module.exports = {
             const hasAxe = tool && tool.metalAxe && tool.metalAxeDurability > 0;
 
             if (hasAxe) {
-                cooldown = 5 * 1000; // 8 seconds cooldown
+                cooldown = 5 * 1000; // 5 seconds cooldown
             }
 
             const lastChop = user.lastChop || 0;

@@ -24,7 +24,7 @@ module.exports = {
 
             // Check cooldown
             const now = Date.now();
-            const cooldown = 20 * 1000; // 20 seconds
+            const cooldown = 15 * 1000; // 20 seconds
             if (now - user.lastForage < cooldown) {
                 const secondsLeft = Math.ceil((cooldown - (now - user.lastForage)) / 1000);
                 return interaction.editReply({ content: `You need to wait ${secondsLeft} seconds before foraging again.`, ephemeral: true });

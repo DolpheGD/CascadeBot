@@ -1407,7 +1407,251 @@ const events = [
                 }
             }
         ]
-    }    
+    },
+    {
+        id: 15,
+        description: "You stumble across a chest while wandering in a dense jungle.",
+        imageUrl: "https://cdn.discordapp.com/attachments/935416283976048680/1282258289005953064/Chest.png?ex=66deb397&is=66dd6217&hm=f1a9b3e9ea31234cede1d8f6ea765a7f8cd6787957b58c7bb56b3918bf0f29cd&", // Optional image for the event
+        choices: [
+            {
+                emoji: '1️⃣',
+                text: 'Open the chest',
+                async result(interaction, inventory) {
+                    // Define possible resource gains
+                    const resources = [
+                        { name: 'wood', min: 1, max: 4, emoji: '🪵' },
+                        { name: 'stone', min: 1, max: 4, emoji: '🪨' },
+                        { name: 'copper', min: 1, max: 4, emoji: '🔶' },
+                        { name: 'palmLeaves', min: 1, max: 4, emoji: '🍃' },
+                        { name: 'berries', min: 1, max: 4, emoji: '🫐' },
+                        { name: 'apples', min: 1, max: 3, emoji: '🍎' },
+                        { name: 'rope', min: 1, max: 2, emoji: '🪢' },
+                        { name: 'gold', min: 1, max: 2, emoji: '✨' },
+                        { name: 'fish', min: 1, max: 4, emoji: '🐟' },
+                        { name: 'rareFish', min: 1, max: 2, emoji: '🐠' },
+                        { name: 'superRareFish', min: 1, max: 1, emoji: '🐡' }
+                    ];
+    
+                    // Randomly select 4 resources to give
+                    const selectedResources = [];
+                    while (selectedResources.length < 4) {
+                        const randomResource = resources[Math.floor(Math.random() * resources.length)];
+                        if (!selectedResources.includes(randomResource)) {
+                            selectedResources.push(randomResource);
+                        }
+                    }
+    
+                    // Prepare a message and update the user's inventory
+                    let resultMessage = "You open the chest and find:\n";
+                    for (const resource of selectedResources) {
+                        const gainedAmount = Math.floor(Math.random() * (resource.max - resource.min + 1)) + resource.min;
+                        inventory[resource.name] += gainedAmount;
+                        resultMessage += `+${gainedAmount} ${resource.emoji}\n`;
+                    }
+    
+                    // Save the inventory
+                    await inventory.save();
+    
+                    return { message: resultMessage, color: '#00ff00' };
+                }
+            },
+            {
+                emoji: '2️⃣',
+                text: 'Leave',
+                async result() {
+                    return { message: "You leave the chest untouched and continue your journey.", color: '#ffcc00' };
+                }
+            }
+        ]
+    },
+    {
+        id: 16,
+        description: "You stumble across a shiny-looking chest while exploring the Void Plains.",
+        imageUrl: "https://cdn.discordapp.com/attachments/935416283976048680/1282262478696349746/Upgrade_chest.png?ex=66deb77e&is=66dd65fe&hm=b3edfb649c1488c1b1147b06aa56e85645354de20894a81edd83f490fc9bc835&", // Optional image for the event
+        choices: [
+            {
+                emoji: '1️⃣',
+                text: 'Open the chest',
+                async result(interaction, inventory) {
+                    const outcome = Math.random();
+    
+                    if (outcome <= 0.90) {
+                        // 90% chance: User gains random resources
+                        const resources = [
+                            { name: 'wood', min: 2, max: 8, emoji: '🪵' },
+                            { name: 'stone', min: 2, max: 8, emoji: '🪨' },
+                            { name: 'copper', min: 2, max: 8, emoji: '🔶' },
+                            { name: 'palmLeaves', min: 2, max: 8, emoji: '🍃' },
+                            { name: 'berries', min: 2, max: 8, emoji: '🫐' },
+                            { name: 'apples', min: 2, max: 6, emoji: '🍎' },
+                            { name: 'rope', min: 2, max: 4, emoji: '🪢' },
+                            { name: 'gold', min: 2, max: 4, emoji: '✨' },
+                            { name: 'fish', min: 2, max: 8, emoji: '🐟' },
+                            { name: 'rareFish', min: 2, max: 4, emoji: '🐠' },
+                            { name: 'superRareFish', min: 1, max: 2, emoji: '🐡' },
+                            { name: 'legendaryFish', min: 1, max: 1, emoji: '🦈' },
+                            { name: 'ruby', min: 1, max: 1, emoji: '♦️' }, 
+                            { name: 'metalPart', min: 1, max: 1, emoji: '⚙️' }
+                        ];
+    
+                        // Randomly select 3 resources to give
+                        const selectedResources = [];
+                        while (selectedResources.length < 3) {
+                            const randomResource = resources[Math.floor(Math.random() * resources.length)];
+                            if (!selectedResources.includes(randomResource)) {
+                                selectedResources.push(randomResource);
+                            }
+                        }
+    
+                        // Prepare a message and update the user's inventory
+                        let resultMessage = "You open the chest and find:\n";
+                        for (const resource of selectedResources) {
+                            const gainedAmount = Math.floor(Math.random() * (resource.max - resource.min + 1)) + resource.min;
+                            inventory[resource.name] += gainedAmount;
+                            resultMessage += `+${gainedAmount} ${resource.emoji}\n`;
+                        }
+    
+                        // Save the inventory
+                        await inventory.save();
+    
+                        return { message: resultMessage, color: '#00ff00' };
+                    } else {
+                        // 10% chance: Josh steals everything
+                        const missedResources = [];
+    
+                        for (let i = 0; i < 3; i++) {
+                            const randomResource = resources[Math.floor(Math.random() * resources.length)];
+                            const missedAmount = Math.floor(Math.random() * (randomResource.max - randomResource.min + 1)) + randomResource.min;
+                            missedResources.push(`-${missedAmount} ${randomResource.emoji}`);
+                        }
+    
+                        const resultMessage = `Josh saw you opening the chest and stole the items!\nYou missed out on:\n${missedResources.join('\n')}`;
+    
+                        return { message: resultMessage, color: '#ff0000' };
+                    }
+                }
+            },
+            {
+                emoji: '2️⃣',
+                text: 'Leave',
+                async result() {
+                    return { message: "You leave the shiny chest untouched and continue your journey.", color: '#ffcc00' };
+                }
+            }
+        ]
+    },
+    {
+        id: 17,
+        description: "While wandering the barren wastelands of Glacier 15, you meet Frost, an ex-Janitor who was recently fired from Xender Corp. He now works as a fish vendor.",
+        imageUrl: "https://cdn.discordapp.com/attachments/704530416475832342/1282278127363559547/jani_1.png?ex=66dec611&is=66dd7491&hm=a6b23eca0bcb8ade3c9be2c4296c63f9d692b2d58a196a16f27a76f961fc357d&",
+        choices: [
+            {
+                emoji: '1️⃣',
+                text: 'Sell 50🐟 for 15✨',
+                async result(interaction, inventory) {
+                    if (inventory.fish >= 50) {
+                        inventory.fish -= 50;
+                        inventory.gold += 15;
+                        await inventory.save();
+                        return { message: "You traded 50🐟 for 15✨.", color: '#00ff00' };
+                    } else {
+                        return { message: "You don't have enough fish to make this trade.", color: '#ff0000' };
+                    }
+                }
+            },
+            {
+                emoji: '2️⃣',
+                text: 'Sell 25🐠 for 20✨',
+                async result(interaction, inventory) {
+                    if (inventory.rareFish >= 25) {
+                        inventory.rareFish -= 25;
+                        inventory.gold += 20;
+                        await inventory.save();
+                        return { message: "You traded 25🐠 for 20✨.", color: '#00ff00' };
+                    } else {
+                        return { message: "You don't have enough rare fish to make this trade.", color: '#ff0000' };
+                    }
+                }
+            },
+            {
+                emoji: '3️⃣',
+                text: 'Sell 15🐡for 2♦️',
+                async result(interaction, inventory) {
+                    if (inventory.superRareFish >= 15) {
+                        inventory.superRareFish -= 15;
+                        inventory.ruby += 2;
+                        await inventory.save();
+                        return { message: "You traded 15🐡 for 2♦️.", color: '#00ff00' };
+                    } else {
+                        return { message: "You don't have enough super rare fish to make this trade.", color: '#ff0000' };
+                    }
+                }
+            },
+            {
+                emoji: '4️⃣',
+                text: 'Trade 5🦈 for 1♦️',
+                async result(interaction, inventory) {
+                    if (inventory.legendaryFish >= 5) {
+                        inventory.legendaryFish -= 5;
+                        inventory.ruby += 1;
+                        await inventory.save();
+                        return { message: "You traded 5🦈 for 1♦️.", color: '#00ff00' };
+                    } else {
+                        return { message: "You don't have enough legendary fish to make this trade.", color: '#ff0000' };
+                    }
+                }
+            },
+            {
+                emoji: '5️⃣',
+                text: 'Ambush Frost',
+                async result(interaction, inventory) {
+                    const outcome = Math.random();
+                    let resultMessage = "";
+    
+                    if (outcome <= 0.35) {
+                        // 35% chance: User beats Frost
+                        const fishLost = Math.floor(Math.random() * 26);
+                        inventory.fish -= fishLost;
+                        resultMessage = `You manage to beat Frost to a pulp!\n+${fishLost} 🐟`;
+                    } else if (outcome <= 0.65) {
+                        // 30% chance: Exchange blows
+                        const fishLost = Math.min(inventory.fish, Math.floor(Math.random() * 5) + 1);
+                        inventory.fish -= fishLost;
+                        resultMessage = `You and Frost exchange blows with fish flying everywhere...\n-${fishLost} 🐟`;
+                    } else {
+                        // 35% chance: Frost defeats the user
+                        const resourcesLost = {
+                            wood: 10,
+                            stone: 10,
+                            palmLeaves: 10,
+                            copper: 10
+                        };
+    
+                        for (const [resource, loss] of Object.entries(resourcesLost)) {
+                            if (inventory[resource] > 0) {
+                                const actualLoss = Math.min(inventory[resource], loss);
+                                inventory[resource] -= actualLoss;
+                                resultMessage += `-${actualLoss} ${resourceEmojiMap[resource]}\n`;
+                            }
+                        }
+    
+                        resultMessage = "Frost punches you and you instantly evaporate!\n" + resultMessage;
+                    }
+    
+                    await inventory.save();
+                    return { message: resultMessage, color: outcome <= 0.35 ? '#00ff00' : (outcome <= 0.65 ? '#ffcc00' : '#ff0000') };
+                }
+            },
+            {
+                emoji: '6️⃣',
+                text: 'Leave',
+                async result() {
+                    return { message: "You leave Frost's fish stand and continue on your way.", color: '#ffcc00' };
+                }
+            }
+        ]
+    }
+    
 ];
 
 
@@ -1466,43 +1710,56 @@ async function handleRockPurchase(interaction, inventory, quantity) {
     for (let i = 0; i < quantity; i++) {
         const chance = Math.random() * 100;
 
-        if (chance < 0.8) { // 0.8% chance to get 1💎
+        if (chance < 1) { // 1% chance to get 1💎
             inventory.diamond = (inventory.diamond || 0) + 1;
             resultMessage += '**《◊【༺LEGENDARY༻】◊》** You got 1 💎!\n';
-        } else if (chance < 1.8) { // 1% chance to get 3-4♦️
+        } else if (chance < 2) { // 1% chance to get 3-4♦️
             const rubyAmount = Math.floor(Math.random() * 2) + 3;
             inventory.ruby = (inventory.ruby || 0) + rubyAmount;
             resultMessage += `**《◊【༺LEGENDARY༻】◊》** You got ${rubyAmount} ♦️!\n`;
-        } else if (chance < 5.5) { // 3.7% chance to get 1-2♦️
+        } else if (chance < 6) { // 4% chance to get 1-2♦️
             const rubyAmount = Math.floor(Math.random() * 2) + 1;
             inventory.ruby = (inventory.ruby || 0) + rubyAmount;
             resultMessage += `**《【EPIC】》** You got ${rubyAmount} ♦️!\n`;
-        } else if (chance < 10.0) { // 4.5% chance to get 4-7✨
+        } else if (chance < 10.0) { // 4% chance to get 4-7✨
             const goldAmount = Math.floor(Math.random() * 4) + 4;
             inventory.gold = (inventory.gold || 0) + goldAmount;
             resultMessage += `**《【EPIC】》** You got ${goldAmount} ✨!\n`;
-        } else if (chance < 19.0) { // 9% chance to get 1-3✨
+        } else if (chance < 20.0) { // 10% chance to get 1-3✨
             const goldAmount = Math.floor(Math.random() * 3) + 1;
             inventory.gold = (inventory.gold || 0) + goldAmount;
             resultMessage += `**【RARE】** You got ${goldAmount} ✨!\n`;
-        } else if (chance < 30.0) { // 11% chance to get 4-7🔶
+        } else if (chance < 30.0) { // 10% chance to get 4-7🔶
             const copperAmount = Math.floor(Math.random() * 4) + 4;
             inventory.copper = (inventory.copper || 0) + copperAmount;
             resultMessage += `**【RARE】** You got ${copperAmount} 🔶!\n`;
-        } else if (chance < 45.0) { // 15% chance to get 2-3🔶
+        }
+        // UNCOMMONS
+        else if (chance < 40.0) { // 10% chance to get 2-3🔶
             const copperAmount = Math.floor(Math.random() * 2) + 2;
             inventory.copper = (inventory.copper || 0) + copperAmount;
             resultMessage += `**〈UNCOMMON〉** You got ${copperAmount} 🔶!\n`;
-        } else if (chance < 60.0) { // 15% chance to get 2-4🪨
+        } else if (chance < 50.0) { // 10% chance to get 2-5 wood
+            const woodAmount = Math.floor(Math.random() * 4) + 2;
+            inventory.wood = (inventory.wood || 0) + woodAmount;
+            resultMessage += `**〈UNCOMMON〉** You got ${woodAmount} 🪵!\n`;
+        } else if (chance < 60.0) { // 10% chance to get 2-4 stone
             const stoneAmount = Math.floor(Math.random() * 3) + 2;
             inventory.stone = (inventory.stone || 0) + stoneAmount;
             resultMessage += `**〈UNCOMMON〉** You got ${stoneAmount} 🪨!\n`;
-        } else if (chance < 80.0) { // 20% chance to get 1🪨
+        }
+        // COMMONS
+        else if (chance < 75.0) { // 15% chance to get 1🪨
             inventory.stone = (inventory.stone || 0) + 1;
             resultMessage += '**COMMON** You got 1 🪨!\n';
-        } else if (chance < 100.0) { // 20% chance to get 1🔶
+        } 
+        else if (chance < 85.0) { // 10% chance to get 1🔶
             inventory.copper = (inventory.copper || 0) + 1;
             resultMessage += '**COMMON** You got 1 🔶!\n';
+        }
+        else if (chance < 100.0) { // 15% chance to get 1🔶
+            inventory.wood = (inventory.wood || 0) + 1;
+            resultMessage += '**COMMON** You got 1 🪵!\n';
         }
     }
 
@@ -1553,7 +1810,7 @@ module.exports = {
         
             // Cooldown check
             const now = Date.now();
-            const cooldown = 14 * 1000; // 14 seconds
+            const cooldown = 10 * 1000; // 14 seconds
             const lastExplore = user.lastExplore || 0;
         
             if (now - lastExplore < cooldown) {

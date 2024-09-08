@@ -186,7 +186,7 @@ async function craftAutoMachine(interaction, userId) {
     await interaction.reply({ embeds: [craftmenu], components: [row] });
 
     const filter = i => i.user.id === interaction.user.id;
-    const collector = interaction.channel.createMessageComponentCollector({ filter, time: 15000 });
+    const collector = interaction.channel.createMessageComponentCollector({ filter, time: 30000 });
 
     collector.on('collect', async i => {
 
@@ -200,7 +200,7 @@ async function craftAutoMachine(interaction, userId) {
             }
             
             // not enough mat error
-            if (inventory.negadomBattery < 1 || inventory.metalParts < 15 || inventory.diamonds < 1 || inventory.rubies < 15 || inventory.wood < 100) {
+            if (inventory.negadomBattery < 1 || inventory.metalParts < 15 || inventory.diamond < 1 || inventory.ruby < 15 || inventory.wood < 100) {
                 const errorEmbed = new EmbedBuilder()
                     .setTitle('Crafting Error')
                     .setDescription('You do not have enough materials to craft an Autochopper.')
@@ -210,8 +210,8 @@ async function craftAutoMachine(interaction, userId) {
 
             inventory.negadomBattery -= 1;
             inventory.metalParts -= 15;
-            inventory.diamonds -= 1;
-            inventory.rubies -= 15;
+            inventory.diamond -= 1;
+            inventory.ruby -= 15;
             inventory.wood -= 100;
 
             await AutoMachine.create({ userId: user.id, type: 'autochopper', wood: 0, rope: 0, upgradeLevel: 0 });
@@ -233,7 +233,7 @@ async function craftAutoMachine(interaction, userId) {
             }
 
             // error
-            if (inventory.negadomBattery < 1 || inventory.metalParts < 15 || inventory.diamonds < 1 || inventory.rubies < 15 || inventory.stone < 100) {
+            if (inventory.negadomBattery < 1 || inventory.metalParts < 15 || inventory.diamond < 1 || inventory.ruby < 15 || inventory.stone < 100) {
                 const errorEmbed = new EmbedBuilder()
                     .setTitle('Crafting Error')
                     .setDescription('You do not have enough materials to craft an Autominer.')
@@ -243,8 +243,8 @@ async function craftAutoMachine(interaction, userId) {
 
             inventory.negadomBattery -= 1;
             inventory.metalParts -= 15;
-            inventory.diamonds -= 1;
-            inventory.rubies -= 15;
+            inventory.diamond -= 1;
+            inventory.ruby -= 15;
             inventory.stone -= 100;
 
             await AutoMachine.create({ userId: user.id, type: 'autominer', wood: 0, rope: 0, upgradeLevel: 0 });
@@ -265,7 +265,7 @@ async function craftAutoMachine(interaction, userId) {
                 return i.reply({ embeds: [errorEmbed], ephemeral: true });
             }
 
-            if (inventory.negadomBattery < 1 || inventory.metalParts < 15 || inventory.diamonds < 1 || inventory.rubies < 15 || inventory.palmLeaves < 100) {
+            if (inventory.negadomBattery < 1 || inventory.metalParts < 15 || inventory.diamond < 1 || inventory.ruby < 15 || inventory.palmLeaves < 100) {
                 const errorEmbed = new EmbedBuilder()
                     .setTitle('Crafting Error')
                     .setDescription('You do not have enough materials to craft an Autoforager.')
@@ -275,8 +275,8 @@ async function craftAutoMachine(interaction, userId) {
 
             inventory.negadomBattery -= 1;
             inventory.metalParts -= 15;
-            inventory.diamonds -= 1;
-            inventory.rubies -= 15;
+            inventory.diamond -= 1;
+            inventory.ruby -= 15;
             inventory.palmLeaves -= 100;
 
             await AutoMachine.create({ userId: user.id, type: 'autoforager', wood: 0, rope: 0, upgradeLevel: 0 });
@@ -371,7 +371,7 @@ async function upgradeAutoMachine(interaction, userId) {
     await interaction.reply({ embeds: [craftmenu], components: [row] });
 
     const filter = i => i.user.id === interaction.user.id;
-    const collector = interaction.channel.createMessageComponentCollector({ filter, time: 15000 });
+    const collector = interaction.channel.createMessageComponentCollector({ filter, time: 30000 });
 
     collector.on('collect', async i => {
         // AUTOCHOPPER
@@ -394,7 +394,7 @@ async function upgradeAutoMachine(interaction, userId) {
             }
 
             // Example upgrade costs; adjust as necessary
-            if (inventory.metalParts < 20 || inventory.wood < 100 || inventory.copper < 100) {
+            if (inventory.metalParts < 20 || inventory.wood < 100 || inventory.copper < 200) {
                 const errorEmbed = new EmbedBuilder()
                     .setTitle('Upgrade Error')
                     .setDescription('You do not have enough resources to upgrade the Autochopper.')
@@ -404,7 +404,7 @@ async function upgradeAutoMachine(interaction, userId) {
 
             inventory.metalParts -= 20;
             inventory.wood -= 100;
-            inventory.copper -= 100;
+            inventory.copper -= 200;
             autochopper.upgradeLevel += 1;
             await autochopper.save();
             await user.save();
@@ -435,7 +435,7 @@ async function upgradeAutoMachine(interaction, userId) {
             }
 
             // Example upgrade costs; adjust as necessary
-            if (inventory.metalParts < 20 || inventory.stone < 100 || inventory.copper < 100) {
+            if (inventory.metalParts < 20 || inventory.stone < 100 || inventory.copper < 200) {
                 const errorEmbed = new EmbedBuilder()
                     .setTitle('Upgrade Error')
                     .setDescription('You do not have enough resources to upgrade the Autominer.')
@@ -445,7 +445,7 @@ async function upgradeAutoMachine(interaction, userId) {
 
             inventory.metalParts -= 20;
             inventory.stone -= 100;
-            inventory.copper -= 100;
+            inventory.copper -= 200;
             autominer.upgradeLevel += 1;
             await autominer.save();
             await user.save();
@@ -476,7 +476,7 @@ async function upgradeAutoMachine(interaction, userId) {
             }
 
             // Example upgrade costs; adjust as necessary
-            if (inventory.metalParts < 20 || inventory.berries < 100 || inventory.copper < 100) {
+            if (inventory.metalParts < 20 || inventory.berries < 100 || inventory.copper < 200) {
                 const errorEmbed = new EmbedBuilder()
                     .setTitle('Upgrade Error')
                     .setDescription('You do not have enough resources to upgrade the Autoforager.')
@@ -486,7 +486,7 @@ async function upgradeAutoMachine(interaction, userId) {
 
             inventory.metalParts -= 20;
             inventory.berries -= 100;
-            inventory.copper -= 100;
+            inventory.copper -= 200;
             autoforager.upgradeLevel += 1;
             await autoforager.save();
             await user.save();

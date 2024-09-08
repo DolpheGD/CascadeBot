@@ -34,7 +34,7 @@ module.exports = {
 
             // Check cooldown
             const now = Date.now();
-            const cooldown = 30 * 1000; // 30 seconds
+            const cooldown = 15 * 1000; // 30 seconds
             if (now - user.lastFish < cooldown) {
                 const secondsLeft = Math.ceil((cooldown - (now - user.lastFish)) / 1000);
                 return interaction.editReply({ content: `You need to wait ${secondsLeft} seconds before fishing again.`, ephemeral: true });
