@@ -26,6 +26,8 @@ module.exports = {
                 .setDescription('Collect from your automachines.')),
 
     async execute(interaction) {
+        await interaction.deferReply();
+        
         const discordId = interaction.user.id;
         const subcommand = interaction.options.getSubcommand();
         
@@ -33,7 +35,7 @@ module.exports = {
         const user = await User.findOne({ where: { discordId } });
 
         if (!user) {
-            return interaction.reply({ content: 'User not found.', ephemeral: true });
+            return interaction.editReply({ content: 'User not found.', ephemeral: true });
         }
 
         const userId = user.id; // Get the user ID from the User model
@@ -119,7 +121,7 @@ async function viewBuilds(interaction, userId) {
         });
     }
 
-    return interaction.reply({ embeds: [embed] });
+    return interaction.editReply({ embeds: [embed] });
 }
 
 // -----------------------------------
@@ -136,7 +138,7 @@ async function craftAutoMachine(interaction, userId) {
 
 
     if (!user) {
-        return interaction.reply({ content: 'User not found.', ephemeral: true });
+        return interaction.editReply({ content: 'User not found.', ephemeral: true });
     }
 
     // DFescription
@@ -183,7 +185,7 @@ async function craftAutoMachine(interaction, userId) {
                 .setStyle(ButtonStyle.Primary)
         );
 
-    await interaction.reply({ embeds: [craftmenu], components: [row] });
+    await interaction.editReply({ embeds: [craftmenu], components: [row] });
 
     const filter = i => i.user.id === interaction.user.id;
     const collector = interaction.channel.createMessageComponentCollector({ filter, time: 30000 });
@@ -196,7 +198,7 @@ async function craftAutoMachine(interaction, userId) {
                     .setTitle('Crafting Error')
                     .setDescription('You already own an autochopper')
                     .setColor('#FF0000');
-                return i.reply({ embeds: [errorEmbed], ephemeral: true });
+                return i.editReply({ embeds: [errorEmbed], ephemeral: true });
             }
             
             // not enough mat error
@@ -205,7 +207,7 @@ async function craftAutoMachine(interaction, userId) {
                     .setTitle('Crafting Error')
                     .setDescription('You do not have enough materials to craft an Autochopper.')
                     .setColor('#FF0000');
-                return i.reply({ embeds: [errorEmbed], ephemeral: true });
+                return i.editReply({ embeds: [errorEmbed], ephemeral: true });
             }
 
             inventory.negadomBattery -= 1;
@@ -221,7 +223,7 @@ async function craftAutoMachine(interaction, userId) {
                 .setTitle('Crafting Success')
                 .setDescription('You have successfully crafted an Autochopper!')
                 .setColor('#00FF00');
-            await i.reply({ embeds: [successEmbed] });
+            await i.editReply({ embeds: [successEmbed] });
 
         } else if (i.customId === 'craft_autominer') {
             if (machineMap['autominer']){ // already own error
@@ -229,7 +231,7 @@ async function craftAutoMachine(interaction, userId) {
                     .setTitle('Crafting Error')
                     .setDescription('You already own an autominer')
                     .setColor('#FF0000');
-                return i.reply({ embeds: [errorEmbed], ephemeral: true });
+                return i.editReply({ embeds: [errorEmbed], ephemeral: true });
             }
 
             // error
@@ -238,7 +240,7 @@ async function craftAutoMachine(interaction, userId) {
                     .setTitle('Crafting Error')
                     .setDescription('You do not have enough materials to craft an Autominer.')
                     .setColor('#FF0000');
-                return i.reply({ embeds: [errorEmbed], ephemeral: true });
+                return i.editReply({ embeds: [errorEmbed], ephemeral: true });
             }
 
             inventory.negadomBattery -= 1;
@@ -254,7 +256,7 @@ async function craftAutoMachine(interaction, userId) {
                 .setTitle('Crafting Success')
                 .setDescription('You have successfully crafted an Autominer!')
                 .setColor('#00FF00');
-            await i.reply({ embeds: [successEmbed] });
+            await i.editReply({ embeds: [successEmbed] });
             
         } else if (i.customId === 'craft_autoforager') {
             if (machineMap['autoforager']){ // already own error
@@ -262,7 +264,7 @@ async function craftAutoMachine(interaction, userId) {
                     .setTitle('Crafting Error')
                     .setDescription('You already own an autoforager')
                     .setColor('#FF0000');
-                return i.reply({ embeds: [errorEmbed], ephemeral: true });
+                return i.editReply({ embeds: [errorEmbed], ephemeral: true });
             }
 
             if (inventory.negadomBattery < 1 || inventory.metalParts < 15 || inventory.diamond < 1 || inventory.ruby < 15 || inventory.palmLeaves < 100) {
@@ -270,7 +272,7 @@ async function craftAutoMachine(interaction, userId) {
                     .setTitle('Crafting Error')
                     .setDescription('You do not have enough materials to craft an Autoforager.')
                     .setColor('#FF0000');
-                return i.reply({ embeds: [errorEmbed], ephemeral: true });
+                return i.editReply({ embeds: [errorEmbed], ephemeral: true });
             }
 
             inventory.negadomBattery -= 1;
@@ -286,7 +288,7 @@ async function craftAutoMachine(interaction, userId) {
                 .setTitle('Crafting Success')
                 .setDescription('You have successfully crafted an Autoforager!')
                 .setColor('#00FF00');
-            await i.reply({ embeds: [successEmbed] });
+            await i.editReply({ embeds: [successEmbed] });
         }
 
         collector.stop();
@@ -318,7 +320,7 @@ async function upgradeAutoMachine(interaction, userId) {
     });
     
     if (!user) {
-        return interaction.reply({ content: 'User not found.', ephemeral: true });
+        return interaction.editReply({ content: 'User not found.', ephemeral: true });
     }
 
     // Description
@@ -368,7 +370,7 @@ async function upgradeAutoMachine(interaction, userId) {
                 .setStyle(ButtonStyle.Primary)
         );
 
-    await interaction.reply({ embeds: [craftmenu], components: [row] });
+    await interaction.editReply({ embeds: [craftmenu], components: [row] });
 
     const filter = i => i.user.id === interaction.user.id;
     const collector = interaction.channel.createMessageComponentCollector({ filter, time: 30000 });
@@ -383,14 +385,14 @@ async function upgradeAutoMachine(interaction, userId) {
                     .setTitle('Upgrade Error')
                     .setDescription('You do not own an Autochopper to upgrade.')
                     .setColor('#FF0000');
-                return i.reply({ embeds: [errorEmbed], ephemeral: true });
+                return i.editReply({ embeds: [errorEmbed], ephemeral: true });
             }
             if (autochopper.upgradeLevel + 1 >= 5){
                 const errorEmbed = new EmbedBuilder()
                     .setTitle('Upgrade Error')
                     .setDescription('You already upgraded to the max level (5)')
                     .setColor('#FF0000');
-                return i.reply({ embeds: [errorEmbed], ephemeral: true });  
+                return i.editReply({ embeds: [errorEmbed], ephemeral: true });  
             }
 
             // Example upgrade costs; adjust as necessary
@@ -399,7 +401,7 @@ async function upgradeAutoMachine(interaction, userId) {
                     .setTitle('Upgrade Error')
                     .setDescription('You do not have enough resources to upgrade the Autochopper.')
                     .setColor('#FF0000');
-                return i.reply({ embeds: [errorEmbed], ephemeral: true });
+                return i.editReply({ embeds: [errorEmbed], ephemeral: true });
             }
 
             inventory.metalParts -= 20;
@@ -413,7 +415,7 @@ async function upgradeAutoMachine(interaction, userId) {
                 .setTitle('Upgrade Success')
                 .setDescription('Your Autochopper has been upgraded!')
                 .setColor('#00FF00');
-            await i.reply({ embeds: [successEmbed] });
+            await i.editReply({ embeds: [successEmbed] });
 
         // AUTOMINER
         } else if (i.customId === 'upgrade_autominer') {
@@ -424,14 +426,14 @@ async function upgradeAutoMachine(interaction, userId) {
                     .setTitle('Upgrade Error')
                     .setDescription('You do not own an Autominer to upgrade.')
                     .setColor('#FF0000');
-                return i.reply({ embeds: [errorEmbed], ephemeral: true });
+                return i.editReply({ embeds: [errorEmbed], ephemeral: true });
             }
             if (autominer.upgradeLevel + 1 >= 5){
                 const errorEmbed = new EmbedBuilder()
                     .setTitle('Upgrade Error')
                     .setDescription('You already upgraded to the max level (5)')
                     .setColor('#FF0000');
-                return i.reply({ embeds: [errorEmbed], ephemeral: true });  
+                return i.editReply({ embeds: [errorEmbed], ephemeral: true });  
             }
 
             // Example upgrade costs; adjust as necessary
@@ -440,7 +442,7 @@ async function upgradeAutoMachine(interaction, userId) {
                     .setTitle('Upgrade Error')
                     .setDescription('You do not have enough resources to upgrade the Autominer.')
                     .setColor('#FF0000');
-                return i.reply({ embeds: [errorEmbed], ephemeral: true });
+                return i.editReply({ embeds: [errorEmbed], ephemeral: true });
             }
 
             inventory.metalParts -= 20;
@@ -454,7 +456,7 @@ async function upgradeAutoMachine(interaction, userId) {
                 .setTitle('Upgrade Success')
                 .setDescription('Your Autominer has been upgraded!')
                 .setColor('#00FF00');
-            await i.reply({ embeds: [successEmbed] });
+            await i.editReply({ embeds: [successEmbed] });
         
         //AUTOFORAGER
         } else if (i.customId === 'upgrade_autoforager') {
@@ -465,14 +467,14 @@ async function upgradeAutoMachine(interaction, userId) {
                     .setTitle('Upgrade Error')
                     .setDescription('You do not own an Autoforager to upgrade.')
                     .setColor('#FF0000');
-                return i.reply({ embeds: [errorEmbed], ephemeral: true });
+                return i.editReply({ embeds: [errorEmbed], ephemeral: true });
             }
             if (autoforager.upgradeLevel + 1 >= 5){
                 const errorEmbed = new EmbedBuilder()
                     .setTitle('Upgrade Error')
                     .setDescription('You already upgraded to the max level (5)')
                     .setColor('#FF0000');
-                return i.reply({ embeds: [errorEmbed], ephemeral: true });  
+                return i.editReply({ embeds: [errorEmbed], ephemeral: true });  
             }
 
             // Example upgrade costs; adjust as necessary
@@ -481,7 +483,7 @@ async function upgradeAutoMachine(interaction, userId) {
                     .setTitle('Upgrade Error')
                     .setDescription('You do not have enough resources to upgrade the Autoforager.')
                     .setColor('#FF0000');
-                return i.reply({ embeds: [errorEmbed], ephemeral: true });
+                return i.editReply({ embeds: [errorEmbed], ephemeral: true });
             }
 
             inventory.metalParts -= 20;
@@ -495,7 +497,7 @@ async function upgradeAutoMachine(interaction, userId) {
                 .setTitle('Upgrade Success')
                 .setDescription('Your Autoforager has been upgraded!')
                 .setColor('#00FF00');
-            await i.reply({ embeds: [successEmbed] });
+            await i.editReply({ embeds: [successEmbed] });
         }
 
         collector.stop();
@@ -521,13 +523,13 @@ async function collectAutoMachineResources(interaction, userId) {
         // Fetch user's automachines
         const machines = await AutoMachine.findAll({ where: { userId } });
         if (!machines || machines.length === 0) {
-            return interaction.reply({ content: 'You do not own any automachines.', ephemeral: true });
+            return interaction.editReply({ content: 'You do not own any automachines.', ephemeral: true });
         }
 
         // Fetch user's inventory
         let inventory = await Inventory.findOne({ where: { userId } });
         if (!inventory) {
-            return interaction.reply({ content: 'Your inventory could not be found.', ephemeral: true });
+            return interaction.editReply({ content: 'Your inventory could not be found.', ephemeral: true });
         }
 
         // Initialize variables to hold total collected resources
@@ -595,10 +597,10 @@ async function collectAutoMachineResources(interaction, userId) {
         }
 
         // Reply with the embed message
-        return interaction.reply({ embeds: [embed] });
+        return interaction.editReply({ embeds: [embed] });
 
     } catch (error) {
         console.error('Error collecting resources:', error);
-        return interaction.reply({ content: 'An error occurred while collecting resources. Please try again later.', ephemeral: true });
+        return interaction.editReply({ content: 'An error occurred while collecting resources. Please try again later.', ephemeral: true });
     }
 }

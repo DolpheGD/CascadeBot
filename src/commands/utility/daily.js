@@ -10,6 +10,8 @@ module.exports = {
     async execute(interaction) {
         const userId = interaction.user.id;
 
+        await interaction.deferReply();
+
         // Retrieve the user and inventory, or create them if they don't exist
         const [user] = await User.findOrCreate({ where: { discordId: userId } });
         const [inventory] = await Inventory.findOrCreate({ where: { userId: user.id } });
@@ -32,7 +34,7 @@ module.exports = {
         if (user.lastDaily && user.lastDaily >= lastReset) {
             const resetTimeLeft = lastReset.getTime() + 24 * 60 * 60 * 1000 - utc7Time.getTime();
             const hoursLeft = Math.ceil(resetTimeLeft / (60 * 60 * 1000));
-            return interaction.reply({ content: `You have already claimed your daily reward! Please wait ${hoursLeft} more hour(s) before claiming again.`, ephemeral: true });
+            return interaction.editReply({ content: `You have already claimed your daily reward! Please wait ${hoursLeft} more hour(s) before claiming again.`, ephemeral: true });
         }
 
         // Award resources
@@ -71,6 +73,6 @@ module.exports = {
             )
             .setFooter({ text: 'Come back after the next reset to claim again!' });
 
-        await interaction.reply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
     },
 };

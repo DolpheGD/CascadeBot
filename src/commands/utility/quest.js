@@ -120,7 +120,7 @@ module.exports = {
     
             return description;
         } else {
-            console.log('No active quest found. DiscordID:', discordId, 'QuestType:', questType);
+            // console.log('No active quest found. DiscordID:', discordId, 'QuestType:', questType);
             return 'No active quest found.';
         }
     }
@@ -137,7 +137,7 @@ async function giveQuestRewards(userId) {
         { resource: 'copper', min: 10, max: 20, emoji: '🔶' },
         { resource: 'palmLeaves', min: 10, max: 20, emoji: '🍃' },
         { resource: 'fish', min: 10, max: 20, emoji: '🐟' },
-        { resource: 'berries', min: 10, max: 20, emoji: '🍓' },
+        { resource: 'berries', min: 10, max: 20, emoji: '🫐' },
         { resource: 'apples', min: 5, max: 10, emoji: '🍎' },
         { resource: 'watermelon', min: 3, max: 6, emoji: '🍉' },
         { resource: 'gold', min: 2, max: 7, emoji: '✨' },
