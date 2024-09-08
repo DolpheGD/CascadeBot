@@ -30,8 +30,8 @@ module.exports = {
             // Display current quest progress
             const embed = new EmbedBuilder()
                 .setColor('#00ff00')
-                .setTitle('Current Quest')
-                .setDescription(`Use /${activeQuest.questType} 5 times successfully.`)
+                .setTitle('📜Current Quest📜')
+                .setDescription(`📜 Use /${activeQuest.questType} 5 times successfully.`)
                 .addFields(
                     { name: 'Progress', value: `${activeQuest.progress || 0}/5`, inline: true }
                 )
@@ -71,8 +71,8 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setColor('#00ff00')
-            .setTitle('New Quest Assigned!')
-            .setDescription(`Use /${questType} 5 times successfully.`)
+            .setTitle('📜New Quest Assigned!📜')
+            .setDescription(`📜 Use /${questType} 5 times successfully.`)
             .setThumbnail(interaction.user.displayAvatarURL())
             .setFooter({ text: 'You can claim another quest after completing this one.' });
 
@@ -80,8 +80,6 @@ module.exports = {
     },
 
     async trackQuestProgress(discordId, questType, interaction) {
-        console.log('Tracking quest...');
-        console.log(`DiscordID: ${discordId}, QuestType: ${questType}`);
         
         // Find the user by their Discord ID
         const user = await User.findOne({ where: { discordId: discordId } });
@@ -110,7 +108,7 @@ module.exports = {
                 await quest.save();
                 
                 const rewards = await giveQuestRewards(user.id);
-                description = `Congratulations! You have completed the quest: Use /${questType} 5 times successfully.`;
+                description = `📜 **[COMPLETE]** Use /${questType} 5 times successfully.`;
                 
                 // Format the rewards
                 description += `\n\nYou received:\n${rewards.join('\n')}`;
@@ -132,24 +130,32 @@ module.exports = {
 async function giveQuestRewards(userId) {
     const [inventory] = await Inventory.findOrCreate({ where: { userId: userId } });
 
+    // Define reward options with their respective ranges
     const rewards = [
-        { resource: 'wood', amount: 20, emoji: '🪵' },
-        { resource: 'stone', amount: 20, emoji: '🪨' },
-        { resource: 'palmLeaves', amount: 20, emoji: '🍃' },
-        { resource: 'copper', amount: 20, emoji: '🔶' },
-        { resource: 'gold', amount: 5, emoji: '✨' }
+        { resource: 'wood', min: 10, max: 20, emoji: '🪵' },
+        { resource: 'stone', min: 10, max: 20, emoji: '🪨' },
+        { resource: 'copper', min: 10, max: 20, emoji: '🔶' },
+        { resource: 'palmLeaves', min: 10, max: 20, emoji: '🍃' },
+        { resource: 'fish', min: 10, max: 20, emoji: '🐟' },
+        { resource: 'berries', min: 10, max: 20, emoji: '🍓' },
+        { resource: 'apples', min: 5, max: 10, emoji: '🍎' },
+        { resource: 'watermelon', min: 3, max: 6, emoji: '🍉' },
+        { resource: 'gold', min: 2, max: 7, emoji: '✨' },
+        { resource: 'rope', min: 4, max: 8, emoji: '🪢' }
     ];
 
-    // Shuffle and pick two rewards
+    // Shuffle the rewards and pick 4 at random
     rewards.sort(() => Math.random() - 0.5);
-    const selectedRewards = rewards.slice(0, 2);
+    const selectedRewards = rewards.slice(0, 4);
 
     const rewardDescriptions = selectedRewards.map(reward => {
-        inventory[reward.resource] += reward.amount;
-        return `+${reward.amount} ${reward.emoji}`;
+        // Generate a random amount within the specified range
+        const amount = Math.floor(Math.random() * (reward.max - reward.min + 1)) + reward.min;
+        inventory[reward.resource] += amount; // Add the amount to the user's inventory
+        return `+${amount} ${reward.emoji}`; // Create the reward description
     });
 
-    await inventory.save();
+    await inventory.save(); // Save the updated inventory
 
-    return rewardDescriptions;
+    return rewardDescriptions; // Return the list of reward descriptions
 }

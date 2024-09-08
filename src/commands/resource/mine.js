@@ -103,6 +103,7 @@ module.exports = {
                     const embed = new EmbedBuilder()
                         .setColor('#ff0000')
                         .setTitle('Failure!')
+                        .setThumbnail(interaction.user.displayAvatarURL())
                         .setDescription(`You bump into ${thiefName} in the mines and they steal some stone from you!\n**-${stoneLost}** 🪨`)
                         .setFooter({ text: `Total stone: ${inventory.stone}` });
 
@@ -116,6 +117,7 @@ module.exports = {
                     const embed = new EmbedBuilder()
                         .setColor('#ff0000')
                         .setTitle('Failure!')
+                        .setThumbnail(interaction.user.displayAvatarURL())
                         .setDescription(`You find ${thiefName}, who is jealous of your gold and attacks you!\n**-${goldLost}** ✨`)
                         .setFooter({ text: `Total gold: ${inventory.gold}` });
 
@@ -131,6 +133,7 @@ module.exports = {
                         const embed = new EmbedBuilder()
                             .setColor('#ff0000')
                             .setTitle('Failure!')
+                            .setThumbnail(interaction.user.displayAvatarURL())
                             .setDescription(`You, ${thiefName}, and ${thiefName2} got into a scuffle at the mines!\n**-1** 🪵, **-1** 🌿, **-1** 🪨, **-1** 🔶`)
                             .setFooter({ text: `Resources left: Wood: ${inventory.wood}, Palm Leaves: ${inventory.palmLeaves}, Stone: ${inventory.stone}, Copper: ${inventory.copper}` });
 
@@ -139,6 +142,7 @@ module.exports = {
                         const embed = new EmbedBuilder()
                             .setColor('#ff0000')
                             .setTitle('Failure!')
+                            .setThumbnail(interaction.user.displayAvatarURL())
                             .setDescription(`${thiefName} saw you at the mines and laughed at how poor you were!`);
 
                         return interaction.editReply({content: '', embeds: [embed] });

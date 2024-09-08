@@ -74,8 +74,8 @@ module.exports = {
                         15 * inventory.legendaryFish +
                         15 * inventory.metalParts + 
                         50 * inventory.ruby + 
-                        150 * inventory.diamond + 
-                        250 * inventory.negadomBattery
+                        250 * inventory.diamond + 
+                        400 * inventory.negadomBattery
                     } ⚡`
                 });
 

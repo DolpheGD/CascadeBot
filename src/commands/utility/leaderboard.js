@@ -5,7 +5,7 @@ const Inventory = require('../../models/Inventory');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('leaderboard')
-        .setDescription('Display the top 10 users by power'),
+        .setDescription('Display the top 25 users by power'),
 
     async execute(interaction) {
         try {
@@ -28,8 +28,8 @@ module.exports = {
                                 15 * inventory.legendaryFish +
                                 15 * inventory.metalParts +
                                 50 * inventory.ruby + 
-                                150 * inventory.diamond + 
-                                250 * inventory.negadomBattery;
+                                250 * inventory.diamond + 
+                                400 * inventory.negadomBattery;
                 return {
                     username: user.username,
                     power: power,
@@ -39,13 +39,13 @@ module.exports = {
 
             // Sort by power in descending order and get top 10
             leaderboard.sort((a, b) => b.power - a.power);
-            const top10 = leaderboard.slice(0, 10);
+            const top25 = leaderboard.slice(0, 25);
 
             // Create leaderboard description
-            const description = top10.map((entry, index) => `${index + 1}. ${entry.username}: ${entry.power}⚡`).join('\n');
+            const description = top25.map((entry, index) => `${index + 1}. ${entry.username}: ${entry.power}⚡`).join('\n');
 
             // Fetch the user with the highest power for the thumbnail
-            const topUser = top10[0];
+            const topUser = top25[0];
             const topUserAvatar = topUser ? await interaction.client.users.fetch(topUser.discordId).then(user => user.displayAvatarURL()) : null;
 
             // Create the embed
