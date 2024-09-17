@@ -22,19 +22,19 @@ cron.schedule('0 * * * *', async () => {
 
                 // Check the type of machine and calculate resource collection
                 if (machine.type === 'autochopper') {
-                    woodCollected = Math.min(hoursElapsed * (10 + 2 * machine.upgradeLevel), 200 - machine.wood); // max at the end
-                    ropeCollected = Math.min(hoursElapsed * (1 + machine.upgradeLevel), 10 - machine.rope);
+                    woodCollected = Math.min(hoursElapsed * (10 + 2 * machine.upgradeLevel), (200 + 20 * machine.upgradeLevel) - machine.wood); // max at the end
+                    ropeCollected = Math.min(hoursElapsed * (1 + machine.upgradeLevel), (10 + 4 * machine.upgradeLevel) - machine.rope);
                     machine.wood += woodCollected;
                     machine.rope += ropeCollected;
                 } else if (machine.type === 'autominer') {
-                    stoneCollected = Math.min(hoursElapsed * (10 + 2 * machine.upgradeLevel), 200 - machine.stone);
-                    copperCollected = Math.min(hoursElapsed * (5 + 2 * machine.upgradeLevel), 100 - machine.copper);
+                    stoneCollected = Math.min(hoursElapsed * (10 + 2 * machine.upgradeLevel), (200 + 20 * machine.upgradeLevel) - machine.stone);
+                    copperCollected = Math.min(hoursElapsed * (5 + 2 * machine.upgradeLevel), (100 + 10 * machine.upgradeLevel) - machine.copper);
                     machine.stone += stoneCollected;
                     machine.copper += copperCollected;
                 } else if (machine.type === 'autoforager') {
-                    palmLeavesCollected = Math.min(hoursElapsed * (5 + 2 * machine.upgradeLevel), 100 - machine.palmLeaves);
-                    berriesCollected = Math.min(hoursElapsed * (5 + 2 * machine.upgradeLevel), 100 - machine.berries);
-                    applesCollected = Math.min(hoursElapsed * (2 + machine.upgradeLevel), 20 - machine.apples);
+                    palmLeavesCollected = Math.min(hoursElapsed * (5 + 2 * machine.upgradeLevel), (100 + 10 * machine.upgradeLevel) - machine.palmLeaves);
+                    berriesCollected = Math.min(hoursElapsed * (5 + 2 * machine.upgradeLevel), (100 + 10 * machine.upgradeLevel)- machine.berries);
+                    applesCollected = Math.min(hoursElapsed * (2 + machine.upgradeLevel), (20 + 4 * machine.upgradeLevel) - machine.apples);
                     machine.palmLeaves += palmLeavesCollected;
                     machine.berries += berriesCollected;
                     machine.apples += applesCollected;

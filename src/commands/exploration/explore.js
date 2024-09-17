@@ -16,7 +16,8 @@ const resourceEmojiMap = {
     diamond: '💎',
     berries: '🫐',
     apples: '🍎',
-    watermelon: '🍉'
+    watermelon: '🍉',
+    cloth: '🧶'
 };
 
 
@@ -30,7 +31,21 @@ const resourceEmojiMap = {
 const events = [
     {
         id: 1,
-        description: "You spot Josh near a campfire",
+        description: async (interaction, inventory, tools) => {
+            let desc = "You spot Josh near a campfire";
+            let randmessage = Math.random();
+
+            // Add dynamic parts to the description based on the user's inventory or tools
+            if (randmessage < 0.33 ) {
+                desc += ". He doesn't notice you...";
+            } else if (randmessage < 0.66) {
+                desc += ". He seems to be crying about something...";
+            } else {
+                desc += ". He seems calm but you can't shake the feeling something's off.";
+            }
+            
+            return desc;
+        },
         choices: [
             {
                 emoji: '1️⃣',
@@ -167,7 +182,21 @@ const events = [
     },
     {
         id: 2,
-        description: "You spot a homeless Dolphe on the sidewalk.",
+        description: async (interaction, inventory, tools) => {
+            let desc = "You spot a homeless Dolphe";
+            let randmessage = Math.random();
+
+            // Add dynamic parts to the description based on the user's inventory or tools
+            if (randmessage < 0.33 ) {
+                desc += "and he is shivering from the cold...";
+            } else if (randmessage < 0.66) {
+                desc += ". He seems disguntled...";
+            } else {
+                desc += ". The Great Abyssnia Depression must have hit hard...";
+            }
+            
+            return desc;
+        },
         choices: [
             {
                 emoji: '1️⃣',
@@ -239,7 +268,7 @@ const events = [
     },
     {
         id: 3,
-        description: "You come across Xender, a shady businessman\n\n[NOT SCAM Lottery] 1🪵 1🪨 1🌿 1🔶 for a chance to win 10✨\n\n[SUPER NOT SCAM Lottery] 10✨ for a chance to win 1💎\n",
+        description: "You come across Xender, a shady businessman.\n\n[NOT SCAM Lottery] 1🪵 1🪨 1🌿 1🔶 for a chance to win 10✨\n[SUPER NOT SCAM Lottery] 10✨ for a chance to win 1💎\n\xa0",
         choices: [
             { emoji: '1️⃣', text: 'Enter NOT SCAM lottery', result: async (interaction, inventory) => {
                 if (inventory.wood >= 1 && inventory.stone >= 1 && inventory.palmLeaves >= 1 && inventory.copper >= 1 ) {
@@ -292,7 +321,22 @@ const events = [
     },
     {
         id: 4,
-        description: "You meet Rex, an old crafter. He offers to craft your palm leaves into rope.",
+        description: async (interaction, inventory, tools) => {
+            let desc = "You meet Rex, an old crafter";
+            let randmessage = Math.random();
+
+            if (randmessage < 0.25 ) {
+                desc += ". He offers to craft your palm leaves into items.";
+            } else if (randmessage < 0.50) {
+                desc += ". He seems a bit beaten up for some reason...";
+            } else if (randmessage < 0.75) {
+                desc += " and it seems nobody is around his shop.";
+            } else {
+                desc += ". Weird how there is one random shop in the middle of the forest...";
+            }
+            
+            return desc;
+        },
         choices: [
             { 
                 emoji: '1️⃣', 
@@ -338,6 +382,23 @@ const events = [
             },
             { 
                 emoji: '4️⃣', 
+                text: 'Craft 40🌿 4✨ into 4🧶', 
+                result: async (interaction, inventory) => {
+                    if (inventory.palmLeaves >= 40 || inventory.gold > 4) {
+                        inventory.palmLeaves -= 40;
+                        inventory.gold -= 4;
+
+                        inventory.cloth = (inventory.cloth || 0) + 4;
+
+                        await inventory.save();
+                        return { message: 'Rex crafts cloth for you!\n**+4**🧶', color: '#00ff00' };
+                    } else {
+                        return { message: 'You don’t have enough palm leaves and gold!', color: '#ff0000' };
+                    }
+                }
+            },
+            { 
+                emoji: '5️⃣', 
                 text: 'Ambush Rex', 
                 result: async (interaction, inventory) => {
                     const chance = Math.random();
@@ -379,7 +440,7 @@ const events = [
                 }
             },
             { 
-                emoji: '5️⃣', 
+                emoji: '6️⃣', 
                 text: 'Leave', 
                 result: () => ({ message: 'You decide to leave Rex and continue your exploration.', color: '#0099ff' })
             }
@@ -388,7 +449,22 @@ const events = [
     },
     {
         id: 5,
-        description: "You meet Duko, an illegal rock dealer. 1 loot rock for **6**🪵 and **3**🪨",
+        description: async (interaction, inventory, tools) => {
+            let desc = "You meet Duko, an illegal rock dealer. 1 loot rock for **6**🪵 and **3**🪨\n";
+            let randmessage = Math.random();
+
+            if (randmessage < 0.25 ) {
+                desc += "**Duko:** Dont tell anyone about this...";
+            } else if (randmessage < 0.50) {
+                desc += "**Duko:** I may be illegal, but I'm telling you, Tbnr is way more fishy than me...";
+            } else if (randmessage < 0.75) {
+                desc += "He seems to be busy modeling something on his computer.";
+            } else {
+                desc += "He stares at you lifelessly.";
+            }
+            
+            return desc;
+        },
         choices: [
             { emoji: '1️⃣', text: 'Leave', result: () => ({ message: 'You decide to leave Duko and continue your exploration.', color: '#0099ff' })},
             { emoji: '2️⃣', text: 'Buy 1 rock', result: async (interaction, inventory) => await handleRockPurchase(interaction, inventory, 1) },
@@ -403,7 +479,22 @@ const events = [
     },
     {
         id: 6,
-        description: "You encounter Triv, a feared swordsman, who challenges you to a 1v1 battle.",
+        description: async (interaction, inventory, tools) => {
+            let desc = "";
+            let randmessage = Math.random();
+
+            if (randmessage < 0.25 ) {
+                desc += "You encounter Triv, a feared assassin.";
+            } else if (randmessage < 0.50) {
+                desc += "**Triv:** You and I will fight to the death... FOR LOONAAAA!!";
+            } else if (randmessage < 0.75) {
+                desc += "**Triv:** I am always two steps ahead... People like you must be eliminated...";
+            } else {
+                desc += "You encounter Triv, who as been tasked by Xender to eliminate you.";
+            }
+            
+            return desc;
+        },
         imageUrl: "https://cdn.discordapp.com/attachments/704530416475832342/1274674180419489822/1v1Triv.png?ex=66c31c56&is=66c1cad6&hm=566990eab2e9890a657e0f2c018f84c724f4a9776bd0ea3bb684af8f13b62df6&",
         choices: [
             {
@@ -540,12 +631,79 @@ const events = [
                     await inventory.save();
                     return { message: resultMessage, color };
                 }
-            }                  
+            },
+            {
+                emoji: '4️⃣',
+                text: 'Fight with your Dagger (🗡️ -5 Durability)',
+                async result(interaction, inventory, tools) {
+                    // Check if the user has an axe and enough durability
+                    if (!tools.dagger || tools.daggerDurability < 5) {
+                        // User is defeated due to lack of durability
+                        let resultMessage = "You fumble around and are swiftly defeated!\n";
+                        const resources = ['wood', 'stone', 'copper', 'gold'];
+                
+                        // Track resource losses
+                        resources.forEach(resource => {
+                            if (inventory[resource] > 0) {
+                                inventory[resource] -= 1;
+                                resultMessage += `-1 ${resourceEmojiMap[resource]}\n`;
+                            }
+                        });
+                        await inventory.save();
+                        return { message: resultMessage, color: '#ff0000' };
+                    }
+                
+                    // Deduct axe durability
+                    tools.daggerDurability -= 5;
+                    await tools.save();
+                
+                    let resultMessage = "Fight with your dagger (🗡️ -5 Durability)\n";
+                
+                        resultMessage += "You defeat Triv with the dagger! You gain a ton of resources.\n";
+                        const resources = {
+                            wood: [4, 11],
+                            palmLeaves: [4, 11],
+                            stone: [4, 11],
+                            copper: [4, 11],
+                            gold: [2, 6],
+                            rope: [1, 4],
+                            cloth: [1, 3]
+                        }
+                
+                        // Track resource gains
+                        for (const [resource, range] of Object.entries(resources)) {
+                            const gained = Math.floor(Math.random() * (range[1] - range[0] + 1)) + range[0];
+                            inventory[resource] += gained;
+                            resultMessage += `+${gained} ${resourceEmojiMap[resource]}\n`;
+                        }
+                        if (Math.random() <= 0.4) { // 20% small chance for ruby
+                            inventory.ruby += 1;
+                            resultMessage += `+1♦️ \n`;
+                        }
+                        color = '#00ff00';
+                
+                    await inventory.save();
+                    return { message: resultMessage, color };
+                }
+            }
         ]
     },
     {
         id: 7,
-        description: "You encounter NF89, a blacksmith, who offers to craft tools or sell items.",
+        description: async (interaction, inventory, tools) => {
+            let desc = "";
+            let randmessage = Math.random();
+
+            if (randmessage < 0.4 ) {
+                desc += "You encounter NF89, a blacksmith, who offers to forge tools.";
+            } else if (randmessage < 0.8) {
+                desc += "**NF89:** If you need anything forged, I'll get it done.";
+            } else {
+                desc += "**NF89:** Have you seen Ultra M anywhere? Ever since the highlands disaster he's been missing...";
+            }
+            
+            return desc;
+        },
         imageUrl: "https://cdn.discordapp.com/attachments/704530416475832342/1274977215314133023/NFTHEBLACKSMITH.png?ex=66c43690&is=66c2e510&hm=8278fd5ea5fba7b55b544de5ab4a92043c1d68dd830ec432576f34a5510e3593&", // Use an appropriate image URL
         choices: [
             {
@@ -618,6 +776,41 @@ const events = [
             },
             {
                 emoji: '3️⃣',
+                text: 'Craft Dagger\n-30🪵 -100🪨 -100🔶 -20🪢 -50✨ -10♦️',
+                async result(interaction, inventory, tools) {
+                    // Check if the user has enough resources
+                    if (inventory.wood < 30 || inventory.stone < 100 || inventory.copper < 100 || inventory.rope < 20 || inventory.gold < 50 || inventory.ruby < 10 ) {
+                        let resultMessage = "You don’t have enough resources to craft a dagger. NF89 shakes his head in disappointment.\n";
+    
+                        await inventory.save();
+                        return { message: resultMessage, color: '#ff0000' };
+                    }
+    
+                    // Deduct resources
+                    inventory.wood -= 30;
+                    inventory.stone -= 100;
+                    inventory.copper -= 100;
+                    inventory.rope -= 20;
+                    inventory.gold -= 50;
+                    inventory.ruby -= 10;
+    
+                    // Check if user already has a pickaxe and update durability or add a new one
+                    if (tools.dagger) {
+                        tools.daggerDurability = 100;
+                    } else {
+                        tools.dagger = true;
+                        tools.daggerDurability = 100;
+                    }
+    
+                    await tools.save();
+                    await inventory.save();
+    
+                    let resultMessage = "NF89 crafts you a new dagger 🗡️!\n";
+                    return { message: resultMessage, color: '#00ff00' };
+                }
+            },
+            {
+                emoji: '4️⃣',
                 text: 'Craft 5⚙️\n -100🔶 -75🪨 -15✨ -2♦️',
                 async result(interaction, inventory, tools) {
                     // Check if the user has enough resources
@@ -643,7 +836,7 @@ const events = [
                 }
             },
             {
-                emoji: '4️⃣',
+                emoji: '5️⃣',
                 text: 'Leave',
                 async result() {
                     let resultMessage = "You decide to leave NF89’s workshop and continue on your journey.\n";
@@ -759,7 +952,22 @@ const events = [
     },
     {
         id: 9,
-        description: "You meet Tbnr, a struggling shopkeeper. He looks at you funny before asking what you want to buy.",
+        description: async (interaction, inventory, tools) => {
+            let desc = "You meet Tbnr, a struggling shopkeeper. ";
+            let randmessage = Math.random();
+
+            if (randmessage < 0.25 ) {
+                desc += " He looks at you seductively before asking what you want to buy.";
+            } else if (randmessage < 0.50) {
+                desc += " He turns around to check his \"Special Stock\".";
+            } else if (randmessage < 0.75) {
+                desc += " He seems to be doing something funny in the corner of the shop...";
+            } else {
+                desc += "\n**Tbnr:** Yes";
+            }
+            
+            return desc;
+        },
         choices: [
             {
                 emoji: '1️⃣',
@@ -892,7 +1100,22 @@ const events = [
     },    
     {
         id: 10,
-        description: "You meet JD the fisherman.\n**JD:** Poor people... But I was once like them...\nAll of them, Josh, Rex, Tbnr, Dolphe...\nIf only we could activate the Negadom Destroyer...\n",
+        description: async (interaction, inventory, tools) => {
+            let desc = "You meet JD the fisherman.\n";
+            let randmessage = Math.random();
+
+            if (randmessage < 0.25 ) {
+                desc += "**JD:** Poor people... But I was once like them... All of them, Josh, Rex, Tbnr, Dolphe... If only we could activate the Negadom Destroyer...";
+            } else if (randmessage < 0.50) {
+                desc += "**JD:** People keep fighting on the dock... Things haven't been the same since the Great Abyssnia Depression...";
+            } else if (randmessage < 0.75) {
+                desc += "**JD:** A certain duck keeps barging into my shop and eating all the fish... If you ever see him, please do me a favor...";
+            } else {
+                desc += "**JD:** Me and Josh used to be fishing buddies, but he got into gambling. I wonder where he is now...";
+            }
+            
+            return desc;
+        },
         choices: [
             {
                 emoji: '1️⃣',
@@ -973,7 +1196,22 @@ const events = [
     },    
     {
         id: 11,
-        description: "You meet Rohan the fruit vendor.\n**Rohan:** If you ever see Josh around, don't talk to him.\nHe can't be trusted...",
+        description:  async (interaction, inventory, tools) => {
+            let desc = "You meet Rohan the fruit vendor.\n";
+            let randmessage = Math.random();
+
+            if (randmessage < 0.25 ) {
+                desc += "**Rohan:** If you ever see Josh around, don't talk to him. He can't be trusted...";
+            } else if (randmessage < 0.50) {
+                desc += "**Rohan:** Since the Great Abyssnia Depression, I've had to sell fruit. I used to have Daddy's and Mommy's money but they wont give me any now...";
+            } else if (randmessage < 0.75) {
+                desc += "**Rohan:** Everyone is oblivious to my divine powers... *He* will get what is coming to him...";
+            } else {
+                desc += "**Rohan:** I can't stand that Rex guy. He's always supportive of Josh...";
+            }
+            
+            return desc;
+        },
         choices: [
             {
                 emoji: '1️⃣',
@@ -1019,9 +1257,21 @@ const events = [
             },
             {
                 emoji: '4️⃣',
-                text: 'Ambush Rohan',
-                result: async (interaction, inventory) => {
-                    if (Math.random() < 0.9) { // 90% chance of failure
+                text: 'Ambush Rohan [🗡️?]',
+                result: async (interaction, inventory, tools) => {
+                    const durabilityUsed = Math.floor(Math.random() * 7) + 1;
+
+                    if (tools.dagger && tools.daggerDurability > durabilityUsed) {
+                        tools.metalPickaxeDurability -= durabilityUsed;
+                        
+                        await tools.save();
+
+                        inventory.gold += 15;
+                        return { message: `(🗡️ -${durabilityUsed} Durability)\nYou ambushed Rohan with your dagger! He flees and you gained gold!\n**+15✨**`, color: '#00ff00' }; // Green for success
+                    }
+
+
+                    if (Math.random() < 0.7) { // 70% chance of failure
                         // Determine the most abundant resource
                         const resources = [
                             { type: 'wood', amount: inventory.wood },
@@ -1034,13 +1284,14 @@ const events = [
                         const mostAbundantResource = resources.reduce((max, resource) => resource.amount > max.amount ? resource : max, resources[0]);
                         
                         // Deduct resources
-                        const lossAmount = Math.min(20, mostAbundantResource.amount);
+                        const lossAmount = Math.min(10, mostAbundantResource.amount);
                         inventory[mostAbundantResource.type] -= lossAmount;
                         await inventory.save();
                         
                         return { message: `You tried to ambush Rohan, but he used his divine powers to destroy you!\n**-${lossAmount}** ${mostAbundantResource.type === 'wood' ? '🪵' : mostAbundantResource.type === 'stone' ? '🪨' : mostAbundantResource.type === 'copper' ? '🔶' : mostAbundantResource.type === 'palmLeaves' ? '🌿' : mostAbundantResource.type === 'berries' ? '🫐' : '🍎'}`, color: '#ff0000' }; // Red for failure
                     } else {
-                        return { message: 'You managed to ambush Rohan successfully! You gained nothing lmao.\n', color: '#00ff00' }; // Green for success
+                        inventory.gold += 3
+                        return { message: 'You managed to ambush Rohan successfully! He flees and you gained some gold.\n**+1✨**', color: '#00ff00' }; // Green for success
                     }
                 }
             },
@@ -1121,13 +1372,13 @@ const events = [
                         await tools.save();
                     }
     
-                    if (outcome <= 0.85) { // 85% chance for a positive result
+                    if (outcome <= 0.9) { // 90% chance for a positive result
                         resultMessage = "You explore the cave on your own and gain a multitude of resources!\n";
     
                         // Guaranteed resources
-                        const stoneGain = Math.floor(Math.random() * 10) + 2; // 2-11 stone
-                        const copperGain = Math.floor(Math.random() * 6) + 2; // 2-7 copper
-                        const woodGain = Math.floor(Math.random() * 6) + 2; // 2-7 wood
+                        const stoneGain = Math.floor(Math.random() * 15) + 3; 
+                        const copperGain = Math.floor(Math.random() * 8) + 3; 
+                        const woodGain = Math.floor(Math.random() * 8) + 3; 
                         inventory.stone += stoneGain;
                         inventory.copper += copperGain;
                         inventory.wood += woodGain;
@@ -1154,21 +1405,21 @@ const events = [
                             resultMessage += `+${palmLeavesGain} 🍃\n`;
                         }
     
-                        // 50% chance for gold
-                        if (Math.random() <= 0.50) {
+                        // 90% chance for gold
+                        if (Math.random() <= 0.90) {
                             const goldGain = Math.floor(Math.random() * 4) + 1; // 1-4 gold
                             inventory.gold += goldGain;
                             resultMessage += `+${goldGain} ✨\n`;
                         }
     
-                        // 6% chance for ruby
-                        if (Math.random() <= 0.06) {
+                        // 10% chance for ruby
+                        if (Math.random() <= 0.1) {
                             inventory.ruby += 1;
                             resultMessage += `+1 ♦️\n`;
                         }
     
-                        // 2% chance for metal parts
-                        if (Math.random() <= 0.02) {
+                        // 20% chance for metal parts
+                        if (Math.random() <= 0.2) {
                             inventory.metalParts += 1;
                             resultMessage += `+1⚙️\n`;
                         }
@@ -1194,7 +1445,22 @@ const events = [
     },
     {
         id: 13,
-        description: "You stumble upon thedoggyp's abandoned shack.",
+        description: async (interaction, inventory, tools) => {
+            let desc = "You stumble upon thedoggyp's abandoned shack.";
+            let randmessage = Math.random();
+
+            if (randmessage < 0.25 ) {
+                desc += " There is no life to be seen for miles...";
+            } else if (randmessage < 0.50) {
+                desc += " There is a faint but putrid odor coming from the shack.";
+            } else if (randmessage < 0.75) {
+                desc += " Looks like he fell victim to gambling...";
+            } else {
+                desc += " You swear you heard something moving inside.";
+            }
+            
+            return desc;
+        },
         imageUrl: "https://cdn.discordapp.com/attachments/1135808718492139521/1280078811379011604/FrancisShack.png?ex=66d6c5cb&is=66d5744b&hm=0345e04f90f924040942f2a99fda32cb4c181ab0c12dc1aa12c51a2275371286&", // Placeholder URL, replace with actual image if available
         choices: [
             {
@@ -1260,9 +1526,9 @@ const events = [
                     // Gain materials from deconstructing the house
                     let resultMessage = "You deconstruct the house and gather materials!\n";
                     const resources = {
-                        wood: [10, 30],
-                        stone: [5, 15],
-                        rope: [2, 6]
+                        wood: [10, 40],
+                        stone: [5, 20],
+                        rope: [2, 8]
                     };
     
                     for (const [resource, range] of Object.entries(resources)) {
@@ -1351,15 +1617,14 @@ const events = [
                             stone: 3,
                             copper: 3
                         };
-    
+                        resultMessage = "You attempt to backstab Tbnr and Josh, but they destroy you in the process!\n";
+                        
                         for (const [resource, loss] of Object.entries(losses)) {
                             if (inventory[resource] > 0) {
                                 inventory[resource] -= loss;
                                 resultMessage += `-${loss} ${resourceEmojiMap[resource]}\n`;
                             }
                         }
-    
-                        resultMessage = "You attempt to backstab Tbnr and Josh, but they destroy you in the process!\n";
                     }
     
                     await inventory.save();
@@ -1386,8 +1651,8 @@ const events = [
                     // Gain rewards for destroying the painting
                     let resultMessage = "You destroy the painting! NF89 gives you a reward for being based!\n";
                     const resources = {
-                        gold: [2, 5],
-                        copper: [2, 5]
+                        gold: [2, 8],
+                        copper: [2, 12]
                     };
     
                     for (const [resource, range] of Object.entries(resources)) {
@@ -1491,7 +1756,7 @@ const events = [
                             { name: 'superRareFish', min: 1, max: 2, emoji: '🐡' },
                             { name: 'legendaryFish', min: 1, max: 1, emoji: '🦈' },
                             { name: 'ruby', min: 1, max: 1, emoji: '♦️' }, 
-                            { name: 'metalPart', min: 1, max: 1, emoji: '⚙️' }
+                            { name: 'metalParts', min: 1, max: 1, emoji: '⚙️' }
                         ];
     
                         // Randomly select 3 resources to give
@@ -1635,7 +1900,7 @@ const events = [
                             }
                         }
     
-                        resultMessage = "Frost punches you and you instantly evaporate!\n" + resultMessage;
+                        resultMessage = "Frost JANITOR punches you and you instantly evaporate!\n" + resultMessage;
                     }
     
                     await inventory.save();
@@ -1650,9 +1915,119 @@ const events = [
                 }
             }
         ]
+    },
+    {
+        id: 18,
+        description: async (interaction, inventory, tools) => {
+            // Draw initial cards for the user and dealer
+            const userCards = drawCards(2);
+            const dealerCards = drawCards(2);
+    
+            // Save the drawn cards in interaction to access later
+            interaction.userCards = userCards;
+            interaction.dealerCards = dealerCards;
+    
+            // Calculate the initial values
+            const userValue = calculateHandValue(userCards);
+            const dealerValue = calculateHandValue([dealerCards[0]]); // Show only one dealer card initially
+    
+            // Format the cards for the description
+            const userCardsStr = userCards.join(' ');
+            const dealerCardsStr = '? ' + dealerCards[0];
+    
+            // Prepare the description
+            return `After hitting it big, Josh personally invites you to a game of Blackjack.\n\nYour cards: ${userCardsStr}\nJosh's cards: ${dealerCardsStr}`;
+        },
+        choices: [
+            {
+                emoji: '1️⃣',
+                text: 'Stand',
+                result: async (interaction, inventory) => {
+                    return await handleStand(interaction, inventory);
+                }
+            },
+            {
+                emoji: '2️⃣',
+                text: 'Hit',
+                result: async (interaction, inventory) => {
+                    let userCards = interaction.userCards || [];
+
+                    // Draw a new card for the user
+                    const newCard = drawCards(1)[0];
+                    userCards.push(newCard);
+    
+                    // Update the interaction with the new hand
+                    interaction.userCards = userCards;
+    
+                    // Continue the game with the updated hand
+                    return await handleStand(interaction, inventory);
+                }
+            },
+            {
+                emoji: '3️⃣',
+                text: 'Hit twice',
+                result: async (interaction, inventory) => {
+                    let userCards = interaction.userCards || [];
+
+                    // Draw a new card for the user
+                    const newCard = drawCards(1)[0];
+                    const newCard2 = drawCards(1)[0];
+                    userCards.push(newCard);
+                    userCards.push(newCard2);
+    
+                    // Update the interaction with the new hand
+                    interaction.userCards = userCards;
+    
+                    // Continue the game with the updated hand
+                    return await handleStand(interaction, inventory);
+                }
+            }
+        ],
+        imageUrl: 'https://cdn.discordapp.com/attachments/1274821354591621232/1282558991163199539/Joshjack.png?ex=66dfcba4&is=66de7a24&hm=c01b108d9a28105b761708f2f9358456ce668dd4963c791735b21da3a5448fbf&'
+    },
+    {
+        id: 19,
+        description: async (interaction, inventory, tools) => {
+            let desc = "You meet Broskm, an illegal fruit dealer. 1 fruit case for **1**✨\n";
+            let randMessage = Math.random();
+    
+            if (randMessage < 0.25) {
+                desc += "**Broskm:** Keep this under wraps, yeah?";
+            } else if (randMessage < 0.50) {
+                desc += "**Broskm:** I ain't like Duko, trust me, my stuff's fresher.";
+            } else if (randMessage < 0.75) {
+                desc += "Broskm is inspecting his inventory with a grin.";
+            } else {
+                desc += "He gives you a sly wink.";
+            }
+    
+            return desc;
+        },
+        choices: [
+            { emoji: '1️⃣', text: 'Leave', result: () => ({ message: 'You decide to leave Broskm and continue your exploration.', color: '#0099ff' }) },
+            { emoji: '2️⃣', text: 'Buy 1 fruit case', result: async (interaction, inventory) => await handleFruitPurchase(interaction, inventory, 1) },
+            { emoji: '3️⃣', text: 'Buy 3 fruit cases', result: async (interaction, inventory) => await handleFruitPurchase(interaction, inventory, 3) },
+            { emoji: '4️⃣', text: 'Buy 5 fruit cases', result: async (interaction, inventory) => await handleFruitPurchase(interaction, inventory, 5) },
+            { emoji: '5️⃣', text: 'Buy 10 fruit cases', result: async (interaction, inventory) => await handleFruitPurchase(interaction, inventory, 10) },
+            { emoji: '6️⃣', text: 'Buy 20 fruit cases', result: async (interaction, inventory) => await handleFruitPurchase(interaction, inventory, 20) },
+            { emoji: '7️⃣', text: 'Buy 50 fruit cases', result: async (interaction, inventory) => await handleFruitPurchase(interaction, inventory, 50) },
+            { emoji: '8️⃣', text: 'Buy 100 fruit cases', result: async (interaction, inventory) => await handleFruitPurchase(interaction, inventory, 100) },
+        ],
+        imageUrl: 'https://cdn.discordapp.com/attachments/1135808718492139521/1285513578308304969/Broskm_the_fruit_dealer.png?ex=66ea8b50&is=66e939d0&hm=ce3d2aa7d96bde3bd87a8ae41c924cc6e42509a24799fa3c318e7046e36d3c3b&'
     }
     
 ];
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1693,6 +2068,8 @@ async function handleDolpheDonation(interaction, inventory, resource, emoji) {
         return { message: `You don't have enough ${emoji} to donate!`, color: '#ff0000' }; // Red color for failure
     }
 }
+//------------------------------------------------
+// DUKO ROCk
 //------------------------------------------------
 async function handleRockPurchase(interaction, inventory, quantity) {
     const woodCost = 6 * quantity;
@@ -1766,6 +2143,217 @@ async function handleRockPurchase(interaction, inventory, quantity) {
     await inventory.save();
     return { message: resultMessage, color: '#00ff00' };
 }
+//------------------------------------------------
+// BROSKM FRUIT
+//------------------------------------------------
+async function handleFruitPurchase(interaction, inventory, quantity) {
+    const goldCost = 1 * quantity;
+
+    if (inventory.gold < goldCost) {
+        return { message: `You don’t have enough gold to buy ${quantity} fruit case(s).`, color: '#ff0000' };
+    }
+
+    inventory.gold -= goldCost;
+    await inventory.save();
+
+    let resultMessage = `You bought ${quantity} fruit case(s) from Broskm.\nOpening the cases...\n`;
+    for (let i = 0; i < quantity; i++) {
+        const chance = Math.random() * 100;
+
+        // LEGENDARY
+        if (chance < 0.5) { // 0.5% chance to get 1 🥥
+            inventory.coconut = (inventory.coconut || 0) + 1;
+            resultMessage += '**《◊【༺LEGENDARY༻】◊》** You got 1 🥥!\n';
+        } 
+        // EPIC
+        else if (chance < 2.5) { // 2.5% chance to get 1-3 🍌
+            const bananaAmount = Math.floor(Math.random() * 3) + 1;
+            inventory.banana = (inventory.banana || 0) + bananaAmount;
+            resultMessage += `**《【EPIC】》** You got ${bananaAmount} 🍌!\n`;
+        } else if (chance < 4.5) { // 2% chance to get 1-3 metalParts
+            const metalPartsAmount = Math.floor(Math.random() * 3) + 1;
+            inventory.metalParts = (inventory.metalParts || 0) + metalPartsAmount;
+            resultMessage += `**《【EPIC】》** You got ${metalPartsAmount} ⚙️!\n`;
+        } 
+        // RARE
+        else if (chance < 9.5) { // 5% chance to get 1-3 watermelon
+            const watermelonAmount = Math.floor(Math.random() * 3) + 1;
+            inventory.watermelon = (inventory.watermelon || 0) + watermelonAmount;
+            resultMessage += `**【RARE】** You got ${watermelonAmount} 🍉!\n`;
+        } else if (chance < 14.5) { // 5% chance to get 1-3 gold
+            const goldAmount = Math.floor(Math.random() * 3) + 1;
+            inventory.gold = (inventory.gold || 0) + goldAmount;
+            resultMessage += `**【RARE】** You got ${goldAmount} ✨!\n`;
+        } else if (chance < 19.5) { // 5% chance to get 4-7 🍎
+            const appleAmount = Math.floor(Math.random() * 4) + 4;
+            inventory.apple = (inventory.apple || 0) + appleAmount;
+            resultMessage += `**【RARE】** You got ${appleAmount} 🍎!\n`;
+        } 
+        // UNCOMMON
+        else if (chance < 29.5) { // 10% chance to get 1-4 🍎
+            const appleAmount = Math.floor(Math.random() * 4) + 1;
+            inventory.apple = (inventory.apple || 0) + appleAmount;
+            resultMessage += `**〈UNCOMMON〉** You got ${appleAmount} 🍎!\n`;
+        } else if (chance < 39.5) { // 10% chance to get 1-4 🪢
+            const ropeAmount = Math.floor(Math.random() * 4) + 1;
+            inventory.rope = (inventory.rope || 0) + ropeAmount;
+            resultMessage += `**〈UNCOMMON〉** You got ${ropeAmount} 🪢!\n`;
+        } else if (chance < 49.5) { // 10% chance to get 1-4 🧶
+            const clothAmount = Math.floor(Math.random() * 4) + 1;
+            inventory.cloth = (inventory.cloth || 0) + clothAmount;
+            resultMessage += `**〈UNCOMMON〉** You got ${clothAmount} 🧶!\n`;
+        } 
+        // COMMON
+        else if (chance < 64.5) { // 15% chance to get 1-4 🪵
+            const woodAmount = Math.floor(Math.random() * 4) + 1;
+            inventory.wood = (inventory.wood || 0) + woodAmount;
+            resultMessage += `**COMMON** You got ${woodAmount} 🪵!\n`;
+        } else if (chance < 79.5) { // 15% chance to get 1-4 🍃
+            const leafAmount = Math.floor(Math.random() * 4) + 1;
+            inventory.leaf = (inventory.leaf || 0) + leafAmount;
+            resultMessage += `**COMMON** You got ${leafAmount} 🍃!\n`;
+        } else if (chance < 99.5) { // 20% chance to get 1-4 berries
+            const berryAmount = Math.floor(Math.random() * 4) + 1;
+            inventory.berries = (inventory.berries || 0) + berryAmount;
+            resultMessage += `**COMMON** You got ${berryAmount} 🫐!\n`;
+        }
+    }
+
+    await inventory.save();
+    return { message: resultMessage, color: '#00ff00' };
+}
+
+
+//------------------------------------------------
+// Utility functions FOR BLACKJACK
+//------------------------------------------------
+function drawCards(num) {
+    const suits = ['♠️', '♣️', '♦️', '♥️'];
+    const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+    const deck = [];
+
+    for (const suit of suits) {
+        for (const value of values) {
+            deck.push(`${value}${suit}`);
+        }
+    }
+
+    // Shuffle deck
+    for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+
+    return deck.splice(0, num);
+}
+
+function calculateHandValue(cards) {
+    const cardValueMap = {
+        'J': 10,
+        'Q': 10,
+        'K': 10,
+        'A': 11
+    };
+
+    let total = 0;
+    let aceCount = 0;
+
+    for (const card of cards) {
+        // Use regular expression to extract the card value
+        const value = card.match(/^\d+|[JQKA]/)[0];
+        
+        if (cardValueMap.hasOwnProperty(value)) {
+            total += cardValueMap[value];
+            if (value === 'A') aceCount++;
+        } else {
+            total += parseInt(value, 10); // Convert numeric cards to integers
+        }
+    }
+
+    // Adjust for aces if necessary
+    while (total > 21 && aceCount > 0) {
+        total -= 10; // Convert ace from 11 to 1
+        aceCount--;
+    }
+
+    return total;
+}
+
+async function dealerTurn(dealerCards) {
+    let dealerValue = calculateHandValue(dealerCards);
+
+    while (dealerValue < 17) {
+        dealerCards.push(...drawCards(1)); // Draw one card
+        dealerValue = calculateHandValue(dealerCards);
+    }
+
+    return dealerCards;
+}
+
+// Function to handle the Stand logic
+async function handleStand(interaction, inventory) {
+    const userCards = interaction.userCards || [];
+    const dealerCards = interaction.dealerCards || [];
+
+    // Dealer's turn
+    const finalDealerCards = await dealerTurn(dealerCards);
+
+    // Calculate the final values
+    const userValue = calculateHandValue(userCards);
+    const dealerValue = calculateHandValue(finalDealerCards);
+
+    // Determine the outcome
+    let outcomeMessage = '';
+    if (userValue > 21) {
+        outcomeMessage = 'You bust! You lose! Looks like another easy win for Josh!\n-5🪵\n-5🪨\n-5🌿\n-5🔶';
+        await adjustResourcesOnLoss(inventory);
+    }
+    else if (dealerValue > 21) {
+        const goldIncrease = Math.floor(Math.random() * 3) + 4; // +4 to +6 gold
+        inventory.gold += goldIncrease;
+        outcomeMessage = `Josh busts! You win! Poor Josh is going to lose his job now...\n${goldIncrease}✨`;
+    }
+    else if (userValue > dealerValue) {
+        const goldIncrease = Math.floor(Math.random() * 3) + 4; // +4 to +6 gold
+        inventory.gold += goldIncrease;
+        outcomeMessage = `You win! Looks like Josh has to pay out the rest of his fortune...\n+${goldIncrease}✨`;
+    }
+    else if (userValue < dealerValue) {
+        outcomeMessage = 'You lose! Josh laughs and tells you to play more!\n-5🪵\n-5🪨\n-5🌿\n-5🔶';
+        await adjustResourcesOnLoss(inventory);
+    }
+    else {
+        outcomeMessage = 'It\'s a tie!';
+    }
+
+    // Format the final hands
+    const userCardsStr = userCards.join(' ');
+    const finalDealerCardsStr = finalDealerCards.join(' ');
+
+    // Prepare the result message
+    const resultMessage = `Your hand: ${userCardsStr} (Value: ${userValue})\nJosh's hand: ${finalDealerCardsStr} (Value: ${dealerValue})\n\n${outcomeMessage}`;
+
+    await inventory.save();
+
+    return { message: resultMessage, color: outcomeMessage.includes('win') ? '#00ff00' : '#ff0000' };
+}
+
+// Function to adjust resources on loss
+async function adjustResourcesOnLoss(inventory) {
+    const resources = ['wood', 'stone', 'palmLeaves', 'copper'];
+    const adjustment = { wood: -5, stone: -5, palmLeaves: -5, copper: -5 };
+
+    for (const resource of resources) {
+        if (inventory[resource] > 0) {
+            const deduction = Math.min(inventory[resource], 5);
+            inventory[resource] -= deduction;
+            if (deduction > 0) {
+                await inventory.save();
+            }
+        }
+    }
+}
+
 
 
 
@@ -1808,6 +2396,7 @@ module.exports = {
             const [inventory] = await Inventory.findOrCreate({ where: { userId: user.id } });
             const [tools] = await Tool.findOrCreate({ where: { userId: user.id } });
         
+            
             // Cooldown check
             const now = Date.now();
             const cooldown = 10 * 1000; // 14 seconds
@@ -1829,12 +2418,20 @@ module.exports = {
                 // Choose a random event
                 const event = events[Math.floor(Math.random() * events.length)];
 
+                // Generate dynamic description
+                let eventDescription;
+                if (typeof event.description === 'function') {
+                    eventDescription = await event.description(interaction, inventory, tools);
+                } else {
+                    eventDescription = event.description;
+                }
+
                 // Create an embed for the event
                 const embed = new EmbedBuilder()
                     .setColor('#0099ff')
                     .setTitle('Exploration Event!')
                     .setThumbnail(interaction.user.displayAvatarURL()) // Add the user's avatar as a thumbnail
-                    .setDescription(event.description)
+                    .setDescription(eventDescription)
                     .setImage(event.imageUrl)
                     .addFields(event.choices.map(choice => ({ name: choice.emoji, value: choice.text, inline: true })))
                     .setFooter({ text: 'React with the number corresponding to your choice.' });
@@ -1845,10 +2442,12 @@ module.exports = {
         
                 // Set up a reaction collector
                 const filter = (reaction, user) => event.choices.map(choice => choice.emoji).includes(reaction.emoji.name) && user.id === interaction.user.id;
-                const collector = message.createReactionCollector({ filter, time: 60000 }); // 1 minute
+                const collector = message.createReactionCollector({ filter, time: 70000 }); // 1 minute
         
                 collector.on('collect', async (reaction) => {
                     const choice = event.choices.find(c => c.emoji === reaction.emoji.name);
+
+
                     // Ensure tools is defined and passed correctly
                     if (tools) {
                         const { message: resultMessage, color: embedColor } = await choice.result(interaction, inventory, tools);

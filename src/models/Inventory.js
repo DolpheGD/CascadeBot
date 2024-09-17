@@ -16,7 +16,7 @@ const Inventory = sequelize.define('Inventory', {
         allowNull: false
     },
 
-    // chop resources
+    // general resources
     wood: {
         type: DataTypes.INTEGER,
         defaultValue: 0
@@ -30,6 +30,10 @@ const Inventory = sequelize.define('Inventory', {
         defaultValue: 0
     },
     rope: {   // New rope field
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
+    cloth: {   // New cloth field
         type: DataTypes.INTEGER,
         defaultValue: 0
     },
@@ -48,6 +52,14 @@ const Inventory = sequelize.define('Inventory', {
         type: DataTypes.INTEGER,
         defaultValue: 0
     },
+    banana: { // NEW
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
+    coconut: { // NEW
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
 
 
 
@@ -60,15 +72,14 @@ const Inventory = sequelize.define('Inventory', {
         type: DataTypes.INTEGER,
         defaultValue: 0
     },
-    diamond: { // New diamond field
-        type: DataTypes.INTEGER,
-        defaultValue: 0
-    },
     ruby: {    // New ruby field
         type: DataTypes.INTEGER,
         defaultValue: 0
     },
-
+    diamond: { // New diamond field
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
 
 
 

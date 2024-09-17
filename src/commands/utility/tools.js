@@ -34,23 +34,39 @@ module.exports = {
                 .setColor('#0099ff')
                 .setFooter({ text: `Tools increase resources obtained and decrease cooldowns` });
 
+            // Metal Axe
             if (tools.metalAxe) {
                 embed.addFields({ name: '🪓 Metal Axe', value: `Durability: ${tools.metalAxeDurability}/50`, inline: true });
             } else {
                 embed.addFields({ name: '🪓 Metal Axe', value: 'Not owned', inline: true });
             }
 
+            // Metal Pickaxe
             if (tools.metalPickaxe) {
                 embed.addFields({ name: '⛏️ Metal Pickaxe', value: `Durability: ${tools.metalPickaxeDurability}/50`, inline: true });
             } else {
                 embed.addFields({ name: '⛏️ Metal Pickaxe', value: 'Not owned', inline: true });
             }
 
-            // Add fishing rod to the embed
+            // Fishing Rod
             if (tools.fishingRod) {
                 embed.addFields({ name: '🎣 Fishing Rod', value: `Durability: ${tools.fishingRodDurability}/100`, inline: true });
             } else {
                 embed.addFields({ name: '🎣 Fishing Rod', value: 'Not owned', inline: true });
+            }
+
+            // Gloves
+            if (tools.gloves) {
+                embed.addFields({ name: '🧤 Gloves', value: `Durability: ${tools.glovesDurability}/100`, inline: true });
+            } else {
+                embed.addFields({ name: '🧤 Gloves', value: 'Not owned', inline: true });
+            }
+
+            // Dagger
+            if (tools.dagger) {
+                embed.addFields({ name: '🗡️ Dagger', value: `Durability: ${tools.daggerDurability}/100`, inline: true });
+            } else {
+                embed.addFields({ name: '🗡️ Dagger', value: 'Not owned', inline: true });
             }
 
             // Reply to the interaction with the embed

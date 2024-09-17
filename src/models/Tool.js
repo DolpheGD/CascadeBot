@@ -13,6 +13,8 @@ Tool.init({
         },
         unique: true, // Ensures each user can only have one set of tools
     },
+    
+
     metalAxe: {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
@@ -26,6 +28,8 @@ Tool.init({
             max: 50
         }
     },
+
+
     metalPickaxe: {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
@@ -39,6 +43,8 @@ Tool.init({
             max: 50
         }
     },
+
+
     fishingRod: {  // New fishing rod field
         type: DataTypes.BOOLEAN,
         defaultValue: false,
@@ -51,7 +57,38 @@ Tool.init({
             min: 0,
             max: 100
         }
+    },
+
+
+    gloves: {  // New fishing rod field
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        allowNull: false
+    },
+    glovesDurability: {  // New fishing rod durability field
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
+        validate: {
+            min: 0,
+            max: 100
+        }
+    },
+
+
+    dagger: {  // New fishing rod field
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        allowNull: false
+    },
+    daggerDurability: {  // New fishing rod durability field
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
+        validate: {
+            min: 0,
+            max: 100
+        }
     }
+
 }, {
     sequelize,
     modelName: 'Tool',

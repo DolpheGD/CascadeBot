@@ -61,6 +61,7 @@ module.exports = {
 // Function to view automachines and resources
 // -----------------------------------
 async function viewBuilds(interaction, userId) {
+    const MAX_LEVEL = 6;
     const machines = await AutoMachine.findAll({ where: { userId } });
 
     // Check if the user doesn't have any machines, create a default entry
@@ -83,8 +84,8 @@ async function viewBuilds(interaction, userId) {
     if (machineMap['autochopper']) {
         const autochopper = machineMap['autochopper'];
         embed.addFields({
-            name: `🤖🪓 Autochopper [Lvl ${autochopper.upgradeLevel + 1}/5] ${10 + 2 * autochopper.upgradeLevel}🪵/hr ${1 + autochopper.upgradeLevel}🪢/hr`,
-            value: `Wood: ${autochopper.wood}/200\nRope: ${autochopper.rope}/10`,
+            name: `🤖🪓 Autochopper [Lvl ${autochopper.upgradeLevel + 1}/${MAX_LEVEL}] ${10 + 2 * autochopper.upgradeLevel}🪵/hr ${1 + autochopper.upgradeLevel}🪢/hr`,
+            value: `Wood: ${autochopper.wood}/${200 + 20 * autochopper.upgradeLevel}\nRope: ${autochopper.rope}/${10 + 4 * autochopper.upgradeLevel}`,
         });
     } else {
         embed.addFields({
@@ -97,8 +98,8 @@ async function viewBuilds(interaction, userId) {
     if (machineMap['autominer']) {
         const autominer = machineMap['autominer'];
         embed.addFields({
-            name: `🤖⛏️ Autominer [Lvl ${autominer.upgradeLevel + 1}/5] ${10 + 2 * autominer.upgradeLevel}🪨/hr ${5 + 2 * autominer.upgradeLevel}🔶/hr`,
-            value: `Stone: ${autominer.stone}/200\nCopper: ${autominer.copper}/100`,
+            name: `🤖⛏️ Autominer [Lvl ${autominer.upgradeLevel + 1}/${MAX_LEVEL}] ${10 + 2 * autominer.upgradeLevel}🪨/hr ${5 + 2 * autominer.upgradeLevel}🔶/hr`,
+            value: `Stone: ${autominer.stone}/${200 + 20 * autominer.upgradeLevel}\nCopper: ${autominer.copper}/${100 + 10 * autominer.upgradeLevel}`,
         });
     } else {
         embed.addFields({
@@ -111,8 +112,8 @@ async function viewBuilds(interaction, userId) {
     if (machineMap['autoforager']) {
         const autoforager = machineMap['autoforager'];
         embed.addFields({
-            name: `🤖🌿 Autoforager [Lvl ${autoforager.upgradeLevel + 1}/5] ${5 + 2 * autoforager.upgradeLevel}🍃/hr ${5 + 2 * autoforager.upgradeLevel}🫐/hr ${2 + autoforager.upgradeLevel}🍎/hr`,
-            value: `Palm Leaves: ${autoforager.palmLeaves}/100\nBerries: ${autoforager.berries}/100\nApples: ${autoforager.apples}/20`,
+            name: `🤖🌿 Autoforager [Lvl ${autoforager.upgradeLevel + 1}/${MAX_LEVEL}] ${5 + 2 * autoforager.upgradeLevel}🍃/hr ${5 + 2 * autoforager.upgradeLevel}🫐/hr ${2 + autoforager.upgradeLevel}🍎/hr`,
+            value: `Palm Leaves: ${autoforager.palmLeaves}/${100 + 10 * autoforager.upgradeLevel}\nBerries: ${autoforager.berries}/${100 + 10 * autoforager.upgradeLevel}\nApples: ${autoforager.apples}/${20 + 4 * autoforager.upgradeLevel}`,
         });
     } else {
         embed.addFields({
@@ -123,6 +124,9 @@ async function viewBuilds(interaction, userId) {
 
     return interaction.editReply({ embeds: [embed] });
 }
+
+
+
 
 // -----------------------------------
 // Function to craft automachines
@@ -306,6 +310,8 @@ async function craftAutoMachine(interaction, userId) {
 }
 
 
+
+
 // -----------------------------------
 // Function to upgrade an automachine
 // -----------------------------------
@@ -330,21 +336,21 @@ async function upgradeAutoMachine(interaction, userId) {
         desc += `🤖🪓**Autochopper** \xa0 Not owned\n`;
     }else{
         const autochopper = machineMap['autochopper'];
-        desc += `🤖🪓**Autochopper** [Lvl ${autochopper.upgradeLevel + 1}/5] \xa0 -20⚙️ -200🔶 -100🪵\n`;
+        desc += `🤖🪓**Autochopper** [Lvl ${autochopper.upgradeLevel + 1}/${MAX_LEVEL} \xa0 -20⚙️ -200🔶 -100🪵\n`;
     }
     
     if (!machineMap['autominer']) {
         desc += `🤖⛏️**Autominer** \xa0 Not owned\n`;
     }else{
         const autominer = machineMap['autominer'];
-        desc += `🤖⛏️**Autominer** [Lvl ${autominer.upgradeLevel + 1}/5] \xa0 -20⚙️ -200🔶 -100🪨\n`;
+        desc += `🤖⛏️**Autominer** [Lvl ${autominer.upgradeLevel + 1}/${MAX_LEVEL}] \xa0 -20⚙️ -200🔶 -100🪨\n`;
     }
     
     if (!machineMap['autoforager']){
         desc += `🤖🌿**Autoforager** \xa0 Not owned\n`;
     }else{
         const autoforager = machineMap['autoforager'];
-        desc += `🤖🌿**Autoforager** [Lvl ${autoforager.upgradeLevel + 1}/5] \xa0 -20⚙️ -200🔶 -100🫐\n`;
+        desc += `🤖🌿**Autoforager** [Lvl ${autoforager.upgradeLevel + 1}/${MAX_LEVEL}] \xa0 -20⚙️ -200🔶 -100🫐\n`;
     }
     
     
@@ -513,6 +519,8 @@ async function upgradeAutoMachine(interaction, userId) {
         }
     });
 }
+
+
 
 
 // -----------------------------------
