@@ -136,6 +136,7 @@ async function craftAutoMachine(interaction, userId) {
     const [inventory] = await Inventory.findOrCreate({ where: { userId: user.id } });
     const machines = await AutoMachine.findAll({ where: { userId } });
     const machineMap = {};
+    
     machines.forEach(machine => {
         machineMap[machine.type] = machine;
     });
@@ -324,6 +325,8 @@ async function upgradeAutoMachine(interaction, userId) {
     machines.forEach(machine => {
         machineMap[machine.type] = machine;
     });
+
+    const MAX_LEVEL = 6;
     
     if (!user) {
         return interaction.editReply({ content: 'User not found.', ephemeral: true });
@@ -336,7 +339,7 @@ async function upgradeAutoMachine(interaction, userId) {
         desc += `🤖🪓**Autochopper** \xa0 Not owned\n`;
     }else{
         const autochopper = machineMap['autochopper'];
-        desc += `🤖🪓**Autochopper** [Lvl ${autochopper.upgradeLevel + 1}/${MAX_LEVEL} \xa0 -20⚙️ -200🔶 -100🪵\n`;
+        desc += `🤖🪓**Autochopper** [Lvl ${autochopper.upgradeLevel + 1}/${MAX_LEVEL}] \xa0 -20⚙️ -200🔶 -100🪵\n`;
     }
     
     if (!machineMap['autominer']) {
@@ -391,14 +394,14 @@ async function upgradeAutoMachine(interaction, userId) {
                     .setTitle('Upgrade Error')
                     .setDescription('You do not own an Autochopper to upgrade.')
                     .setColor('#FF0000');
-                return i.editReply({ embeds: [errorEmbed], ephemeral: true });
+                return i.reply({ embeds: [errorEmbed], ephemeral: true });
             }
-            if (autochopper.upgradeLevel + 1 >= 5){
+            if (autochopper.upgradeLevel + 1 >= MAX_LEVEL){
                 const errorEmbed = new EmbedBuilder()
                     .setTitle('Upgrade Error')
-                    .setDescription('You already upgraded to the max level (5)')
+                    .setDescription(`You already upgraded to the max level (${MAX_LEVEL})`)
                     .setColor('#FF0000');
-                return i.editReply({ embeds: [errorEmbed], ephemeral: true });  
+                return i.reply({ embeds: [errorEmbed], ephemeral: true });  
             }
 
             // Example upgrade costs; adjust as necessary
@@ -407,7 +410,7 @@ async function upgradeAutoMachine(interaction, userId) {
                     .setTitle('Upgrade Error')
                     .setDescription('You do not have enough resources to upgrade the Autochopper.')
                     .setColor('#FF0000');
-                return i.editReply({ embeds: [errorEmbed], ephemeral: true });
+                return i.reply({ embeds: [errorEmbed], ephemeral: true });
             }
 
             inventory.metalParts -= 20;
@@ -421,7 +424,7 @@ async function upgradeAutoMachine(interaction, userId) {
                 .setTitle('Upgrade Success')
                 .setDescription('Your Autochopper has been upgraded!')
                 .setColor('#00FF00');
-            await i.editReply({ embeds: [successEmbed] });
+            await i.reply({ embeds: [successEmbed] });
 
         // AUTOMINER
         } else if (i.customId === 'upgrade_autominer') {
@@ -432,14 +435,14 @@ async function upgradeAutoMachine(interaction, userId) {
                     .setTitle('Upgrade Error')
                     .setDescription('You do not own an Autominer to upgrade.')
                     .setColor('#FF0000');
-                return i.editReply({ embeds: [errorEmbed], ephemeral: true });
+                return i.reply({ embeds: [errorEmbed], ephemeral: true });
             }
-            if (autominer.upgradeLevel + 1 >= 5){
+            if (autominer.upgradeLevel + 1 >= MAX_LEVEL){
                 const errorEmbed = new EmbedBuilder()
                     .setTitle('Upgrade Error')
-                    .setDescription('You already upgraded to the max level (5)')
+                    .setDescription(`You already upgraded to the max level (${MAX_LEVEL})`)
                     .setColor('#FF0000');
-                return i.editReply({ embeds: [errorEmbed], ephemeral: true });  
+                return i.reply({ embeds: [errorEmbed], ephemeral: true });  
             }
 
             // Example upgrade costs; adjust as necessary
@@ -448,7 +451,7 @@ async function upgradeAutoMachine(interaction, userId) {
                     .setTitle('Upgrade Error')
                     .setDescription('You do not have enough resources to upgrade the Autominer.')
                     .setColor('#FF0000');
-                return i.editReply({ embeds: [errorEmbed], ephemeral: true });
+                return i.reply({ embeds: [errorEmbed], ephemeral: true });
             }
 
             inventory.metalParts -= 20;
@@ -462,7 +465,7 @@ async function upgradeAutoMachine(interaction, userId) {
                 .setTitle('Upgrade Success')
                 .setDescription('Your Autominer has been upgraded!')
                 .setColor('#00FF00');
-            await i.editReply({ embeds: [successEmbed] });
+            await i.reply({ embeds: [successEmbed] });
         
         //AUTOFORAGER
         } else if (i.customId === 'upgrade_autoforager') {
@@ -473,14 +476,14 @@ async function upgradeAutoMachine(interaction, userId) {
                     .setTitle('Upgrade Error')
                     .setDescription('You do not own an Autoforager to upgrade.')
                     .setColor('#FF0000');
-                return i.editReply({ embeds: [errorEmbed], ephemeral: true });
+                return i.reply({ embeds: [errorEmbed], ephemeral: true });
             }
-            if (autoforager.upgradeLevel + 1 >= 5){
+            if (autoforager.upgradeLevel + 1 >= MAX_LEVEL){
                 const errorEmbed = new EmbedBuilder()
                     .setTitle('Upgrade Error')
-                    .setDescription('You already upgraded to the max level (5)')
+                    .setDescription(`You already upgraded to the max level (${MAX_LEVEL})`)
                     .setColor('#FF0000');
-                return i.editReply({ embeds: [errorEmbed], ephemeral: true });  
+                return i.reply({ embeds: [errorEmbed], ephemeral: true });  
             }
 
             // Example upgrade costs; adjust as necessary
@@ -489,7 +492,7 @@ async function upgradeAutoMachine(interaction, userId) {
                     .setTitle('Upgrade Error')
                     .setDescription('You do not have enough resources to upgrade the Autoforager.')
                     .setColor('#FF0000');
-                return i.editReply({ embeds: [errorEmbed], ephemeral: true });
+                return i.reply({ embeds: [errorEmbed], ephemeral: true });
             }
 
             inventory.metalParts -= 20;
@@ -503,7 +506,7 @@ async function upgradeAutoMachine(interaction, userId) {
                 .setTitle('Upgrade Success')
                 .setDescription('Your Autoforager has been upgraded!')
                 .setColor('#00FF00');
-            await i.editReply({ embeds: [successEmbed] });
+            await i.reply({ embeds: [successEmbed] });
         }
 
         collector.stop();

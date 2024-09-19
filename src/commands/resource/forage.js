@@ -22,11 +22,17 @@ module.exports = {
                 return interaction.editReply({ content: 'User not found.', ephemeral: true });
             }
 
+            // Fetch the user's tools
+            let tools = await Tool.findOne({ where: { userId: user.id } });
+            if (!tools) {
+                tools = await Tool.create({ userId: user.id });
+            }
+
             // Check cooldown
             const now = Date.now();
-            const cooldown = 15 * 1000; // 20 seconds
-            if (now - user.lastForage < cooldown) {
-                const secondsLeft = Math.ceil((cooldown - (now - user.lastForage)) / 1000);
+            const baseCooldown = tools.gloves ? 7 * 1000 : 15 * 1000; // Glove reduces cooldown to 7 seconds
+            if (now - user.lastForage < baseCooldown) {
+                const secondsLeft = Math.ceil((baseCooldown - (now - user.lastForage)) / 1000);
                 return interaction.editReply({ content: `You need to wait ${secondsLeft} seconds before foraging again.`, ephemeral: true });
             }
 
@@ -39,15 +45,9 @@ module.exports = {
             if (!inventory) {
                 inventory = await Inventory.create({ userId: user.id });
             }
-
-            // Fetch the user's tools
-            let tools = await Tool.findOne({ where: { userId: user.id } });
-            if (!tools) {
-                tools = await Tool.create({ userId: user.id });
-            }
             
-            // Negative event (10% chance)
-            if (Math.random() < 0.1) {
+            // Negative event (8% chance)
+            if (Math.random() < 0.08) {
                 const thieves = ['JD', 'JC23GDFFMI', 'Nesjonat', 'VRT Gaming', 'Aizer', 'Rohan', 'Josh', 'Dolphe', 'Tbnr', 'Bio', 'Verx', 'Doggy', 'NF89', 'Triv', 'Rex', 'Duko', 'Arkiver', 'Caliper'];
 
                 const thief = thieves[Math.floor(Math.random() * thieves.length)];
@@ -111,7 +111,9 @@ module.exports = {
                 return interaction.editReply({content: '', embeds: [embed] });
             }
 
-            // If no negative event, proceed with foraging logic
+
+            //---------------------------------------------------------
+            // Foraging Logic with Glove Modifiers
             let resultMessage = '';
             let bonuses = {
                 normal: [],
@@ -119,65 +121,79 @@ module.exports = {
                 ultraRare: []
             };
 
-            // 50% chance for palm leaves (1-4)
-            if (Math.random() < 0.5) {
-                const palmLeavesAmount = Math.floor(Math.random() * 4) + 1;
+            // Palm leaves and berries chance - can get both with glove
+            if (tools.gloves) {
+                const palmLeavesAmount = Math.floor(Math.random() * 5) + 2; // 2-6 with glove
                 inventory.palmLeaves += palmLeavesAmount;
                 resultMessage += `You found some palm leaves!\n**+${palmLeavesAmount}** 🌿\n`;
-            }
-            // 50% chance for berries (1-4)
-            else {
-                const berriesAmount = Math.floor(Math.random() * 4) + 1;
+
+                const berriesAmount = Math.floor(Math.random() * 5) + 2; // 2-6 with glove
                 inventory.berries += berriesAmount;
                 resultMessage += `You found some berries!\n**+${berriesAmount}** 🫐\n`;
+            } else {
+                // Without glove, it's 50% chance for either palm leaves or berries
+                if (Math.random() < 0.5) {
+                    const palmLeavesAmount = Math.floor(Math.random() * 4) + 1; // 1-4 without glove
+                    inventory.palmLeaves += palmLeavesAmount;
+                    resultMessage += `You found some palm leaves!\n**+${palmLeavesAmount}** 🌿\n`;
+                } else {
+                    const berriesAmount = Math.floor(Math.random() * 4) + 1; // 1-4 without glove
+                    inventory.berries += berriesAmount;
+                    resultMessage += `You found some berries!\n**+${berriesAmount}** 🫐\n`;
+                }
             }
 
-            // Bonuses
+            // Bonuses with adjusted chances if the user has a glove
             let bonusChance = Math.random();
-            if (bonusChance < 0.3) { // 30% chance to get 1-3 apples
+
+            if (tools.gloves && bonusChance < 0.8) { // 80% chance for apples (1-5 with glove)
+                const applesAmount = Math.floor(Math.random() * 5) + 1;
+                inventory.apples += applesAmount;
+                bonuses.normal.push(`You found some apples! **+${applesAmount}** 🍎`);
+            } else if (bonusChance < 0.3) { // 30% chance without glove
                 const applesAmount = Math.floor(Math.random() * 3) + 1;
                 inventory.apples += applesAmount;
-                bonuses.normal.push(`**+${applesAmount}** 🍎`);
+                bonuses.normal.push(`You found some apples! **+${applesAmount}** 🍎`);
             }
 
             bonusChance = Math.random();
-            if (bonusChance < 0.06) { // 6% chance to get 1 watermelon
+            if (tools.gloves && bonusChance < 0.5) { // 50% chance for watermelon (1-2 with glove)
+                const watermelonAmount = Math.floor(Math.random() * 2) + 1;
+                inventory.watermelon += watermelonAmount;
+                bonuses.rare.push(`You found some watermelon! **+${watermelonAmount}** 🍉`);
+            } else if (bonusChance < 0.09) { // 9% chance without glove
                 inventory.watermelon += 1;
-                bonuses.rare.push(`**+1** 🍉`);
+                bonuses.rare.push(`You found some watermelon! **+1** 🍉`);
             }
 
             bonusChance = Math.random();
-            if (bonusChance < 0.08) { // 8% chance to get 1 rope
+            if (tools.gloves && bonusChance < 0.5) { // 50% chance for rope (1-2 with glove)
+                const ropeAmount = Math.floor(Math.random() * 2) + 1;
+                inventory.rope += ropeAmount;
+                bonuses.rare.push(`You found some hidden rope! **+${ropeAmount}** 🪢`);
+            } else if (bonusChance < 0.08) { // 8% chance without glove
                 inventory.rope += 1;
-                bonuses.rare.push(`**+1** 🪢`);
+                bonuses.rare.push(`You found some hidden rope! **+1** 🪢`);
             }
 
             bonusChance = Math.random();
-            if (bonusChance < 0.2) { // 20% chance to find 1-2 stone
+            if (tools.gloves && bonusChance < 0.08) { // 8% chance for banana with glove
+                inventory.banana += 1;
+                bonuses.rare.push(`You found a banana! **+1** 🍌`);
+            } else if (bonusChance < 0.01) { // 1% chance without glove
+                inventory.banana += 1;
+                bonuses.rare.push(`You found a banana! **+1** 🍌`);
+            }
+
+            bonusChance = Math.random();
+            if (tools.gloves && bonusChance < 0.5) { // 50% chance for stone with glove
+                const stoneAmount = Math.floor(Math.random() * 3) + 1;
+                inventory.stone += stoneAmount;
+                bonuses.normal.push(`You found some stone! **+${stoneAmount}** 🪨`);
+            } else if (bonusChance < 0.2) { // 20% chance without glove
                 const stoneAmount = Math.floor(Math.random() * 2) + 1;
                 inventory.stone += stoneAmount;
-                bonuses.normal.push(`**+${stoneAmount}** 🪨`);
-            }
-            
-            bonusChance = Math.random();
-            // Tool bonuses
-            if (bonusChance < 0.002 && !tools.pickaxe) { // 0.2% chance to find a pickaxe
-                const pickaxeDurability = Math.floor(Math.random() * 6) + 5; // 5 to 10 durability
-                tools.metalPickaxe = true;
-                tools.metalPickaxeDurability = pickaxeDurability;
-                bonuses.ultraRare.push(`You found a pickaxe with **${pickaxeDurability}** durability! ⛏️`);
-            }
-            if (bonusChance < 0.004 && bonusChance >= 0.002 && !tools.axe) { // 0.2% chance to find an axe
-                const axeDurability = Math.floor(Math.random() * 6) + 5; // 5 to 10 durability
-                tools.metalAxe = true;
-                tools.metalAxeDurability = axeDurability;
-                bonuses.ultraRare.push(`You found an axe with **${axeDurability}** durability! 🪓`);
-            }
-            if (bonusChance < 0.005 && bonusChance >= 0.004 && !tools.fishingRod) { // 0.1% chance to find a fishing rod
-                const fishingRodDurability = Math.floor(Math.random() * 6) + 5; // 5 to 10 durability
-                tools.fishingRod = true;
-                tools.fishingRodDurability = fishingRodDurability;
-                bonuses.ultraRare.push(`You found a fishing rod with **${fishingRodDurability}** durability! 🎣`);
+                bonuses.normal.push(`You found some stone! **+${stoneAmount}** 🪨`);
             }
 
             // Save inventory and tools updates
@@ -199,25 +215,43 @@ module.exports = {
                 embed.addFields({ name: '〈Rare Bonus!〉', value: bonuses.rare.join('\n'), inline: false });
             }
             if (bonuses.ultraRare.length > 0) {
-                embed.addFields({ name: '【🛠️ULTRA RARE BONUS!🛠️】', value: bonuses.ultraRare.join('\n'), inline: false });
+                embed.addFields({ name: '【ULTRA RARE BONUS!】', value: bonuses.ultraRare.join('\n'), inline: false });
             }
 
+            // Check if gloves are equipped
+        if (tools.gloves) {
+            embed.setTitle('Forage Result [🧤]')
+            tools.glovesDurability -= 1;
+
+            // Check if gloves break
+            if (tools.glovesDurability <= 0) {
+                tools.gloves = false;
+                tools.glovesDurability = 0;
+                resultMessage += `Your gloves have broken! 🧤\n`;
+            }
+
+            // Save the tool updates after reducing durability
+            await tools.save();
+        }
+
+        // Continue with other forage logic...
+
+
             // Reply with the forage result
-            await interaction.editReply({content: '', embeds: [embed] });
+            await interaction.editReply({ content: '', embeds: [embed] });
 
             // Success foraging -> progress updates
-            const questResult = await trackQuestProgress(interaction.user.id, 'forage', interaction); 
+            const questResult = await trackQuestProgress(interaction.user.id, 'forage', interaction);
 
             // Send quest result message if there are quest updates
-            if (questResult != 'No active quest found.') {
+            if (questResult !== 'No active quest found.') {
                 const questEmbed = new EmbedBuilder()
                     .setTitle('Quest Update')
                     .setDescription(questResult)
                     .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
-                    .setColor('#00ff00');
-                return interaction.followUp({content: '', embeds: [questEmbed] });
+                    .setColor('#ffff00');
+                await interaction.followUp({ embeds: [questEmbed] });
             }
-
             return;
 
         } catch (error) {

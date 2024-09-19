@@ -39,7 +39,7 @@ module.exports = {
             if (inventory.stone > 0) inventoryDisplay += `**Stone**: ${inventory.stone}🪨\n`;
             if (inventory.palmLeaves > 0) inventoryDisplay += `**Palm Leaves**: ${inventory.palmLeaves}🌿\n`;
             if (inventory.rope > 0) inventoryDisplay += `**Rope**: ${inventory.rope}🪢\n`;
-            if (inventory.rope > 0) inventoryDisplay += `**Cloth**: ${inventory.cloth}🧶\n`;
+            if (inventory.cloth > 0) inventoryDisplay += `**Cloth**: ${inventory.cloth}🧶\n`;
 
             inventoryDisplay += `\n### --Fruit--\n`;
             if (inventory.berries > 0) inventoryDisplay += `**Berries**: ${inventory.berries}🫐\n`;
@@ -81,7 +81,7 @@ module.exports = {
                         5 * inventory.superRareFish + 5 * inventory.gold + 5 * inventory.cloth +
                         15 * inventory.legendaryFish + 20 * inventory.banana + 
                         15 * inventory.metalParts + 
-                        50 * inventory.ruby + 100 * inventory.coconut + 
+                        50 * inventory.ruby + 150 * inventory.coconut + 
                         250 * inventory.diamond + 
                         400 * inventory.negadomBattery
                     } ⚡`

@@ -268,9 +268,23 @@ const events = [
     },
     {
         id: 3,
-        description: "You come across Xender, a shady businessman.\n\n[NOT SCAM Lottery] 1🪵 1🪨 1🌿 1🔶 for a chance to win 10✨\n[SUPER NOT SCAM Lottery] 10✨ for a chance to win 1💎\n\xa0",
+        description: async (interaction, inventory, tools) => {
+            let desc = "You come across Xender, a shady businessman. He has a prize pool of gold and diamonds.\n";
+            let randmessage = Math.random();
+
+            // Add dynamic parts to the description based on the user's inventory or tools
+            if (randmessage < 0.33 ) {
+                desc += "**Xender:** COME BIG WIN BIG WIN WIN 10✨ WIN 1💎";
+            } else if (randmessage < 0.66) {
+                desc += "**Xender:** I need FUNDING to launch attacks on HHyper. OUR NATION DEPENDS ON IT!!!";
+            } else {
+                desc += "**Xender:** THIS IS NOT A SCAM. WIN BIG 💎💎💎💎💎💎 WIN BIG";
+            }
+            
+            return desc;
+        },
         choices: [
-            { emoji: '1️⃣', text: 'Enter NOT SCAM lottery', result: async (interaction, inventory) => {
+            { emoji: '1️⃣', text: '[NOT SCAM Lottery] 1🪵 1🪨 1🌿 1🔶', result: async (interaction, inventory) => {
                 if (inventory.wood >= 1 && inventory.stone >= 1 && inventory.palmLeaves >= 1 && inventory.copper >= 1 ) {
                     inventory.wood -= 1;
                     inventory.stone -= 1;
@@ -294,7 +308,7 @@ const events = [
                     return { message: 'You do not have enough resources to accept the deal.', color: '#ff0000' }; // Red color for insufficient resources
                 }
             }},
-            { emoji: '2️⃣', text: '[SUPER NOT SCAM lottery]', result: async (interaction, inventory) => {
+            { emoji: '2️⃣', text: '[SUPER NOT SCAM Lottery] 10✨', result: async (interaction, inventory) => {
                 if (inventory.gold >= 10) {
                     inventory.gold -= 10;
                     await inventory.save();
@@ -340,20 +354,6 @@ const events = [
         choices: [
             { 
                 emoji: '1️⃣', 
-                text: 'Craft 4🌿 into 2🪢', 
-                result: async (interaction, inventory) => {
-                    if (inventory.palmLeaves >= 4) {
-                        inventory.palmLeaves -= 4;
-                        inventory.rope = (inventory.rope || 0) + 2;
-                        await inventory.save();
-                        return { message: 'Rex crafts rope for you!\n**+2**🪢', color: '#00ff00' };
-                    } else {
-                        return { message: 'You don’t have enough palm leaves!', color: '#ff0000' };
-                    }
-                }
-            },
-            { 
-                emoji: '2️⃣', 
                 text: 'Craft 16🌿 into 8🪢', 
                 result: async (interaction, inventory) => {
                     if (inventory.palmLeaves >= 16) {
@@ -367,7 +367,7 @@ const events = [
                 }
             },
             { 
-                emoji: '3️⃣', 
+                emoji: '2️⃣', 
                 text: 'Sell 30🪢 for 10✨', 
                 result: async (interaction, inventory) => {
                     if (inventory.rope >= 30) {
@@ -381,8 +381,8 @@ const events = [
                 }
             },
             { 
-                emoji: '4️⃣', 
-                text: 'Craft 40🌿 4✨ into 4🧶', 
+                emoji: '3️⃣', 
+                text: 'Craft 40🌿 4✨ into 10🧶', 
                 result: async (interaction, inventory) => {
                     if (inventory.palmLeaves >= 40 || inventory.gold > 4) {
                         inventory.palmLeaves -= 40;
@@ -395,6 +395,38 @@ const events = [
                     } else {
                         return { message: 'You don’t have enough palm leaves and gold!', color: '#ff0000' };
                     }
+                }
+            },
+            {
+                emoji: '4️⃣',
+                text: 'Craft Gloves -70🧶 -35✨ -10🪢',
+                async result(interaction, inventory, tools) {
+                    // Check if the user has enough resources
+                    if (inventory.cloth < 70 || inventory.gold < 35 || inventory.rope < 10 ) {
+                        let resultMessage = "You don’t have enough materials to craft gloves. Rex looks at you demonically.\n";
+    
+                        await inventory.save();
+                        return { message: resultMessage, color: '#ff0000' };
+                    }
+    
+                    // Deduct resources
+                    inventory.cloth -= 70;
+                    inventory.gold -= 35;
+                    inventory.rope -= 10;
+    
+                    // Check if user already has a pickaxe and update durability or add a new one
+                    if (tools.gloves) {
+                        tools.glovesDurability = 100;
+                    } else {
+                        tools.gloves = true;
+                        tools.glovesDurability = 100;
+                    }
+    
+                    await tools.save();
+                    await inventory.save();
+    
+                    let resultMessage = "You crafted gloves from Rex 🧤!\n";
+                    return { message: resultMessage, color: '#00ff00' };
                 }
             },
             { 
@@ -439,6 +471,7 @@ const events = [
                     return { message: resultMessage, color: embedColor };
                 }
             },
+            
             { 
                 emoji: '6️⃣', 
                 text: 'Leave', 
@@ -495,7 +528,6 @@ const events = [
             
             return desc;
         },
-        imageUrl: "https://cdn.discordapp.com/attachments/704530416475832342/1274674180419489822/1v1Triv.png?ex=66c31c56&is=66c1cad6&hm=566990eab2e9890a657e0f2c018f84c724f4a9776bd0ea3bb684af8f13b62df6&",
         choices: [
             {
                 emoji: '1️⃣',
@@ -686,7 +718,8 @@ const events = [
                     return { message: resultMessage, color };
                 }
             }
-        ]
+        ],
+        imageUrl: "https://cdn.discordapp.com/attachments/704530416475832342/1274674180419489822/1v1Triv.png?ex=66c31c56&is=66c1cad6&hm=566990eab2e9890a657e0f2c018f84c724f4a9776bd0ea3bb684af8f13b62df6&"
     },
     {
         id: 7,
@@ -704,7 +737,7 @@ const events = [
             
             return desc;
         },
-        imageUrl: "https://cdn.discordapp.com/attachments/704530416475832342/1274977215314133023/NFTHEBLACKSMITH.png?ex=66c43690&is=66c2e510&hm=8278fd5ea5fba7b55b544de5ab4a92043c1d68dd830ec432576f34a5510e3593&", // Use an appropriate image URL
+        imageUrl: "https://cdn.discordapp.com/attachments/704530416475832342/1274977215314133023/NFTHEBLACKSMITH.png?ex=66c43690&is=66c2e510&hm=8278fd5ea5fba7b55b544de5ab4a92043c1d68dd830ec432576f34a5510e3593&",
         choices: [
             {
                 emoji: '1️⃣',
@@ -847,7 +880,22 @@ const events = [
     },
     {
         id: 8,
-        description: "You encounter HHyper, an extra-large dragon who is in the middle of destroying H city. He offers to buy some of your goods though??",
+        description: async (interaction, inventory, tools) => {
+            let desc = "You encounter HHyper, an extra-large dragon who is in the middle of destroying H city.";
+            let randmessage = Math.random();
+
+            if (randmessage < 0.25 ) {
+                desc += "\nYou can hear the cries of the people wanting art progress...";
+            } else if (randmessage < 0.50) {
+                desc += "\n**Hhyper:** RAWWRRRR XD";
+            } else if (randmessage < 0.75) {
+                desc += "\nA plane suddenly crashes into Hhyper's head.";
+            } else {
+                desc += "\nHHyper stops on a building, causing an earthquake.";
+            }
+            
+            return desc;
+        },
         choices: [
             {
                 emoji: '1️⃣',
@@ -1260,14 +1308,15 @@ const events = [
                 text: 'Ambush Rohan [🗡️?]',
                 result: async (interaction, inventory, tools) => {
                     const durabilityUsed = Math.floor(Math.random() * 7) + 1;
+                    const randgold = Math.floor(Math.random() * 6) + 10;
 
                     if (tools.dagger && tools.daggerDurability > durabilityUsed) {
                         tools.metalPickaxeDurability -= durabilityUsed;
                         
                         await tools.save();
 
-                        inventory.gold += 15;
-                        return { message: `(🗡️ -${durabilityUsed} Durability)\nYou ambushed Rohan with your dagger! He flees and you gained gold!\n**+15✨**`, color: '#00ff00' }; // Green for success
+                        inventory.gold += randgold;
+                        return { message: `(🗡️ -${durabilityUsed} Durability)\nYou ambushed Rohan with your dagger! He flees and you gained gold!\n**+${randgold}✨**`, color: '#00ff00' }; // Green for success
                     }
 
 
@@ -1305,8 +1354,22 @@ const events = [
     },
     {
         id: 12,
-        description: "You encounter Daffysamlake who spots a cave in the distance. He suggests that you go explore the cave with him.",
-        imageUrl: "https://cdn.discordapp.com/attachments/1135808718492139521/1280078811680997448/Daffysamlake.png?ex=66d6c5cb&is=66d5744b&hm=146e266445515a61fd8feae066021d157ab9e77a960e77baf45162fbcc0128c9&",
+        description: async (interaction, inventory, tools) => {
+            let desc = "You encounter Daffysamlake who spots a cave in the distance.\n";
+            let randmessage = Math.random();
+
+            if (randmessage < 0.25 ) {
+                desc += "**Daffysamlake:** Lets go explore the cave together!";
+            } else if (randmessage < 0.50) {
+                desc += "**Daffysamlake:** If we go together, we have a better chance of surviving...";
+            } else if (randmessage < 0.75) {
+                desc += "**Daffysamlake:** STARMASTER TO THE RESCUE!!!! *Runs off into the cave*";
+            } else {
+                desc += "Daffysamlake looks down at his near-broken pickaxe and grins...";
+            }
+            
+            return desc;
+        },
         choices: [
             {
                 emoji: '1️⃣',
@@ -1441,7 +1504,8 @@ const events = [
                     }
                 }
             }
-        ]
+        ],
+        imageUrl: "https://cdn.discordapp.com/attachments/1135808718492139521/1280078811680997448/Daffysamlake.png?ex=66d6c5cb&is=66d5744b&hm=146e266445515a61fd8feae066021d157ab9e77a960e77baf45162fbcc0128c9&"
     },
     {
         id: 13,
@@ -1461,7 +1525,6 @@ const events = [
             
             return desc;
         },
-        imageUrl: "https://cdn.discordapp.com/attachments/1135808718492139521/1280078811379011604/FrancisShack.png?ex=66d6c5cb&is=66d5744b&hm=0345e04f90f924040942f2a99fda32cb4c181ab0c12dc1aa12c51a2275371286&", // Placeholder URL, replace with actual image if available
         choices: [
             {
                 emoji: '1️⃣',
@@ -1577,12 +1640,31 @@ const events = [
                     return { message: resultMessage, color: '#00ff00' };
                 }
             }
-        ]
+        ],
+        imageUrl: "https://cdn.discordapp.com/attachments/1135808718492139521/1280078811379011604/FrancisShack.png?ex=66d6c5cb&is=66d5744b&hm=0345e04f90f924040942f2a99fda32cb4c181ab0c12dc1aa12c51a2275371286&"
     },
     {
         id: 14,
-        description: "You, Tbnr, and Josh paint a picture of Hu Tao from Genshin Impact.",
-        imageUrl: "https://cdn.discordapp.com/attachments/1135808718492139521/1280090730525884479/hutao_tbnr_UPDATE.png?ex=66d6d0e5&is=66d57f65&hm=fc3807ed503c57ff78d77f2b541fd6dfd7f4d3ddc745db984a6262e5b6ecc721&",
+        description: async (interaction, inventory, tools) => {
+            let desc = "You, Tbnr, and Josh paint a picture of Hu Tao from Genshin Impact.\n";
+            let randmessage = Math.random();
+
+            if (randmessage < 0.17 ) {
+                desc += "**Tbnr:** UWooooohghaa😳😳😳";
+            } else if (randmessage < 0.34) {
+                desc += "Josh looks like he just saw a murder...";
+            } else if (randmessage < 0.51) {
+                desc += "**Josh:** The painting... it are amazing...";
+            } else if (randmessage < 0.68) {
+                desc += "Tbnr gets unusually close to the painting.";
+            } else if (randmessage < 0.85) {
+                desc += "Josh looks desperate to sell the painting and immediately gamble afterwards.";
+            } else {
+                desc += "**Tbnr:** 🤤🤤🤤🤤🤤🤤🤤";
+            }
+            
+            return desc;
+        },
         choices: [
             {
                 emoji: '1️⃣',
@@ -1671,12 +1753,29 @@ const events = [
                     return { message: resultMessage, color: '#00ff00' };
                 }
             }
-        ]
+        ],
+        imageUrl: "https://cdn.discordapp.com/attachments/1135808718492139521/1280090730525884479/hutao_tbnr_UPDATE.png?ex=66d6d0e5&is=66d57f65&hm=fc3807ed503c57ff78d77f2b541fd6dfd7f4d3ddc745db984a6262e5b6ecc721&"
     },
     {
         id: 15,
-        description: "You stumble across a chest while wandering in a dense jungle.",
-        imageUrl: "https://cdn.discordapp.com/attachments/935416283976048680/1282258289005953064/Chest.png?ex=66deb397&is=66dd6217&hm=f1a9b3e9ea31234cede1d8f6ea765a7f8cd6787957b58c7bb56b3918bf0f29cd&", // Optional image for the event
+        description:  async (interaction, inventory, tools) => {
+            let desc = "You stumble across a chest while wandering in a dense jungle.\n";
+            let randmessage = Math.random();
+
+            if (randmessage < 0.2 ) {
+                desc += "The chest reeks of a salty odor. Maybe Tbnr was here before...";
+            } else if (randmessage < 0.4) {
+                desc += "You can see Rex watching at you from a distance...";
+            } else if (randmessage < 0.6) {
+                desc += "Maybe the chest is booby trapped?";
+            } else if (randmessage < 0.8) {
+                desc += "You remember Josh told you about this chest yesterday. Is it real?";
+            } else {
+                desc += "You can hear the singing of animals in the Jungle.";
+            }
+            
+            return desc;
+        },
         choices: [
             {
                 emoji: '1️⃣',
@@ -1727,12 +1826,29 @@ const events = [
                     return { message: "You leave the chest untouched and continue your journey.", color: '#ffcc00' };
                 }
             }
-        ]
+        ],
+        imageUrl: "https://cdn.discordapp.com/attachments/935416283976048680/1282258289005953064/Chest.png?ex=66deb397&is=66dd6217&hm=f1a9b3e9ea31234cede1d8f6ea765a7f8cd6787957b58c7bb56b3918bf0f29cd&"
     },
     {
         id: 16,
-        description: "You stumble across a shiny-looking chest while exploring the Void Plains.",
-        imageUrl: "https://cdn.discordapp.com/attachments/935416283976048680/1282262478696349746/Upgrade_chest.png?ex=66deb77e&is=66dd65fe&hm=b3edfb649c1488c1b1147b06aa56e85645354de20894a81edd83f490fc9bc835&", // Optional image for the event
+        description: async (interaction, inventory, tools) => {
+            let desc = "You stumble across a shiny-looking chest while exploring the Void Plains.\n";
+            let randmessage = Math.random();
+
+            if (randmessage < 0.2 ) {
+                desc += "The chest reeks of a salty odor. Tbnr was definitely here before...";
+            } else if (randmessage < 0.4) {
+                desc += "You can hear laser weapons go off in the distance.";
+            } else if (randmessage < 0.6) {
+                desc += "You can hear an argument in the background between Josh and Rohan. Hopefully it doesn't escalate.";
+            } else if (randmessage < 0.8) {
+                desc += "While looking at the chest, an explosion goes off next to you.";
+            } else {
+                desc += "You can hear a faint buzzing from the void matter.";
+            }
+            
+            return desc;
+        },
         choices: [
             {
                 emoji: '1️⃣',
@@ -1803,12 +1919,29 @@ const events = [
                     return { message: "You leave the shiny chest untouched and continue your journey.", color: '#ffcc00' };
                 }
             }
-        ]
+        ],
+        imageUrl: "https://cdn.discordapp.com/attachments/935416283976048680/1282262478696349746/Upgrade_chest.png?ex=66deb77e&is=66dd65fe&hm=b3edfb649c1488c1b1147b06aa56e85645354de20894a81edd83f490fc9bc835&"
     },
     {
         id: 17,
-        description: "While wandering the barren wastelands of Glacier 15, you meet Frost, an ex-Janitor who was recently fired from Xender Corp. He now works as a fish vendor.",
-        imageUrl: "https://cdn.discordapp.com/attachments/704530416475832342/1282278127363559547/jani_1.png?ex=66dec611&is=66dd7491&hm=a6b23eca0bcb8ade3c9be2c4296c63f9d692b2d58a196a16f27a76f961fc357d&",
+        description: async (interaction, inventory, tools) => {
+            let desc = "While wandering the barren wastelands of Glacier 15, you meet Frost, a fish vendor.\n";
+            let randmessage = Math.random();
+
+            if (randmessage < 0.2 ) {
+                desc += "**Frost:** Last week I got fired from Xender Corp. I used to be a Janitor...";
+            } else if (randmessage < 0.4) {
+                desc += "He has clear muscle definition on his arms.";
+            } else if (randmessage < 0.6) {
+                desc += "**Frost:** The Great Abyssnia Depression is destroying the job market... I can't go on like this...";
+            } else if (randmessage < 0.8) {
+                desc += "Frost nervously looks over his shoulder, as Josh treks along the Glacier.";
+            } else {
+                desc += "The frigid air sticks to your skin.";
+            }
+            
+            return desc;
+        },
         choices: [
             {
                 emoji: '1️⃣',
@@ -1913,12 +2046,28 @@ const events = [
                 async result() {
                     return { message: "You leave Frost's fish stand and continue on your way.", color: '#ffcc00' };
                 }
-            }
-        ]
+            },
+        ],
+        imageUrl: "https://cdn.discordapp.com/attachments/704530416475832342/1282278127363559547/jani_1.png?ex=66dec611&is=66dd7491&hm=a6b23eca0bcb8ade3c9be2c4296c63f9d692b2d58a196a16f27a76f961fc357d&"
     },
     {
         id: 18,
         description: async (interaction, inventory, tools) => {
+            let fulldesc = "After hitting it big, Josh personally invites you to a game of Blackjack.\n";
+            let randmessage = Math.random();
+
+            if (randmessage < 0.2 ) {
+                fulldesc += "**Josh:** Your move...";
+            } else if (randmessage < 0.4) {
+                fulldesc += "Josh fastens his tie and looks up from his cards, grinning.";
+            } else if (randmessage < 0.6) {
+                fulldesc += "**Josh:** ... ";
+            } else if (randmessage < 0.8) {
+                fulldesc += "**Josh:** The haters... look at me now... im hit it big... ";
+            } else {
+                fulldesc += "Josh gives an intimidating aura...";
+            }
+              
             // Draw initial cards for the user and dealer
             const userCards = drawCards(2);
             const dealerCards = drawCards(2);
@@ -1927,16 +2076,13 @@ const events = [
             interaction.userCards = userCards;
             interaction.dealerCards = dealerCards;
     
-            // Calculate the initial values
-            const userValue = calculateHandValue(userCards);
-            const dealerValue = calculateHandValue([dealerCards[0]]); // Show only one dealer card initially
-    
             // Format the cards for the description
             const userCardsStr = userCards.join(' ');
             const dealerCardsStr = '? ' + dealerCards[0];
     
             // Prepare the description
-            return `After hitting it big, Josh personally invites you to a game of Blackjack.\n\nYour cards: ${userCardsStr}\nJosh's cards: ${dealerCardsStr}`;
+            fulldesc += `\n\nYour cards: ${userCardsStr}\nJosh's cards: ${dealerCardsStr}`;
+            return fulldesc;
         },
         choices: [
             {
@@ -2014,8 +2160,154 @@ const events = [
             { emoji: '8️⃣', text: 'Buy 100 fruit cases', result: async (interaction, inventory) => await handleFruitPurchase(interaction, inventory, 100) },
         ],
         imageUrl: 'https://cdn.discordapp.com/attachments/1135808718492139521/1285513578308304969/Broskm_the_fruit_dealer.png?ex=66ea8b50&is=66e939d0&hm=ce3d2aa7d96bde3bd87a8ae41c924cc6e42509a24799fa3c318e7046e36d3c3b&'
-    }
+    },
+    {
+        id: 20,
+        description: async (interaction, inventory, tools) => {
+            let desc = "You encounter Boss John, who runs a flower shop.";
+            let randmessage = Math.random();
+
+            if (randmessage < 0.2 ) {
+                desc += "Boss John gives you a big smile.";
+            } else if (randmessage < 0.4) {
+                desc += "**Boss John:** No matter who COME to my STORE, I make SURE do everything I can to HELP.";
+            } else if (randmessage < 0.6) {
+                desc += "**Boss John:** If you need SUPPLIES, I GOT YOU!";
+            } else if (randmessage < 0.8) {
+                desc += "Boss John stands outside, greeting everyone who walks by.";
+            } else {
+                desc += "**Boss John:** Have you SEE Ultra M? I have not see him... AM WORRY...";
+            }
+            
+            return desc;
+        },
+        imageUrl: "https://cdn.discordapp.com/attachments/1135808718492139521/1286202437346000896/BOSSJOHN.png?ex=66ed0cdd&is=66ebbb5d&hm=7a9c6715e6745c06247721448223c901598a6d54f8b69f844b5468eaaa1af736&",
+        choices: [
+            {
+                emoji: '1️⃣',
+                text: 'Buy an Axe -10♦️',
+                async result(interaction, inventory, tools) {
+                    // Check if the user has enough resources
+                    if (inventory.ruby < 10) {
+                        let resultMessage = "You don’t have enough rubies to buy an axe. Boss John says theres gonna be a discount later.\n";
+                        
+                        await inventory.save();
+                        return { message: resultMessage, color: '#ff0000' };
+                    }
     
+                    // Deduct resources
+                    inventory.ruby -= 10;
+    
+                    // Check if user already has an axe and update durability or add a new one
+                    if (tools.metalAxe) {
+                        tools.metalAxeDurability = 50;
+                    } else {
+                        tools.metalAxe = true;
+                        tools.metalAxeDurability = 50;
+                    }
+    
+                    await tools.save();
+                    await inventory.save();
+    
+                    let resultMessage = "You bought an axe from Boss John 🪓!\n";
+                    return { message: resultMessage, color: '#00ff00' };
+                }
+            },
+            {
+                emoji: '2️⃣',
+                text: 'Buy a Pickaxe -10♦️',
+                async result(interaction, inventory, tools) {
+                    // Check if the user has enough resources
+                    if (inventory.ruby < 10) {
+                        let resultMessage = "You don’t have enough rubies to buy a pickaxe. Boss John says theres gonna be a discount later.\n";
+    
+                        await inventory.save();
+                        return { message: resultMessage, color: '#ff0000' };
+                    }
+    
+                    // Deduct resources
+                    inventory.ruby -= 10;
+    
+                    // Check if user already has a pickaxe and update durability or add a new one
+                    if (tools.metalPickaxe) {
+                        tools.metalPickaxeDurability = 50;
+                    } else {
+                        tools.metalPickaxe = true;
+                        tools.metalPickaxeDurability = 50;
+                    }
+    
+                    await tools.save();
+                    await inventory.save();
+    
+                    let resultMessage = "You bought a pickaxe from Boss John ⛏️!\n";
+                    return { message: resultMessage, color: '#00ff00' };
+                }
+            },
+            {
+                emoji: '3️⃣',
+                text: 'Buy Gloves -15♦️',
+                async result(interaction, inventory, tools) {
+                    // Check if the user has enough resources
+                    if (inventory.ruby < 15) {
+                        let resultMessage = "You don’t have enough rubies to buy gloves. Boss John says theres gonna be a discount later.\n";
+    
+                        await inventory.save();
+                        return { message: resultMessage, color: '#ff0000' };
+                    }
+    
+                    // Deduct resources
+                    inventory.ruby -= 15;
+    
+                    // Check if user already has a pickaxe and update durability or add a new one
+                    if (tools.gloves) {
+                        tools.glovesDurability = 100;
+                    } else {
+                        tools.gloves = true;
+                        tools.glovesDurability = 100;
+                    }
+    
+                    await tools.save();
+                    await inventory.save();
+    
+                    let resultMessage = "You bought gloves from Boss John 🧤!\n";
+                    return { message: resultMessage, color: '#00ff00' };
+                }
+            },
+            {
+                emoji: '4️⃣',
+                text: 'Buy 5⚙️ -10♦️',
+                async result(interaction, inventory, tools) {
+                    // Check if the user has enough resources
+                    if (inventory.ruby < 10) {
+                        let resultMessage = "You don’t have enough rubies to buy metal parts.\n";
+    
+                        await inventory.save();
+                        return { message: resultMessage, color: '#ff0000' };
+                    }
+    
+                    // Deduct resources
+                    inventory.ruby -= 10;
+
+                    // gain metal parts
+                    inventory.metalParts += 5;
+                
+                    await inventory.save();
+    
+                    let resultMessage = "NF89 crafts you metal parts!\n**+5**⚙️";
+                    return { message: resultMessage, color: '#00ff00' };
+                }
+            },
+            {
+                emoji: '5️⃣',
+                text: 'Leave',
+                async result() {
+                    let randwood = Math.floor(Math.random() * 5 + 2);
+                    let resultMessage = `You decide to leave boss John's and continue on your journey.\nYou pick up a couple logs on your way home!\n**+${randwood}**🪵`;
+                    return { message: resultMessage, color: '#ffff00' };
+                }
+            }
+        ]
+    },
 ];
 
 
@@ -2222,8 +2514,6 @@ async function handleFruitPurchase(interaction, inventory, quantity) {
     await inventory.save();
     return { message: resultMessage, color: '#00ff00' };
 }
-
-
 //------------------------------------------------
 // Utility functions FOR BLACKJACK
 //------------------------------------------------
@@ -2305,7 +2595,7 @@ async function handleStand(interaction, inventory) {
     // Determine the outcome
     let outcomeMessage = '';
     if (userValue > 21) {
-        outcomeMessage = 'You bust! You lose! Looks like another easy win for Josh!\n-5🪵\n-5🪨\n-5🌿\n-5🔶';
+        outcomeMessage = 'You bust! You lose! Looks like another easy victory for Josh!\n-5🪵\n-5🪨\n-5🌿\n-5🔶';
         await adjustResourcesOnLoss(inventory);
     }
     else if (dealerValue > 21) {
@@ -2353,6 +2643,7 @@ async function adjustResourcesOnLoss(inventory) {
         }
     }
 }
+//------------------------------------------------
 
 
 
