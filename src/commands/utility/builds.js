@@ -3,6 +3,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const AutoMachine = require('../../models/AutoMachine');
 const Inventory = require('../../models/Inventory');
 const User = require('../../models/User');
+const Guild = require('../../models/Guild');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -45,7 +46,7 @@ module.exports = {
         } else if (subcommand === 'craft') {
             await craftAutoMachine(interaction, userId);
         } else if (subcommand === 'upgrade') {
-            await upgradeAutoMachine(interaction, userId);
+            await upgradeBuilds(interaction, userId);
         } else if (subcommand === 'collect') {
             await collectAutoMachineResources(interaction, userId);
         }
@@ -61,6 +62,9 @@ module.exports = {
 // Function to view automachines and resources
 // -----------------------------------
 async function viewBuilds(interaction, userId) {
+    const guildBuilding = await Guild.findOrCreate({ where: { userId } }); // Assuming there's a GuildBuilding model
+    const guildLevel = guildBuilding ? guildBuilding.level : 1; // Default to level 1 if no record exists
+    const MAX_GUILD_LEVEL = 8;
     const MAX_LEVEL = 6;
     const machines = await AutoMachine.findAll({ where: { userId } });
 
@@ -121,6 +125,8 @@ async function viewBuilds(interaction, userId) {
             value: 'Not owned',
         });
     }
+
+    embed.addFields({name:`🏛️ **Guild Building** [Lvl ${guildBuilding.level}/${MAX_GUILD_LEVEL}]\n`, value: " "});
 
     return interaction.editReply({ embeds: [embed] });
 }
@@ -316,11 +322,22 @@ async function craftAutoMachine(interaction, userId) {
 // -----------------------------------
 // Function to upgrade an automachine
 // -----------------------------------
-async function upgradeAutoMachine(interaction, userId) {
+async function upgradeBuilds(interaction, userId) {
     const user = await User.findOne({ where: { id: userId } });
     const machines = await AutoMachine.findAll({ where: { userId } });
     const [inventory] = await Inventory.findOrCreate({ where: { userId: user.id } });
+    const guildBuilding = await Guild.findOrCreate({ where: { userId: user.id } }); // Assuming there's a GuildBuilding model
 
+    const guildUpgradeCosts = {
+        2: { wood: 10, stone: 10, palmLeaves: 10 },
+        3: { wood: 40, gold: 20, rope: 10 },
+        4: { copper: 100, stone: 100, rubies: 5 },
+        5: { berries: 100, rope: 50, cloth: 50, rubies: 20 },
+        6: { wood: 500, metalParts: 15, gold: 100, diamond: 1 },
+        7: { stone: 500, metalParts: 50, rubies: 50, banana: 50, legendaryFish: 10 },
+        8: { coconut: 10, diamonds: 5, wood: 1000, palmLeaves: 1000, copper: 1000, rope: 250 },
+    };
+    
     const machineMap = {};
     machines.forEach(machine => {
         machineMap[machine.type] = machine;
@@ -355,6 +372,10 @@ async function upgradeAutoMachine(interaction, userId) {
         const autoforager = machineMap['autoforager'];
         desc += `🤖🌿**Autoforager** [Lvl ${autoforager.upgradeLevel + 1}/${MAX_LEVEL}] \xa0 -20⚙️ -200🔶 -100🫐\n`;
     }
+
+    const guildLevel = guildBuilding ? guildBuilding.level : 1; // Default to level 1 if no record exists
+    const MAX_GUILD_LEVEL = 8;
+    desc += `🏛️ **Guild Building** [Lvl ${guildLevel}/${MAX_GUILD_LEVEL}]\n`;
     
     
     const craftmenu = new EmbedBuilder()
@@ -376,7 +397,11 @@ async function upgradeAutoMachine(interaction, userId) {
             new ButtonBuilder()
                 .setCustomId('upgrade_autoforager')
                 .setLabel('Upgrade Autoforager')
-                .setStyle(ButtonStyle.Primary)
+                .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+                .setCustomId('upgrade_guild')
+                .setLabel('Upgrade Guild Building')
+                .setStyle(ButtonStyle.Success) // Different style for guild upgrade
         );
 
     await interaction.editReply({ embeds: [craftmenu], components: [row] });
@@ -505,6 +530,44 @@ async function upgradeAutoMachine(interaction, userId) {
             const successEmbed = new EmbedBuilder()
                 .setTitle('Upgrade Success')
                 .setDescription('Your Autoforager has been upgraded!')
+                .setColor('#00FF00');
+            await i.reply({ embeds: [successEmbed] });
+        } else if (i.customId === 'upgrade_guild') {
+            if (guildLevel >= MAX_GUILD_LEVEL) {
+                const errorEmbed = new EmbedBuilder()
+                    .setTitle('Upgrade Error')
+                    .setDescription(`Your Guild Building is already at the max level (${MAX_GUILD_LEVEL}).`)
+                    .setColor('#FF0000');
+                return i.reply({ embeds: [errorEmbed], ephemeral: true });
+            }
+
+            const cost = guildUpgradeCosts[guildLevel + 1];
+
+            // Check if user has enough resources
+            for (const [resource, amount] of Object.entries(cost)) {
+                if (inventory[resource] < amount) {
+                    const errorEmbed = new EmbedBuilder()
+                        .setTitle('Upgrade Error')
+                        .setDescription(`You do not have enough ${resource} to upgrade the Guild Building to level ${guildLevel + 1}.`)
+                        .setColor('#FF0000');
+                    return i.reply({ embeds: [errorEmbed], ephemeral: true });
+                }
+            }
+
+            // Deduct resources
+            for (const [resource, amount] of Object.entries(cost)) {
+                inventory[resource] -= amount;
+            }
+
+            // Upgrade the Guild building
+            guildBuilding.level += 1;
+            await guildBuilding.save();
+            await user.save();
+            await inventory.save();
+
+            const successEmbed = new EmbedBuilder()
+                .setTitle('Upgrade Success')
+                .setDescription(`Your Guild Building has been upgraded to level ${guildBuilding.level}!`)
                 .setColor('#00FF00');
             await i.reply({ embeds: [successEmbed] });
         }

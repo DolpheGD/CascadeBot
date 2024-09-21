@@ -3,6 +3,7 @@ const sequelize = require('../dbConfig'); // Ensure this path is correct
 const Tool = require('./Tool');
 const Quest = require('./Quest'); // Import the Quest model
 const AutoMachine = require('./AutoMachine'); // Import the Quest model
+const Guild = require('./Guild'); // Import the Guild model
 
 const User = sequelize.define('User', {
     id: {
@@ -70,6 +71,13 @@ User.hasOne(AutoMachine, { // Change this to hasOne
     as: 'automachine'
 });
 
+User.hasOne(Guild, { // Change this to hasOne
+    foreignKey: 'userId',
+    as: 'guild'
+});
+
+
+
 Tool.belongsTo(User, {
     foreignKey: 'userId'
 });
@@ -79,6 +87,10 @@ Quest.belongsTo(User, {
 });
 
 AutoMachine.belongsTo(User, {
+    foreignKey: 'userId'
+});
+
+Guild.belongsTo(User, {
     foreignKey: 'userId'
 });
 

@@ -188,7 +188,7 @@ const events = [
 
             // Add dynamic parts to the description based on the user's inventory or tools
             if (randmessage < 0.33 ) {
-                desc += "and he is shivering from the cold...";
+                desc += " and he is shivering from the cold...";
             } else if (randmessage < 0.66) {
                 desc += ". He seems disguntled...";
             } else {
@@ -372,7 +372,7 @@ const events = [
                 result: async (interaction, inventory) => {
                     if (inventory.rope >= 30) {
                         inventory.rope -= 30;
-                        inventory.gold = (inventory.rope || 0) + 10;
+                        inventory.gold += (inventory.rope || 0) + 10;
                         await inventory.save();
                         return { message: 'Rex gives you gold for your rope!\n**+10**✨', color: '#00ff00' };
                     } else {
@@ -388,7 +388,7 @@ const events = [
                         inventory.palmLeaves -= 40;
                         inventory.gold -= 4;
 
-                        inventory.cloth = (inventory.cloth || 0) + 4;
+                        inventory.cloth += (inventory.cloth || 0) + 4;
 
                         await inventory.save();
                         return { message: 'Rex crafts cloth for you!\n**+4**🧶', color: '#00ff00' };
@@ -693,13 +693,13 @@ const events = [
                 
                         resultMessage += "You defeat Triv with the dagger! You gain a ton of resources.\n";
                         const resources = {
-                            wood: [4, 11],
-                            palmLeaves: [4, 11],
-                            stone: [4, 11],
-                            copper: [4, 11],
-                            gold: [2, 6],
-                            rope: [1, 4],
-                            cloth: [1, 3]
+                            wood: [4, 12],
+                            palmLeaves: [4, 12],
+                            stone: [4, 12],
+                            copper: [4, 12],
+                            gold: [2, 7],
+                            rope: [1, 5],
+                            cloth: [1, 4]
                         }
                 
                         // Track resource gains
@@ -844,7 +844,7 @@ const events = [
             },
             {
                 emoji: '4️⃣',
-                text: 'Craft 5⚙️\n -100🔶 -75🪨 -15✨ -2♦️',
+                text: 'Craft 10⚙️\n -100🔶 -75🪨 -15✨ -2♦️',
                 async result(interaction, inventory, tools) {
                     // Check if the user has enough resources
                     if (inventory.stone < 75 || inventory.copper < 100 || inventory.gold < 15 || inventory.ruby < 2) {
@@ -860,11 +860,11 @@ const events = [
                     inventory.gold -= 15;
                     inventory.ruby -= 2;
                     // gain metal parts
-                    inventory.metalParts += 5;
+                    inventory.metalParts += 10;
                 
                     await inventory.save();
     
-                    let resultMessage = "NF89 crafts you metal parts!\n**+5**⚙️";
+                    let resultMessage = "NF89 crafts you metal parts!\n**+10**⚙️";
                     return { message: resultMessage, color: '#00ff00' };
                 }
             },
@@ -1308,7 +1308,7 @@ const events = [
                 text: 'Ambush Rohan [🗡️?]',
                 result: async (interaction, inventory, tools) => {
                     const durabilityUsed = Math.floor(Math.random() * 7) + 1;
-                    const randgold = Math.floor(Math.random() * 6) + 10;
+                    const randgold = Math.floor(Math.random() * 6) + 17;
 
                     if (tools.dagger && tools.daggerDurability > durabilityUsed) {
                         tools.metalPickaxeDurability -= durabilityUsed;
@@ -1793,7 +1793,7 @@ const events = [
                         { name: 'gold', min: 1, max: 2, emoji: '✨' },
                         { name: 'fish', min: 1, max: 4, emoji: '🐟' },
                         { name: 'rareFish', min: 1, max: 2, emoji: '🐠' },
-                        { name: 'superRareFish', min: 1, max: 1, emoji: '🐡' }
+                        { name: 'superRareFish', min: 1, max: 1, emoji: '🧶' }
                     ];
     
                     // Randomly select 4 resources to give
@@ -1870,7 +1870,7 @@ const events = [
                             { name: 'fish', min: 2, max: 8, emoji: '🐟' },
                             { name: 'rareFish', min: 2, max: 4, emoji: '🐠' },
                             { name: 'superRareFish', min: 1, max: 2, emoji: '🐡' },
-                            { name: 'legendaryFish', min: 1, max: 1, emoji: '🦈' },
+                            { name: 'cloth', min: 1, max: 1, emoji: '🧶' },
                             { name: 'ruby', min: 1, max: 1, emoji: '♦️' }, 
                             { name: 'metalParts', min: 1, max: 1, emoji: '⚙️' }
                         ];
@@ -2275,7 +2275,7 @@ const events = [
             },
             {
                 emoji: '4️⃣',
-                text: 'Buy 5⚙️ -10♦️',
+                text: 'Buy 10⚙️ -10♦️',
                 async result(interaction, inventory, tools) {
                     // Check if the user has enough resources
                     if (inventory.ruby < 10) {
@@ -2289,11 +2289,11 @@ const events = [
                     inventory.ruby -= 10;
 
                     // gain metal parts
-                    inventory.metalParts += 5;
+                    inventory.metalParts += 10;
                 
                     await inventory.save();
     
-                    let resultMessage = "NF89 crafts you metal parts!\n**+5**⚙️";
+                    let resultMessage = "NF89 crafts you metal parts!\n**+10**⚙️";
                     return { message: resultMessage, color: '#00ff00' };
                 }
             },
@@ -2348,7 +2348,7 @@ async function handleDolpheDonation(interaction, inventory, resource, emoji) {
         if (chance < 0.8) {
             const resourceGained = 10;
             inventory[resource] += resourceGained;
-            resultMessage = `Dolphe is actually MrBeast and gives you stuff in return!\n**+${resourceGained}** ${emoji}`;
+            resultMessage = `Dolphe is actually (NOT) MrBeast and gives you stuff in return!\n**+${resourceGained}** ${emoji}`;
         } else {
             resultMessage = `Dolphe graciously accepts your donation!\n**-5** ${emoji}.`;
             return { message: resultMessage, color: '#ffff00' }; // Green color for success
@@ -2462,10 +2462,9 @@ async function handleFruitPurchase(interaction, inventory, quantity) {
             const bananaAmount = Math.floor(Math.random() * 3) + 1;
             inventory.banana = (inventory.banana || 0) + bananaAmount;
             resultMessage += `**《【EPIC】》** You got ${bananaAmount} 🍌!\n`;
-        } else if (chance < 4.5) { // 2% chance to get 1-3 metalParts
-            const metalPartsAmount = Math.floor(Math.random() * 3) + 1;
-            inventory.metalParts = (inventory.metalParts || 0) + metalPartsAmount;
-            resultMessage += `**《【EPIC】》** You got ${metalPartsAmount} ⚙️!\n`;
+        } else if (chance < 4.5) { // 2% chance to get 1
+            inventory.metalParts = (inventory.metalParts || 0) + 1;
+            resultMessage += `**《【EPIC】》** You got ${1} ⚙️!\n`;
         } 
         // RARE
         else if (chance < 9.5) { // 5% chance to get 1-3 watermelon
