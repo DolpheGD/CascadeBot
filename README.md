@@ -1,5 +1,8 @@
 # Cascade Bot
 - Public repo for the CascadeBot discord bot
+- Developed by @dolphe
+  
+---
 
 ### NEW UPDATE:
 - Build up to 3 auto machines and level them up to level 10
@@ -9,6 +12,7 @@
 - daily rewards
 - slightly increased odds for Duko's rock event
 
+---
 
 ### Command list:
 **Resource commands**
