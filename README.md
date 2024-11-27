@@ -13,40 +13,40 @@
 ### Command list:
 **Resource commands**
 /chop
-Gain wood and other resources
+- Gain wood and other resources
 /mine
-Gain stone and other resources
+- Gain stone and other resources
 /forage
-Gain berries, leaves, and other resources
+- Gain berries, leaves, and other resources
 /fish
-Gain fish and other resources
+- Gain fish and other resources
 /explore
-Explore various events
+- Explore various events
 
 **Automachine commands**
 /builds view
-View your automachines
+- View your automachines
 /builds craft
-Craft an automachine
+- Craft an automachine
 /builds upgrade
-Upgrade an automachine
+- Upgrade an automachine
 /builds collect
-Collect from automachines
+- Collect from automachines
 
 **Utility commands**
 /daily
-Claim a daily reward
+- Claim a daily reward
 /inv
-View your inventory
+- View your inventory
 /tools
-View your tools
+- View your tools
 /leaderboard
-View the leaderboard
+- View the leaderboard
 /quest
-Claim a quest
+- Claim a quest
 
 **Bet commands**
 /bet
-Bet resources
+- Bet resources
 /betall
-Bet all your resources
+- Bet all your resources
