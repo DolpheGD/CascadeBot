@@ -1,6 +1,7 @@
 # Cascade Bot
 - Public repo for the CascadeBot discord bot
 - Developed by @dolphe
+- Hosted on https://dash.daki.cc/
   
 ---
 
