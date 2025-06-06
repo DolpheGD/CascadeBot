@@ -10,7 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "discord.js": "^14.15.3",
+    "discord.js": "^14.19.3",
     "node-cron": "^3.0.3",
     "sequelize": "^6.37.3",
     "sqlite3": "^5.1.7"

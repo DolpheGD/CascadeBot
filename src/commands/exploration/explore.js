@@ -372,7 +372,7 @@ const events = [
                 result: async (interaction, inventory) => {
                     if (inventory.rope >= 30) {
                         inventory.rope -= 30;
-                        inventory.gold += (inventory.rope || 0) + 10;
+                        inventory.gold += 10;
                         await inventory.save();
                         return { message: 'Rex gives you gold for your rope!\n**+10**✨', color: '#00ff00' };
                     } else {
@@ -388,7 +388,7 @@ const events = [
                         inventory.palmLeaves -= 40;
                         inventory.gold -= 4;
 
-                        inventory.cloth += (inventory.cloth || 0) + 4;
+                        inventory.cloth += 4;
 
                         await inventory.save();
                         return { message: 'Rex crafts cloth for you!\n**+4**🧶', color: '#00ff00' };
