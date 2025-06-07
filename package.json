@@ -2,7 +2,7 @@
   "name": "joshbot",
   "version": "1.0.0",
   "description": "Joshbot moment",
-  "main": "index.js",
+  "main": "src/parent-start-bot.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
