@@ -1,0 +1,114 @@
+"""
+Passive-income harvesters: buy one, it accrues currency over real time,
+collect it (capped so idling too long doesn't stockpile forever), and
+spend gold to upgrade it for a higher rate.
+"""
+
+from __future__ import annotations
+
+import datetime as dt
+
+from bot.database.models.economy_model import HarvesterTemplate, PlayerHarvester
+from bot.game.economy.harvester_config import HARVESTER_TEMPLATES
+from bot.services.currency_service import add_currency, spend_currency
+
+
+def ensure_harvester_templates_seeded(db) -> None:
+    """Upserts HARVESTER_TEMPLATES into the DB. Safe to call every startup."""
+    for data in HARVESTER_TEMPLATES:
+        existing = db.query(HarvesterTemplate).filter_by(name=data["name"]).first()
+        if existing is None:
+            db.add(HarvesterTemplate(**data))
+        else:
+            for key, value in data.items():
+                setattr(existing, key, value)
+    db.commit()
+
+
+def list_templates(db) -> list[HarvesterTemplate]:
+    return db.query(HarvesterTemplate).all()
+
+
+def list_player_harvesters(db, player_id: int) -> list[PlayerHarvester]:
+    return db.query(PlayerHarvester).filter_by(player_id=player_id).all()
+
+
+def get_upgrade_cost(template: HarvesterTemplate, level: int) -> int:
+    return round(template.base_upgrade_cost * (template.upgrade_cost_growth ** (level - 1)))
+
+
+def get_production_rate(template: HarvesterTemplate, level: int) -> float:
+    """Rate scales linearly with level: level N produces N x the base rate."""
+    return template.base_rate_per_hour * level
+
+
+def buy_harvester(db, player, template_id: int) -> tuple[bool, str, PlayerHarvester | None]:
+    template = db.get(HarvesterTemplate, template_id)
+    if template is None:
+        return False, "No such harvester.", None
+
+    existing = (
+        db.query(PlayerHarvester)
+        .filter_by(player_id=player.id, template_id=template_id)
+        .first()
+    )
+    if existing is not None:
+        return False, f"You already own a {template.name}.", None
+
+    if template.unlock_cost > 0:
+        if not spend_currency(db, player, template.unlock_currency, template.unlock_cost):
+            return False, (
+                f"Not enough {template.unlock_currency} "
+                f"(need {template.unlock_cost})."
+            ), None
+
+    harvester = PlayerHarvester(
+        player_id=player.id,
+        template_id=template_id,
+        level=1,
+        last_collected_at=dt.datetime.now(dt.timezone.utc),
+    )
+    db.add(harvester)
+    db.commit()
+    db.refresh(harvester)
+    return True, f"Acquired {template.name}!", harvester
+
+
+def collect_harvester(db, harvester: PlayerHarvester) -> int:
+    """Adds accrued production to the owner's balance, resets the clock.
+    Returns the amount collected (0 if nothing had accrued)."""
+    template = harvester.template
+    now = dt.datetime.now(dt.timezone.utc)
+
+    last_collected = harvester.last_collected_at
+    if last_collected.tzinfo is None:
+        last_collected = last_collected.replace(tzinfo=dt.timezone.utc)
+
+    elapsed_hours = (now - last_collected).total_seconds() / 3600
+    elapsed_hours = min(elapsed_hours, template.max_accumulation_hours)
+    elapsed_hours = max(elapsed_hours, 0.0)
+
+    rate = get_production_rate(template, harvester.level)
+    amount = round(rate * elapsed_hours)
+
+    harvester.last_collected_at = now
+    db.commit()
+
+    if amount > 0:
+        add_currency(db, harvester.player, template.currency, amount)
+
+    return amount
+
+
+def upgrade_harvester(db, player, harvester: PlayerHarvester) -> tuple[bool, str]:
+    template = harvester.template
+    if harvester.level >= template.max_level:
+        return False, f"{template.name} is already at max level."
+
+    cost = get_upgrade_cost(template, harvester.level)
+    if not spend_currency(db, player, "gold", cost):
+        return False, f"Not enough gold (need {cost})."
+
+    harvester.level += 1
+    db.commit()
+    return True, f"{template.name} upgraded to level {harvester.level} for {cost} gold."
