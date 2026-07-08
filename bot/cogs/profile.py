@@ -6,10 +6,57 @@ from discord import app_commands
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_or_create_player, get_player
 from bot.services.currency_service import add_currency
+from bot.services import inventory_service
 from bot.utils.guild_decorator import guild_decorator
-from bot.utils.embedder import profile_embed
+from bot.utils import embedder
 
 STARTING_GOLD = 150
+
+
+# ----------------------------------------------------------------------
+# Profile is 3 pages (Overview / Equipment / Abilities). A plain View is
+# fine here (not a DynamicItem/persistent view) since Prev/Next just cycle
+# a page index with no per-user target data that needs to survive a
+# restart -- worst case the view expires and the player just re-runs
+# /profile, which is a much smaller inconvenience than an in-progress fight
+# or equip state would be.
+# ----------------------------------------------------------------------
+
+class ProfilePageView(discord.ui.View):
+    def __init__(self, page: int):
+        super().__init__(timeout=120)
+        self.page = page
+        self.children[0].disabled = page <= 0
+        self.children[1].disabled = page >= embedder.PROFILE_PAGE_COUNT - 1
+
+    @discord.ui.button(label="◀ Prev", style=discord.ButtonStyle.secondary)
+    async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await _render_profile_page(interaction, max(0, self.page - 1))
+
+    @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary)
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await _render_profile_page(interaction, min(embedder.PROFILE_PAGE_COUNT - 1, self.page + 1))
+
+
+async def _render_profile_page(interaction: discord.Interaction, page: int):
+    db = SessionLocal()
+    try:
+        player = get_player(db, interaction.user.id)
+        if player is None:
+            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            return
+
+        embed = embedder.profile_embed(
+            player,
+            equipped_items=inventory_service.list_equipped(db, player.id),
+            avatar_url=interaction.user.display_avatar.url,
+            page=page,
+        )
+        view = ProfilePageView(page)
+    finally:
+        db.close()
+
+    await interaction.response.edit_message(embed=embed, view=view)
 
 
 @guild_decorator
@@ -43,15 +90,16 @@ class Profile(commands.Cog):
 
         await ctx.response.send_message(
             f"Welcome to the Cascade, **{ctx.user.display_name}**. "
-            f"Your journey begins at level 1 with {STARTING_GOLD} gold to get started. "
-            "Use `/profile` any time to check your stats."
+            f"Your journey begins at level 1 with 🪙 {STARTING_GOLD} gold to get started. "
+            "Use `/profile` any time to check your stats, gear, and abilities."
         )
 
     # COMMAND: /profile
-    # Displays the caller's CascadeBot profile: class, level, xp, gold, and stats.
+    # Displays the caller's CascadeBot profile across 3 pages: Overview,
+    # Equipment (every slot, empty or filled), and Abilities.
     @app_commands.command(
         name="profile",
-        description="View your CascadeBot profile."
+        description="View your CascadeBot profile: stats, equipment, and abilities."
     )
     async def profile(self, ctx: discord.Interaction):
         db = SessionLocal()
@@ -64,11 +112,17 @@ class Profile(commands.Cog):
                 )
                 return
 
-            embed = await profile_embed(player)
+            embed = embedder.profile_embed(
+                player,
+                equipped_items=inventory_service.list_equipped(db, player.id),
+                avatar_url=ctx.user.display_avatar.url,
+                page=0,
+            )
+            view = ProfilePageView(0)
         finally:
             db.close()
 
-        await ctx.response.send_message(embed=embed)
+        await ctx.response.send_message(embed=embed, view=view)
 
 
 async def setup(bot):

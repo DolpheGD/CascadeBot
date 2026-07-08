@@ -1,7 +1,7 @@
 # CascadeBot
 
 A Discord roguelite: procedurally generated dungeons, turn-based combat,
-loot, an economy (gold/shards, harvesters, gacha, lootboxes),
+Diablo-style loot, an economy (gold/shards, harvesters, gacha, lootboxes),
 all driven by slash commands and buttons.
 
 ## Setup
@@ -50,13 +50,33 @@ all driven by slash commands and buttons.
 ## Playing
 
 - `/start` -- create your character (grants starting gold)
-- `/adventure` -- start or resume a dungeon expedition
-- `/inventory`, `/equip <id>`, `/unequip <id>` -- manage gear
-- `/profile` -- view stats
+- `/adventure` -- start or resume a dungeon expedition; every floor offers
+  several room choices, and combat/movement happen entirely through
+  buttons and dropdowns on the message
+- `/profile` -- 3-page view: Overview (stats/currency), Equipment (every
+  slot, empty or filled), and Abilities (weapon/artifact skills, ultimate,
+  passives)
+- `/inventory` -- browse a compact list of every item and lootbox you own,
+  or open one in Detail mode to Equip/Level Up/Reroll/Open it; jump to a
+  specific entry by number instead of paging through everything
 - `/daily` -- claim daily reward (gold, streak bonus, lootboxes)
-- `/balance`, `/harvesters`, `/collect` -- passive income
+- `/harvesters` -- buy, upgrade, and collect passive income
 - `/pull` -- gacha pull (costs Shards)
-- `/lootboxes`, `/open <tier>` -- manage and open lootboxes
+- `/lootboxes`, `/open <tier>` -- quick-glance and open lootboxes (also
+  reachable from `/inventory`)
+- `/admin_testgear` -- (Administrator only) grants a full Legendary kit
+  (2 weapons, 4 armor pieces, 2 artifacts, 1 scroll, all with abilities)
+  plus gold/shards/lootboxes, for quickly testing combat and the UI
+
+### Combat at a glance
+
+Turn order is speed-based (an ATB gauge), not a fixed rotation -- see the
+🔀 Turn Order line on the battle message. Each turn is Attack (free, builds
+Energy + Mana equal to your Recharge stat), a Skill from an equipped
+weapon/artifact (costs Mana), or your Ultimate from an equipped Scroll
+(usable once Energy reaches 100). There's no defending or fleeing, and no
+dodge/miss chance -- every hit lands, mitigated only by Defense. Switching
+which enemy you're targeting is a free action.
 
 ## Architecture notes
 
@@ -70,8 +90,9 @@ all driven by slash commands and buttons.
   per-message. Callbacks always look up the interacting user's own
   expedition/battle by Discord ID rather than trusting anything embedded in
   the component itself.
-- **Mutating commands lock during combat.** `/pull`, `/collect`, `/open`,
-  `/equip`, `/unequip` all check `dungeon_service.is_in_combat()` first.
+- **Mutating commands lock during combat.** `/pull`, `/harvesters`,
+  `/open`, and equip/level-up/reroll/open-lootbox actions inside
+  `/inventory` all check `dungeon_service.is_in_combat()` first.
 
 See inline docstrings throughout `bot/services/` and `bot/game/` for the
 reasoning behind specific design choices (damage formula, rarity curves,
@@ -82,7 +103,10 @@ turn order, etc).
 - No shop yet (needs a curated, priced item catalog beyond the starter set).
 - top.gg vote rewards not yet implemented (requires a public webhook
   endpoint -- a hosting/deployment concern as much as a code one).
-- Artifacts (`ArtifactTemplate`/`PlayerArtifact`) exist in the data model
-  but aren't yet wired into combat or acquirable through any command.
-- Only ~15 item templates and 4 enemy templates exist -- functional, but
+- `Expedition.current_hp` is tracked but not yet synced from/to actual
+  battle HP -- every encounter currently starts at full HP regardless of
+  prior damage taken earlier in the same expedition. Wiring that up (and
+  deciding whether HP regenerates between rooms or only at campfires) is
+  a natural next step.
+- Only ~24 item templates and 6 enemy templates exist -- functional, but
   thin. Expanding both is pure content work, no architecture changes needed.

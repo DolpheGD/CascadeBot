@@ -16,14 +16,13 @@ from bot.database.models.enums import Rarity
 PREFIX_BY_STAT: dict[str, list[str]] = {
     "attack": ["Savage", "Fierce", "Brutal", "Vicious"],
     "defense": ["Sturdy", "Guarded", "Reinforced", "Bulwark"],
-    "magic": ["Arcane", "Mystic", "Runic", "Eldritch"],
+    "elemental": ["Arcane", "Mystic", "Runic", "Eldritch"],
     "speed": ["Swift", "Fleet", "Nimble", "Hastened"],
-    "luck": ["Fortunate", "Lucky", "Fated", "Charmed"],
     "max_hp": ["Vital", "Hearty", "Stalwart", "Undying"],
-    "crit_chance": ["Deadly", "Lethal", "Precise", "Keen"],
+    "max_mana": ["Ethereal", "Luminous", "Wellspring", "Attuned"],
+    "crit_rate": ["Deadly", "Lethal", "Precise", "Keen"],
     "crit_damage": ["Merciless", "Ruthless", "Devastating", "Savage"],
-    "dodge": ["Phantom", "Evasive", "Elusive", "Shadowed"],
-    "healing_bonus": ["Blessed", "Sacred", "Radiant", "Sanctified"],
+    "recharge": ["Galvanic", "Charged", "Kinetic", "Surging"],
 }
 
 GENERIC_PREFIX_BY_RARITY: dict[Rarity, list[str]] = {
@@ -46,12 +45,14 @@ SUFFIX_BY_ABILITY_EFFECT_KIND: dict[str, list[str]] = {
     "damage_and_stun": ["of Judgment", "of Force"],
     "self_buff_debuff": ["of Fury", "of Rage"],
     "damage_execute_heal": ["of the Phoenix", "of Rebirth"],
+    "damage_and_heal_self": ["of the Leech", "of Hunger"],
+    "heal_and_self_buff": ["of Resurgence", "of the Dawn"],
+    "multi_hit": ["of the Tempest", "of Fury's Edge"],
     "lifesteal": ["of the Leech", "of Hunger"],
     "damage_reflect": ["of Thorns", "of Retribution"],
     "crit_damage_bonus": ["of Doom", "of Execution"],
     "stacking_buff": ["of Momentum", "of the Storm"],
     "prevent_death": ["of Defiance", "of the Phoenix"],
-    "self_buff": ["of Shadows", "of the Wind"],
     "on_kill_restore": ["of the Reaper", "of Souls"],
     "damage_reduction": ["of Wardship", "of the Bastion"],
     "resource_regen": ["of the Archmage", "of Ether"],
@@ -93,7 +94,7 @@ def generate_display_name(
         suffix_pool = GENERIC_SUFFIX_BY_RARITY[rarity]
     suffix = rng.choice(suffix_pool)
 
-    # Common items with no ability and <2 substats stay plain -- not every
+    # Common items with no ability and no substats stay plain -- not every
     # drop should sound epic.
     if rarity == Rarity.COMMON and not ability and len(substats) < 1:
         return base_name

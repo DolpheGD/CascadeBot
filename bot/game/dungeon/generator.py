@@ -49,15 +49,16 @@ class DungeonGenerator:
         self,
         region: str,
         num_floors: int = 9,
-        num_paths: int = 6,
-        min_width: int = 2,
-        max_width: int = 4,
+        num_paths: int = 10,
+        min_width: int = 3,
+        max_width: int = 5,
     ) -> dict:
         if num_floors < 4:
             raise ValueError("num_floors must be at least 4 (start, >=1 middle, rest, boss)")
 
         floor_widths = self._build_floor_widths(num_floors, min_width, max_width)
         nodes, edges = self._walk_paths(floor_widths, num_paths)
+        edges = self._densify_edges(floor_widths, nodes, edges, target=3)
         room_types = self._assign_room_types(floor_widths, nodes)
 
         node_data = {}
@@ -116,6 +117,48 @@ class DungeonGenerator:
                 idx = next_idx
 
         return nodes, edges
+
+    # ------------------------------------------------------------------
+    # Edge densification -- "each floor should have more options than
+    # just 2." The raw random walk above guarantees every node is
+    # reachable, but often leaves individual nodes with only 1-2 outgoing
+    # edges. This pass tops every node up to `target` outgoing edges by
+    # connecting it to its nearest-by-index EXISTING next-floor nodes
+    # (never inventing new nodes, so reachability/serialization stay
+    # untouched) -- so standing at a node usually means 3 real paths
+    # forward, not 1.
+    # ------------------------------------------------------------------
+    def _densify_edges(
+        self, floor_widths: list[int], nodes: set[str], edges: dict[str, set[str]], target: int = 3
+    ) -> dict[str, set[str]]:
+        nodes_by_floor: dict[int, list[int]] = {}
+        for node_id in nodes:
+            floor, index = self._parse_id(node_id)
+            nodes_by_floor.setdefault(floor, []).append(index)
+        for floor in nodes_by_floor:
+            nodes_by_floor[floor].sort()
+
+        last_floor = len(floor_widths) - 1
+
+        for floor in range(last_floor):
+            next_indices = nodes_by_floor.get(floor + 1, [])
+            if not next_indices:
+                continue
+
+            for idx in nodes_by_floor.get(floor, []):
+                node_id = self._make_id(floor, idx)
+                current = edges.setdefault(node_id, set())
+                cap = min(target, len(next_indices))
+                if len(current) >= cap:
+                    continue
+
+                candidates = sorted(next_indices, key=lambda ni: (abs(ni - idx), ni))
+                for next_idx in candidates:
+                    if len(current) >= cap:
+                        break
+                    current.add(self._make_id(floor + 1, next_idx))
+
+        return edges
 
     # ------------------------------------------------------------------
     # Room type assignment

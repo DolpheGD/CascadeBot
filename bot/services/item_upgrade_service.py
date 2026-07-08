@@ -6,6 +6,7 @@ this is where "does the player have enough gold" lives.
 
 from __future__ import annotations
 
+from bot.database.models.enums import ItemType
 from bot.game.loot.upgrades import level_up, reroll_substats
 from bot.services.currency_service import spend_currency
 
@@ -26,6 +27,9 @@ def get_level_up_cost(item, levels: int = 1) -> int:
 
 
 def reroll_item(db, player, item) -> tuple[bool, str]:
+    if item.item_type == ItemType.SCROLL:
+        return False, "Scrolls have no substats to reroll -- their ultimate ability is fixed."
+
     cost = get_reroll_cost(item)
     if not spend_currency(db, player, "gold", cost):
         return False, f"Not enough gold (need {cost})."

@@ -91,6 +91,7 @@ class PlayerLootbox(Base):
     template_id: Mapped[int] = mapped_column(Integer, ForeignKey("lootbox_templates.id"))
     quantity: Mapped[int] = mapped_column(Integer, default=0)
 
+    player: Mapped["Player"] = relationship(back_populates="lootboxes")  # noqa: F821
     template: Mapped["LootboxTemplate"] = relationship()
 
     def __repr__(self) -> str:  # pragma: no cover

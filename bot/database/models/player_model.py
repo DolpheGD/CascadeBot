@@ -1,9 +1,14 @@
 """
 Player = the "permanent progression" loop.
 
-Everything here persists forever: level, base stats, gold, reputation,
-unlocked classes. This is deliberately separate from expedition state
-(expedition_model.py), which is thrown away when a run ends.
+Everything here persists forever: level, base stats, gold. This is
+deliberately separate from expedition state (expedition_model.py), which is
+thrown away when a run ends.
+
+Stat design (per project spec): HP, ATK, DEF, MP (max mana), ELE (elemental
+damage), SPD, plus Crit Rate% / Crit Damage% and Recharge (energy AND mana
+gained per basic attack). No class, no reputation, no Luck, no Dodge --
+combat never has a miss chance.
 """
 
 from __future__ import annotations
@@ -24,12 +29,10 @@ class Player(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
     username: Mapped[str] = mapped_column(String(64))
 
-    class_name: Mapped[str] = mapped_column(String(32), default="Wanderer")
     level: Mapped[int] = mapped_column(Integer, default=1)
     xp: Mapped[int] = mapped_column(Integer, default=0)
     gold: Mapped[int] = mapped_column(Integer, default=0)
     shards: Mapped[int] = mapped_column(Integer, default=0)  # premium-ish currency: gacha, rare shop items
-    reputation: Mapped[int] = mapped_column(Integer, default=0)
 
     last_daily_claimed_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
@@ -39,17 +42,15 @@ class Player(Base):
     # Base stats -- equipment/artifacts/buffs modify these at combat time,
     # they don't overwrite them here.
     max_hp: Mapped[int] = mapped_column(Integer, default=100)
-    max_mana: Mapped[int] = mapped_column(Integer, default=100)
-    max_energy: Mapped[int] = mapped_column(Integer, default=100)
     attack: Mapped[int] = mapped_column(Integer, default=10)
     defense: Mapped[int] = mapped_column(Integer, default=10)
-    magic: Mapped[int] = mapped_column(Integer, default=10)
-    speed: Mapped[int] = mapped_column(Integer, default=10)
-    luck: Mapped[int] = mapped_column(Integer, default=5)
-    crit_chance: Mapped[int] = mapped_column(Integer, default=5)   # percent
+    max_mana: Mapped[int] = mapped_column(Integer, default=50)
+    elemental: Mapped[int] = mapped_column(Integer, default=10)   # ELE -- elemental damage stat
+    speed: Mapped[int] = mapped_column(Integer, default=10)       # SPD -- turn gauge fill rate
+    crit_rate: Mapped[int] = mapped_column(Integer, default=5)     # percent
     crit_damage: Mapped[int] = mapped_column(Integer, default=150)  # percent
-    dodge: Mapped[int] = mapped_column(Integer, default=5)          # percent
-    healing_bonus: Mapped[int] = mapped_column(Integer, default=0)  # percent
+    recharge: Mapped[int] = mapped_column(Integer, default=5)     # energy AND mana gained per basic attack
+    max_energy: Mapped[int] = mapped_column(Integer, default=100)  # ultimates trigger at 100 energy
 
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -58,13 +59,13 @@ class Player(Base):
     inventory_items: Mapped[List["InventoryItem"]] = relationship(  # noqa: F821
         back_populates="player", cascade="all, delete-orphan"
     )
-    artifacts: Mapped[List["PlayerArtifact"]] = relationship(  # noqa: F821
-        back_populates="player", cascade="all, delete-orphan"
-    )
     expeditions: Mapped[List["Expedition"]] = relationship(  # noqa: F821
         back_populates="player", cascade="all, delete-orphan"
     )
     harvesters: Mapped[List["PlayerHarvester"]] = relationship(  # noqa: F821
+        back_populates="player", cascade="all, delete-orphan"
+    )
+    lootboxes: Mapped[List["PlayerLootbox"]] = relationship(  # noqa: F821
         back_populates="player", cascade="all, delete-orphan"
     )
 

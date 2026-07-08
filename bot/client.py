@@ -34,13 +34,49 @@ class CascadeBot(commands.Bot):
         finally:
             db.close()
 
-        # Persistent Views: registered once here, never per-message. Every
-        # button/select callback re-derives game state from the DB using
-        # interaction.user.id, so these keep working correctly even after
-        # this exact restart -- see bot/cogs/dungeon.py for why.
+        # Persistent Views/DynamicItems: registered once here, never
+        # per-message. Every button/select callback re-derives game state
+        # from the DB using interaction.user.id, so these keep working
+        # correctly even after this exact restart -- see bot/cogs/dungeon.py
+        # for why. DynamicItems (harvester actions, inventory nav/equip/
+        # upgrade) additionally carry per-click target data (item id,
+        # template id, entry id) baked into their custom_id, matched via
+        # regex on reconnect. Plain fixed-custom_id Selects/Buttons need a
+        # registered dummy instance so their custom_id is in the fallback
+        # routing table too -- the dummy's *options* don't matter (Discord
+        # delivers the real ones the user saw), only its custom_id does, so
+        # every conditionally-shown component gets a non-empty placeholder
+        # here to guarantee its custom_id is actually registered.
         from bot.cogs.dungeon import CombatView, DungeonView
+        from bot.cogs.inventory import (
+            EntryEquipToggleButton,
+            EntryLevelUpButton,
+            EntryNavButton,
+            EntryOpenLootboxButton,
+            EntryRerollButton,
+            InventoryListView,
+            InventorySelectEntry,
+            ListPageButton,
+            ToListButton,
+        )
+        from bot.cogs.economy import HarvesterActionButton, HarvesterCollectAllButton
+
+        dummy_ability_options = [discord.SelectOption(label="dummy", value="dummy")]
+        dummy_target_options = [discord.SelectOption(label="dummy", value="0")]
+
         self.add_view(DungeonView())
-        self.add_view(CombatView())
+        self.add_view(CombatView(
+            ability_options=dummy_ability_options,
+            target_options=dummy_target_options,
+            ultimate_ready=True,
+            ultimate_exists=True,
+        ))
+        self.add_view(InventoryListView(InventorySelectEntry(), []))
+        self.add_dynamic_items(
+            EntryNavButton, ToListButton, EntryEquipToggleButton,
+            EntryLevelUpButton, EntryRerollButton, EntryOpenLootboxButton, ListPageButton,
+        )
+        self.add_dynamic_items(HarvesterActionButton, HarvesterCollectAllButton)
 
         if DEV_MODE:
             # clear the guild command tree to avoid duplicates when reloading

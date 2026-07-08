@@ -7,6 +7,8 @@ This gives diminishing returns rather than a hard cap -- 100 defense halves
 damage, 300 defense cuts it to a quarter, but defense can never fully
 negate an attack. Chosen over flat subtraction so gear scales meaningfully
 at high item levels instead of stats becoming irrelevant past a threshold.
+Applies uniformly to physical (attack-based) and elemental damage alike --
+there is no separate elemental resistance stat.
 """
 
 from __future__ import annotations

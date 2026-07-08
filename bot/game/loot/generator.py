@@ -1,39 +1,44 @@
 """
-The loot generator: given an ItemTemplate and a drop context (item level,
-player luck), produces a fully-rolled InventoryItem instance ready to
-`session.add()`.
+The loot generator: given an ItemTemplate and a drop context (item level),
+produces a fully-rolled InventoryItem instance ready to `session.add()`.
 
 Usage:
 
     from bot.game.loot.generator import LootGenerator
 
     gen = LootGenerator()
-    item = gen.generate_item(template, player_id=player.id, item_level=14, luck=player.luck)
+    item = gen.generate_item(template, player_id=player.id, item_level=14)
     session.add(item)
 
 Every call is independent and randomized (optionally seedable for tests),
-which is where the "a lot of variability" requirement comes from: two rolls
-of the same template can differ in rarity, substat count, which substats,
-their values, whether an ability shows up, and which one.
+which is where "a lot of variability" comes from: two rolls of the same
+template can differ in rarity, substat count, which substats, whether they
+'re flat or percent, their values, whether an ability shows up, and which
+one -- all gated by the template's item_type (weapon/armor/artifact/scroll),
+per the equipment design in bot/database/models/equipment_model.py.
 """
 
 from __future__ import annotations
 
 import random
 
-from bot.database.models.enums import Rarity
+from bot.database.models.enums import ItemType, Rarity
 from bot.database.models.equipment_model import InventoryItem, ItemTemplate
 from bot.game.loot import naming
-from bot.game.loot.abilities import ACTIVE_ABILITIES, PASSIVE_ABILITIES, abilities_for_rarity
+from bot.game.loot.abilities import (
+    ARMOR_PASSIVES,
+    ARTIFACT_SKILLS,
+    ULTIMATE_ABILITIES,
+    WEAPON_SKILLS,
+    abilities_for_rarity,
+)
 from bot.game.loot.rarity_config import (
-    LUCK_SKEW_PER_POINT,
     RARITY_ABILITY_CHANCE,
-    RARITY_BOTH_ABILITY_CHANCE,
     RARITY_STAT_MULTIPLIER,
     RARITY_SUBSTAT_COUNT,
     RARITY_WEIGHTS,
 )
-from bot.game.loot.stat_pools import SUBSTAT_POOL, roll_substat_value
+from bot.game.loot.stat_pools import STAT_KEYS, roll_substat_value, roll_substat_value_type
 
 _RARITY_ORDER = list(Rarity)  # Common -> Divine, index doubles as "tier"
 
@@ -45,18 +50,11 @@ class LootGenerator:
     # ------------------------------------------------------------------
     # Rarity
     # ------------------------------------------------------------------
-    def roll_rarity(self, luck: int = 0) -> Rarity:
-        """Weighted random rarity. Luck skews weight toward higher tiers,
-        scaled by tier index so Divine benefits far more from luck than
-        Uncommon does -- luck should feel like it hunts for the big drops,
-        not inflate the whole curve evenly."""
-        weights = []
-        for tier_index, rarity in enumerate(_RARITY_ORDER):
-            base = RARITY_WEIGHTS[rarity]
-            skew = 1.0 + (luck * LUCK_SKEW_PER_POINT * tier_index)
-            weights.append(base * skew)
-
-        return self.rng.choices(_RARITY_ORDER, weights=weights, k=1)[0]
+    def roll_rarity(self) -> Rarity:
+        """Weighted random rarity."""
+        rarities = list(RARITY_WEIGHTS.keys())
+        weights = list(RARITY_WEIGHTS.values())
+        return self.rng.choices(rarities, weights=weights, k=1)[0]
 
     # ------------------------------------------------------------------
     # Main stat
@@ -81,41 +79,47 @@ class LootGenerator:
         if count == 0:
             return []
 
-        candidates = [s for s in SUBSTAT_POOL if s != main_stat]
+        candidates = [s for s in STAT_KEYS if s != main_stat]
         chosen = self.rng.sample(candidates, k=min(count, len(candidates)))
 
         multiplier = RARITY_STAT_MULTIPLIER[rarity]
-        return [
-            {"stat": stat, "value": roll_substat_value(stat, item_level, multiplier, self.rng)}
-            for stat in chosen
-        ]
+        substats = []
+        for stat in chosen:
+            value_type = roll_substat_value_type(stat, self.rng)
+            value = roll_substat_value(stat, value_type, item_level, multiplier, self.rng)
+            substats.append({"stat": stat, "value": value, "value_type": value_type})
+        return substats
 
     # ------------------------------------------------------------------
-    # Abilities
+    # Abilities -- which pool (and whether active vs passive) depends on
+    # item_type, per the equipment design.
     # ------------------------------------------------------------------
-    def roll_abilities(self, rarity: Rarity) -> tuple[dict | None, dict | None]:
-        """Returns (active_ability, passive_ability); either may be None."""
-        if self.rng.random() > RARITY_ABILITY_CHANCE[rarity]:
+    def roll_ability(
+        self, item_type: ItemType, rarity: Rarity, force: bool = False
+    ) -> tuple[dict | None, dict | None]:
+        """Returns (active_ability, passive_ability); exactly one may be
+        populated, both may be None (except SCROLL, which always gets an
+        active ultimate ability). `force=True` skips the rarity's ability
+        chance roll entirely (used by /admin_testgear so test items always
+        come with an ability to try out)."""
+        if item_type == ItemType.SCROLL:
+            pool = abilities_for_rarity(ULTIMATE_ABILITIES, rarity) or ULTIMATE_ABILITIES
+            return self.rng.choice(pool), None
+
+        if not force and self.rng.random() > RARITY_ABILITY_CHANCE[rarity]:
             return None, None
 
-        available_active = abilities_for_rarity(ACTIVE_ABILITIES, rarity)
-        available_passive = abilities_for_rarity(PASSIVE_ABILITIES, rarity)
-        if not available_active and not available_passive:
-            return None, None
+        if item_type == ItemType.WEAPON:
+            pool = abilities_for_rarity(WEAPON_SKILLS, rarity)
+            return (self.rng.choice(pool), None) if pool else (None, None)
+        if item_type == ItemType.ARTIFACT:
+            pool = abilities_for_rarity(ARTIFACT_SKILLS, rarity)
+            return (self.rng.choice(pool), None) if pool else (None, None)
+        if item_type == ItemType.ARMOR:
+            pool = abilities_for_rarity(ARMOR_PASSIVES, rarity)
+            return (None, self.rng.choice(pool)) if pool else (None, None)
 
-        wants_both = self.rng.random() < RARITY_BOTH_ABILITY_CHANCE[rarity]
-
-        if wants_both and available_active and available_passive:
-            return self.rng.choice(available_active), self.rng.choice(available_passive)
-
-        # Single ability: prefer whichever pool is non-empty, otherwise coin flip.
-        if available_active and available_passive:
-            if self.rng.random() < 0.5:
-                return self.rng.choice(available_active), None
-            return None, self.rng.choice(available_passive)
-        if available_active:
-            return self.rng.choice(available_active), None
-        return None, self.rng.choice(available_passive)
+        return None, None
 
     # ------------------------------------------------------------------
     # Full item
@@ -125,27 +129,38 @@ class LootGenerator:
         template: ItemTemplate,
         player_id: int,
         item_level: int = 1,
-        luck: int = 0,
         rarity_override: Rarity | None = None,
+        force_ability: bool = False,
     ) -> InventoryItem:
-        rarity = rarity_override or self.roll_rarity(luck)
+        rarity = rarity_override or self.roll_rarity()
 
         main_stat_value = self.roll_main_stat(template, item_level, rarity)
-        substats = self.roll_substats(template.main_stat, item_level, rarity)
-        active_ability, passive_ability = self.roll_abilities(rarity)
-
-        display_name = naming.generate_display_name(
-            base_name=template.name,
-            rarity=rarity,
-            substats=substats,
-            active_ability=active_ability,
-            passive_ability=passive_ability,
-            rng=self.rng,
+        # Scrolls are pure ultimate-carriers -- no substat noise.
+        substats = (
+            [] if template.item_type == ItemType.SCROLL
+            else self.roll_substats(template.main_stat, item_level, rarity)
         )
+        active_ability, passive_ability = self.roll_ability(template.item_type, rarity, force=force_ability)
+
+        if template.item_type == ItemType.SCROLL:
+            # Scroll base names are already complete phrases ("Scroll of
+            # the Meteor") -- running them through the prefix/suffix
+            # namer would double up ("...of the Meteor of Might").
+            display_name = template.name
+        else:
+            display_name = naming.generate_display_name(
+                base_name=template.name,
+                rarity=rarity,
+                substats=substats,
+                active_ability=active_ability,
+                passive_ability=passive_ability,
+                rng=self.rng,
+            )
 
         return InventoryItem(
             player_id=player_id,
             template_id=template.id,
+            item_type=template.item_type,
             rarity=rarity,
             slot=template.slot,
             item_level=item_level,
@@ -154,6 +169,5 @@ class LootGenerator:
             substats=substats,
             active_ability=active_ability,
             passive_ability=passive_ability,
-            sockets=0,
             display_name=display_name,
         )

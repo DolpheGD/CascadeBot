@@ -1,41 +1,43 @@
 """
-Upgrade path for items the player already owns. Built first: reroll and
-level-up. Left as clear extension points for later: socket upgrades and
-adding/upgrading an ability slot post-drop (e.g. via a rare crafting
-material) -- the DB columns (`sockets`, `active_ability`, `passive_ability`)
-already support it, they're just not wired to a currency/material cost yet.
-
-Both functions mutate the InventoryItem in place (same `id`, so equipped
-state and history are preserved) rather than generating a new item.
+Upgrade path for items the player already owns: reroll and level-up. Both
+functions mutate the InventoryItem in place (same `id`, so equipped state
+is preserved) rather than generating a new item.
 """
 
 from __future__ import annotations
 
 import random
 
+from bot.database.models.enums import ItemType
 from bot.database.models.equipment_model import InventoryItem
 from bot.game.loot import naming
 from bot.game.loot.rarity_config import RARITY_STAT_MULTIPLIER, RARITY_SUBSTAT_COUNT
-from bot.game.loot.stat_pools import SUBSTAT_POOL, roll_substat_value
+from bot.game.loot.stat_pools import STAT_KEYS, roll_substat_value, roll_substat_value_type
 
 
 def reroll_substats(item: InventoryItem, rng: random.Random | None = None) -> InventoryItem:
     """Re-roll every substat on `item`, keeping the same count (unless the
-    rarity's range has since changed) but with fresh stats and values.
-    Increments reroll_count so future costs/limits can scale with it."""
+    rarity's range has since changed) but with fresh stats, flat/percent
+    types, and values. Increments reroll_count so future costs/limits can
+    scale with it. Scrolls have no substats to reroll."""
     rng = rng or random.Random()
+
+    if item.item_type == ItemType.SCROLL:
+        return item
 
     lo, hi = RARITY_SUBSTAT_COUNT[item.rarity]
     count = max(lo, min(len(item.substats) or lo, hi)) if item.substats else rng.randint(lo, hi)
 
-    candidates = [s for s in SUBSTAT_POOL if s != item.main_stat_type]
+    candidates = [s for s in STAT_KEYS if s != item.main_stat_type]
     chosen = rng.sample(candidates, k=min(count, len(candidates)))
 
     multiplier = RARITY_STAT_MULTIPLIER[item.rarity]
-    item.substats = [
-        {"stat": stat, "value": roll_substat_value(stat, item.item_level, multiplier, rng)}
-        for stat in chosen
-    ]
+    substats = []
+    for stat in chosen:
+        value_type = roll_substat_value_type(stat, rng)
+        value = roll_substat_value(stat, value_type, item.item_level, multiplier, rng)
+        substats.append({"stat": stat, "value": value, "value_type": value_type})
+    item.substats = substats
     item.reroll_count += 1
 
     item.display_name = naming.generate_display_name(
@@ -66,7 +68,10 @@ def level_up(item: InventoryItem, levels: int = 1) -> InventoryItem:
 
     rescaled = []
     for sub in item.substats:
-        lo, hi = SUBSTAT_POOL[sub["stat"]]
+        value_type = sub.get("value_type", "flat")
+        from bot.game.loot.stat_pools import FLAT_SUBSTAT_POOL, PERCENT_SUBSTAT_POOL
+        pool = PERCENT_SUBSTAT_POOL if value_type == "percent" else FLAT_SUBSTAT_POOL
+        lo, hi = pool[sub["stat"]]
         # Preserve the substat's original roll "luck" (where in its range it
         # landed) rather than rerolling it, so leveling up doesn't also
         # gamble the substat higher or lower.
@@ -75,9 +80,11 @@ def level_up(item: InventoryItem, levels: int = 1) -> InventoryItem:
         implied_roll = sub["value"] / (old_level * multiplier)
         roll_fraction = max(0.0, min(1.0, (implied_roll - lo) / old_per_level_range))
         new_per_level = lo + roll_fraction * (hi - lo)
-        rescaled.append(
-            {"stat": sub["stat"], "value": round(new_per_level * new_level * multiplier, 1)}
-        )
+        rescaled.append({
+            "stat": sub["stat"],
+            "value": round(new_per_level * new_level * multiplier, 2 if value_type == "percent" else 1),
+            "value_type": value_type,
+        })
     item.substats = rescaled
     item.item_level = new_level
     return item

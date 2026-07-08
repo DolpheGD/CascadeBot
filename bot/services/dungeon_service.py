@@ -20,13 +20,29 @@ from bot.services import combat_service, lootbox_service
 from bot.services.currency_service import add_currency
 
 ROOM_FLAVOR = {
-    RoomType.STORY: "You find a weathered journal page -- another fragment of the truth.",
-    RoomType.TRAP: "A hidden trap springs, but you find something useful in the wreckage.",
-    RoomType.SHRINE: "An ancient shrine offers a small blessing.",
-    RoomType.PUZZLE: "You solve an old mechanism. It clicks satisfyingly.",
-    RoomType.SECRET: "A hidden passage reveals a stash of treasure!",
-    RoomType.MERCHANT: "A traveling merchant sets up shop. (Full shop coming soon.)",
+    RoomType.TRAP: "A dormant security drone flickers on and takes a swing before you disable it, but you salvage its parts.",
+    RoomType.SHRINE: "You find a stable shard of Void matter, still humming faintly. It offers a small blessing before going dark.",
+    RoomType.PUZZLE: "An old terminal, somehow still powered, resists your access -- until it doesn't. It clicks satisfyingly.",
+    RoomType.MERCHANT: "A Cascade quartermaster has set up a supply cache here. (Full shop coming soon.)",
 }
+
+# Story rooms reveal fragments of the world's history one piece at a time,
+# never the whole picture at once -- see docs/WORLD_LORE.md for the
+# broader continuity these are drawn from.
+STORY_FRAGMENTS = [
+    "You find a weathered journal page. The handwriting shakes: '...my head hurt... I ran to check on friends and family but I can't find them...'",
+    "A cracked terminal still holds a partial Ocellios Labs memo: 'GL-15 Batch ID -- Partial memory wipe success. Limited cognitive functionality.' You don't finish reading it.",
+    "Scratched into a wall: 'THE SWORD ARE NOT FOR REVENGE. IT ARE FOR PROTECT.' Someone believed it enough to carve it twice.",
+    "A maintenance log for a Voidwarp rift generator, dated well after this site was declared abandoned. Someone was still here.",
+    "A torn evacuation order, unsigned, unsent. The date on it is the day everything here went quiet.",
+    "A child's drawing, half-burned: a green city, a family, a sun. Nothing here looks like it anymore.",
+    "An old news clipping, curled at the edges: 'ICON LEADERS MEET -- a mutualistic society, an equal division of rights over Eris remains.' It didn't last.",
+    "A name is stenciled on a supply crate: TEAM CASCADE. Someone else has already been through here, looking for the same answers you are.",
+]
+
+
+def _story_fragment(rng: random.Random) -> str:
+    return rng.choice(STORY_FRAGMENTS)
 
 
 def get_active_expedition(db, player_id: int) -> Expedition | None:
@@ -115,7 +131,10 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
         db.commit()
         return {
             "kind": "resolved",
-            "message": f"{ROOM_FLAVOR[RoomType.SECRET]} (+{gold} gold, +1 {tier.title()} Lootbox)",
+            "message": (
+                f"A hidden passage reveals a Cascade supply cache, forgotten but intact. "
+                f"(+{gold} gold, +1 {tier.title()} Lootbox)"
+            ),
         }
 
     if room_type == RoomType.START:
@@ -123,7 +142,14 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
         db.commit()
         return {"kind": "resolved", "message": "Your expedition begins."}
 
-    # Story/Trap/Shrine/Puzzle/Merchant: flavor text + a small reward.
+    if room_type == RoomType.STORY:
+        gold = rng.randint(5, 25)
+        add_currency(db, player, "gold", gold)
+        gu.mark_completed(expedition.graph, expedition.current_node_id)
+        db.commit()
+        return {"kind": "resolved", "message": f"{_story_fragment(rng)} (+{gold} gold)"}
+
+    # Trap/Shrine/Puzzle/Merchant: flavor text + a small reward.
     flavor = ROOM_FLAVOR.get(room_type, "Something happens.")
     gold = rng.randint(5, 25)
     add_currency(db, player, "gold", gold)
@@ -166,10 +192,5 @@ def resolve_battle_end(db, expedition: Expedition, player, battle) -> dict:
         combat_service.clear_battle(db, expedition)
         db.commit()
         return {"kind": "defeat"}
-
-    if battle.result == "fled":
-        combat_service.clear_battle(db, expedition)
-        db.commit()
-        return {"kind": "fled"}
 
     return {"kind": "ongoing"}

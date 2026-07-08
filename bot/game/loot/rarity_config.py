@@ -3,15 +3,15 @@ All the numbers that make rarity feel meaningfully different.
 
 Nothing here talks to the database -- it's pure config, so game designers
 (or you, later) can retune drop rates and power curves without touching
-generator logic.
+generator logic. (Luck was removed from the stat system, so rarity rolls
+are no longer skewed by a player stat -- every roll uses RARITY_WEIGHTS as-is.)
 """
 
 from __future__ import annotations
 
 from bot.database.models.enums import Rarity
 
-# Relative drop weights (higher = more common). Luck shifts these at roll
-# time -- see generator.roll_rarity().
+# Relative drop weights (higher = more common).
 RARITY_WEIGHTS: dict[Rarity, float] = {
     Rarity.COMMON: 42.0,
     Rarity.UNCOMMON: 26.0,
@@ -48,34 +48,16 @@ RARITY_SUBSTAT_COUNT: dict[Rarity, tuple[int, int]] = {
     Rarity.DIVINE: (4, 4),
 }
 
-# Probability an item rolls at least one ability (active and/or passive).
+# Probability a WEAPON/ARTIFACT rolls its one active ability, or an ARMOR
+# piece rolls its one passive ability. SCROLLs ignore this entirely -- they
+# always roll their ultimate ability (that's the whole point of the slot).
 RARITY_ABILITY_CHANCE: dict[Rarity, float] = {
     Rarity.COMMON: 0.0,
-    Rarity.UNCOMMON: 0.05,
-    Rarity.RARE: 0.15,
-    Rarity.EPIC: 0.35,
-    Rarity.LEGENDARY: 0.65,
-    Rarity.MYTHIC: 0.85,
-    Rarity.ANCIENT: 0.95,
+    Rarity.UNCOMMON: 0.12,
+    Rarity.RARE: 0.28,
+    Rarity.EPIC: 0.50,
+    Rarity.LEGENDARY: 0.75,
+    Rarity.MYTHIC: 0.90,
+    Rarity.ANCIENT: 1.0,
     Rarity.DIVINE: 1.0,
 }
-
-# Given an item HAS an ability, chance it rolls BOTH active and passive
-# instead of just one. Gated behind rarity so "both" feels earned --
-# "an item can provide an active, a passive, or both if it is powerful enough."
-RARITY_BOTH_ABILITY_CHANCE: dict[Rarity, float] = {
-    Rarity.COMMON: 0.0,
-    Rarity.UNCOMMON: 0.0,
-    Rarity.RARE: 0.0,
-    Rarity.EPIC: 0.10,
-    Rarity.LEGENDARY: 0.25,
-    Rarity.MYTHIC: 0.40,
-    Rarity.ANCIENT: 0.55,
-    Rarity.DIVINE: 0.75,
-}
-
-# How much each point of Luck skews weighted rolls toward higher rarities.
-# Applied multiplicatively per rarity tier index (0=Common..7=Divine) in
-# generator.roll_rarity, so Luck helps at the top end much more than the
-# bottom, without needing to touch Common/Uncommon weights directly.
-LUCK_SKEW_PER_POINT = 0.006
