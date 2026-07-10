@@ -5,7 +5,7 @@ from discord import app_commands
 
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
-from bot.services import dungeon_service, inventory_service, item_upgrade_service, lootbox_service
+from bot.services import character_service, dungeon_service, inventory_service, item_upgrade_service, lootbox_service
 from bot.database.models.enums import ItemType
 from bot.utils import embedder
 from bot.utils.guild_decorator import guild_decorator
@@ -88,6 +88,56 @@ class ToListButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade
         await interaction.response.edit_message(content=None, embed=embed, view=view)
 
 
+class EquipTargetSelect(discord.ui.Select):
+    """Short-lived (not a DynamicItem -- doesn't need to survive a bot
+    restart) picker shown when the player has more than just their avatar
+    in their squad, so equipping doesn't silently always target the avatar."""
+    def __init__(self, item_id: int, options: list[discord.SelectOption]):
+        super().__init__(
+            placeholder="Choose which character to equip onto...",
+            options=options, min_values=1, max_values=1,
+        )
+        self.item_id = item_id
+
+    async def callback(self, interaction: discord.Interaction):
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            if player is None:
+                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                return
+
+            item = inventory_service.get_item(db, self.item_id, player.id)
+            if item is None:
+                await interaction.response.send_message("Item not found.", ephemeral=True)
+                return
+
+            if self.values[0] == "cancel":
+                embed, view = await _render_detail_page(db, player, f"item:{item.id}")
+                await interaction.response.edit_message(content=None, embed=embed, view=view)
+                return
+
+            character = next(
+                (pc for pc in character_service.get_squad(db, player) if pc.id == int(self.values[0])),
+                None,
+            )
+            if character is None:
+                await interaction.response.send_message("That character isn't in your squad anymore.", ephemeral=True)
+                return
+
+            ok, message = inventory_service.equip_item(db, character, item)
+            embed, view = await _render_detail_page(db, player, f"item:{item.id}")
+            await interaction.response.edit_message(content=message, embed=embed, view=view)
+        finally:
+            db.close()
+
+
+class EquipTargetView(discord.ui.View):
+    def __init__(self, item_id: int, options: list[discord.SelectOption]):
+        super().__init__(timeout=120)
+        self.add_item(EquipTargetSelect(item_id, options))
+
+
 class EntryEquipToggleButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade_entry_equip:(?P<item_id>\d+)"):
     def __init__(self, item_id: int, label: str = "Equip", style: discord.ButtonStyle = discord.ButtonStyle.success):
         super().__init__(discord.ui.Button(
@@ -131,6 +181,21 @@ class EntryRerollButton(discord.ui.DynamicItem[discord.ui.Button], template=r"ca
 
     async def callback(self, interaction: discord.Interaction):
         await _handle_reroll(interaction, self.item_id)
+
+
+class EntrySellButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade_entry_sell:(?P<item_id>\d+)"):
+    def __init__(self, item_id: int, label: str = "💰 Sell"):
+        super().__init__(discord.ui.Button(
+            label=label, style=discord.ButtonStyle.danger, custom_id=f"cascade_entry_sell:{item_id}",
+        ))
+        self.item_id = item_id
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match):
+        return cls(int(match["item_id"]))
+
+    async def callback(self, interaction: discord.Interaction):
+        await _handle_sell(interaction, self.item_id)
 
 
 class EntryOpenLootboxButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade_entry_open:(?P<tier>[a-z]+)"):
@@ -329,8 +394,9 @@ async def _render_detail_page(db, player, entry_id: str):
             style=discord.ButtonStyle.danger if item.is_equipped else discord.ButtonStyle.success,
         ))
         buttons.append(EntryLevelUpButton(item.id))
-        if item.item_type != ItemType.SCROLL:
-            buttons.append(EntryRerollButton(item.id))
+        buttons.append(EntryRerollButton(item.id))
+        if not item.is_equipped:
+            buttons.append(EntrySellButton(item.id))
 
     buttons.append(JumpButton())
 
@@ -375,13 +441,34 @@ async def _handle_equip_toggle(interaction: discord.Interaction, item_id: int):
             return
 
         if item.is_equipped:
-            ok, message = inventory_service.unequip_item(db, player, item)
-        else:
-            ok, message = inventory_service.equip_item(db, player, item)
-        db.refresh(item)
+            ok, message = inventory_service.unequip_item(db, item)
+            embed, view = await _render_detail_page(db, player, f"item:{item.id}")
+            await interaction.response.edit_message(content=message, embed=embed, view=view)
+            return
 
-        embed, view = await _render_detail_page(db, player, f"item:{item.id}")
-        await interaction.response.edit_message(content=message, embed=embed, view=view)
+        squad = character_service.get_squad(db, player)
+        if len(squad) <= 1:
+            character = character_service.ensure_avatar_character(db, player)
+            ok, message = inventory_service.equip_item(db, character, item)
+            embed, view = await _render_detail_page(db, player, f"item:{item.id}")
+            await interaction.response.edit_message(content=message, embed=embed, view=view)
+            return
+
+        options = [
+            discord.SelectOption(
+                label=f"{pc.template.name} (Lv{pc.level}, {pc.template.character_class.value.replace('_', ' ').title()})"[:100],
+                value=str(pc.id),
+            )
+            for pc in squad
+        ]
+        options.append(discord.SelectOption(label="Cancel", value="cancel", emoji="✖️"))
+        view = EquipTargetView(item.id, options)
+        embed = embedder.item_detail_embed(item)
+        await interaction.response.edit_message(
+            content=f"Which squad member should equip {item.display_name}?",
+            embed=embed, view=view,
+        )
+        return
     finally:
         db.close()
 
@@ -430,6 +517,29 @@ async def _handle_reroll(interaction: discord.Interaction, item_id: int):
         db.close()
 
 
+async def _handle_sell(interaction: discord.Interaction, item_id: int):
+    db = SessionLocal()
+    try:
+        player = get_player(db, interaction.user.id)
+        if player is None:
+            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            return
+
+        item = inventory_service.get_item(db, item_id, player.id)
+        if item is None:
+            await interaction.response.send_message("Item not found.", ephemeral=True)
+            return
+
+        ok, message = inventory_service.sell_item(db, player, item)
+        # After a successful sale the item row is gone -- _render_detail_page
+        # gracefully falls back to the next available entry (or an empty
+        # state) when asked for an entry_id that no longer exists.
+        embed, view = await _render_detail_page(db, player, f"item:{item_id}")
+        await interaction.response.edit_message(content=message, embed=embed, view=view)
+    finally:
+        db.close()
+
+
 async def _handle_open_lootbox(interaction: discord.Interaction, tier: str):
     db = SessionLocal()
     try:
@@ -452,7 +562,7 @@ async def _handle_open_lootbox(interaction: discord.Interaction, tier: str):
             return
 
         ok, message, rewards = lootbox_service.open_lootboxes(
-            db, player, tier, count=owned.quantity, item_level=max(player.level, 1)
+            db, player, tier, count=owned.quantity, item_level=character_service.get_progression_level(db, player)
         )
         if not ok:
             await interaction.response.send_message(message, ephemeral=True)

@@ -17,8 +17,8 @@ from bot.services.harvester_service import (
     get_upgrade_cost,
     get_production_rate,
 )
-from bot.services.gacha_service import pull_single, pull_multi
-from bot.services import dungeon_service, lootbox_service
+from bot.services.character_gacha_service import pull_single, pull_multi
+from bot.services import character_service, dungeon_service, lootbox_service
 from bot.utils.guild_decorator import guild_decorator
 
 
@@ -233,6 +233,8 @@ class Economy(commands.Cog):
             db.close()
 
         message = f"Daily reward: **{result['gold']} gold** (streak: {result['streak']} days)"
+        if result["reroll_tokens"]:
+            message += f", **{result['reroll_tokens']} reroll tokens**"
         if result["shards"]:
             message += f" and **{result['shards']} shards** for your streak milestone!"
         tier_counts: dict[str, int] = {}
@@ -265,9 +267,14 @@ class Economy(commands.Cog):
         await ctx.response.send_message(embed=embed, view=view)
 
     # COMMAND: /pull
-    # Spends shards for a single gacha pull with boosted rarity odds.
-    @app_commands.command(name="pull", description="Spend shards on a gacha pull.")
-    async def pull(self, ctx: discord.Interaction):
+    # Spends shards on a gacha pull -- characters only. Pulling a character
+    # you already own converts to gold + reroll tokens instead.
+    @app_commands.command(name="pull", description="Spend shards to pull a new character.")
+    @app_commands.choices(count=[
+        app_commands.Choice(name="Single Pull", value=1),
+        app_commands.Choice(name="10x Pull (10% off)", value=10),
+    ])
+    async def pull(self, ctx: discord.Interaction, count: app_commands.Choice[int] | None = None):
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
@@ -285,45 +292,27 @@ class Economy(commands.Cog):
                 )
                 return
 
-            success, message, _items = pull_single(db, player, item_level=player.level)
-        finally:
-            db.close()
+            n = count.value if count else 1
+            if n == 1:
+                success, message, results = pull_single(db, player)
+            else:
+                success, message, results = pull_multi(db, player, count=n)
 
-        await ctx.response.send_message(message, ephemeral=not success)
-
-    # COMMAND: /lootboxes
-    # Lists every lootbox tier the player currently owns.
-    @app_commands.command(name="lootboxes", description="View your unopened lootboxes.")
-    async def lootboxes(self, ctx: discord.Interaction):
-        db = SessionLocal()
-        try:
-            player = get_player(db, ctx.user.id)
-            if player is None:
-                await ctx.response.send_message(
-                    "You haven't started your journey yet. Use `/start` first.",
-                    ephemeral=True,
-                )
+            if not success:
+                await ctx.response.send_message(message, ephemeral=True)
                 return
 
-            owned = lootbox_service.list_player_lootboxes(db, player.id)
-            if not owned:
-                await ctx.response.send_message(
-                    "You don't have any lootboxes yet. Try `/daily` or explore a dungeon!",
-                    ephemeral=True,
-                )
-                return
-
-            embed = discord.Embed(title="Your Lootboxes", color=discord.Color.purple())
-            for entry in owned:
-                embed.add_field(
-                    name=entry.template.name,
-                    value=f"Quantity: {entry.quantity}\n{entry.template.description}",
-                    inline=False,
-                )
+            embed = embedder.gacha_pull_embed(results)
         finally:
             db.close()
 
         await ctx.response.send_message(embed=embed)
+
+    # COMMAND: /pull_rates
+    # Shows gacha odds by star rating, cost, and the duplicate-conversion rule.
+    @app_commands.command(name="pull_rates", description="View gacha odds and pull costs.")
+    async def pull_rates(self, ctx: discord.Interaction):
+        await ctx.response.send_message(embed=embedder.gacha_rates_embed(), ephemeral=True)
 
     # COMMAND: /open
     # Opens every lootbox of the chosen tier at once, rolling gold/shards
@@ -331,9 +320,11 @@ class Economy(commands.Cog):
     @app_commands.command(name="open", description="Open all your lootboxes of a given tier.")
     @app_commands.choices(tier=[
         app_commands.Choice(name="Common", value="common"),
+        app_commands.Choice(name="Uncommon", value="uncommon"),
         app_commands.Choice(name="Rare", value="rare"),
         app_commands.Choice(name="Epic", value="epic"),
         app_commands.Choice(name="Legendary", value="legendary"),
+        app_commands.Choice(name="Mythic", value="mythic"),
     ])
     async def open_lootbox(self, ctx: discord.Interaction, tier: str):
         db = SessionLocal()
@@ -363,7 +354,7 @@ class Economy(commands.Cog):
                 return
 
             ok, message, rewards = lootbox_service.open_lootboxes(
-                db, player, tier, count=entry.quantity, item_level=max(player.level, 1)
+                db, player, tier, count=entry.quantity, item_level=character_service.get_progression_level(db, player)
             )
             if not ok:
                 await ctx.response.send_message(message, ephemeral=True)

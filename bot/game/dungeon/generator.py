@@ -9,9 +9,19 @@ start and the boss is reachable from every node, without needing a separate
 connectivity-repair pass.
 
 Room types are assigned afterward: START/BOSS are fixed, the floor
-immediately before the boss is forced to be all CAMPFIRE (so the player can
+immediately before each boss is forced to be all CAMPFIRE (so the player can
 always heal up before the fight), and everything else is weighted-random per
 room_config.py, subject to per-run caps and the "no elite too early" rule.
+
+Adventure Overhaul: a single expedition can now contain 1-4 boss fights, not
+just one -- see room_config.NUM_BOSSES_WEIGHTS. Internally this is built as
+several independently-generated "segments" (each its own mini dungeon
+ending in a boss floor) stitched together: segment N+1's own START node is
+discarded and its edges are reattached directly to segment N's boss node,
+so the boss node itself becomes the next segment's entry point. Only the
+FINAL boss ends the expedition (see resolve_battle_end in
+bot/services/dungeon_service.py) -- earlier bosses are big, rewarding
+checkpoints along a longer run.
 
 Output shape (JSON-serializable, matches Expedition.graph):
 
@@ -19,7 +29,8 @@ Output shape (JSON-serializable, matches Expedition.graph):
         "region": "Whispering Forest",
         "num_floors": 9,
         "start_node": "0_0",
-        "boss_node": "8_0",
+        "boss_node": "8_0",        # final boss (back-compat single value)
+        "boss_nodes": ["8_0"],     # every boss in the run, in order
         "nodes": {
             "0_0": {"floor": 0, "index": 0, "room_type": "start",
                      "edges": ["1_0", "1_1"], "completed": false},
@@ -36,8 +47,11 @@ from bot.database.models.enums import RoomType
 from bot.game.dungeon.room_config import (
     ELITE_MIN_FLOOR_INDEX,
     MAX_PER_RUN,
+    NUM_BOSSES_WEIGHTS,
     REST_FLOOR_WIDTH,
     ROOM_WEIGHTS_BY_STAGE,
+    SEGMENT_FLOOR_RANGE,
+    roll_num_bosses,
 )
 
 
@@ -48,14 +62,104 @@ class DungeonGenerator:
     def generate(
         self,
         region: str,
-        num_floors: int = 9,
+        num_floors: int | None = None,
+        num_bosses: int | None = None,
         num_paths: int = 10,
         min_width: int = 3,
         max_width: int = 5,
     ) -> dict:
-        if num_floors < 4:
-            raise ValueError("num_floors must be at least 4 (start, >=1 middle, rest, boss)")
+        """If `num_bosses` isn't given, it's rolled per room_config.NUM_BOSSES_WEIGHTS.
+        If `num_floors` isn't given, each boss segment independently rolls a
+        length from room_config.SEGMENT_FLOOR_RANGE (so total length scales
+        with num_bosses). Passing `num_floors` explicitly forces a single
+        segment of exactly that length (used by tests/tools that want the
+        old fixed-length behavior)."""
+        num_bosses = num_bosses or roll_num_bosses(self.rng)
 
+        if num_floors is not None:
+            segment_lengths = [num_floors]
+        else:
+            segment_lengths = [
+                self.rng.randint(*SEGMENT_FLOOR_RANGE) for _ in range(num_bosses)
+            ]
+
+        combined_nodes: dict[str, dict] = {}
+        boss_nodes: list[str] = []
+        floor_offset = 0
+
+        for seg_index, seg_floors in enumerate(segment_lengths):
+            if seg_floors < 4:
+                raise ValueError("each boss segment needs at least 4 floors")
+
+            segment = self._generate_segment(seg_floors, num_paths, min_width, max_width)
+
+            if seg_index == 0:
+                for local_id, node in segment.items():
+                    combined_nodes[local_id] = self._offset_node(node, floor_offset)
+            else:
+                # Segment N+1's own "0_0" start node is discarded -- the
+                # previous segment's boss node (already in combined_nodes,
+                # sitting at exactly floor_offset) becomes its entry point
+                # instead. Every other node/edge just shifts by floor_offset.
+                local_start = segment["0_0"]
+                prev_boss_id = self._make_id(floor_offset, 0)
+
+                redirected_edges = {
+                    self._make_id(floor_offset + self._parse_id(e)[0], self._parse_id(e)[1])
+                    for e in local_start["edges"]
+                }
+                combined_nodes[prev_boss_id]["edges"] = sorted(
+                    set(combined_nodes[prev_boss_id]["edges"]) | redirected_edges
+                )
+
+                for local_id, node in segment.items():
+                    if local_id == "0_0":
+                        continue
+                    new_id = self._make_id(floor_offset + node["floor"], node["index"])
+                    combined_nodes[new_id] = self._offset_node(node, floor_offset)
+
+            boss_floor = floor_offset + seg_floors - 1
+            boss_id = self._make_id(boss_floor, 0)
+            boss_nodes.append(boss_id)
+            floor_offset = boss_floor
+
+        total_floors = floor_offset + 1
+
+        return {
+            "region": region,
+            "num_floors": total_floors,
+            "num_bosses": len(boss_nodes),
+            "start_node": self._make_id(0, 0),
+            "boss_node": boss_nodes[-1],
+            "boss_nodes": boss_nodes,
+            "nodes": combined_nodes,
+        }
+
+    @staticmethod
+    def _offset_node(node: dict, floor_offset: int) -> dict:
+        new_floor = node["floor"] + floor_offset
+        return {
+            "floor": new_floor,
+            "index": node["index"],
+            "room_type": node["room_type"],
+            "edges": sorted(
+                DungeonGenerator._make_id(
+                    DungeonGenerator._parse_id(e)[0] + floor_offset, DungeonGenerator._parse_id(e)[1]
+                )
+                for e in node["edges"]
+            ),
+            "completed": False,
+        }
+
+    # ------------------------------------------------------------------
+    # One self-contained segment: floors 0..num_floors-1, local numbering,
+    # start node at "0_0", boss node at "{num_floors-1}_0". Exactly the old
+    # single-boss generate() logic, factored out so generate() can call it
+    # once per boss.
+    # ------------------------------------------------------------------
+    def _generate_segment(
+        self, num_floors: int, num_paths: int, min_width: int, max_width: int
+    ) -> dict[str, dict]:
         floor_widths = self._build_floor_widths(num_floors, min_width, max_width)
         nodes, edges = self._walk_paths(floor_widths, num_paths)
         edges = self._densify_edges(floor_widths, nodes, edges, target=3)
@@ -71,20 +175,13 @@ class DungeonGenerator:
                 "edges": sorted(edges.get(node_id, [])),
                 "completed": False,
             }
-
-        return {
-            "region": region,
-            "num_floors": num_floors,
-            "start_node": self._make_id(0, 0),
-            "boss_node": self._make_id(num_floors - 1, 0),
-            "nodes": node_data,
-        }
+        return node_data
 
     # ------------------------------------------------------------------
     # Floor layout
     # ------------------------------------------------------------------
     def _build_floor_widths(self, num_floors: int, min_width: int, max_width: int) -> list[int]:
-        widths = [1]  # floor 0: start
+        widths = [1]  # floor 0: start (or, for segments 2+, the previous boss)
         for _ in range(num_floors - 3):  # middle floors
             widths.append(self.rng.randint(min_width, max_width))
         widths.append(REST_FLOOR_WIDTH)  # forced rest floor before boss

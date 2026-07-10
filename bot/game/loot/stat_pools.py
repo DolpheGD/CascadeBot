@@ -34,12 +34,34 @@ STAT_KEYS = [
 MAIN_STAT_POOL_BY_ITEM_TYPE: dict[str, list[str]] = {
     "weapon": ["attack", "elemental"],
     "armor": ["defense", "max_hp", "speed", "recharge", "max_mana"],
-    "artifact": ["speed", "recharge", "attack", "elemental", "crit_damage", "crit_rate"],
-    "scroll": ["attack", "elemental", "crit_damage", "max_hp"],
+    "accessory": ["defense", "max_hp", "speed", "recharge", "max_mana", "crit_rate", "crit_damage"],
+    # Artifacts can now main-stat into HP or DEF too (Combat Overhaul), not
+    # just offense/utility -- makes them viable on Sustain/tank builds.
+    "artifact": ["speed", "recharge", "attack", "elemental", "crit_damage", "crit_rate", "max_hp", "defense"],
 }
 
 # Stats that may roll as a PERCENT-of-base substat, in addition to flat.
 PERCENT_ELIGIBLE_STATS = {"attack", "defense", "elemental", "max_hp", "max_mana"}
+
+# How much a template's main_stat_value grows per item_level, before the
+# rarity multiplier. Different per stat because these live on very
+# different scales -- attack/defense are tens-to-hundreds, recharge and
+# crit_rate/crit_damage are single-digit-to-low-double-digit percentages.
+# recharge in particular is deliberately the slowest grower: it's a %-of-
+# max-pool refund per basic attack now (see Combatant.gain_energy_and_mana),
+# so a fast-growing recharge main stat would let high-item-level gear reach
+# the ultimate in 1-2 turns -- exactly what the balancing pass calls out.
+MAIN_STAT_GROWTH_PER_LEVEL: dict[str, float] = {
+    "attack": 1.0,
+    "defense": 1.0,
+    "elemental": 1.0,
+    "max_hp": 3.0,
+    "max_mana": 1.5,
+    "speed": 0.5,
+    "crit_rate": 0.15,
+    "crit_damage": 0.4,
+    "recharge": 0.08,
+}
 
 # {stat: (per_level_min, per_level_max)} for a FLAT roll -- roll = level *
 # uniform(min, max), then multiplied by the rarity's stat multiplier.
@@ -52,7 +74,7 @@ FLAT_SUBSTAT_POOL: dict[str, tuple[float, float]] = {
     "max_mana": (1.5, 3.0),
     "crit_rate": (0.15, 0.35),
     "crit_damage": (0.4, 0.9),
-    "recharge": (0.1, 0.3),
+    "recharge": (0.03, 0.09),
 }
 
 # {stat: (per_level_min, per_level_max)} for a PERCENT roll, in percentage

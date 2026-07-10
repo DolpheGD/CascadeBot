@@ -38,8 +38,11 @@ def get_upgrade_cost(template: HarvesterTemplate, level: int) -> int:
 
 
 def get_production_rate(template: HarvesterTemplate, level: int) -> float:
-    """Rate scales linearly with level: level N produces N x the base rate."""
-    return template.base_rate_per_hour * level
+    """Rate scales as level ** level_scaling_exponent -- 1.0 (most
+    harvesters) is the old linear behavior; lower (the Shard Well) means
+    each additional level adds progressively less, so Shards stay rare
+    relative to gold even at max level."""
+    return template.base_rate_per_hour * (level ** template.level_scaling_exponent)
 
 
 def buy_harvester(db, player, template_id: int) -> tuple[bool, str, PlayerHarvester | None]:

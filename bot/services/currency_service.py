@@ -5,7 +5,11 @@ directly and risks skipping a commit or going negative.
 
 from __future__ import annotations
 
-VALID_CURRENCIES = {"gold", "shards"}
+VALID_CURRENCIES = {
+    "gold", "shards", "reroll_tokens",
+    "wood", "stone", "metal", "crystal",
+    "xendium", "permafrost_ore", "void", "entropy",
+}
 
 
 def _check_currency(currency: str) -> None:

@@ -48,7 +48,7 @@ def claim_daily(db, player) -> dict:
     else:
         player.daily_streak = 1
 
-    gold, shards = compute_daily_reward(player.daily_streak)
+    gold, shards, reroll_tokens = compute_daily_reward(player.daily_streak)
     lootbox_tiers = compute_daily_lootboxes(player.daily_streak)
     player.last_daily_claimed_at = now
     db.commit()
@@ -57,10 +57,12 @@ def claim_daily(db, player) -> dict:
         add_currency(db, player, "gold", gold)
     if shards:
         add_currency(db, player, "shards", shards)
+    if reroll_tokens:
+        add_currency(db, player, "reroll_tokens", reroll_tokens)
     for tier in lootbox_tiers:
         lootbox_service.grant_lootbox(db, player, tier, quantity=1)
 
     return {
-        "gold": gold, "shards": shards, "streak": player.daily_streak,
+        "gold": gold, "shards": shards, "reroll_tokens": reroll_tokens, "streak": player.daily_streak,
         "lootbox_tiers": lootbox_tiers,
     }

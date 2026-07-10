@@ -32,7 +32,6 @@ GENERIC_PREFIX_BY_RARITY: dict[Rarity, list[str]] = {
     Rarity.EPIC: ["Heroic", "Exalted"],
     Rarity.LEGENDARY: ["Legendary", "Storied"],
     Rarity.MYTHIC: ["Mythic", "Transcendent"],
-    Rarity.ANCIENT: ["Ancient", "Primeval"],
     Rarity.DIVINE: ["Divine", "Celestial"],
 }
 
@@ -65,7 +64,6 @@ GENERIC_SUFFIX_BY_RARITY: dict[Rarity, list[str]] = {
     Rarity.EPIC: ["of Chaos", "of Glory"],
     Rarity.LEGENDARY: ["of Legends", "of the Ancients"],
     Rarity.MYTHIC: ["of the Void", "of Eternity"],
-    Rarity.ANCIENT: ["of the First Age", "of the Old Gods"],
     Rarity.DIVINE: ["of Creation", "of the Heavens"],
 }
 

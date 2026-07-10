@@ -7,17 +7,21 @@ their gauge drops back by exactly the threshold (any overflow carries into
 their next turn). This is what lets a much faster combatant act several
 times before a much slower one gets even one turn.
 
-1 player vs 1-3 enemies. There is no fleeing and no defending -- every
-player turn is Attack, a Skill (weapon/artifact, costs mana), or the
-Ultimate (from an equipped scroll, costs 100 energy).
+Combat Overhaul: a full squad of up to 4 party members (built one per
+PlayerCharacter -- see factory.build_party_combatants) vs 1+ enemies. Every
+party member's turn can be Attack, their Character Skill (mana), Character
+Ultimate (100 energy), a Weapon Skill (mana, if a weapon's equipped), or an
+Artifact Skill (mana, if an artifact's equipped) -- see
+bot/game/combat/skills.py and factory.py for how those are resolved onto
+each Combatant. There is no fleeing and no defending.
 
 Usage:
 
-    battle = Battle(player_combatant, [enemy1, enemy2])
+    battle = Battle(party_combatants, enemy_combatants)
     while not battle.is_over():
         actor = battle.current_actor()
         if actor.is_player:
-            battle.take_player_action("attack")            # or "ability"/"ultimate"
+            battle.take_party_action("attack")   # or "ability"/"ultimate", ability_id=...
         else:
             battle.take_enemy_turn()
 
@@ -33,14 +37,17 @@ from bot.game.combat.combatant import Combatant
 
 TURN_THRESHOLD = 100.0
 MIN_SPEED = 0.01  # guards against a division by zero if speed is ever 0
+MAX_PARTY_SIZE = 4
 
 
 class Battle:
-    def __init__(self, player: Combatant, enemies: list[Combatant], rng: random.Random | None = None):
-        if not 1 <= len(enemies) <= 3:
-            raise ValueError("Battle supports 1-3 enemies")
+    def __init__(self, party: list[Combatant], enemies: list[Combatant], rng: random.Random | None = None):
+        if not 1 <= len(party) <= MAX_PARTY_SIZE:
+            raise ValueError(f"Battle supports 1-{MAX_PARTY_SIZE} party members")
+        if not 1 <= len(enemies) <= 5:
+            raise ValueError("Battle supports 1-5 enemies")
 
-        self.player = player
+        self.party = party
         self.enemies = enemies
         self.rng = rng or random.Random()
 
@@ -48,16 +55,20 @@ class Battle:
         self.log: list[str] = []
         self.result: str | None = None  # "won" | "lost" | None while ongoing
 
-        # Which living enemy (by index into living_enemies()) the player is
-        # currently targeting. Selecting a target does not consume a turn.
-        self.player_target_index = 0
+        # Which living enemy (by index into living_enemies()) the currently
+        # acting party member is targeting. Selecting a target does not
+        # consume a turn.
+        self.target_index = 0
 
         self._current_actor: Combatant | None = None
         self._begin_next_turn()
 
     # ------------------------------------------------------------------
     def all_combatants(self) -> list[Combatant]:
-        return [self.player] + self.enemies
+        return self.party + self.enemies
+
+    def living_party(self) -> list[Combatant]:
+        return [c for c in self.party if c.is_alive()]
 
     def living_enemies(self) -> list[Combatant]:
         return [e for e in self.enemies if e.is_alive()]
@@ -69,12 +80,12 @@ class Battle:
         return self._current_actor
 
     def select_target(self, target_index: int) -> None:
-        """Switch which living enemy the player is aiming at. Free action --
-        does not consume a turn."""
+        """Switch which living enemy the current party actor is aiming at.
+        Free action -- does not consume a turn."""
         living = self.living_enemies()
         if not living:
             return
-        self.player_target_index = max(0, min(target_index, len(living) - 1))
+        self.target_index = max(0, min(target_index, len(living) - 1))
 
     # ------------------------------------------------------------------
     # Turn order preview -- a best-effort projection of the next `count`
@@ -192,10 +203,10 @@ class Battle:
         # very fast combatant that jumped well past 100 stays "ahead."
         combatant.turn_gauge -= TURN_THRESHOLD
 
-        # Keep the player's target pointing at a still-living enemy.
+        # Keep the active target pointing at a still-living enemy.
         living = self.living_enemies()
         if living:
-            self.player_target_index = min(self.player_target_index, len(living) - 1)
+            self.target_index = min(self.target_index, len(living) - 1)
 
         self._check_end_conditions()
         if self.is_over():
@@ -203,51 +214,61 @@ class Battle:
         self._begin_next_turn()
 
     def _check_end_conditions(self) -> None:
-        if not self.player.is_alive():
+        if not self.living_party():
             self.result = "lost"
-            self.log.append(f"💀 {self.player.name} has fallen...")
+            self.log.append("💀 Your party has fallen...")
         elif not self.living_enemies():
             self.result = "won"
             self.log.append("🏆 Victory!")
 
     # ------------------------------------------------------------------
-    # Player actions -- Attack (builds energy+mana), Ability (a weapon or
-    # artifact skill, costs mana), or Ultimate (from an equipped scroll,
-    # costs 100 energy). No defend, no flee.
+    # Party actions -- Attack (builds energy+mana), Ability (character
+    # skill, weapon skill, or artifact skill -- costs mana), or Ultimate
+    # (character ultimate, costs 100 energy). No defend, no flee. Always
+    # acts as whichever party member `current_actor()` currently is.
     # ------------------------------------------------------------------
-    def take_player_action(self, action: str, ability_id: str | None = None, target_index: int | None = None) -> None:
-        if self.is_over() or self.current_actor() is not self.player:
+    def take_party_action(self, action: str, ability_id: str | None = None, target_index: int | None = None) -> None:
+        actor = self.current_actor()
+        if self.is_over() or actor not in self.party:
             return
 
         if target_index is not None:
             self.select_target(target_index)
-        target = self._pick_enemy_target(self.player_target_index)
+        target = self._pick_enemy_target(self.target_index)
+        allies = [c for c in self.party if c is not actor and c.is_alive()]
 
         if action == "attack":
-            effects.resolve_basic_attack(self.player, target, self.rng, self.log)
+            effects.resolve_basic_attack(actor, target, self.rng, self.log)
         elif action == "ability":
-            ability = self._find_active_ability(self.player, ability_id)
-            if ability is None or not self.player.ability_ready(ability):
-                self.log.append(f"{self.player.name} can't use that ability right now.")
+            ability = self._find_active_ability(actor, ability_id)
+            if ability is None or not actor.ability_ready(ability):
+                self.log.append(f"{actor.name} can't use that ability right now.")
                 return
-            effects.resolve_active_ability(self.player, target, ability, self.rng, self.log)
+            effects.resolve_active_ability(actor, target, ability, self.rng, self.log, allies=allies)
         elif action == "ultimate":
-            ability = self.player.ultimate_ability
-            if ability is None or not self.player.ability_ready(ability):
-                self.log.append(f"{self.player.name}'s ultimate isn't ready yet.")
+            ability = actor.ultimate_ability
+            if ability is None or not actor.ability_ready(ability):
+                self.log.append(f"{actor.name}'s ultimate isn't ready yet.")
                 return
-            effects.resolve_active_ability(self.player, target, ability, self.rng, self.log)
+            effects.resolve_active_ability(actor, target, ability, self.rng, self.log, allies=allies)
         else:
             self.log.append(f"Unknown action: {action}")
             return
 
-        self._end_turn(self.player)
+        self._end_turn(actor)
 
     def _pick_enemy_target(self, target_index: int) -> Combatant:
         living = self.living_enemies()
         if not living:
             return self.enemies[0]
         return living[min(target_index, len(living) - 1)]
+
+    def _pick_party_target(self) -> Combatant:
+        """Default enemy AI target -- a random living party member."""
+        living = self.living_party()
+        if not living:
+            return self.party[0]
+        return self.rng.choice(living)
 
     def _find_active_ability(self, combatant: Combatant, ability_id: str | None):
         if ability_id is None:
@@ -260,26 +281,29 @@ class Battle:
     # ------------------------------------------------------------------
     # Enemy turn: prefers the ultimate when ready, then an off-cooldown
     # affordable skill about half the time, otherwise a basic attack.
-    # Always targets the player (there's only one).
+    # Targets a random living party member.
     # ------------------------------------------------------------------
     def take_enemy_turn(self) -> None:
         if self.is_over():
             return
 
         enemy = self.current_actor()
-        if enemy is self.player or not enemy.is_alive():
+        if enemy not in self.enemies or not enemy.is_alive():
             return
 
+        target = self._pick_party_target()
+        allies = [e for e in self.enemies if e is not enemy and e.is_alive()]
+
         if enemy.ultimate_ready() and self.rng.random() < 0.5:
-            effects.resolve_active_ability(enemy, self.player, enemy.ultimate_ability, self.rng, self.log)
+            effects.resolve_active_ability(enemy, target, enemy.ultimate_ability, self.rng, self.log, allies=allies)
             self._end_turn(enemy)
             return
 
         usable = [a for a in enemy.active_abilities if enemy.ability_ready(a)]
         if usable and self.rng.random() < 0.5:
             ability = self.rng.choice(usable)
-            effects.resolve_active_ability(enemy, self.player, ability, self.rng, self.log)
+            effects.resolve_active_ability(enemy, target, ability, self.rng, self.log, allies=allies)
         else:
-            effects.resolve_basic_attack(enemy, self.player, self.rng, self.log)
+            effects.resolve_basic_attack(enemy, target, self.rng, self.log)
 
         self._end_turn(enemy)

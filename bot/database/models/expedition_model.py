@@ -40,6 +40,13 @@ class Expedition(Base):
     # in-progress battle is ever held only in memory between interactions.
     combat_state: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
+    # Set while the player is in the middle of an interactive non-combat
+    # room (Trap/Puzzle/Merchant -- see bot/services/dungeon_service.py's
+    # resolve_trap_choice/resolve_puzzle_choice/buy_shop_item/leave_shop).
+    # Same "load -> mutate -> save" persistence pattern as combat_state, so
+    # these survive a bot restart too. None outside of one of those rooms.
+    pending_interaction: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
     # Expedition-only state -- wiped when the run ends, unlike Player/Inventory.
     current_hp: Mapped[int] = mapped_column(Integer, default=100)
     temp_buffs: Mapped[list] = mapped_column(JSON, default=list)   # blessings

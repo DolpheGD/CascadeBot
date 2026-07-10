@@ -6,7 +6,7 @@ from discord import app_commands
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_or_create_player, get_player
 from bot.services.currency_service import add_currency
-from bot.services import inventory_service
+from bot.services import character_service, inventory_service
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils import embedder
 
@@ -22,23 +22,45 @@ STARTING_GOLD = 150
 # or equip state would be.
 # ----------------------------------------------------------------------
 
+class CharacterProfileSelect(discord.ui.Select):
+    """Lets the player switch which of their owned characters /profile is
+    showing -- previously this only ever showed the avatar."""
+    def __init__(self, page: int, current_character_id: int, owned: list):
+        options = [
+            discord.SelectOption(
+                label=f"{pc.template.name} (Lv{pc.level}, {pc.template.star_rating}★)"[:100],
+                value=str(pc.id),
+                default=(pc.id == current_character_id),
+            )
+            for pc in owned
+        ][:25]
+        super().__init__(placeholder="Switch character...", options=options, min_values=1, max_values=1)
+        self.page = page
+
+    async def callback(self, interaction: discord.Interaction):
+        await _render_profile_page(interaction, self.page, character_id=int(self.values[0]))
+
+
 class ProfilePageView(discord.ui.View):
-    def __init__(self, page: int):
+    def __init__(self, page: int, character_id: int | None = None, owned: list | None = None):
         super().__init__(timeout=120)
         self.page = page
-        self.children[0].disabled = page <= 0
-        self.children[1].disabled = page >= embedder.PROFILE_PAGE_COUNT - 1
+        self.character_id = character_id
+        if owned and len(owned) > 1 and character_id is not None:
+            self.add_item(CharacterProfileSelect(page, character_id, owned))
+        self.prev_button.disabled = page <= 0
+        self.next_button.disabled = page >= embedder.PROFILE_PAGE_COUNT - 1
 
-    @discord.ui.button(label="◀ Prev", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="◀ Prev", style=discord.ButtonStyle.secondary, row=1)
     async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await _render_profile_page(interaction, max(0, self.page - 1))
+        await _render_profile_page(interaction, max(0, self.page - 1), character_id=self.character_id)
 
-    @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary, row=1)
     async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await _render_profile_page(interaction, min(embedder.PROFILE_PAGE_COUNT - 1, self.page + 1))
+        await _render_profile_page(interaction, min(embedder.PROFILE_PAGE_COUNT - 1, self.page + 1), character_id=self.character_id)
 
 
-async def _render_profile_page(interaction: discord.Interaction, page: int):
+async def _render_profile_page(interaction: discord.Interaction, page: int, character_id: int | None = None):
     db = SessionLocal()
     try:
         player = get_player(db, interaction.user.id)
@@ -46,13 +68,19 @@ async def _render_profile_page(interaction: discord.Interaction, page: int):
             await interaction.response.send_message("Use `/start` first.", ephemeral=True)
             return
 
+        owned = character_service.list_owned_characters(db, player)
+        character = next((pc for pc in owned if pc.id == character_id), None) if character_id else None
+        if character is None:
+            character = character_service.ensure_avatar_character(db, player)
+
         embed = embedder.profile_embed(
             player,
-            equipped_items=inventory_service.list_equipped(db, player.id),
+            character,
+            equipped_items=inventory_service.list_equipped(db, character.id),
             avatar_url=interaction.user.display_avatar.url,
             page=page,
         )
-        view = ProfilePageView(page)
+        view = ProfilePageView(page, character_id=character.id, owned=owned)
     finally:
         db.close()
 
@@ -112,13 +140,16 @@ class Profile(commands.Cog):
                 )
                 return
 
+            owned = character_service.list_owned_characters(db, player)
+            character = character_service.ensure_avatar_character(db, player)
             embed = embedder.profile_embed(
                 player,
-                equipped_items=inventory_service.list_equipped(db, player.id),
+                character,
+                equipped_items=inventory_service.list_equipped(db, character.id),
                 avatar_url=ctx.user.display_avatar.url,
                 page=0,
             )
-            view = ProfilePageView(0)
+            view = ProfilePageView(0, character_id=character.id, owned=owned)
         finally:
             db.close()
 

@@ -40,8 +40,16 @@ def resolve_basic_attack(attacker: Combatant, defender: Combatant, rng: random.R
 
 
 def resolve_active_ability(
-    attacker: Combatant, defender: Combatant, ability: dict, rng: random.Random, log: list
+    attacker: Combatant, defender: Combatant, ability: dict, rng: random.Random, log: list,
+    allies: list[Combatant] | None = None,
 ) -> None:
+    """`allies` is every OTHER living combatant on attacker's side (not
+    including attacker) -- only used by team-oriented effect kinds
+    (team_heal_percent_max_hp, heal_lowest_ally_percent_max_hp, team_buff),
+    introduced for the Combat Overhaul's Sustain/Amplifier/Support DPS
+    character kits (bot/game/combat/skills.py). Every other effect kind
+    ignores it, so it's safe to omit for simple 1v1-style abilities."""
+    allies = allies or []
     attacker.spend_resource(ability)
     icon = "💥" if ability.get("is_ultimate") else "✨"
     log.append(f"{icon} {attacker.name} uses {ability['name']}!")
@@ -133,6 +141,29 @@ def resolve_active_ability(
         attacker.modifiers.append(StatModifier(
             effect["debuff_stat"], effect["debuff_percent"], effect["duration"], ability["name"]
         ))
+
+    elif kind == "heal_lowest_ally_percent_max_hp":
+        # Sustain/Support "single-target heal" kit piece -- picks whoever
+        # (including the caster) is lowest on HP% among attacker + allies.
+        candidates = [attacker] + [a for a in allies if a.is_alive()]
+        target = min(candidates, key=lambda c: c.current_hp / max(1, c.max_hp))
+        healed = target.heal(target.max_hp * effect["percent"] / 100)
+        log.append(f"💚 {attacker.name}'s {ability['name']} heals {target.name} for {healed} HP.")
+
+    elif kind == "team_heal_percent_max_hp":
+        # Sustain ultimate piece -- heals the whole team at once.
+        for member in [attacker] + [a for a in allies if a.is_alive()]:
+            healed = member.heal(member.max_hp * effect["percent"] / 100)
+            if healed:
+                log.append(f"💚 {member.name} is healed for {healed} HP by {ability['name']}.")
+
+    elif kind == "team_buff":
+        # Amplifier kit piece -- buffs one stat across the whole team.
+        for member in [attacker] + [a for a in allies if a.is_alive()]:
+            member.modifiers.append(StatModifier(
+                effect["buff_stat"], effect["buff_percent"], effect["duration"], ability["name"]
+            ))
+        log.append(f"📡 {attacker.name}'s {ability['name']} empowers the whole team!")
 
     else:
         log.append(f"({ability['name']} has no combat effect implemented yet)")

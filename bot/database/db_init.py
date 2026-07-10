@@ -4,6 +4,7 @@ from bot.database.models.base_model import Base
 # Import every model module so each table registers on Base.metadata before
 # create_all runs.
 from bot.database.models import (  # noqa: F401
+    character_model,
     economy_model,
     equipment_model,
     expedition_model,

@@ -1,16 +1,36 @@
 """
-Equip/unequip logic and inventory listing. Slot capacity rules (see
-bot.database.models.enums.SLOT_CAPACITY): WEAPON and ARTIFACT each allow
-two equipped items (primary/secondary, tracked via
-InventoryItem.equip_slot_index); every other slot allows exactly one.
+Equip/unequip logic and inventory listing.
+
+Combat Overhaul: every slot (WEAPON, ARTIFACT, ARMOR, ACCESSORY) holds
+exactly one item now -- the old two-per-slot primary/secondary pairing
+(InventoryItem.equip_slot_index) is gone. Equipment also now attaches to a
+specific PlayerCharacter (InventoryItem.character_id) rather than the
+player directly, since each of your up-to-4 squad members has their own
+loadout. Unequipped items still live in one shared, player-wide inventory
+pool -- only equipping assigns an item to a character.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from bot.database.models.enums import SLOT_CAPACITY, SLOT_DISPLAY_NAME, EquipmentSlot, slot_index_label
+from bot.database.models.enums import EquipmentSlot, Rarity
 from bot.database.models.equipment_model import InventoryItem
+from bot.services.currency_service import add_currency
+
+# Flat sell value per rarity at item_level 1, scaling up modestly with
+# level -- selling is meant to clear out clutter for a bit of gold, not
+# compete with actually using/upgrading gear.
+SELL_VALUE_BY_RARITY: dict[Rarity, int] = {
+    Rarity.COMMON: 15,
+    Rarity.UNCOMMON: 30,
+    Rarity.RARE: 60,
+    Rarity.EPIC: 120,
+    Rarity.LEGENDARY: 250,
+    Rarity.MYTHIC: 500,
+    Rarity.DIVINE: 1000,
+}
+SELL_VALUE_PER_LEVEL = 0.08  # +8% of base value per item_level above 1
 
 
 @dataclass
@@ -34,23 +54,22 @@ def list_inventory(db, player_id: int) -> list[InventoryItem]:
     )
 
 
-def list_equipped(db, player_id: int) -> list[InventoryItem]:
+def list_equipped(db, character_id: int) -> list[InventoryItem]:
     return (
         db.query(InventoryItem)
-        .filter_by(player_id=player_id, is_equipped=True)
-        .order_by(InventoryItem.slot, InventoryItem.equip_slot_index)
+        .filter_by(character_id=character_id, is_equipped=True)
+        .order_by(InventoryItem.slot)
         .all()
     )
 
 
-def get_equipped_by_slot(db, player_id: int) -> dict[EquipmentSlot, list[InventoryItem]]:
-    """Every equipped item grouped by slot (list sorted by equip_slot_index
-    so index 0 is always first) -- handy for a profile view that needs to
-    show every slot, empty or not."""
-    equipped = list_equipped(db, player_id)
-    by_slot: dict[EquipmentSlot, list[InventoryItem]] = {slot: [] for slot in EquipmentSlot}
+def get_equipped_by_slot(db, character_id: int) -> dict[EquipmentSlot, InventoryItem | None]:
+    """One item (or None) per slot for the given character -- handy for a
+    profile/loadout view that needs to show every slot, empty or not."""
+    equipped = list_equipped(db, character_id)
+    by_slot: dict[EquipmentSlot, InventoryItem | None] = {slot: None for slot in EquipmentSlot}
     for item in equipped:
-        by_slot[item.slot].append(item)
+        by_slot[item.slot] = item
     return by_slot
 
 
@@ -78,56 +97,59 @@ def get_neighbor_item_id(db, player_id: int, current_item_id: int, direction: st
     return ids[idx + 1] if idx < len(ids) - 1 else None
 
 
-def equip_item(db, player, item: InventoryItem) -> tuple[bool, str]:
-    if item.is_equipped:
-        return False, f"{item.display_name} is already equipped."
+def equip_item(db, character, item: InventoryItem) -> tuple[bool, str]:
+    """Equips `item` onto `character` (a PlayerCharacter). Every slot holds
+    one item, so equipping into an already-occupied slot auto-swaps the
+    previous occupant back to the shared, unequipped pool."""
+    if item.player_id != character.player_id:
+        return False, "You don't own that item."
+    if item.is_equipped and item.character_id == character.id:
+        return False, f"{item.display_name} is already equipped on {character.template.name}."
 
-    capacity = SLOT_CAPACITY[item.slot]
-    equipped_in_slot = (
+    current = (
         db.query(InventoryItem)
-        .filter_by(player_id=player.id, slot=item.slot, is_equipped=True)
-        .order_by(InventoryItem.equip_slot_index)
-        .all()
+        .filter_by(character_id=character.id, slot=item.slot, is_equipped=True)
+        .first()
     )
+    if current is not None:
+        current.is_equipped = False
+        current.character_id = None
 
-    if len(equipped_in_slot) >= capacity:
-        if capacity == 1:
-            # Single-capacity slots auto-swap: unequip the current occupant.
-            equipped_in_slot[0].is_equipped = False
-            item.equip_slot_index = 0
-        else:
-            names = ", ".join(
-                f"{slot_index_label(item.slot, e.equip_slot_index)}: {e.display_name}"
-                for e in equipped_in_slot
-            )
-            return False, (
-                f"Both {SLOT_DISPLAY_NAME[item.slot]} slots are full ({names}). "
-                "Unequip one first."
-            )
-    elif capacity > 1:
-        used_indices = {e.equip_slot_index for e in equipped_in_slot}
-        item.equip_slot_index = 0 if 0 not in used_indices else 1
-    else:
-        item.equip_slot_index = 0
-
+    item.character_id = character.id
     item.is_equipped = True
     db.commit()
 
-    label = (
-        f" ({slot_index_label(item.slot, item.equip_slot_index)})"
-        if capacity > 1 else ""
-    )
-    return True, f"Equipped {item.display_name}{label}."
+    swap_note = f" (swapped out {current.display_name})" if current is not None else ""
+    return True, f"Equipped {item.display_name} on {character.template.name}{swap_note}."
 
 
-def unequip_item(db, player, item: InventoryItem) -> tuple[bool, str]:
+def unequip_item(db, item: InventoryItem) -> tuple[bool, str]:
     if not item.is_equipped:
         return False, f"{item.display_name} isn't equipped."
 
     item.is_equipped = False
-    item.equip_slot_index = 0
+    item.character_id = None
     db.commit()
     return True, f"Unequipped {item.display_name}."
+
+
+def get_sell_value(item: InventoryItem) -> int:
+    base = SELL_VALUE_BY_RARITY[item.rarity]
+    return round(base * (1 + SELL_VALUE_PER_LEVEL * (item.item_level - 1)))
+
+
+def sell_item(db, player, item: InventoryItem) -> tuple[bool, str]:
+    if item.player_id != player.id:
+        return False, "You don't own that item."
+    if item.is_equipped:
+        return False, f"{item.display_name} is equipped -- unequip it before selling."
+
+    value = get_sell_value(item)
+    add_currency(db, player, "gold", value)
+    name = item.display_name
+    db.delete(item)
+    db.commit()
+    return True, f"Sold {name} for {value} gold."
 
 
 # ----------------------------------------------------------------------
@@ -137,7 +159,7 @@ def unequip_item(db, player, item: InventoryItem) -> tuple[bool, str]:
 # rarity ordering and lootboxes sort by tier.
 # ----------------------------------------------------------------------
 
-_LOOTBOX_TIER_ORDER = {"common": 0, "rare": 1, "epic": 2, "legendary": 3}
+_LOOTBOX_TIER_ORDER = {"common": 0, "uncommon": 1, "rare": 2, "epic": 3, "legendary": 4, "mythic": 5}
 
 
 def list_combined_entries(db, player_id: int) -> list["InventoryEntry"]:

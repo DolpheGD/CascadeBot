@@ -8,15 +8,16 @@ from __future__ import annotations
 import discord
 
 from bot.database.models.enums import (
-    SLOT_CAPACITY,
+    CLASS_DISPLAY_NAME,
     SLOT_DISPLAY_NAME,
     SLOT_EMOJI,
     EquipmentSlot,
     ItemType,
-    slot_index_label,
 )
+from bot.database.models.character_model import LEVEL_CAP
 from bot.game.combat.combatant import STAT_KEYS
-from bot.game.combat.factory import build_player_combatant
+from bot.game.combat.factory import base_character_stats as _base_character_stats
+from bot.game.combat.factory import build_character_combatant
 
 ROOM_TYPE_EMOJI = {
     "start": "🚪", "combat": "⚔️", "elite": "🔥", "treasure": "💰",
@@ -31,13 +32,12 @@ RARITY_COLORS = {
     "epic": discord.Color.purple(),
     "legendary": discord.Color.orange(),
     "mythic": discord.Color.red(),
-    "ancient": discord.Color.dark_gold(),
     "divine": discord.Color.gold(),
 }
 
 RARITY_EMOJI = {
     "common": "⚪", "uncommon": "🟢", "rare": "🔵", "epic": "🟣",
-    "legendary": "🟠", "mythic": "🔴", "ancient": "🟤", "divine": "🟡",
+    "legendary": "🟠", "mythic": "🔴", "divine": "🟡",
 }
 
 STAT_EMOJI = {
@@ -53,7 +53,7 @@ STAT_LABEL = {
 }
 
 ITEM_TYPE_EMOJI = {
-    ItemType.WEAPON: "⚔️", ItemType.ARMOR: "🛡️", ItemType.ARTIFACT: "🔮", ItemType.SCROLL: "📜",
+    ItemType.WEAPON: "⚔️", ItemType.ARMOR: "🛡️", ItemType.ARTIFACT: "🔮",
 }
 
 PERCENT_STATS = {"crit_rate", "crit_damage"}
@@ -63,6 +63,18 @@ def _fmt_stat(stat: str, value: float) -> str:
     suffix = "%" if stat in PERCENT_STATS else ""
     label = STAT_LABEL.get(stat, stat.replace("_", " ").title())
     return f"{STAT_EMOJI.get(stat, '')} **{label}**: {value:g}{suffix}"
+
+
+def _fmt_stat_with_base(stat: str, effective_value: float, base_value: float) -> str:
+    """'HP: (100) 150' -- base value in parentheses, effective value (with
+    gear) alongside it. Falls back to the plain form when gear hasn't
+    changed the stat at all, so an unequipped character's page doesn't show
+    a redundant '(100) 100' everywhere."""
+    if round(base_value, 2) == round(effective_value, 2):
+        return _fmt_stat(stat, effective_value)
+    suffix = "%" if stat in PERCENT_STATS else ""
+    label = STAT_LABEL.get(stat, stat.replace("_", " ").title())
+    return f"{STAT_EMOJI.get(stat, '')} **{label}**: ({base_value:g}{suffix}) {effective_value:g}{suffix}"
 
 
 def _bar(current: float, maximum: float, length: int = 10, fill: str = "█", empty: str = "░") -> str:
@@ -82,37 +94,44 @@ PROFILE_PAGE_COUNT = len(PROFILE_PAGE_TITLES)
 
 
 def profile_embed(
-    player, equipped_items: list, avatar_url: str | None = None, page: int = 0
+    player, character, equipped_items: list, avatar_url: str | None = None, page: int = 0
 ) -> discord.Embed:
+    """`character` is the PlayerCharacter whose stats/gear/kit this profile
+    shows -- normally the player's own avatar (see
+    character_service.ensure_avatar_character). Full per-squad-member
+    profile switching is a later UI pass; for now /profile always shows
+    your avatar."""
     page = max(0, min(page, PROFILE_PAGE_COUNT - 1))
     if page == 0:
-        return _profile_overview_page(player, equipped_items, avatar_url)
+        return _profile_overview_page(player, character, equipped_items, avatar_url)
     if page == 1:
-        return _profile_equipment_page(player, equipped_items, avatar_url)
-    return _profile_abilities_page(player, equipped_items, avatar_url)
+        return _profile_equipment_page(player, character, equipped_items, avatar_url)
+    return _profile_abilities_page(player, character, equipped_items, avatar_url)
 
 
-def _profile_overview_page(player, equipped_items, avatar_url) -> discord.Embed:
-    combatant = build_player_combatant(player, equipped_items)
+def _profile_overview_page(player, character, equipped_items, avatar_url) -> discord.Embed:
+    combatant = build_character_combatant(character, equipped_items)
 
     embed = discord.Embed(
-        title=f"{player.username}'s Profile",
+        title=f"{player.username}'s Profile -- {character.template.name}",
         description=f"Page 1/{PROFILE_PAGE_COUNT} -- {PROFILE_PAGE_TITLES[0]}",
         color=discord.Color.blurple(),
     )
     if avatar_url:
         embed.set_thumbnail(url=avatar_url)
 
-    embed.add_field(name="⭐ Level", value=str(player.level), inline=True)
-    embed.add_field(name="✨ XP", value=f"{player.xp} / {player.xp_to_next_level()}", inline=True)
+    embed.add_field(name="⭐ Char. Level", value=f"{character.level}/{LEVEL_CAP}", inline=True)
+    embed.add_field(name="✨ XP", value=f"{character.xp} / {character.xp_to_next_level()}", inline=True)
     embed.add_field(name="🪙 Gold", value=str(player.gold), inline=True)
     embed.add_field(name="💎 Shards", value=str(player.shards), inline=True)
+    embed.add_field(name="🎭 Class", value=CLASS_DISPLAY_NAME[character.effective_class()], inline=True)
 
-    base_lines = "\n".join(_fmt_stat(stat, getattr(player, stat)) for stat in STAT_KEYS)
+    base_stats = _base_character_stats(character)
+    base_lines = "\n".join(_fmt_stat(stat, base_stats[stat]) for stat in STAT_KEYS)
     embed.add_field(name="Base Stats", value=base_lines, inline=True)
 
     effective_lines = "\n".join(
-        _fmt_stat(stat, combatant.base_stats[stat]) for stat in STAT_KEYS
+        _fmt_stat_with_base(stat, combatant.base_stats[stat], base_stats[stat]) for stat in STAT_KEYS
     )
     embed.add_field(name="Effective Stats (with gear)", value=effective_lines, inline=True)
 
@@ -120,15 +139,13 @@ def _profile_overview_page(player, equipped_items, avatar_url) -> discord.Embed:
     return embed
 
 
-def _profile_equipment_page(player, equipped_items, avatar_url) -> discord.Embed:
-    by_slot: dict[EquipmentSlot, list] = {slot: [] for slot in EquipmentSlot}
+def _profile_equipment_page(player, character, equipped_items, avatar_url) -> discord.Embed:
+    by_slot: dict[EquipmentSlot, object] = {slot: None for slot in EquipmentSlot}
     for item in equipped_items:
-        by_slot[item.slot].append(item)
-    for slot in by_slot:
-        by_slot[slot].sort(key=lambda i: i.equip_slot_index)
+        by_slot[item.slot] = item
 
     embed = discord.Embed(
-        title=f"{player.username}'s Equipment",
+        title=f"{character.template.name}'s Equipment",
         description=f"Page 2/{PROFILE_PAGE_COUNT} -- {PROFILE_PAGE_TITLES[1]}",
         color=discord.Color.dark_teal(),
     )
@@ -136,39 +153,30 @@ def _profile_equipment_page(player, equipped_items, avatar_url) -> discord.Embed
         embed.set_thumbnail(url=avatar_url)
 
     for slot in EquipmentSlot:
-        capacity = SLOT_CAPACITY[slot]
-        items = by_slot[slot]
-        lines = []
-        for index in range(capacity):
-            label = slot_index_label(slot, index) if capacity > 1 else None
-            match = next((i for i in items if i.equip_slot_index == index), None)
-            prefix = f"**{label}**: " if label else ""
-            if match:
-                rarity_emoji = RARITY_EMOJI.get(match.rarity.value, "⚪")
-                lines.append(f"{prefix}{rarity_emoji} {match.display_name}")
-            else:
-                lines.append(f"{prefix}*Empty*")
-        embed.add_field(
-            name=f"{SLOT_EMOJI[slot]} {SLOT_DISPLAY_NAME[slot]}",
-            value="\n".join(lines),
-            inline=True,
-        )
+        match = by_slot[slot]
+        if match:
+            rarity_emoji = RARITY_EMOJI.get(match.rarity.value, "⚪")
+            value = f"{rarity_emoji} {match.display_name}"
+        else:
+            value = "*Empty*"
+        embed.add_field(name=f"{SLOT_EMOJI[slot]} {SLOT_DISPLAY_NAME[slot]}", value=value, inline=True)
 
-    embed.set_footer(text="Equip gear with /inventory. Weapons and Artifacts each hold 2.")
+    embed.set_footer(text="Equip gear with /inventory. Each slot holds one item.")
     return embed
 
 
-def _profile_abilities_page(player, equipped_items, avatar_url) -> discord.Embed:
-    combatant = build_player_combatant(player, equipped_items)
+def _profile_abilities_page(player, character, equipped_items, avatar_url) -> discord.Embed:
+    combatant = build_character_combatant(character, equipped_items)
 
     embed = discord.Embed(
-        title=f"{player.username}'s Abilities",
+        title=f"{character.template.name}'s Abilities",
         description=f"Page 3/{PROFILE_PAGE_COUNT} -- {PROFILE_PAGE_TITLES[2]}",
         color=discord.Color.dark_purple(),
     )
     if avatar_url:
         embed.set_thumbnail(url=avatar_url)
 
+    character_skill = next((a for a in combatant.active_abilities if a.get("source") == "character"), None)
     weapon_skills = [a for a in combatant.active_abilities if a.get("source") == "weapon"]
     artifact_skills = [a for a in combatant.active_abilities if a.get("source") == "artifact"]
 
@@ -180,16 +188,20 @@ def _profile_abilities_page(player, equipped_items, avatar_url) -> discord.Embed
             for a in skills
         )
 
-    embed.add_field(name="⚔️ Weapon Skills", value=_skill_lines(weapon_skills), inline=False)
-    embed.add_field(name="🔮 Artifact Skills", value=_skill_lines(artifact_skills), inline=False)
+    if character_skill:
+        embed.add_field(
+            name="🌀 Character Skill",
+            value=f"**{character_skill['name']}** ({character_skill['resource_cost']} MP): {character_skill['description']}",
+            inline=False,
+        )
+    embed.add_field(name="⚔️ Weapon Skill", value=_skill_lines(weapon_skills), inline=False)
+    embed.add_field(name="🔮 Artifact Skill", value=_skill_lines(artifact_skills), inline=False)
 
     if combatant.ultimate_ability:
         u = combatant.ultimate_ability
         embed.add_field(
-            name="💥 Ultimate", value=f"**{u['name']}** (100 Energy): {u['description']}", inline=False
+            name="💥 Character Ultimate", value=f"**{u['name']}** (100 Energy): {u['description']}", inline=False
         )
-    else:
-        embed.add_field(name="💥 Ultimate", value="*No scroll equipped.*", inline=False)
 
     if combatant.passive_abilities:
         lines = "\n".join(
@@ -208,15 +220,27 @@ def _profile_abilities_page(player, equipped_items, avatar_url) -> discord.Embed
 # ----------------------------------------------------------------------
 
 def dungeon_map_embed(
-    expedition, message: str | None = None, avatar_url: str | None = None
+    expedition, message: str | None = None, avatar_url: str | None = None,
+    squad_hp_lines: list[str] | None = None,
 ) -> discord.Embed:
     """Shows the current node and, if given, a one-line result of what just
-    happened (e.g. 'You find a treasure chest...')."""
+    happened (e.g. 'You find a treasure chest...'). `squad_hp_lines` --
+    build with cogs.dungeon._squad_hp_lines() -- shows each squad member's
+    actual persisted HP instead of a flat, always-100 placeholder."""
+    from bot.game.dungeon.region_config import get_region_difficulty
+
     node = expedition.graph["nodes"][expedition.current_node_id]
     emoji = ROOM_TYPE_EMOJI.get(node["room_type"], "❔")
+    difficulty = get_region_difficulty(expedition.region)
+
+    num_floors = expedition.graph.get("num_floors", node["floor"] + 1)
+    boss_nodes = expedition.graph.get("boss_nodes", [expedition.graph.get("boss_node")])
+    bosses_cleared = sum(
+        1 for b in boss_nodes if expedition.graph["nodes"].get(b, {}).get("completed")
+    )
 
     embed = discord.Embed(
-        title=f"{expedition.region} -- Floor {node['floor']}",
+        title=f"{expedition.region} ({difficulty['difficulty_label']}) -- Floor {node['floor']}/{num_floors - 1}",
         description=message or "",
         color=discord.Color.dark_green(),
     )
@@ -224,7 +248,9 @@ def dungeon_map_embed(
         embed.set_thumbnail(url=avatar_url)
 
     embed.add_field(name="Current Room", value=f"{emoji} {node['room_type'].title()}", inline=True)
-    embed.add_field(name="❤️ HP", value=f"{expedition.current_hp}", inline=True)
+    embed.add_field(name="👹 Bosses", value=f"{bosses_cleared}/{len(boss_nodes)} defeated", inline=True)
+    if squad_hp_lines:
+        embed.add_field(name="❤️ Squad HP", value="\n".join(squad_hp_lines), inline=True)
 
     if expedition.status.value == "completed":
         embed.add_field(name="Status", value="🏆 Expedition Complete!", inline=False)
@@ -258,7 +284,13 @@ def _turn_order_line(battle, count: int = 6) -> str:
 def combat_embed(battle, avatar_url: str | None = None) -> discord.Embed:
     """Renders the current battle state: HP/resource bars for everyone, the
     turn order preview, current target marker, and the last few log lines,
-    so a Discord message can be edited in place turn after turn."""
+    so a Discord message can be edited in place turn after turn.
+
+    Party and enemies are each ONE consolidated field (a line per member)
+    rather than one Discord field per combatant -- with a full 4-person
+    squad plus several enemies, one-field-each was wrapping into a bunched,
+    hard-to-scan 3-per-row grid. A single readable block per side reads
+    top-to-bottom instead."""
     color = discord.Color.red()
     if battle.result == "won":
         color = discord.Color.gold()
@@ -272,31 +304,80 @@ def combat_embed(battle, avatar_url: str | None = None) -> discord.Embed:
     if not battle.is_over():
         embed.add_field(name="🔀 Turn Order", value=_turn_order_line(battle), inline=False)
 
-    player = battle.player
-    ult_flag = " | 💥 ULTIMATE READY" if player.ultimate_ready() else ""
-    player_value = (
-        f"❤️ {player.current_hp}/{player.max_hp} {_bar(player.current_hp, player.max_hp)}\n"
-        f"💧 {player.mana}/{player.max_mana} | 🔋 {player.energy}/{player.max_energy}{ult_flag}"
-    )
-    embed.add_field(name=f"🧑 {player.name}", value=player_value, inline=False)
+    party_lines = []
+    for member in battle.party:
+        acting_tag = " 🔸" if not battle.is_over() and member is battle.current_actor() else ""
+        if not member.is_alive():
+            party_lines.append(f"**{member.name}**{acting_tag} -- 💀 Down")
+            continue
+        ult_flag = " 💥" if member.ultimate_ready() else ""
+        party_lines.append(
+            f"**{member.name}**{acting_tag}{ult_flag}\n"
+            f"┗ ❤️{member.current_hp}/{member.max_hp} {_bar(member.current_hp, member.max_hp, length=8)}"
+            f"  💧{member.mana}/{member.max_mana}  🔋{member.energy}/{member.max_energy}"
+        )
+    embed.add_field(name="🧑 Your Squad", value="\n".join(party_lines), inline=False)
 
     living_enemies = battle.living_enemies()
+    enemy_lines = []
     for enemy in battle.enemies:
-        is_target = enemy.is_alive() and living_enemies.index(enemy) == battle.player_target_index
+        if not enemy.is_alive():
+            enemy_lines.append(f"**{enemy.name}** -- 💀 Defeated")
+            continue
+        is_target = living_enemies.index(enemy) == battle.target_index
         target_tag = " 🎯" if is_target else ""
-        status = "💀 Defeated" if not enemy.is_alive() else (
-            f"❤️ {enemy.current_hp}/{enemy.max_hp} {_bar(enemy.current_hp, enemy.max_hp)}"
+        enemy_lines.append(
+            f"**{enemy.name}**{target_tag}\n"
+            f"┗ ❤️{enemy.current_hp}/{enemy.max_hp} {_bar(enemy.current_hp, enemy.max_hp, length=8)}"
         )
-        embed.add_field(name=f"👹 {enemy.name}{target_tag}", value=status, inline=True)
+    embed.add_field(name="👹 Enemies", value="\n".join(enemy_lines), inline=False)
 
-    log_tail = battle.log[-6:]
+    log_tail = battle.log[-5:]
     if log_tail:
         embed.add_field(name="📜 Battle Log", value="\n".join(log_tail), inline=False)
 
     if battle.is_over():
         result_text = {"won": "🏆 Victory!", "lost": "💀 Defeat..."}[battle.result]
         embed.add_field(name="Result", value=result_text, inline=False)
+    else:
+        embed.set_footer(text="Tap ℹ️ Info for full status effects and cooldowns.")
 
+    return embed
+
+
+def battle_info_embed(battle) -> discord.Embed:
+    """The ephemeral 'ℹ️ Info' view -- everything combat_embed leaves out
+    to stay uncluttered: every combatant's active status effects
+    (buffs/debuffs/DoTs/stun) and ability cooldowns."""
+    embed = discord.Embed(title="ℹ️ Battlefield Info", color=discord.Color.blurple())
+
+    def _status_lines(c) -> str:
+        lines = []
+        for m in c.modifiers:
+            sign = "+" if m.percent >= 0 else ""
+            lines.append(f"{sign}{m.percent:g}% {m.stat} ({m.duration}t) -- {m.source}")
+        for d in c.dots:
+            lines.append(f"🔥 {d.flat_amount:g} dmg/turn ({d.duration}t) -- {d.source}")
+        if c.stunned_turns > 0:
+            lines.append(f"😵 Stunned ({c.stunned_turns}t)")
+        for ability_id, remaining in c.cooldowns.items():
+            if remaining > 0:
+                ability = next(
+                    (a for a in c.active_abilities if a["id"] == ability_id),
+                    {"name": ability_id},
+                )
+                lines.append(f"⏳ {ability['name']} ready in {remaining}t")
+        return "\n".join(lines) if lines else "*No active effects.*"
+
+    for member in battle.party:
+        if not member.is_alive():
+            continue
+        embed.add_field(name=f"🧑 {member.name}", value=_status_lines(member), inline=True)
+
+    for enemy in battle.living_enemies():
+        embed.add_field(name=f"👹 {enemy.name}", value=_status_lines(enemy), inline=True)
+
+    embed.add_field(name="Turn", value=str(battle.turn_count), inline=False)
     return embed
 
 
@@ -313,8 +394,6 @@ def item_detail_embed(item, position: int | None = None, total: int | None = Non
 
     embed.add_field(name="Rarity", value=f"{RARITY_EMOJI.get(item.rarity.value, '')} {item.rarity.value.title()}", inline=True)
     slot_label = SLOT_DISPLAY_NAME[item.slot]
-    if item.is_equipped and SLOT_CAPACITY[item.slot] > 1:
-        slot_label += f" ({slot_index_label(item.slot, item.equip_slot_index)})"
     embed.add_field(name="Slot", value=f"{SLOT_EMOJI[item.slot]} {slot_label}", inline=True)
     embed.add_field(name="Item Level", value=str(item.item_level), inline=True)
 
@@ -328,17 +407,13 @@ def item_detail_embed(item, position: int | None = None, total: int | None = Non
         lines = []
         for s in item.substats:
             suffix = "%" if s.get("value_type") == "percent" else ("%" if s["stat"] in PERCENT_STATS else "")
-            kind_tag = " (of base)" if s.get("value_type") == "percent" else ""
             label = STAT_LABEL.get(s["stat"], s["stat"].replace("_", " ").title())
-            lines.append(f"{STAT_EMOJI.get(s['stat'], '')} +{s['value']:g}{suffix} {label}{kind_tag}")
+            lines.append(f"{STAT_EMOJI.get(s['stat'], '')} +{s['value']:g}{suffix} {label}")
         embed.add_field(name="Substats", value="\n".join(lines), inline=False)
 
     if item.active_ability:
         a = item.active_ability
-        if item.item_type == ItemType.SCROLL:
-            heading = f"💥 Ultimate: {a['name']}"
-            cost_line = f"Cost: {a['resource_cost']} Energy (usable once Energy reaches 100)"
-        elif item.item_type == ItemType.ARTIFACT:
+        if item.item_type == ItemType.ARTIFACT:
             heading = f"🔮 Artifact Skill: {a['name']}"
             cost_line = f"Cost: {a['resource_cost']} Mana | Cooldown: {a['cooldown']} turn(s)"
         else:
@@ -358,6 +433,27 @@ def item_detail_embed(item, position: int | None = None, total: int | None = Non
         name="Status", value="✅ Equipped" if item.is_equipped else "⬜ Not equipped", inline=True
     )
 
+    from bot.game.loot.rarity_config import (
+        add_substat_cost, reroll_cost, upgrade_level_cap, MAX_SUBSTATS,
+    )
+    from bot.services.inventory_service import get_sell_value
+
+    cap = upgrade_level_cap(item.rarity)
+    if item.item_level < cap:
+        embed.add_field(name="⬆️ Level Up Cost", value=f"~{15 * item.item_level} gold + materials / level (cap: {cap})", inline=True)
+    else:
+        embed.add_field(name="⬆️ Level Up", value=f"At cap ({cap}) for {item.rarity.value} rarity", inline=True)
+
+    if item.substats:
+        r_cost = reroll_cost(item.rarity)
+        embed.add_field(name="🎲 Reroll Cost", value=f"{r_cost['tokens']} tokens + {r_cost['gold']} gold", inline=True)
+    if len(item.substats) < MAX_SUBSTATS:
+        a_cost = add_substat_cost(item.rarity)
+        embed.add_field(name="➕ Add Substat Cost", value=f"{a_cost['tokens']} tokens + {a_cost['gold']} gold", inline=True)
+
+    if not item.is_equipped:
+        embed.add_field(name="💰 Sell Value", value=f"{get_sell_value(item)} gold", inline=True)
+
     if item.template is not None and item.template.flavor_text:
         embed.set_footer(text=item.template.flavor_text)
 
@@ -368,6 +464,8 @@ def item_detail_embed(item, position: int | None = None, total: int | None = Non
 
 
 def lootbox_detail_embed(owned_lootbox, position: int | None = None, total: int | None = None) -> discord.Embed:
+    from bot.game.economy.lootbox_config import LOOTBOX_RARITY_WEIGHTS
+
     template = owned_lootbox.template
     embed = discord.Embed(
         title=f"📦 {template.name}",
@@ -380,6 +478,15 @@ def lootbox_detail_embed(owned_lootbox, position: int | None = None, total: int 
     if template.max_shards:
         embed.add_field(name="Shards", value=f"{template.min_shards}-{template.max_shards}", inline=True)
     embed.add_field(name="Items per box", value=str(template.item_count), inline=True)
+
+    weights = LOOTBOX_RARITY_WEIGHTS.get(template.tier)
+    if weights:
+        total_weight = sum(weights.values())
+        odds_lines = [
+            f"{RARITY_EMOJI.get(rarity.value, '⚪')} {rarity.value.title()}: {weight / total_weight * 100:.1f}%"
+            for rarity, weight in sorted(weights.items(), key=lambda kv: -kv[1])
+        ]
+        embed.add_field(name="Item Rarity Odds", value="\n".join(odds_lines), inline=False)
 
     if position is not None and total is not None:
         embed.description = f"{template.description}\n\nEntry {position + 1} of {total}"
@@ -430,4 +537,130 @@ def inventory_list_embed(entries: list, page: int, player_name: str) -> discord.
 
     embed.add_field(name="Items", value="\n".join(lines), inline=False)
     embed.set_footer(text="Use 🔍 Jump to # to go straight to an entry, or switch to Detail Mode to equip/open/upgrade.")
+    return embed
+
+
+# ----------------------------------------------------------------------
+# Character gacha
+# ----------------------------------------------------------------------
+
+STAR_EMOJI = {3: "⭐⭐⭐", 4: "⭐⭐⭐⭐", 5: "⭐⭐⭐⭐⭐"}
+
+
+def gacha_pull_embed(results: list[dict]) -> discord.Embed:
+    """`results` is the list of per-pull dicts returned by
+    character_gacha_service (template/is_new/dupe_reward)."""
+    multi = len(results) > 1
+    embed = discord.Embed(
+        title="🎰 Gacha Results" if multi else "🎰 Gacha Result",
+        color=discord.Color.gold(),
+    )
+
+    # Best pull first so a 10-pull doesn't bury its highlight at the bottom.
+    ordered = sorted(results, key=lambda r: (-r["template"].star_rating, not r["is_new"]))
+
+    lines = []
+    for r in ordered:
+        template = r["template"]
+        stars = STAR_EMOJI.get(template.star_rating, "⭐" * template.star_rating)
+        class_label = CLASS_DISPLAY_NAME[template.character_class]
+        if r["is_new"]:
+            tag = "**NEW!**"
+        else:
+            reward = r["dupe_reward"] or {}
+            reward_text = ", ".join(f"+{v} {k.replace('_', ' ')}" for k, v in reward.items())
+            tag = f"Duplicate ({reward_text})"
+        lines.append(f"{stars} **{template.name}** ({class_label}) -- {tag}")
+
+    # Discord field values cap at 1024 chars -- chunk a big 10-pull if needed.
+    chunk, chunks, length = [], [], 0
+    for line in lines:
+        if length + len(line) + 1 > 1000:
+            chunks.append("\n".join(chunk))
+            chunk, length = [], 0
+        chunk.append(line)
+        length += len(line) + 1
+    if chunk:
+        chunks.append("\n".join(chunk))
+
+    for i, text in enumerate(chunks):
+        embed.add_field(name="Pulled" if i == 0 else "\u200b", value=text, inline=False)
+
+    new_count = sum(1 for r in results if r["is_new"])
+    if multi:
+        embed.set_footer(text=f"{new_count}/{len(results)} new characters. Use /squad to update your active team.")
+    else:
+        embed.set_footer(text="Use /squad to bring your new character on expeditions.")
+    return embed
+
+
+def gacha_rates_embed() -> discord.Embed:
+    from bot.game.economy.character_gacha_config import (
+        MULTI_PULL_COST_SHARDS,
+        SINGLE_PULL_COST_SHARDS,
+        STAR_WEIGHTS,
+    )
+
+    total = sum(STAR_WEIGHTS.values())
+    embed = discord.Embed(title="🎰 Gacha Rates", color=discord.Color.gold())
+    lines = [
+        f"{STAR_EMOJI[star]}: {weight / total * 100:.1f}%"
+        for star, weight in sorted(STAR_WEIGHTS.items(), reverse=True)
+    ]
+    embed.add_field(name="Odds by Star Rating", value="\n".join(lines), inline=False)
+    embed.add_field(
+        name="Cost",
+        value=f"Single pull: {SINGLE_PULL_COST_SHARDS} 💎 Shards\n10x pull: {MULTI_PULL_COST_SHARDS} 💎 Shards (10% off)",
+        inline=False,
+    )
+    embed.add_field(
+        name="Duplicates",
+        value="Pulling a character you already own converts to gold + reroll tokens instead of a second copy.",
+        inline=False,
+    )
+    embed.set_footer(text="Only characters drop from the gacha -- gear comes from dungeon runs and lootboxes.")
+    return embed
+
+
+# ----------------------------------------------------------------------
+# Interactive dungeon rooms: Trap, Puzzle, Merchant
+# ----------------------------------------------------------------------
+
+def trap_embed(node: dict, choices: list[dict], message: str | None = None) -> discord.Embed:
+    embed = discord.Embed(
+        title=f"⚠️ Trap -- Floor {node['floor']}",
+        description=message or "",
+        color=discord.Color.dark_red(),
+    )
+    for choice in choices:
+        odds = f"{int(choice['success_chance'] * 100)}% success"
+        embed.add_field(name=choice["label"], value=f"{choice['description']}\n*{odds}*", inline=False)
+    return embed
+
+
+def puzzle_embed(node: dict, puzzle: dict, message: str | None = None) -> discord.Embed:
+    embed = discord.Embed(
+        title=f"🧩 Puzzle -- Floor {node['floor']}",
+        description=(message or "") + f"\n\n**{puzzle['question']}**",
+        color=discord.Color.dark_blue(),
+    )
+    for i, option in enumerate(puzzle["options"]):
+        embed.add_field(name=f"Option {i + 1}", value=option, inline=False)
+    return embed
+
+
+def shop_embed(player, offers: list[dict], message: str | None = None) -> discord.Embed:
+    embed = discord.Embed(
+        title="🛒 Cascade Quartermaster",
+        description=message or "A basic supply cache -- gold only, no haggling.",
+        color=discord.Color.dark_gold(),
+    )
+    embed.add_field(name="🪙 Your Gold", value=str(player.gold), inline=False)
+    for offer in offers:
+        embed.add_field(
+            name=f"{offer['name']} -- {offer['cost_gold']} gold",
+            value=offer["description"],
+            inline=False,
+        )
+    embed.set_footer(text="Buy as many as you can afford, then Leave when you're done.")
     return embed

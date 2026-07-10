@@ -34,6 +34,23 @@ class Player(Base):
     gold: Mapped[int] = mapped_column(Integer, default=0)
     shards: Mapped[int] = mapped_column(Integer, default=0)  # premium-ish currency: gacha, rare shop items
 
+    # Reroll tokens: spent (alongside a flat, non-scaling gold cost) to
+    # reroll an item's existing substats, or -- in much greater quantity --
+    # to add a new substat slot beyond the 0-2 an item rolls with, up to a
+    # max of 4. See bot/game/loot/rarity_config.py for exact costs.
+    reroll_tokens: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Gear-upgrade materials, tiered common -> rare -> rarest. Spent
+    # alongside gold to level up equipment (bot/game/loot/rarity_config.py).
+    wood: Mapped[int] = mapped_column(Integer, default=0)
+    stone: Mapped[int] = mapped_column(Integer, default=0)
+    metal: Mapped[int] = mapped_column(Integer, default=0)
+    crystal: Mapped[int] = mapped_column(Integer, default=0)
+    xendium: Mapped[int] = mapped_column(Integer, default=0)
+    permafrost_ore: Mapped[int] = mapped_column(Integer, default=0)
+    void: Mapped[int] = mapped_column(Integer, default=0)
+    entropy: Mapped[int] = mapped_column(Integer, default=0)
+
     last_daily_claimed_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -66,6 +83,12 @@ class Player(Base):
         back_populates="player", cascade="all, delete-orphan"
     )
     lootboxes: Mapped[List["PlayerLootbox"]] = relationship(  # noqa: F821
+        back_populates="player", cascade="all, delete-orphan"
+    )
+    characters: Mapped[List["PlayerCharacter"]] = relationship(  # noqa: F821
+        back_populates="player", cascade="all, delete-orphan"
+    )
+    squad_slots: Mapped[List["SquadSlot"]] = relationship(  # noqa: F821
         back_populates="player", cascade="all, delete-orphan"
     )
 

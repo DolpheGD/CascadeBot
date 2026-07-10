@@ -31,6 +31,11 @@ class HarvesterTemplate(Base):
     unlock_currency: Mapped[str] = mapped_column(String(16), default="gold")
 
     base_rate_per_hour: Mapped[float] = mapped_column(Float, default=1.0)
+    # production_rate(level) = base_rate_per_hour * (level ** level_scaling_exponent)
+    # 1.0 = linear (unchanged old behavior); below 1.0 = diminishing returns
+    # per level, used to keep rarer currencies (Shards) from scaling too
+    # fast off upgrades alone.
+    level_scaling_exponent: Mapped[float] = mapped_column(Float, default=1.0)
     max_level: Mapped[int] = mapped_column(Integer, default=10)
     max_accumulation_hours: Mapped[float] = mapped_column(Float, default=8.0)
 
@@ -67,7 +72,7 @@ class LootboxTemplate(Base):
     __tablename__ = "lootbox_templates"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    tier: Mapped[str] = mapped_column(String(16), unique=True)  # "common", "rare", "epic", "legendary"
+    tier: Mapped[str] = mapped_column(String(16), unique=True)  # common/uncommon/rare/epic/legendary/mythic
     name: Mapped[str] = mapped_column(String(64))
     description: Mapped[str] = mapped_column(String(256), default="")
 

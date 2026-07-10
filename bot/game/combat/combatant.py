@@ -22,11 +22,17 @@ STAT_KEYS = [
 @dataclass
 class Combatant:
     name: str
-    is_player: bool
+    is_player: bool  # True for any of the player's up-to-4 squad members, False for enemies
     base_stats: dict  # one entry per STAT_KEYS, already includes equipment bonuses
 
     current_hp: int
     max_hp: int
+
+    # Which PlayerCharacter this Combatant was built from (None for
+    # enemies) -- lets combat_service map battle results (HP left, XP)
+    # back to the right owned character afterward.
+    character_id: int | None = None
+    character_class: str | None = None  # display only (CharacterClass.value)
 
     mana: int = 0
     max_mana: int = 0
@@ -66,7 +72,11 @@ class Combatant:
 
     def effective_stat(self, stat: str) -> float:
         """Base stat, adjusted by every active percent modifier and any
-        stacking passive buffs (e.g. Momentum) affecting that stat."""
+        stacking passive buffs (e.g. Momentum) affecting that stat.
+        Rounded to 2 decimal places -- chained float multiplication across
+        several modifiers/passives was producing long, ugly decimals in
+        combat logs and UI (e.g. 143.79999999999998); nothing in this game
+        needs sub-cent precision on a stat value."""
         base = self.base_stats.get(stat, 0)
         percent_total = sum(m.percent for m in self.modifiers if m.stat == stat)
 
@@ -76,7 +86,7 @@ class Combatant:
                 stacks = self.stacks.get(ability["id"], 0)
                 percent_total += effect["percent_per_stack"] * stacks
 
-        return max(0.0, base * (1 + percent_total / 100))
+        return round(max(0.0, base * (1 + percent_total / 100)), 2)
 
     def take_raw_hp_loss(self, amount: float) -> int:
         """Reduce HP by an already-computed damage amount. Returns actual loss."""
@@ -91,16 +101,24 @@ class Combatant:
         self.current_hp += healed
         return healed
 
-    def gain_energy_and_mana(self, amount: float | None = None) -> tuple[int, int]:
+    def gain_energy_and_mana(self, percent: float | None = None) -> tuple[int, int]:
         """Called after a basic attack: the default attack builds both
-        energy (toward the ultimate) and mana (to spend on skills), by the
-        combatant's Recharge stat. Returns (energy_gained, mana_gained)."""
-        amt = amount if amount is not None else self.effective_stat("recharge")
-        amt = max(0, int(round(amt)))
+        energy (toward the ultimate) and mana (to spend on skills), by a
+        PERCENT of each pool's max, scaled by the combatant's Recharge stat
+        (recharge is itself a % value, e.g. 5 = +5% of max per basic
+        attack). This -- rather than the old flat-amount version -- is what
+        keeps Recharge from letting a high-level character reach their
+        ultimate in 1-2 turns: a bigger max_mana/max_energy pool from
+        leveling doesn't make each attack refill it any faster in absolute
+        terms, only relative to that bigger pool. Returns (energy_gained, mana_gained)."""
+        pct = percent if percent is not None else self.effective_stat("recharge")
+        pct = max(0.0, pct)
 
         before_energy, before_mana = self.energy, self.mana
-        self.energy = min(self.max_energy, self.energy + amt)
-        self.mana = min(self.max_mana, self.mana + amt)
+        energy_gain = int(round(self.max_energy * pct / 100))
+        mana_gain = int(round(self.max_mana * pct / 100))
+        self.energy = min(self.max_energy, self.energy + energy_gain)
+        self.mana = min(self.max_mana, self.mana + mana_gain)
         return self.energy - before_energy, self.mana - before_mana
 
     def find_passive(self, effect_kind: str) -> list:

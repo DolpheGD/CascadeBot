@@ -1,24 +1,32 @@
 """
 Equipment: the static catalog (ItemTemplate) and rolled, owned drops
-(InventoryItem) that make up the "equipment progression" loop. This single
-system now covers weapons, armor, artifacts, AND scrolls (the ultimate
-carrier) -- they all roll the same way (rarity -> main stat -> substats ->
-ability), just with different main-stat pools and ability rules per
-item_type:
+(InventoryItem) that make up the "equipment progression" loop.
 
-    Base Item (ItemTemplate) -> Rarity -> Main stat -> Substats (0-4) ->
-    Ability roll -> Name
+Combat Overhaul changes:
+  * Only four slots exist now (WEAPON, ARTIFACT, ARMOR, ACCESSORY), one item
+    each -- see bot/database/models/enums.py::EquipmentSlot. The old
+    primary/secondary weapon-and-artifact pairing and the SCROLL slot are
+    gone; ultimates come from the character's kit instead of gear.
+  * Equipment is now equipped PER CHARACTER (InventoryItem.character_id),
+    not per player -- each of your 4 squad members has their own loadout.
+  * Items start with 0-2 substats instead of 0-4. Growing beyond that (up
+    to a max of 4) costs a separate, much larger "add substat" spend of
+    reroll tokens (see rarity_config.ADD_SUBSTAT_COST) -- a plain reroll
+    only re-rolls the substats you already have.
+  * Artifacts can now main-stat into HP or DEF, not just offense/utility.
+
+    Base Item (ItemTemplate) -> Rarity -> Main stat -> Substats (0-2 base,
+    up to 4 with Substat Catalyst spend) -> Ability roll -> Name
 
   * WEAPON: main stat is attack or elemental. May roll ONE active ability
     (a "weapon skill"). No passives.
-  * ARMOR (helmet/necklace, chest, leggings, boots): main stat is defense,
-    health, speed, energy (recharge), or mana. May roll ONE passive
-    ability. No actives -- armor is passive-only by design.
+  * ARMOR: main stat is defense, health, speed, energy (recharge), or mana.
+    May roll ONE passive ability. No actives.
+  * ACCESSORY: main stat is defense, health, speed, energy (recharge), mana,
+    crit rate, or crit damage. May roll ONE passive ability. No actives.
   * ARTIFACT: main stat is speed, energy (recharge), attack, elemental,
-    crit damage, or crit rate. May roll ONE active ability (an "artifact
-    skill"). No passives.
-  * SCROLL: always carries exactly one ultimate ability. Small main stat
-    for flavor, no substats.
+    crit damage, crit rate, HP, or DEF. May roll ONE active ability (an
+    "artifact skill"). No passives.
 
 ItemTemplate is hand-authored design-time data (one row per base item, e.g.
 "Iron Sword"). InventoryItem is what the loot generator
@@ -79,6 +87,14 @@ class InventoryItem(Base):
     )
     template_id: Mapped[int] = mapped_column(Integer, ForeignKey("item_templates.id"))
 
+    # Which owned character (if any) has this equipped. NULL = sitting
+    # unequipped in the player's shared inventory. A character can hold at
+    # most one item per EquipmentSlot -- enforced in inventory_service, not
+    # at the DB layer, so we can give clean error messages.
+    character_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("player_characters.id", ondelete="SET NULL"), nullable=True
+    )
+
     item_type: Mapped[ItemType] = mapped_column(default=ItemType.WEAPON)
     rarity: Mapped[Rarity] = mapped_column(default=Rarity.COMMON)
     slot: Mapped[EquipmentSlot] = mapped_column()
@@ -88,25 +104,21 @@ class InventoryItem(Base):
     main_stat_value: Mapped[float] = mapped_column(Integer, default=0)
 
     # [{"stat": "crit_rate", "value": 8.0, "value_type": "flat"}, ...] --
-    # 0 to 4 entries. value_type is "flat" (added directly) or "percent"
-    # (percent of the PLAYER'S BASE stat, computed once and added as a flat
-    # bonus -- percent substats never compound with other gear).
+    # 0 to 2 entries on roll, growable up to 4 via a Substat Catalyst spend
+    # (bot/services/item_upgrade_service.py::add_substat). value_type is
+    # "flat" (added directly) or "percent" (percent of the CHARACTER'S BASE
+    # stat, computed once and added as a flat bonus -- percent substats
+    # never compound with other equipped items).
     substats: Mapped[list] = mapped_column(JSON, default=list)
 
     # Only one of these is ever populated, depending on item_type:
-    # weapon/artifact/scroll -> active_ability, armor -> passive_ability.
-    # Kept as two columns (rather than one polymorphic one) so combat code
-    # can keep reading "every active ability" / "every passive ability"
-    # uniformly regardless of source slot.
+    # weapon/artifact -> active_ability, armor/accessory -> passive_ability.
     active_ability: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     passive_ability: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     display_name: Mapped[str] = mapped_column(String(96))  # e.g. "Savage Iron Sword of Chaos"
 
     is_equipped: Mapped[bool] = mapped_column(Boolean, default=False)
-    # For capacity-2 slots (WEAPON, ARTIFACT): 0 = primary/first, 1 =
-    # secondary/second. Meaningless (always 0) for capacity-1 slots.
-    equip_slot_index: Mapped[int] = mapped_column(Integer, default=0)
     reroll_count: Mapped[int] = mapped_column(Integer, default=0)
 
     acquired_at: Mapped[dt.datetime] = mapped_column(
@@ -115,6 +127,7 @@ class InventoryItem(Base):
 
     player: Mapped["Player"] = relationship(back_populates="inventory_items")  # noqa: F821
     template: Mapped["ItemTemplate"] = relationship()
+    character: Mapped["PlayerCharacter | None"] = relationship(back_populates="equipped_items")  # noqa: F821
 
     def total_stat_bonus_flat(self, stat: str) -> float:
         """Sum of every FLAT contribution to `stat` from main stat + flat substats."""
@@ -127,7 +140,7 @@ class InventoryItem(Base):
 
     def percent_substats_for(self, stat: str) -> float:
         """Sum of every PERCENT substat contribution to `stat` (percentage points,
-        to be applied against the player's base stat by the caller)."""
+        to be applied against the character's base stat by the caller)."""
         return sum(
             s["value"] for s in self.substats
             if s.get("stat") == stat and s.get("value_type") == "percent"
@@ -140,9 +153,6 @@ class InventoryItem(Base):
 
     def has_ability(self) -> bool:
         return self.active_ability is not None or self.passive_ability is not None
-
-    def is_ultimate(self) -> bool:
-        return self.item_type == ItemType.SCROLL
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<InventoryItem {self.display_name!r} rarity={self.rarity}>"

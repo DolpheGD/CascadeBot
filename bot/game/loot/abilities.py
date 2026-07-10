@@ -7,10 +7,12 @@ the InventoryItem's active_ability / passive_ability JSON column.
 Four separate pools, matching the equipment design:
   * WEAPON_SKILLS   -- active, costs mana. Rolled onto WEAPON items only.
   * ARTIFACT_SKILLS -- active, costs mana. Rolled onto ARTIFACT items only.
-  * ULTIMATE_ABILITIES -- active, costs 100 energy (not mana). Every SCROLL
-    always carries exactly one of these.
+  * ULTIMATE_ABILITIES -- kept as a reference catalog for character kit
+    design (Combat Overhaul: ultimates now come from each character's kit,
+    not gear -- see CharacterTemplate.ultimate_id in character_model.py).
+    No longer rolled onto items.
   * ARMOR_PASSIVES  -- passive, always-on or conditional. Rolled onto
-    HEAD/CHEST/LEGGINGS/BOOTS items only.
+    ARMOR/ACCESSORY items only.
 
 `effect` is a small, structured dict rather than free code -- combat reads
 `effect["kind"]` and applies matching logic (see bot/game/combat/effects.py).
@@ -302,7 +304,7 @@ ARMOR_PASSIVES: list[dict] = [
     {
         "id": "undying_will",
         "name": "Undying Will",
-        "min_rarity": Rarity.ANCIENT,
+        "min_rarity": Rarity.DIVINE,
         "trigger": "on_low_hp",
         "description": "The first fatal hit in a fight instead leaves you at 1 HP.",
         "effect": {"kind": "prevent_death", "charges_per_combat": 1},

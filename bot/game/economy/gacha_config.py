@@ -3,6 +3,11 @@ Gacha pulls use a distinct, more generous rarity table than natural dungeon
 drops (bot/game/loot/rarity_config.py) -- no Commons, and a meaningfully
 better floor at every tier. This is what makes spending Shards feel worth
 it compared to just running expeditions.
+
+NOTE: per the Combat Overhaul, the primary gacha banner is being changed to
+pull CHARACTERS instead of gear (see bot/game/characters/ and the planned
+bot/services/character_gacha_service.py). This item-rarity gacha table is
+kept around for a secondary "gear banner" / testing use in the meantime.
 """
 
 from __future__ import annotations
@@ -16,9 +21,8 @@ GACHA_RARITY_WEIGHTS: dict[Rarity, float] = {
     Rarity.RARE: 35.0,
     Rarity.EPIC: 20.0,
     Rarity.LEGENDARY: 10.0,
-    Rarity.MYTHIC: 3.5,
-    Rarity.ANCIENT: 1.2,
-    Rarity.DIVINE: 0.3,
+    Rarity.MYTHIC: 4.0,
+    Rarity.DIVINE: 1.0,
 }
 
 SINGLE_PULL_COST_SHARDS = 100

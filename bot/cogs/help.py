@@ -19,7 +19,8 @@ class Help(commands.Cog):
             title="Welcome to CascadeBot",
             description=(
                 "A quick path to get going:\n"
-                "`/start` -> `/adventure` -> fight your way to gear -> `/inventory` to equip it -> repeat."
+                "`/start` -> `/pull` a couple characters -> `/squad` to set your team -> "
+                "`/adventure` -> gear up with `/inventory` -> repeat."
             ),
             color=discord.Color.blurple(),
         )
@@ -28,8 +29,10 @@ class Help(commands.Cog):
         embed.add_field(
             name="🧑 Getting Started",
             value=(
-                "`/start` -- create your character\n"
-                "`/profile` -- 3-page view: Overview, Equipment (every slot), and Abilities"
+                "`/start` -- create your profile (grants your own class-switchable avatar character)\n"
+                "`/profile` -- 3-page view of your avatar: Overview, Equipment, and Abilities\n"
+                "`/squad` -- view/assign your 4-character active team (slot 1 is always your avatar)\n"
+                "`/characters` -- list every character you own"
             ),
             inline=False,
         )
@@ -46,17 +49,17 @@ class Help(commands.Cog):
         embed.add_field(
             name="🥊 How Combat Works",
             value=(
-                "**Turn order is speed-based, not fixed** -- see the 🔀 Turn "
-                "Order line on the battle message. Everyone has a gauge that "
-                "fills according to SPD; whoever fills up first acts, and a "
-                "much faster combatant can act several times in a row.\n\n"
-                "**Actions (no defending, no fleeing):**\n"
-                "⚔️ **Attack** -- always available, builds Energy and Mana "
-                "equal to your Recharge stat.\n"
-                "✨ **Skill** -- up to 2 Weapon Skills + 2 Artifact Skills "
-                "from your equipped gear, costs Mana.\n"
-                "💥 **Ultimate** -- from your equipped Scroll, usable once "
-                "Energy reaches 100.\n"
+                "You fight with your full 4-character squad against enemies, one "
+                "party member's turn at a time. **Turn order is speed-based, not "
+                "fixed** -- see the 🔀 Turn Order line on the battle message.\n\n"
+                "**Each character's actions (no defending, no fleeing):**\n"
+                "⚔️ **Attack** -- always available, builds Energy and Mana equal "
+                "to a % of each pool's max (scaled by Recharge).\n"
+                "🌀 **Character Skill** -- fixed to that character (or your class, "
+                "for your own avatar), costs Mana.\n"
+                "💥 **Character Ultimate** -- also fixed to the character/class, "
+                "usable once Energy reaches 100.\n"
+                "⚔️🔮 **Weapon/Artifact Skill** -- from equipped gear, if any, costs Mana.\n"
                 "🎯 Use the target dropdown to switch which enemy you're aiming at -- "
                 "switching targets is free and doesn't use your turn.\n\n"
                 "**Stats:** ❤️ HP, ⚔️ ATK, 🛡️ DEF, 💧 MP, 🔮 ELE (elemental "
@@ -74,23 +77,24 @@ class Help(commands.Cog):
                 "mode to see full stats/abilities and Equip, Level Up, "
                 "Reroll, or Open it. Use 🔍 Jump to # to go straight to a "
                 "specific entry.\n"
-                "2 Weapons, Helmet/Necklace, Chestplate, Leggings, Boots, "
-                "2 Artifacts, and 1 Scroll (your ultimate) -- 9 slots total."
+                "Each character has 4 slots: Weapon, Artifact, Armor, and Accessory -- "
+                "equipping asks which of your squad members should wear it. "
+                "Ultimates come from characters now, not gear."
             ),
             inline=False,
         )
         embed.add_field(
             name="💰 Economy",
             value=(
-                "`/daily` -- claim your daily reward (streak bonuses + lootboxes)\n"
+                "`/daily` -- claim your daily reward (gold, reroll tokens, streak bonuses + lootboxes)\n"
                 "`/harvesters` -- buy, upgrade, and collect passive income, all in one place\n"
-                "`/pull` -- gacha pull with Shards\n"
-                "`/lootboxes` -- view what you're holding\n"
-                "`/open <tier>` -- open all lootboxes of a tier"
+                "`/pull` -- spend Shards to pull a new character (single or 10x)\n"
+                "`/pull_rates` -- view gacha odds and costs\n"
+                "`/open <tier>` -- open all lootboxes of a tier (view them in `/inventory`)"
             ),
             inline=False,
         )
-        embed.set_footer(text="Gold is common currency; Shards are rarer, used for gacha and premium rewards.")
+        embed.set_footer(text="Gold is common currency; Shards are rarer, used for the character gacha.")
 
         await ctx.response.send_message(embed=embed)
 

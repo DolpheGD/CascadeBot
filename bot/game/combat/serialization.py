@@ -31,6 +31,8 @@ def combatant_to_dict(c: Combatant) -> dict:
         "base_stats": dict(c.base_stats),
         "current_hp": c.current_hp,
         "max_hp": c.max_hp,
+        "character_id": c.character_id,
+        "character_class": c.character_class,
         "mana": c.mana,
         "max_mana": c.max_mana,
         "energy": c.energy,
@@ -55,6 +57,8 @@ def combatant_from_dict(data: dict) -> Combatant:
         base_stats=dict(data["base_stats"]),
         current_hp=data["current_hp"],
         max_hp=data["max_hp"],
+        character_id=data.get("character_id"),
+        character_class=data.get("character_class"),
         mana=data["mana"],
         max_mana=data["max_mana"],
         energy=data["energy"],
@@ -73,16 +77,16 @@ def combatant_from_dict(data: dict) -> Combatant:
 
 
 def battle_to_dict(battle: Battle) -> dict:
-    all_combatants = [battle.player] + battle.enemies
+    all_combatants = battle.party + battle.enemies
     return {
-        "player": combatant_to_dict(battle.player),
+        "party": [combatant_to_dict(c) for c in battle.party],
         "enemies": [combatant_to_dict(e) for e in battle.enemies],
         "turn_count": battle.turn_count,
         "log": list(battle.log),
         "result": battle.result,
-        "player_target_index": battle.player_target_index,
-        # Index into [player] + enemies -- unambiguous even when two
-        # enemies share a name (e.g. two Goblins).
+        "target_index": battle.target_index,
+        # Index into party + enemies -- unambiguous even when two
+        # combatants share a name (e.g. two Goblins).
         "current_actor_index": all_combatants.index(battle._current_actor),
     }
 
@@ -92,17 +96,17 @@ def battle_from_dict(data: dict, rng: random.Random | None = None) -> Battle:
     everyone's turn gauge. Bypasses Battle.__init__ (which would kick off a
     fresh turn-gauge race from zero) since we're restoring an
     already-in-progress fight."""
-    player = combatant_from_dict(data["player"])
+    party = [combatant_from_dict(p) for p in data["party"]]
     enemies = [combatant_from_dict(e) for e in data["enemies"]]
-    all_combatants = [player] + enemies
+    all_combatants = party + enemies
 
     battle = Battle.__new__(Battle)
-    battle.player = player
+    battle.party = party
     battle.enemies = enemies
     battle.rng = rng or random.Random()
     battle.turn_count = data["turn_count"]
     battle.log = list(data["log"])
     battle.result = data["result"]
-    battle.player_target_index = data.get("player_target_index", 0)
+    battle.target_index = data.get("target_index", data.get("player_target_index", 0))
     battle._current_actor = all_combatants[data["current_actor_index"]]
     return battle

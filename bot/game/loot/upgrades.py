@@ -8,25 +8,21 @@ from __future__ import annotations
 
 import random
 
-from bot.database.models.enums import ItemType
 from bot.database.models.equipment_model import InventoryItem
 from bot.game.loot import naming
-from bot.game.loot.rarity_config import RARITY_STAT_MULTIPLIER, RARITY_SUBSTAT_COUNT
+from bot.game.loot.rarity_config import MAX_SUBSTATS, RARITY_STAT_MULTIPLIER
 from bot.game.loot.stat_pools import STAT_KEYS, roll_substat_value, roll_substat_value_type
 
 
 def reroll_substats(item: InventoryItem, rng: random.Random | None = None) -> InventoryItem:
-    """Re-roll every substat on `item`, keeping the same count (unless the
-    rarity's range has since changed) but with fresh stats, flat/percent
-    types, and values. Increments reroll_count so future costs/limits can
-    scale with it. Scrolls have no substats to reroll."""
+    """Re-roll every substat CURRENTLY on `item` (fresh stats, flat/percent
+    types, and values) without changing how many it has. Use add_substat()
+    to grow the count instead. Increments reroll_count for record-keeping."""
     rng = rng or random.Random()
 
-    if item.item_type == ItemType.SCROLL:
+    count = len(item.substats)
+    if count == 0:
         return item
-
-    lo, hi = RARITY_SUBSTAT_COUNT[item.rarity]
-    count = max(lo, min(len(item.substats) or lo, hi)) if item.substats else rng.randint(lo, hi)
 
     candidates = [s for s in STAT_KEYS if s != item.main_stat_type]
     chosen = rng.sample(candidates, k=min(count, len(candidates)))
@@ -39,6 +35,37 @@ def reroll_substats(item: InventoryItem, rng: random.Random | None = None) -> In
         substats.append({"stat": stat, "value": value, "value_type": value_type})
     item.substats = substats
     item.reroll_count += 1
+
+    item.display_name = naming.generate_display_name(
+        base_name=item.template.name,
+        rarity=item.rarity,
+        substats=item.substats,
+        active_ability=item.active_ability,
+        passive_ability=item.passive_ability,
+        rng=rng,
+    )
+    return item
+
+
+def add_substat(item: InventoryItem, rng: random.Random | None = None) -> InventoryItem:
+    """Grow `item`'s substat count by exactly one, up to MAX_SUBSTATS. The
+    caller (item_upgrade_service) is responsible for charging the much
+    steeper ADD_SUBSTAT_COST before calling this -- this function assumes
+    the spend already happened and just does the roll."""
+    rng = rng or random.Random()
+    if len(item.substats) >= MAX_SUBSTATS:
+        return item
+
+    taken = {s["stat"] for s in item.substats} | {item.main_stat_type}
+    candidates = [s for s in STAT_KEYS if s not in taken]
+    if not candidates:
+        return item
+
+    stat = rng.choice(candidates)
+    multiplier = RARITY_STAT_MULTIPLIER[item.rarity]
+    value_type = roll_substat_value_type(stat, rng)
+    value = roll_substat_value(stat, value_type, item.item_level, multiplier, rng)
+    item.substats = [*item.substats, {"stat": stat, "value": value, "value_type": value_type}]
 
     item.display_name = naming.generate_display_name(
         base_name=item.template.name,

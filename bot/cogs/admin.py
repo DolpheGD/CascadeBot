@@ -18,7 +18,7 @@ from bot.database.models.enums import EquipmentSlot, ItemType, Rarity
 from bot.database.models.equipment_model import ItemTemplate
 from bot.database.session import SessionLocal
 from bot.game.loot.generator import LootGenerator
-from bot.services import inventory_service, lootbox_service
+from bot.services import character_service, inventory_service, lootbox_service
 from bot.services.currency_service import add_currency
 from bot.services.player_service import get_or_create_player
 from bot.utils.guild_decorator import guild_decorator
@@ -81,13 +81,10 @@ class Admin(commands.Cog):
             granted_names: list[str] = []
 
             slot_counts = {
-                EquipmentSlot.WEAPON: 2,
-                EquipmentSlot.HEAD: 1,
-                EquipmentSlot.CHEST: 1,
-                EquipmentSlot.LEGGINGS: 1,
-                EquipmentSlot.BOOTS: 1,
-                EquipmentSlot.ARTIFACT: 2,
-                EquipmentSlot.SCROLL: 1,
+                EquipmentSlot.WEAPON: 1,
+                EquipmentSlot.ARMOR: 1,
+                EquipmentSlot.ACCESSORY: 1,
+                EquipmentSlot.ARTIFACT: 1,
             }
 
             for slot, count in slot_counts.items():
@@ -96,6 +93,7 @@ class Admin(commands.Cog):
                     continue
                 chosen = (templates * count)[:count] if len(templates) < count else generator.rng.sample(templates, count)
 
+                character = character_service.ensure_avatar_character(db, player)
                 for template in chosen:
                     item = generator.generate_item(
                         template,
@@ -108,7 +106,7 @@ class Admin(commands.Cog):
                     db.commit()
                     db.refresh(item)
 
-                    ok, message = inventory_service.equip_item(db, player, item)
+                    ok, message = inventory_service.equip_item(db, character, item)
                     granted_names.append(f"{'✅' if ok else '⚠️'} {item.display_name}")
 
             db.commit()

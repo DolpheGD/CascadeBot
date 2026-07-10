@@ -17,8 +17,7 @@ class Rarity(str, enum.Enum):
     EPIC = "epic"
     LEGENDARY = "legendary"
     MYTHIC = "mythic"
-    ANCIENT = "ancient"
-    DIVINE = "divine"
+    DIVINE = "divine"  # highest rarity -- Ancient tier was removed in the Combat Overhaul
 
     @property
     def sort_order(self) -> int:
@@ -27,72 +26,51 @@ class Rarity(str, enum.Enum):
 
 class EquipmentSlot(str, enum.Enum):
     """
-    Nine total gear slots:
-      - WEAPON (capacity 2): primary + secondary. Whichever is equipped
-        first becomes "primary" (grants weapon skill 1), the second
-        becomes "secondary" (weapon skill 2) -- tracked via
-        InventoryItem.equip_slot_index.
-      - HEAD (capacity 1): a helmet or a necklace -- same slot, cosmetic
-        difference only.
-      - CHEST / LEGGINGS / BOOTS (capacity 1 each).
-      - ARTIFACT (capacity 2): artifact skill 1 + 2, same equip_slot_index
-        pattern as WEAPON.
-      - SCROLL (capacity 1): determines the player's ultimate ability.
+    Combat Overhaul simplified gear to FOUR slots per character, one item each:
+      - WEAPON: grants a weapon skill (active) if the equipped weapon rolled one.
+      - ARTIFACT: grants an artifact skill (active) if the equipped artifact
+        rolled one. Artifacts may main-stat into HP or DEF now, not just
+        offense/utility stats.
+      - ARMOR: main defensive piece (defense/hp/speed/recharge/mana), passive-only.
+      - ACCESSORY: secondary defensive/utility piece, passive-only.
+    Ultimates are no longer tied to gear at all -- they come from the
+    character's kit (see character_model.py), so the old SCROLL slot is gone.
     """
     WEAPON = "weapon"
-    HEAD = "head"
-    CHEST = "chest"
-    LEGGINGS = "leggings"
-    BOOTS = "boots"
     ARTIFACT = "artifact"
-    SCROLL = "scroll"
+    ARMOR = "armor"
+    ACCESSORY = "accessory"
 
 
-# How many of a given slot a player can have equipped at once.
+# Every slot holds exactly one item now (no more primary/secondary pairs).
 SLOT_CAPACITY: dict[EquipmentSlot, int] = {
-    EquipmentSlot.WEAPON: 2,
-    EquipmentSlot.HEAD: 1,
-    EquipmentSlot.CHEST: 1,
-    EquipmentSlot.LEGGINGS: 1,
-    EquipmentSlot.BOOTS: 1,
-    EquipmentSlot.ARTIFACT: 2,
-    EquipmentSlot.SCROLL: 1,
+    EquipmentSlot.WEAPON: 1,
+    EquipmentSlot.ARTIFACT: 1,
+    EquipmentSlot.ARMOR: 1,
+    EquipmentSlot.ACCESSORY: 1,
 }
 
-# Armor slots specifically -- used to decide "does this slot only grant
-# passives" (per design: weapons/artifacts grant active skills, armor only
-# grants passives, scrolls always carry the ultimate).
-ARMOR_SLOTS = {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGGINGS, EquipmentSlot.BOOTS}
+# Slots that only ever grant passives (weapon/artifact grant actives instead).
+ARMOR_SLOTS = {EquipmentSlot.ARMOR, EquipmentSlot.ACCESSORY}
 
-# Display labels, including how to refer to slot index 0 vs 1 for the
-# capacity-2 slots (Weapon -> Primary/Secondary, Artifact -> 1/2).
 SLOT_DISPLAY_NAME: dict[EquipmentSlot, str] = {
     EquipmentSlot.WEAPON: "Weapon",
-    EquipmentSlot.HEAD: "Helmet / Necklace",
-    EquipmentSlot.CHEST: "Chestplate",
-    EquipmentSlot.LEGGINGS: "Leggings",
-    EquipmentSlot.BOOTS: "Boots",
     EquipmentSlot.ARTIFACT: "Artifact",
-    EquipmentSlot.SCROLL: "Scroll",
+    EquipmentSlot.ARMOR: "Armor",
+    EquipmentSlot.ACCESSORY: "Accessory",
 }
 
 SLOT_EMOJI: dict[EquipmentSlot, str] = {
     EquipmentSlot.WEAPON: "⚔️",
-    EquipmentSlot.HEAD: "🪖",
-    EquipmentSlot.CHEST: "👕",
-    EquipmentSlot.LEGGINGS: "👖",
-    EquipmentSlot.BOOTS: "👢",
     EquipmentSlot.ARTIFACT: "🔮",
-    EquipmentSlot.SCROLL: "📜",
+    EquipmentSlot.ARMOR: "🛡️",
+    EquipmentSlot.ACCESSORY: "💍",
 }
 
 
-def slot_index_label(slot: EquipmentSlot, index: int) -> str:
-    """'Primary'/'Secondary' for weapons, '1'/'2' for artifacts, else just the slot name."""
-    if slot == EquipmentSlot.WEAPON:
-        return "Primary" if index == 0 else "Secondary"
-    if slot == EquipmentSlot.ARTIFACT:
-        return "1" if index == 0 else "2"
+def slot_index_label(slot: EquipmentSlot, index: int = 0) -> str:
+    """Kept for backwards compatibility with older display code -- every
+    slot is single-capacity now, so this is always just the slot name."""
     return SLOT_DISPLAY_NAME[slot]
 
 
@@ -100,8 +78,10 @@ class ItemType(str, enum.Enum):
     WEAPON = "weapon"
     ARMOR = "armor"
     ARTIFACT = "artifact"
-    SCROLL = "scroll"
     MATERIAL = "material"
+    # SCROLL removed -- ultimates now come from character kits. Any leftover
+    # scroll drops should be converted to Substat Catalysts (see
+    # bot/game/economy/currency_config.py) via a one-time migration.
 
 
 class ExpeditionStatus(str, enum.Enum):
@@ -124,3 +104,76 @@ class RoomType(str, enum.Enum):
     PUZZLE = "puzzle"
     SECRET = "secret"
     BOSS = "boss"
+
+
+class CharacterClass(str, enum.Enum):
+    """The four roles introduced in the Combat Overhaul. The player's own
+    avatar character can freely switch between these (see
+    CharacterTemplate.is_player_avatar); pulled characters have a fixed
+    class matching their kit design."""
+    DPS = "dps"
+    SUPPORT_DPS = "support_dps"
+    AMPLIFIER = "amplifier"
+    SUSTAIN = "sustain"
+
+
+CLASS_DISPLAY_NAME: dict[CharacterClass, str] = {
+    CharacterClass.DPS: "DPS",
+    CharacterClass.SUPPORT_DPS: "Support DPS",
+    CharacterClass.AMPLIFIER: "Amplifier",
+    CharacterClass.SUSTAIN: "Sustain",
+}
+
+CLASS_EMOJI: dict[CharacterClass, str] = {
+    CharacterClass.DPS: "⚔️",
+    CharacterClass.SUPPORT_DPS: "🎯",
+    CharacterClass.AMPLIFIER: "📡",
+    CharacterClass.SUSTAIN: "💚",
+}
+
+
+class MaterialType(str, enum.Enum):
+    """Gear-upgrade materials, tiered by rarity. Earned from harvesters,
+    dungeon rewards, and dismantling. Used alongside gold for item
+    upgrading (see bot/game/loot/rarity_config.py)."""
+    WOOD = "wood"
+    STONE = "stone"
+    METAL = "metal"
+    CRYSTAL = "crystal"
+    XENDIUM = "xendium"
+    PERMAFROST_ORE = "permafrost_ore"
+    VOID = "void"
+    ENTROPY = "entropy"
+
+    @property
+    def tier(self) -> int:
+        """0 = most common, 3 = rarest."""
+        return {
+            MaterialType.WOOD: 0, MaterialType.STONE: 0,
+            MaterialType.METAL: 1, MaterialType.CRYSTAL: 1,
+            MaterialType.XENDIUM: 2, MaterialType.PERMAFROST_ORE: 2,
+            MaterialType.VOID: 3, MaterialType.ENTROPY: 3,
+        }[self]
+
+
+MATERIAL_DISPLAY_NAME: dict[MaterialType, str] = {
+    MaterialType.WOOD: "Wood",
+    MaterialType.STONE: "Stone",
+    MaterialType.METAL: "Metal",
+    MaterialType.CRYSTAL: "Crystal",
+    MaterialType.XENDIUM: "Xendium",
+    MaterialType.PERMAFROST_ORE: "Permafrost Ore",
+    MaterialType.VOID: "Void",
+    MaterialType.ENTROPY: "Entropy",
+}
+
+MATERIAL_EMOJI: dict[MaterialType, str] = {
+    MaterialType.WOOD: "🪵",
+    MaterialType.STONE: "🪨",
+    MaterialType.METAL: "⚙️",
+    MaterialType.CRYSTAL: "💎",
+    MaterialType.XENDIUM: "🔷",
+    MaterialType.PERMAFROST_ORE: "🧊",
+    MaterialType.VOID: "🕳️",
+    MaterialType.ENTROPY: "🌀",
+}

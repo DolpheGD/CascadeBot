@@ -65,3 +65,23 @@ ELITE_MIN_FLOOR_INDEX = 2
 
 # Width (node count) of the forced rest floor placed right before the boss.
 REST_FLOOR_WIDTH = 2
+
+# How many boss fights a single expedition has, end to end -- picked once
+# at expedition start. Weighted toward shorter runs so a typical run stays
+# quick, with longer 3-4 boss runs as a rarer, bigger commitment for bigger
+# cumulative rewards (each boss kill pays out the BOSS reward multiplier --
+# see combat_service.ROOM_TYPE_REWARD_MULTIPLIER).
+NUM_BOSSES_WEIGHTS: dict[int, float] = {1: 55.0, 2: 30.0, 3: 12.0, 4: 3.0}
+
+# Random floors-per-segment range (a "segment" = the floors leading up to
+# and including one boss fight, not counting the shared entry floor). Kept
+# the same regardless of how many bosses the run has, so total length
+# scales roughly linearly with num_bosses rather than each segment
+# shrinking to compensate.
+SEGMENT_FLOOR_RANGE = (5, 8)
+
+
+def roll_num_bosses(rng) -> int:
+    counts = list(NUM_BOSSES_WEIGHTS.keys())
+    weights = list(NUM_BOSSES_WEIGHTS.values())
+    return rng.choices(counts, weights=weights, k=1)[0]

@@ -4,9 +4,14 @@ items from. Same upsert-on-startup pattern as harvesters
 (bot/services/lootbox_service.py's ensure_lootbox_templates_seeded).
 
 Each tier's rarity table has a strictly better floor than the one below it
-(Common can still roll Common; Rare can't roll below Uncommon; Epic can't
-roll below Rare; Legendary can't roll below Epic) so opening a better box
-always feels like a step up, not just "same odds, more currency."
+so opening a better box always feels like a step up, not just "same odds,
+more currency."
+
+Economy pass (per the balancing spec): more lootbox TIERS exist now (six,
+up from four) so players have more boxes dropping/rewarded overall, but the
+top end (Mythic/Divine gear, and the boxes that can roll them) is pushed
+further out of reach than before -- Divine essentially never drops outside
+the top-tier box, and even there it's a sliver of a chance.
 """
 
 from __future__ import annotations
@@ -18,15 +23,23 @@ LOOTBOX_TEMPLATES: list[dict] = [
         "tier": "common",
         "name": "Common Lootbox",
         "description": "A simple satchel of supplies. Everyone's daily bread and butter.",
-        "min_gold": 30, "max_gold": 80,
+        "min_gold": 20, "max_gold": 55,
         "min_shards": 0, "max_shards": 0,
+        "item_count": 1,
+    },
+    {
+        "tier": "uncommon",
+        "name": "Uncommon Lootbox",
+        "description": "A sturdy sack -- a small step up from the basics.",
+        "min_gold": 35, "max_gold": 90,
+        "min_shards": 0, "max_shards": 2,
         "item_count": 1,
     },
     {
         "tier": "rare",
         "name": "Rare Lootbox",
         "description": "A reinforced chest -- guaranteed at least an Uncommon find.",
-        "min_gold": 60, "max_gold": 150,
+        "min_gold": 50, "max_gold": 130,
         "min_shards": 0, "max_shards": 5,
         "item_count": 1,
     },
@@ -34,59 +47,81 @@ LOOTBOX_TEMPLATES: list[dict] = [
         "tier": "epic",
         "name": "Epic Lootbox",
         "description": "An ornate coffer humming with power. Guaranteed at least Rare.",
-        "min_gold": 150, "max_gold": 300,
-        "min_shards": 5, "max_shards": 15,
+        "min_gold": 100, "max_gold": 220,
+        "min_shards": 4, "max_shards": 12,
         "item_count": 2,
     },
     {
         "tier": "legendary",
         "name": "Legendary Lootbox",
         "description": "A relic-bound vault. Guaranteed at least Epic -- the good stuff.",
-        "min_gold": 300, "max_gold": 600,
-        "min_shards": 15, "max_shards": 40,
+        "min_gold": 220, "max_gold": 450,
+        "min_shards": 10, "max_shards": 28,
+        "item_count": 2,
+    },
+    {
+        "tier": "mythic",
+        "name": "Mythic Lootbox",
+        "description": "A pulsing, reality-thin container. Rare to find, rarer to open on nothing.",
+        "min_gold": 400, "max_gold": 800,
+        "min_shards": 25, "max_shards": 60,
         "item_count": 2,
     },
 ]
 
 LOOTBOX_RARITY_WEIGHTS: dict[str, dict[Rarity, float]] = {
     "common": {
-        Rarity.COMMON: 45.0,
-        Rarity.UNCOMMON: 30.0,
-        Rarity.RARE: 17.0,
-        Rarity.EPIC: 6.5,
-        Rarity.LEGENDARY: 1.5,
+        Rarity.COMMON: 55.0,
+        Rarity.UNCOMMON: 32.0,
+        Rarity.RARE: 11.0,
+        Rarity.EPIC: 2.0,
+    },
+    "uncommon": {
+        Rarity.COMMON: 25.0,
+        Rarity.UNCOMMON: 42.0,
+        Rarity.RARE: 25.0,
+        Rarity.EPIC: 7.0,
+        Rarity.LEGENDARY: 1.0,
     },
     "rare": {
-        Rarity.UNCOMMON: 35.0,
-        Rarity.RARE: 38.0,
-        Rarity.EPIC: 20.0,
-        Rarity.LEGENDARY: 6.0,
-        Rarity.MYTHIC: 1.0,
+        Rarity.UNCOMMON: 30.0,
+        Rarity.RARE: 42.0,
+        Rarity.EPIC: 22.0,
+        Rarity.LEGENDARY: 5.5,
+        Rarity.MYTHIC: 0.5,
     },
     "epic": {
-        Rarity.RARE: 30.0,
-        Rarity.EPIC: 40.0,
-        Rarity.LEGENDARY: 22.0,
-        Rarity.MYTHIC: 6.5,
-        Rarity.ANCIENT: 1.5,
+        Rarity.RARE: 32.0,
+        Rarity.EPIC: 42.0,
+        Rarity.LEGENDARY: 21.0,
+        Rarity.MYTHIC: 4.5,
+        Rarity.DIVINE: 0.5,
     },
     "legendary": {
-        Rarity.EPIC: 25.0,
-        Rarity.LEGENDARY: 40.0,
-        Rarity.MYTHIC: 24.0,
-        Rarity.ANCIENT: 9.0,
-        Rarity.DIVINE: 2.0,
+        Rarity.EPIC: 28.0,
+        Rarity.LEGENDARY: 42.0,
+        Rarity.MYTHIC: 26.0,
+        Rarity.DIVINE: 4.0,
+    },
+    "mythic": {
+        Rarity.LEGENDARY: 30.0,
+        Rarity.MYTHIC: 55.0,
+        Rarity.DIVINE: 15.0,
     },
 }
 
-TIER_ORDER = ["common", "rare", "epic", "legendary"]
+TIER_ORDER = ["common", "uncommon", "rare", "epic", "legendary", "mythic"]
 
 
 def tier_for_floor(floor: int) -> str:
     if floor < 3:
         return "common"
-    if floor < 6:
+    if floor < 5:
+        return "uncommon"
+    if floor < 7:
         return "rare"
-    if floor < 9:
+    if floor < 10:
         return "epic"
-    return "legendary"
+    if floor < 13:
+        return "legendary"
+    return "mythic"

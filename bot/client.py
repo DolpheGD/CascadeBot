@@ -6,6 +6,7 @@ from discord.ext import commands
 from bot.config import COMMAND_PREFIX, DEV_MODE, SERVER_ID
 from bot.database.db_init import init_db
 from bot.database.session import SessionLocal
+from bot.services.character_template_service import ensure_character_templates_seeded
 from bot.services.item_template_service import ensure_item_templates_seeded
 from bot.utils.logger import get_logger
 
@@ -31,6 +32,7 @@ class CascadeBot(commands.Bot):
         db = SessionLocal()
         try:
             ensure_item_templates_seeded(db)
+            ensure_character_templates_seeded(db)
         finally:
             db.close()
 
@@ -54,6 +56,7 @@ class CascadeBot(commands.Bot):
             EntryNavButton,
             EntryOpenLootboxButton,
             EntryRerollButton,
+            EntrySellButton,
             InventoryListView,
             InventorySelectEntry,
             ListPageButton,
@@ -74,7 +77,7 @@ class CascadeBot(commands.Bot):
         self.add_view(InventoryListView(InventorySelectEntry(), []))
         self.add_dynamic_items(
             EntryNavButton, ToListButton, EntryEquipToggleButton,
-            EntryLevelUpButton, EntryRerollButton, EntryOpenLootboxButton, ListPageButton,
+            EntryLevelUpButton, EntryRerollButton, EntrySellButton, EntryOpenLootboxButton, ListPageButton,
         )
         self.add_dynamic_items(HarvesterActionButton, HarvesterCollectAllButton)
 
