@@ -31,7 +31,12 @@ from __future__ import annotations
 
 from bot.database.models.enums import ItemType
 from bot.game.combat.combatant import STAT_KEYS, Combatant
-from bot.game.combat.skills import get_character_skill, get_character_ultimate, get_class_kit
+from bot.game.combat.skills import (
+    get_character_passive,
+    get_character_skill,
+    get_character_ultimate,
+    get_class_kit,
+)
 
 
 def base_character_stats(player_character) -> dict:
@@ -114,11 +119,17 @@ def build_character_combatant(player_character, equipped_items: list) -> Combata
     if template.is_player_avatar:
         kit = get_class_kit(effective_class)
         character_skill, character_ultimate = kit["skill"], kit["ultimate"]
+        character_passive = kit.get("passive")
     else:
         character_skill = get_character_skill(template.skill_id)
         character_ultimate = get_character_ultimate(template.ultimate_id)
+        character_passive = get_character_passive(template.passive_id)
 
     weapon_skill, artifact_skill, passive_abilities = _gear_abilities(equipped_items)
+    if character_passive:
+        passive = dict(character_passive)
+        passive["source"] = "character"
+        passive_abilities.append(passive)
 
     active_abilities = []
     if character_skill:

@@ -33,15 +33,18 @@ RARITY_WEIGHTS: dict[Rarity, float] = {
 }
 
 # Multiplier applied to main_stat and substat values. This is the primary
-# lever for "epic items feel much stronger than common ones."
+# lever for "epic items feel much stronger than common ones." Compressed
+# from an earlier 1.0-4.0 range (balancing pass) -- at the top end that let
+# fully-leveled gear alone outscale the character wearing it several times
+# over; a BiS item should meaningfully help, not dwarf the character.
 RARITY_STAT_MULTIPLIER: dict[Rarity, float] = {
     Rarity.COMMON: 1.0,
-    Rarity.UNCOMMON: 1.15,
-    Rarity.RARE: 1.35,
-    Rarity.EPIC: 1.65,
-    Rarity.LEGENDARY: 2.1,
-    Rarity.MYTHIC: 2.9,
-    Rarity.DIVINE: 4.0,
+    Rarity.UNCOMMON: 1.08,
+    Rarity.RARE: 1.18,
+    Rarity.EPIC: 1.3,
+    Rarity.LEGENDARY: 1.45,
+    Rarity.MYTHIC: 1.65,
+    Rarity.DIVINE: 1.85,
 }
 
 # (min, max) inclusive number of substats an item rolls with INITIALLY.
@@ -80,14 +83,16 @@ RARITY_ABILITY_CHANCE: dict[Rarity, float] = {
 COMPLEX_ABILITY_MIN_RARITY = Rarity.EPIC
 
 # Max item_level (via item_upgrade_service.level_up) reachable per rarity.
+# Increments by a clean 5 per tier, per the design note that this should be
+# simple to reason about (Common 5 -> Divine 35).
 UPGRADE_LEVEL_CAP: dict[Rarity, int] = {
     Rarity.COMMON: 5,
     Rarity.UNCOMMON: 10,
-    Rarity.RARE: 16,
-    Rarity.EPIC: 22,
-    Rarity.LEGENDARY: 28,
-    Rarity.MYTHIC: 34,
-    Rarity.DIVINE: 40,
+    Rarity.RARE: 15,
+    Rarity.EPIC: 20,
+    Rarity.LEGENDARY: 25,
+    Rarity.MYTHIC: 30,
+    Rarity.DIVINE: 35,
 }
 
 # Flat cost to reroll an item's EXISTING substats (does not add new ones,

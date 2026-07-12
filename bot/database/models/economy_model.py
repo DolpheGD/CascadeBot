@@ -29,6 +29,9 @@ class HarvesterTemplate(Base):
     currency: Mapped[str] = mapped_column(String(16))  # "gold" or "shards"
     unlock_cost: Mapped[int] = mapped_column(Integer, default=0)
     unlock_currency: Mapped[str] = mapped_column(String(16), default="gold")
+    # Minimum Cascade HQ level required before this harvester can be built
+    # at all -- see bot/game/economy/hq_config.py / bot/services/base_service.py.
+    unlock_hq_level: Mapped[int] = mapped_column(Integer, default=1)
 
     base_rate_per_hour: Mapped[float] = mapped_column(Float, default=1.0)
     # production_rate(level) = base_rate_per_hour * (level ** level_scaling_exponent)

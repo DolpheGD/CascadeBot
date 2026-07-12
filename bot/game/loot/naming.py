@@ -1,7 +1,14 @@
 """
-Turns a generated item's mechanics into a Diablo-style display name, e.g.
-"Savage Iron Sword of Chaos". Purely cosmetic -- naming never affects stats,
-it just reflects them so a glance at the name hints at what the item does.
+Turns a generated item into a display name: exactly ONE prefix, then the
+item's base name -- e.g. "Iron Sword", "Voidwalker Blade", "Legendary
+Dagger". No suffixes, no stacked modifiers. Purely cosmetic -- naming
+never affects stats.
+
+The prefix comes from the item's SET if it belongs to one (set_prefix on
+the ItemTemplate -- see bot/database/models/equipment_model.py and the set
+catalog in bot/game/loot/item_seed_data.py), since a set's identity is
+exactly the kind of thing a simple, consistent prefix should communicate.
+Non-set items fall back to a plain rarity-flavored generic prefix.
 """
 
 from __future__ import annotations
@@ -10,21 +17,7 @@ import random
 
 from bot.database.models.enums import Rarity
 
-# Prefix chosen from the item's single strongest substat (by rarity-scaled
-# value). Falls back to a rarity-flavored generic prefix if there are no
-# substats to draw from.
-PREFIX_BY_STAT: dict[str, list[str]] = {
-    "attack": ["Savage", "Fierce", "Brutal", "Vicious"],
-    "defense": ["Sturdy", "Guarded", "Reinforced", "Bulwark"],
-    "elemental": ["Arcane", "Mystic", "Runic", "Eldritch"],
-    "speed": ["Swift", "Fleet", "Nimble", "Hastened"],
-    "max_hp": ["Vital", "Hearty", "Stalwart", "Undying"],
-    "max_mana": ["Ethereal", "Luminous", "Wellspring", "Attuned"],
-    "crit_rate": ["Deadly", "Lethal", "Precise", "Keen"],
-    "crit_damage": ["Merciless", "Ruthless", "Devastating", "Savage"],
-    "recharge": ["Galvanic", "Charged", "Kinetic", "Surging"],
-}
-
+# Fallback prefix for items that don't belong to a set, by rarity.
 GENERIC_PREFIX_BY_RARITY: dict[Rarity, list[str]] = {
     Rarity.COMMON: ["Worn", "Plain"],
     Rarity.UNCOMMON: ["Sturdy", "Reliable"],
@@ -35,38 +28,6 @@ GENERIC_PREFIX_BY_RARITY: dict[Rarity, list[str]] = {
     Rarity.DIVINE: ["Divine", "Celestial"],
 }
 
-# Suffix chosen from the item's ability (if any), otherwise from a rarity pool.
-SUFFIX_BY_ABILITY_EFFECT_KIND: dict[str, list[str]] = {
-    "damage_and_dot": ["of Flames", "of Cinders"],
-    "damage_multiplier": ["of Ruin", "of Might"],
-    "damage_and_debuff": ["of Frost", "of Winter"],
-    "heal_percent_max_hp": ["of Life", "of Renewal"],
-    "damage_and_stun": ["of Judgment", "of Force"],
-    "self_buff_debuff": ["of Fury", "of Rage"],
-    "damage_execute_heal": ["of the Phoenix", "of Rebirth"],
-    "damage_and_heal_self": ["of the Leech", "of Hunger"],
-    "heal_and_self_buff": ["of Resurgence", "of the Dawn"],
-    "multi_hit": ["of the Tempest", "of Fury's Edge"],
-    "lifesteal": ["of the Leech", "of Hunger"],
-    "damage_reflect": ["of Thorns", "of Retribution"],
-    "crit_damage_bonus": ["of Doom", "of Execution"],
-    "stacking_buff": ["of Momentum", "of the Storm"],
-    "prevent_death": ["of Defiance", "of the Phoenix"],
-    "on_kill_restore": ["of the Reaper", "of Souls"],
-    "damage_reduction": ["of Wardship", "of the Bastion"],
-    "resource_regen": ["of the Archmage", "of Ether"],
-}
-
-GENERIC_SUFFIX_BY_RARITY: dict[Rarity, list[str]] = {
-    Rarity.COMMON: ["of the Novice"],
-    Rarity.UNCOMMON: ["of the Adept"],
-    Rarity.RARE: ["of Fortune", "of Kings"],
-    Rarity.EPIC: ["of Chaos", "of Glory"],
-    Rarity.LEGENDARY: ["of Legends", "of the Ancients"],
-    Rarity.MYTHIC: ["of the Void", "of Eternity"],
-    Rarity.DIVINE: ["of Creation", "of the Heavens"],
-}
-
 
 def generate_display_name(
     base_name: str,
@@ -75,26 +36,19 @@ def generate_display_name(
     active_ability: dict | None,
     passive_ability: dict | None,
     rng: random.Random,
+    set_prefix: str = "",
 ) -> str:
-    # Prefix: strongest substat by value, else generic rarity flavor.
-    if substats:
-        top = max(substats, key=lambda s: s["value"])
-        prefix_pool = PREFIX_BY_STAT.get(top["stat"], GENERIC_PREFIX_BY_RARITY[rarity])
-    else:
-        prefix_pool = GENERIC_PREFIX_BY_RARITY[rarity]
-    prefix = rng.choice(prefix_pool)
+    """`substats`/`active_ability`/`passive_ability` are no longer used to
+    pick the prefix (kept as parameters so callers don't all need updating)
+    -- the prefix is purely set_prefix-or-rarity now, not mechanics-driven,
+    per the naming simplification."""
+    if set_prefix:
+        return f"{set_prefix} {base_name}"
 
-    # Suffix: prefer the ability's flavor, active over passive, else generic.
-    ability = active_ability or passive_ability
-    if ability and ability["effect"]["kind"] in SUFFIX_BY_ABILITY_EFFECT_KIND:
-        suffix_pool = SUFFIX_BY_ABILITY_EFFECT_KIND[ability["effect"]["kind"]]
-    else:
-        suffix_pool = GENERIC_SUFFIX_BY_RARITY[rarity]
-    suffix = rng.choice(suffix_pool)
-
-    # Common items with no ability and no substats stay plain -- not every
-    # drop should sound epic.
-    if rarity == Rarity.COMMON and not ability and len(substats) < 1:
+    # Common items with no set stay completely plain -- not every drop
+    # should sound special.
+    if rarity == Rarity.COMMON:
         return base_name
 
-    return f"{prefix} {base_name} {suffix}"
+    prefix = rng.choice(GENERIC_PREFIX_BY_RARITY[rarity])
+    return f"{prefix} {base_name}"

@@ -35,7 +35,7 @@ from bot.game.dungeon.interactive_config import (
     TRAP_SUCCESS_FLAVOR,
 )
 from bot.game.dungeon.region_config import get_region_difficulty
-from bot.game.economy.lootbox_config import tier_for_floor
+from bot.game.economy.lootbox_config import tier_for_floor_and_region
 from bot.game.loot.generator import LootGenerator
 from bot.services import character_service, combat_service, lootbox_service
 from bot.services.currency_service import add_currency, spend_currency
@@ -106,6 +106,13 @@ def start_expedition(db, player, region: str, num_floors: int | None = None) -> 
 
     graph = DungeonGenerator().generate(region, num_floors=num_floors)
 
+    # Starting a brand new run always begins on full HP -- a squad member
+    # left critically low from a PREVIOUS run shouldn't silently carry
+    # that penalty into an unrelated new one. HP still persists normally
+    # BETWEEN battles WITHIN a single run (see combat_service).
+    for pc in character_service.get_squad(db, player):
+        pc.current_hp = None  # None == full HP, see PlayerCharacter.current_hp
+
     expedition = Expedition(
         player_id=player.id,
         region=region,
@@ -138,8 +145,13 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
             enemy_catalog.get_templates_by_role(room_type.value)
             or enemy_catalog.get_templates_by_role("combat")
         )
-        count = rng.choice([1, 1, 2]) if room_type == RoomType.COMBAT else 1
-        chosen = [rng.choice(templates) for _ in range(min(count, 3))]
+        if room_type == RoomType.COMBAT:
+            count = rng.choices([1, 2, 3, 4], weights=[40, 30, 20, 10], k=1)[0]
+        elif room_type == RoomType.ELITE:
+            count = rng.choices([1, 2], weights=[75, 25], k=1)[0]
+        else:
+            count = 1
+        chosen = [rng.choice(templates) for _ in range(count)]
         level = node["floor"] + 1 + difficulty["level_offset"]
         combat_service.start_battle(db, expedition, player, chosen, level=level)
 
@@ -170,7 +182,7 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
 
         drop_chance = min(0.25 + node["floor"] * 0.015, 0.45)
         if rng.random() < drop_chance:
-            tier = tier_for_floor(node["floor"])
+            tier = tier_for_floor_and_region(node["floor"], difficulty["max_lootbox_tier"])
             lootbox_service.grant_lootbox(db, player, tier, quantity=1)
             message += f" It also contains a {tier.title()} Lootbox!"
 
@@ -181,7 +193,7 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
     if room_type == RoomType.SECRET:
         gold = round(rng.randint(5, 25) * difficulty["reward_multiplier"])
         add_currency(db, player, "gold", gold)
-        tier = tier_for_floor(node["floor"])
+        tier = tier_for_floor_and_region(node["floor"], difficulty["max_lootbox_tier"])
         lootbox_service.grant_lootbox(db, player, tier, quantity=1)
         gu.mark_completed(expedition.graph, expedition.current_node_id)
         db.commit()
@@ -396,14 +408,13 @@ def buy_shop_item(db, expedition: Expedition, player, offer_id: str, rng: random
         add_currency(db, player, "shards", offer["amount"])
         message = f"Bought {offer['amount']} Shards!"
     else:  # "item" -- a random basic (Common) item
-        templates = db.query(ItemTemplate).all()
+        templates = db.query(ItemTemplate).filter_by(is_ultra_rare=False).all()
         if not templates:
             spend_currency(db, player, "gold", -offer["cost_gold"])  # refund, nothing to give
             return False, "The quartermaster is out of stock."
         template = rng.choice(templates)
-        node = expedition.graph["nodes"][expedition.current_node_id]
         item = LootGenerator(rng=rng).generate_item(
-            template, player_id=player.id, item_level=max(1, node["floor"]), rarity_override=Rarity.COMMON,
+            template, player_id=player.id, item_level=1, rarity_override=Rarity.COMMON,
         )
         db.add(item)
         db.commit()

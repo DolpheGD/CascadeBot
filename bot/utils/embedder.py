@@ -9,10 +9,12 @@ import discord
 
 from bot.database.models.enums import (
     CLASS_DISPLAY_NAME,
+    MATERIAL_DISPLAY_NAME,
     SLOT_DISPLAY_NAME,
     SLOT_EMOJI,
     EquipmentSlot,
     ItemType,
+    MaterialType,
 )
 from bot.database.models.character_model import LEVEL_CAP
 from bot.game.combat.combatant import STAT_KEYS
@@ -127,13 +129,10 @@ def _profile_overview_page(player, character, equipped_items, avatar_url) -> dis
     embed.add_field(name="🎭 Class", value=CLASS_DISPLAY_NAME[character.effective_class()], inline=True)
 
     base_stats = _base_character_stats(character)
-    base_lines = "\n".join(_fmt_stat(stat, base_stats[stat]) for stat in STAT_KEYS)
-    embed.add_field(name="Base Stats", value=base_lines, inline=True)
-
-    effective_lines = "\n".join(
+    stat_lines = "\n".join(
         _fmt_stat_with_base(stat, combatant.base_stats[stat], base_stats[stat]) for stat in STAT_KEYS
     )
-    embed.add_field(name="Effective Stats (with gear)", value=effective_lines, inline=True)
+    embed.add_field(name="Stats -- (base) effective", value=stat_lines, inline=False)
 
     embed.set_footer(text="Use the buttons below to see Equipment and Abilities.")
     return embed
@@ -179,6 +178,8 @@ def _profile_abilities_page(player, character, equipped_items, avatar_url) -> di
     character_skill = next((a for a in combatant.active_abilities if a.get("source") == "character"), None)
     weapon_skills = [a for a in combatant.active_abilities if a.get("source") == "weapon"]
     artifact_skills = [a for a in combatant.active_abilities if a.get("source") == "artifact"]
+    character_passive = next((p for p in combatant.passive_abilities if p.get("source") == "character"), None)
+    gear_passives = [p for p in combatant.passive_abilities if p.get("source") != "character"]
 
     def _skill_lines(skills: list) -> str:
         if not skills:
@@ -203,13 +204,18 @@ def _profile_abilities_page(player, character, equipped_items, avatar_url) -> di
             name="💥 Character Ultimate", value=f"**{u['name']}** (100 Energy): {u['description']}", inline=False
         )
 
-    if combatant.passive_abilities:
-        lines = "\n".join(
-            f"**{p['name']}**: {p['description']}" for p in combatant.passive_abilities
+    if character_passive:
+        embed.add_field(
+            name="🧬 Character Passive",
+            value=f"**{character_passive['name']}**: {character_passive['description']}",
+            inline=False,
         )
+
+    if gear_passives:
+        lines = "\n".join(f"**{p['name']}**: {p['description']}" for p in gear_passives)
     else:
         lines = "*No armor passives active.*"
-    embed.add_field(name="🛡️ Passives (from Armor)", value=lines, inline=False)
+    embed.add_field(name="🛡️ Passives (from Armor/Accessory)", value=lines, inline=False)
 
     embed.set_footer(text="Basic Attack always builds Energy + Mana by your Recharge stat.")
     return embed
@@ -437,10 +443,18 @@ def item_detail_embed(item, position: int | None = None, total: int | None = Non
         add_substat_cost, reroll_cost, upgrade_level_cap, MAX_SUBSTATS,
     )
     from bot.services.inventory_service import get_sell_value
+    from bot.services.item_upgrade_service import get_level_up_cost
 
     cap = upgrade_level_cap(item.rarity)
     if item.item_level < cap:
-        embed.add_field(name="⬆️ Level Up Cost", value=f"~{15 * item.item_level} gold + materials / level (cap: {cap})", inline=True)
+        next_cost = get_level_up_cost(item, levels=1)
+        if next_cost["levels"] > 0:
+            mat_text = ", ".join(
+                f"{qty} {MATERIAL_DISPLAY_NAME.get(MaterialType(name), name.replace('_', ' ').title())}"
+                for name, qty in next_cost["materials"].items() if qty > 0
+            )
+            value = f"{next_cost['gold']} gold" + (f" + {mat_text}" if mat_text else "")
+            embed.add_field(name=f"⬆️ Level Up Cost (Lv{item.item_level}→{item.item_level + 1}, cap {cap})", value=value, inline=False)
     else:
         embed.add_field(name="⬆️ Level Up", value=f"At cap ({cap}) for {item.rarity.value} rarity", inline=True)
 

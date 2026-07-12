@@ -81,11 +81,12 @@ class CharacterTemplate(Base):
     growth_elemental: Mapped[float] = mapped_column(Float, default=0.9)
     growth_speed: Mapped[float] = mapped_column(Float, default=0.35)
 
-    # String keys resolved against the skill/ultimate registries built in
-    # the Combat Overhaul (bot/game/combat/skills.py, phase 2). Kept as
+    # String keys resolved against the skill/ultimate/passive registries
+    # built in the Combat Overhaul (bot/game/combat/skills.py). Kept as
     # plain strings here so content (this table) doesn't import combat code.
     skill_id: Mapped[str] = mapped_column(String(64), default="")
     ultimate_id: Mapped[str] = mapped_column(String(64), default="")
+    passive_id: Mapped[str] = mapped_column(String(64), default="")
 
     # For the avatar template, one skill_id/ultimate_id per class it can
     # switch into -- kept out of this table (see CLASS_KIT_MAP in

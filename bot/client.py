@@ -63,6 +63,13 @@ class CascadeBot(commands.Bot):
             ToListButton,
         )
         from bot.cogs.economy import HarvesterActionButton, HarvesterCollectAllButton
+        from bot.cogs.base import (
+            HQUpgradeButton,
+            MailboxCollectButton,
+            MailboxUpgradeButton,
+            ShopBuyButton,
+            ShrineActionButton,
+        )
 
         dummy_ability_options = [discord.SelectOption(label="dummy", value="dummy")]
         dummy_target_options = [discord.SelectOption(label="dummy", value="0")]
@@ -80,6 +87,8 @@ class CascadeBot(commands.Bot):
             EntryLevelUpButton, EntryRerollButton, EntrySellButton, EntryOpenLootboxButton, ListPageButton,
         )
         self.add_dynamic_items(HarvesterActionButton, HarvesterCollectAllButton)
+        self.add_dynamic_items(HQUpgradeButton, ShrineActionButton, ShopBuyButton)
+        self.add_dynamic_items(MailboxCollectButton, MailboxUpgradeButton)
 
         if DEV_MODE:
             # clear the guild command tree to avoid duplicates when reloading

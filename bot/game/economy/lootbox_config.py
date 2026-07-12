@@ -125,3 +125,14 @@ def tier_for_floor(floor: int) -> str:
     if floor < 13:
         return "legendary"
     return "mythic"
+
+
+def tier_for_floor_and_region(floor: int, max_lootbox_tier: str) -> str:
+    """Combines floor-depth progression with the region's strict cap (see
+    bot/game/dungeon/region_config.py) -- whichever is LOWER wins, so an
+    easy region can never produce a better box just because the player
+    pushed deep into a long run there."""
+    floor_tier = tier_for_floor(floor)
+    floor_index = TIER_ORDER.index(floor_tier)
+    cap_index = TIER_ORDER.index(max_lootbox_tier) if max_lootbox_tier in TIER_ORDER else len(TIER_ORDER) - 1
+    return TIER_ORDER[min(floor_index, cap_index)]

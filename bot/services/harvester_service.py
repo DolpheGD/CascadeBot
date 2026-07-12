@@ -10,6 +10,7 @@ import datetime as dt
 
 from bot.database.models.economy_model import HarvesterTemplate, PlayerHarvester
 from bot.game.economy.harvester_config import HARVESTER_TEMPLATES
+from bot.game.economy.hq_config import building_level_cap
 from bot.services.currency_service import add_currency, spend_currency
 
 
@@ -37,6 +38,13 @@ def get_upgrade_cost(template: HarvesterTemplate, level: int) -> int:
     return round(template.base_upgrade_cost * (template.upgrade_cost_growth ** (level - 1)))
 
 
+def effective_max_level(template: HarvesterTemplate, hq_level: int) -> int:
+    """The level this harvester can currently reach -- the lower of its own
+    absolute `max_level` and the level cap Cascade HQ currently allows.
+    Upgrading further requires upgrading the HQ first."""
+    return min(template.max_level, building_level_cap(hq_level))
+
+
 def get_production_rate(template: HarvesterTemplate, level: int) -> float:
     """Rate scales as level ** level_scaling_exponent -- 1.0 (most
     harvesters) is the old linear behavior; lower (the Shard Well) means
@@ -45,10 +53,16 @@ def get_production_rate(template: HarvesterTemplate, level: int) -> float:
     return template.base_rate_per_hour * (level ** template.level_scaling_exponent)
 
 
-def buy_harvester(db, player, template_id: int) -> tuple[bool, str, PlayerHarvester | None]:
+def buy_harvester(db, player, template_id: int, hq_level: int = 1) -> tuple[bool, str, PlayerHarvester | None]:
     template = db.get(HarvesterTemplate, template_id)
     if template is None:
         return False, "No such harvester.", None
+
+    if hq_level < template.unlock_hq_level:
+        return False, (
+            f"{template.name} requires Cascade HQ level {template.unlock_hq_level} "
+            f"(currently level {hq_level})."
+        ), None
 
     existing = (
         db.query(PlayerHarvester)
@@ -103,10 +117,17 @@ def collect_harvester(db, harvester: PlayerHarvester) -> int:
     return amount
 
 
-def upgrade_harvester(db, player, harvester: PlayerHarvester) -> tuple[bool, str]:
+def upgrade_harvester(db, player, harvester: PlayerHarvester, hq_level: int = 1) -> tuple[bool, str]:
     template = harvester.template
     if harvester.level >= template.max_level:
         return False, f"{template.name} is already at max level."
+
+    cap = effective_max_level(template, hq_level)
+    if harvester.level >= cap:
+        return False, (
+            f"{template.name} is at its Cascade HQ level cap ({cap}). "
+            f"Upgrade Cascade HQ to raise the cap."
+        )
 
     cost = get_upgrade_cost(template, harvester.level)
     if not spend_currency(db, player, "gold", cost):

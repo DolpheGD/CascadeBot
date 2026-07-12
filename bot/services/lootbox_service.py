@@ -16,6 +16,7 @@ from bot.database.models.equipment_model import ItemTemplate
 from bot.game.economy.lootbox_config import LOOTBOX_RARITY_WEIGHTS, LOOTBOX_TEMPLATES
 from bot.game.loot.generator import LootGenerator
 from bot.services.currency_service import add_currency
+from bot.services import item_template_service
 
 
 def ensure_lootbox_templates_seeded(db) -> None:
@@ -87,10 +88,6 @@ def open_lootboxes(
         have = owned.quantity if owned else 0
         return False, f"You only have {have} {template.name}(s).", {}
 
-    item_templates = db.query(ItemTemplate).all()
-    if not item_templates:
-        return False, "No item templates exist to roll from yet.", {}
-
     total_gold = 0
     total_shards = 0
     items = []
@@ -102,7 +99,9 @@ def open_lootboxes(
             total_shards += rng.randint(template.min_shards, template.max_shards)
 
         for _ in range(template.item_count):
-            item_template = rng.choice(item_templates)
+            item_template = item_template_service.pick_random_template(db, rng=rng)
+            if item_template is None:
+                continue
             rarity = _roll_rarity(tier, rng)
             item = generator.generate_item(
                 item_template, player_id=player.id, item_level=item_level, rarity_override=rarity

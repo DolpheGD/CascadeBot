@@ -15,19 +15,16 @@ from __future__ import annotations
 
 import random
 
-from bot.database.models.equipment_model import ItemTemplate
 from bot.game.combat.battle import Battle
 from bot.game.combat.factory import build_enemy_combatant, build_party_combatants
 from bot.game.combat.serialization import battle_from_dict, battle_to_dict
 from bot.game.loot.generator import LootGenerator
-from bot.services import character_service
+from bot.services import base_service, character_service, item_template_service
 from bot.services.currency_service import add_currency
 
-# Chance of an item dropping on victory, and how much better the room type
-# makes item_level relative to floor depth -- elites and bosses feel worth
+# Chance of an item dropping on victory -- elites and bosses feel worth
 # fighting instead of just being harder versions of a regular encounter.
 ITEM_DROP_CHANCE = {"combat": 0.4, "elite": 0.7, "boss": 1.0}
-ITEM_LEVEL_BONUS = {"combat": 0, "elite": 2, "boss": 5}
 
 # Gold/XP multiplier by room type on top of the base per-floor formula --
 # "Defeating the boss should grant great rewards" from the spec.
@@ -40,6 +37,7 @@ def start_battle(db, expedition, player, enemy_templates: list[dict], level: int
         db, [pc.id for pc in squad]
     )
     party_combatants = build_party_combatants(squad, equipped_by_char)
+    base_service.apply_shrine_bonuses(db, player, party_combatants)
     enemy_combatants = [build_enemy_combatant(t, level=level) for t in enemy_templates]
 
     battle = Battle(party_combatants, enemy_combatants)
@@ -129,12 +127,13 @@ def apply_victory_rewards(
     items = []
     drop_chance = ITEM_DROP_CHANCE.get(room_type, 0.4)
     if rng.random() < drop_chance:
-        templates = db.query(ItemTemplate).all()
-        if templates:
-            template = rng.choice(templates)
-            item_level = max(1, floor + ITEM_LEVEL_BONUS.get(room_type, 0))
+        template = item_template_service.pick_random_template(db, rng=rng)
+        if template is not None:
+            # Equipment always starts at level 1 -- the player levels it up
+            # themselves. Power at drop time comes from RARITY (capped by
+            # region difficulty) instead of a floor-scaled starting level.
             item = LootGenerator(rng=rng).generate_item(
-                template, player_id=player.id, item_level=item_level
+                template, player_id=player.id, item_level=1, max_rarity=difficulty["max_item_rarity"],
             )
             db.add(item)
             db.commit()

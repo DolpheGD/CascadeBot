@@ -8,6 +8,7 @@ from bot.services.player_service import get_player
 from bot.services import character_service, dungeon_service, combat_service
 from bot.utils import embedder
 from bot.utils.guild_decorator import guild_decorator
+from bot.utils.ui_guard import OwnedView
 
 
 def _squad_hp_lines(db, player) -> list[str]:
@@ -57,9 +58,9 @@ class MoveSelect(discord.ui.Select):
         await _handle_move(interaction, self.values[0])
 
 
-class DungeonView(discord.ui.View):
-    def __init__(self, options: list[discord.SelectOption] | None = None):
-        super().__init__(timeout=None)
+class DungeonView(OwnedView):
+    def __init__(self, options: list[discord.SelectOption] | None = None, owner_id: int | None = None):
+        super().__init__(timeout=None, owner_id=owner_id)
         self.add_item(MoveSelect(options))
 
 
@@ -93,15 +94,16 @@ class TargetSelect(discord.ui.Select):
         await _handle_select_target(interaction, int(self.values[0]))
 
 
-class CombatView(discord.ui.View):
+class CombatView(OwnedView):
     def __init__(
         self,
         ability_options: list[discord.SelectOption] | None = None,
         target_options: list[discord.SelectOption] | None = None,
         ultimate_ready: bool = False,
         ultimate_exists: bool = False,
+        owner_id: int | None = None,
     ):
-        super().__init__(timeout=None)
+        super().__init__(timeout=None, owner_id=owner_id)
         self.attack_button.disabled = False
         self.ultimate_button.disabled = not ultimate_ready
         self.ultimate_button.label = "💥 Ultimate" if ultimate_exists else "💥 No Ultimate"
@@ -135,9 +137,9 @@ class TrapChoiceButton(discord.ui.Button):
         await _handle_trap_choice(interaction, self.choice_id)
 
 
-class TrapView(discord.ui.View):
-    def __init__(self, choices: list[dict]):
-        super().__init__(timeout=180)
+class TrapView(OwnedView):
+    def __init__(self, choices: list[dict], owner_id: int | None = None):
+        super().__init__(timeout=180, owner_id=owner_id)
         for choice in choices:
             self.add_item(TrapChoiceButton(choice))
 
@@ -151,9 +153,9 @@ class PuzzleOptionButton(discord.ui.Button):
         await _handle_puzzle_choice(interaction, self.option_index)
 
 
-class PuzzleView(discord.ui.View):
-    def __init__(self, puzzle: dict):
-        super().__init__(timeout=180)
+class PuzzleView(OwnedView):
+    def __init__(self, puzzle: dict, owner_id: int | None = None):
+        super().__init__(timeout=180, owner_id=owner_id)
         for i, option in enumerate(puzzle["options"]):
             self.add_item(PuzzleOptionButton(i, option))
 
@@ -179,9 +181,9 @@ class ShopLeaveButton(discord.ui.Button):
         await _handle_shop_leave(interaction)
 
 
-class ShopView(discord.ui.View):
-    def __init__(self, offers: list[dict]):
-        super().__init__(timeout=180)
+class ShopView(OwnedView):
+    def __init__(self, offers: list[dict], owner_id: int | None = None):
+        super().__init__(timeout=180, owner_id=owner_id)
         for offer in offers:
             self.add_item(ShopBuyButton(offer))
         self.add_item(ShopLeaveButton())
@@ -204,10 +206,10 @@ def _build_dungeon_view(expedition) -> DungeonView | None:
             value=node_id,
             emoji=emoji,
         ))
-    return DungeonView(options)
+    return DungeonView(options, owner_id=expedition.player_id)
 
 
-def _build_combat_view(battle) -> CombatView:
+def _build_combat_view(battle, owner_id: int) -> CombatView:
     actor = battle.current_actor()
     ability_options = []
     for ability in actor.active_abilities:
@@ -236,6 +238,7 @@ def _build_combat_view(battle) -> CombatView:
         target_options or None,
         ultimate_ready=actor.ultimate_ready(),
         ultimate_exists=actor.ultimate_ability is not None,
+        owner_id=owner_id,
     )
 
 
@@ -309,18 +312,18 @@ def _render_room(db, expedition, player, kind: str, message: str, avatar_url: st
 
     if kind == "trap":
         choices = dungeon_service.get_trap_choices()
-        return embedder.trap_embed(node, choices, message), TrapView(choices)
+        return embedder.trap_embed(node, choices, message), TrapView(choices, owner_id=expedition.player_id)
 
     if kind == "puzzle":
         puzzle = dungeon_service.get_pending_puzzle(expedition)
         if puzzle is None:
             # Interaction state was lost somehow -- fail safe back to the map.
             return _render_room(db, expedition, player, "resolved", message, avatar_url)
-        return embedder.puzzle_embed(node, puzzle, message), PuzzleView(puzzle)
+        return embedder.puzzle_embed(node, puzzle, message), PuzzleView(puzzle, owner_id=expedition.player_id)
 
     if kind == "shop":
         offers = dungeon_service.get_shop_offers()
-        return embedder.shop_embed(player, offers, message), ShopView(offers)
+        return embedder.shop_embed(player, offers, message), ShopView(offers, owner_id=expedition.player_id)
 
     return (
         embedder.dungeon_map_embed(
@@ -437,7 +440,7 @@ async def _handle_move(interaction: discord.Interaction, target_node_id: str):
                     await interaction.followup.send(embed=embed, view=view)
             else:
                 await interaction.response.edit_message(
-                    embed=embedder.combat_embed(battle, avatar_url=avatar_url), view=_build_combat_view(battle)
+                    embed=embedder.combat_embed(battle, avatar_url=avatar_url), view=_build_combat_view(battle, expedition.player_id)
                 )
         else:
             embed, view = _render_room(db, expedition, player, result["kind"], result["message"], avatar_url)
@@ -500,7 +503,7 @@ async def _handle_combat_action(interaction: discord.Interaction, action: str, a
                 await interaction.followup.send(embed=embed, view=view)
         else:
             await interaction.response.edit_message(
-                embed=embedder.combat_embed(battle, avatar_url=avatar_url), view=_build_combat_view(battle)
+                embed=embedder.combat_embed(battle, avatar_url=avatar_url), view=_build_combat_view(battle, expedition.player_id)
             )
     finally:
         db.close()
@@ -530,7 +533,7 @@ async def _handle_select_target(interaction: discord.Interaction, target_index: 
 
         avatar_url = interaction.user.display_avatar.url
         await interaction.response.edit_message(
-            embed=embedder.combat_embed(battle, avatar_url=avatar_url), view=_build_combat_view(battle)
+            embed=embedder.combat_embed(battle, avatar_url=avatar_url), view=_build_combat_view(battle, expedition.player_id)
         )
     finally:
         db.close()
@@ -584,7 +587,7 @@ class Dungeon(commands.Cog):
                     follow_up_text = _battle_end_message(summary)
                 else:
                     embed = embedder.combat_embed(battle, avatar_url=avatar_url)
-                    view = _build_combat_view(battle)
+                    view = _build_combat_view(battle, expedition.player_id)
                     follow_up_text = None
             else:
                 if entry_kind is None:

@@ -45,35 +45,38 @@ PERCENT_ELIGIBLE_STATS = {"attack", "defense", "elemental", "max_hp", "max_mana"
 
 # How much a template's main_stat_value grows per item_level, before the
 # rarity multiplier. Different per stat because these live on very
-# different scales -- attack/defense are tens-to-hundreds, recharge and
-# crit_rate/crit_damage are single-digit-to-low-double-digit percentages.
+# different scales -- attack/defense are single-to-low-double-digits at
+# this scale, recharge and crit_rate/crit_damage are small percentages.
 # recharge in particular is deliberately the slowest grower: it's a %-of-
 # max-pool refund per basic attack now (see Combatant.gain_energy_and_mana),
 # so a fast-growing recharge main stat would let high-item-level gear reach
 # the ultimate in 1-2 turns -- exactly what the balancing pass calls out.
+# Balancing pass: these (and the substat pools/RARITY_STAT_MULTIPLIER
+# below) were cut roughly 8-10x from their original values, which let
+# fully-leveled gear massively outscale the character wearing it.
 MAIN_STAT_GROWTH_PER_LEVEL: dict[str, float] = {
-    "attack": 1.0,
-    "defense": 1.0,
-    "elemental": 1.0,
-    "max_hp": 3.0,
-    "max_mana": 1.5,
-    "speed": 0.5,
-    "crit_rate": 0.15,
-    "crit_damage": 0.4,
-    "recharge": 0.08,
+    "attack": 0.10,
+    "defense": 0.10,
+    "elemental": 0.10,
+    "max_hp": 0.45,
+    "max_mana": 0.22,
+    "speed": 0.05,
+    "crit_rate": 0.04,
+    "crit_damage": 0.10,
+    "recharge": 0.03,
 }
 
 # {stat: (per_level_min, per_level_max)} for a FLAT roll -- roll = level *
 # uniform(min, max), then multiplied by the rarity's stat multiplier.
 FLAT_SUBSTAT_POOL: dict[str, tuple[float, float]] = {
-    "attack": (0.8, 1.6),
-    "defense": (0.8, 1.6),
-    "elemental": (0.8, 1.6),
-    "speed": (0.5, 1.0),
-    "max_hp": (3.0, 6.0),
-    "max_mana": (1.5, 3.0),
-    "crit_rate": (0.15, 0.35),
-    "crit_damage": (0.4, 0.9),
+    "attack": (0.08, 0.18),
+    "defense": (0.08, 0.18),
+    "elemental": (0.08, 0.18),
+    "speed": (0.04, 0.10),
+    "max_hp": (0.35, 0.7),
+    "max_mana": (0.15, 0.32),
+    "crit_rate": (0.03, 0.08),
+    "crit_damage": (0.08, 0.18),
     "recharge": (0.03, 0.09),
 }
 
@@ -82,11 +85,11 @@ FLAT_SUBSTAT_POOL: dict[str, tuple[float, float]] = {
 # fully-percent-rolled build stays comparable to a flat-rolled one instead
 # of dominating it.
 PERCENT_SUBSTAT_POOL: dict[str, tuple[float, float]] = {
-    "attack": (0.15, 0.35),
-    "defense": (0.15, 0.35),
-    "elemental": (0.15, 0.35),
-    "max_hp": (0.2, 0.45),
-    "max_mana": (0.2, 0.45),
+    "attack": (0.04, 0.10),
+    "defense": (0.04, 0.10),
+    "elemental": (0.04, 0.10),
+    "max_hp": (0.05, 0.12),
+    "max_mana": (0.05, 0.12),
 }
 
 

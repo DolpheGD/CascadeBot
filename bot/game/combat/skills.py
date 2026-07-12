@@ -1,12 +1,16 @@
 """
-Character skill/ultimate kits -- the Combat Overhaul's replacement for the
-old scroll-granted ultimate. Every combatant now gets these straight from
-their kit rather than gear:
+Character skill/ultimate/passive kits -- the Combat Overhaul's replacement
+for the old scroll-granted ultimate. Every combatant now gets these
+straight from their kit rather than gear:
 
-  * `character_skill`  -- one active ability, costs MANA, always available
-    (no equipment required).
-  * `character_ultimate` -- one active ability, costs 100 ENERGY (same gate
-    as the old scroll ultimates), always available.
+  * `character_skill`    -- one active ability, costs MANA, always available.
+  * `character_ultimate` -- one active ability, costs 100 ENERGY.
+  * `character_passive`  -- one always-on passive, no resource cost, that
+    reinforces the character's class role (DPS hits harder as the fight
+    goes on, Sustain saves itself from death's door, etc.) -- reuses the
+    same passive effect kinds gear passives already use
+    (bot/game/combat/effects.py's trigger_on_turn_start/_trigger_on_low_hp),
+    so no new combat-resolution code is needed for these.
 
 Same `effect` dict shape as bot/game/loot/abilities.py so
 bot/game/combat/effects.py resolves them identically -- plus three new
@@ -16,11 +20,13 @@ team-oriented kinds added for this system: `heal_lowest_ally_percent_max_hp`,
 Two registries:
   * CLASS_KIT_MAP -- keyed by CharacterClass, used ONLY for the player's own
     avatar (CharacterTemplate.is_player_avatar), since it can switch class
-    freely (PlayerCharacter.current_class) and its kit needs to follow.
-  * CHARACTER_KIT_MAP -- keyed by CharacterTemplate.skill_id /
-    .ultimate_id, one fixed pair per pulled character.
+    freely (PlayerCharacter.current_class) and its whole kit -- skill,
+    ultimate, AND passive -- needs to follow.
+  * CHARACTER_KIT_MAP / CHARACTER_PASSIVE_MAP -- keyed by
+    CharacterTemplate.skill_id/.ultimate_id/.passive_id, one fixed set per
+    pulled character.
 
-bot/game/combat/factory.py resolves both into a built Combatant.
+bot/game/combat/factory.py resolves all three into a built Combatant.
 """
 
 from __future__ import annotations
@@ -29,6 +35,11 @@ from bot.database.models.enums import CharacterClass
 
 # ---------------------------------------------------------------------
 # Avatar class kits -- what "You" gets while playing each of the 4 roles.
+# Each class's passive reinforces that role using an existing passive
+# effect kind (see bot/game/loot/abilities.py for the same kinds used on
+# gear): DPS snowballs its own damage, Support DPS snowballs its crit
+# (precision/burst-enabling), Sustain saves itself from a killing blow so
+# it keeps healing the team, Amplifier does the same so it keeps buffing.
 # ---------------------------------------------------------------------
 CLASS_KIT_MAP: dict[CharacterClass, dict[str, dict]] = {
     CharacterClass.DPS: {
@@ -43,6 +54,11 @@ CLASS_KIT_MAP: dict[CharacterClass, dict[str, dict]] = {
             "resource_type": "energy", "resource_cost": 100, "cooldown": 0, "is_ultimate": True,
             "description": "Strike the target 4 times for 75% ATK damage each.",
             "effect": {"kind": "multi_hit", "hits": 4, "damage_percent_per_hit": 75, "damage_stat": "attack"},
+        },
+        "passive": {
+            "id": "avatar_dps_passive", "name": "Bloodlust", "trigger": "on_turn_start",
+            "description": "Gains 4% ATK per turn (max 5 stacks) -- hits harder the longer the fight runs.",
+            "effect": {"kind": "stacking_buff", "buff_stat": "attack", "percent_per_stack": 4, "max_stacks": 5},
         },
     },
     CharacterClass.SUPPORT_DPS: {
@@ -59,6 +75,11 @@ CLASS_KIT_MAP: dict[CharacterClass, dict[str, dict]] = {
             "description": "Strike the target 3 times for 95% ATK damage each.",
             "effect": {"kind": "multi_hit", "hits": 3, "damage_percent_per_hit": 95, "damage_stat": "attack"},
         },
+        "passive": {
+            "id": "avatar_support_dps_passive", "name": "Steady Aim", "trigger": "on_turn_start",
+            "description": "Gains 3% Crit Rate per turn (max 5 stacks) -- gets more precise the longer they fight.",
+            "effect": {"kind": "stacking_buff", "buff_stat": "crit_rate", "percent_per_stack": 3, "max_stacks": 5},
+        },
     },
     CharacterClass.AMPLIFIER: {
         "skill": {
@@ -72,6 +93,11 @@ CLASS_KIT_MAP: dict[CharacterClass, dict[str, dict]] = {
             "resource_type": "energy", "resource_cost": 100, "cooldown": 0, "is_ultimate": True,
             "description": "Boost the whole team's ATK by 45% for 3 turns.",
             "effect": {"kind": "team_buff", "buff_stat": "attack", "buff_percent": 45, "duration": 3},
+        },
+        "passive": {
+            "id": "avatar_amplifier_passive", "name": "Unshakeable Resolve", "trigger": "on_low_hp",
+            "description": "The first hit that would drop them to 0 HP instead leaves them at 1 -- once per battle, so they stay up to keep the team buffed.",
+            "effect": {"kind": "prevent_death", "charges_per_combat": 1},
         },
     },
     CharacterClass.SUSTAIN: {
@@ -87,6 +113,11 @@ CLASS_KIT_MAP: dict[CharacterClass, dict[str, dict]] = {
             "description": "Heal the whole team for 40% of each member's max HP.",
             "effect": {"kind": "team_heal_percent_max_hp", "percent": 40},
         },
+        "passive": {
+            "id": "avatar_sustain_passive", "name": "Second Wind", "trigger": "on_low_hp",
+            "description": "The first time they drop below 25% HP, heal for 20% of max HP -- once per battle.",
+            "effect": {"kind": "heal_percent_max_hp", "percent": 20, "charges_per_combat": 1},
+        },
     },
 }
 
@@ -99,6 +130,35 @@ def _skill(cid, name, cost, cd, desc, effect):
 def _ultimate(cid, name, desc, effect):
     return {"id": cid, "name": name, "resource_type": "energy", "resource_cost": 100,
             "cooldown": 0, "is_ultimate": True, "description": desc, "effect": effect}
+
+
+def _passive(cid, name, trigger, desc, effect):
+    return {"id": cid, "name": name, "trigger": trigger, "description": desc, "effect": effect}
+
+
+# Reusable passive effects per class role -- every character's passive is
+# one of these four (matching their class), just with a unique id/name/
+# flavor description. Keeps every character mechanically reinforcing its
+# role without needing a bespoke passive effect kind per character.
+def _dps_passive(cid, name, desc, percent_per_stack=4, max_stacks=5):
+    return _passive(cid, name, "on_turn_start", desc,
+                     {"kind": "stacking_buff", "buff_stat": "attack",
+                      "percent_per_stack": percent_per_stack, "max_stacks": max_stacks})
+
+
+def _support_dps_passive(cid, name, desc, percent_per_stack=3, max_stacks=5):
+    return _passive(cid, name, "on_turn_start", desc,
+                     {"kind": "stacking_buff", "buff_stat": "crit_rate",
+                      "percent_per_stack": percent_per_stack, "max_stacks": max_stacks})
+
+
+def _amplifier_passive(cid, name, desc):
+    return _passive(cid, name, "on_low_hp", desc, {"kind": "prevent_death", "charges_per_combat": 1})
+
+
+def _sustain_passive(cid, name, desc, percent=20):
+    return _passive(cid, name, "on_low_hp", desc,
+                     {"kind": "heal_percent_max_hp", "percent": percent, "charges_per_combat": 1})
 
 
 # ---------------------------------------------------------------------
@@ -208,6 +268,57 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
 }
 
 
+# ---------------------------------------------------------------------
+# Character passives -- reinforce each character's class role using the
+# same 4 reusable passive shapes as the avatar's class passives above.
+# Keyed separately from CHARACTER_KIT_MAP (by CharacterTemplate.passive_id)
+# since a couple of characters share a passive shape but not a name/flavor.
+# ---------------------------------------------------------------------
+CHARACTER_PASSIVE_MAP: dict[str, dict] = {
+    # --- 3-star ---
+    "lily_lovelace_passive": _sustain_passive(
+        "lily_lovelace_passive", "Comfort Food",
+        "The first time she drops below 25% HP, heal for 20% of max HP -- once per battle.",
+    ),
+    "nexus_passive": _amplifier_passive(
+        "nexus_passive", "Clout Chaser",
+        "The first hit that would knock him out instead leaves him at 1 HP -- once per battle. Can't stop the stream.",
+    ),
+    "fax_passive": _support_dps_passive(
+        "fax_passive", "Frequent Flyer",
+        "Gains 3% Crit Rate per turn (max 5 stacks) -- more accurate strafing runs the longer he flies.",
+    ),
+    "arkiver_passive": _dps_passive(
+        "arkiver_passive", "Elemental Momentum",
+        "Gains 4% ATK per turn (max 5 stacks) -- his gauntlets build charge the longer he fights.",
+    ),
+
+    # --- 4-star ---
+    "bee_jee_passive": _sustain_passive(
+        "bee_jee_passive", "Emergency Protocol",
+        "The first time she drops below 25% HP, heal for 25% of max HP -- once per battle.", percent=25,
+    ),
+    "sader_vorae_passive": _support_dps_passive(
+        "sader_vorae_passive", "Glacier-Trained Reflexes",
+        "Gains 3% Crit Rate per turn (max 5 stacks) -- years of Glacier 15 flight drills.",
+    ),
+    "nebula_passive": _amplifier_passive(
+        "nebula_passive", "Terrain Advantage",
+        "The first hit that would knock him out instead leaves him at 1 HP -- once per battle. He always finds solid footing.",
+    ),
+
+    # --- 5-star ---
+    "josh_passive": _dps_passive(
+        "josh_passive", "Unfinished Business",
+        "Gains 5% ATK per turn (max 5 stacks) -- driven harder the longer the fight drags on.", percent_per_stack=5,
+    ),
+    "refender_passive": _sustain_passive(
+        "refender_passive", "Refense Doctrine",
+        "The first time he drops below 25% HP, heal for 25% of max HP -- once per battle.", percent=25,
+    ),
+}
+
+
 def get_class_kit(character_class: CharacterClass) -> dict[str, dict]:
     return CLASS_KIT_MAP[character_class]
 
@@ -218,3 +329,7 @@ def get_character_skill(skill_id: str) -> dict | None:
 
 def get_character_ultimate(ultimate_id: str) -> dict | None:
     return CHARACTER_KIT_MAP.get(ultimate_id)
+
+
+def get_character_passive(passive_id: str) -> dict | None:
+    return CHARACTER_PASSIVE_MAP.get(passive_id)

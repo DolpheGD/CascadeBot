@@ -68,4 +68,18 @@ HARVESTER_TEMPLATES: list[dict] = [
         "base_upgrade_cost": 80,
         "upgrade_cost_growth": 1.45,
     },
+    {
+        "name": "Metal Forge",
+        "description": "A blazing forge, unlocked once Cascade HQ is established. Smelts ore into metal.",
+        "currency": "metal",
+        "unlock_cost": 800,
+        "unlock_currency": "gold",
+        "unlock_hq_level": 2,
+        "base_rate_per_hour": 4.0,
+        "level_scaling_exponent": 0.9,
+        "max_level": 10,
+        "max_accumulation_hours": 8.0,
+        "base_upgrade_cost": 200,
+        "upgrade_cost_growth": 1.55,
+    },
 ]

@@ -82,6 +82,15 @@ class Player(Base):
     harvesters: Mapped[List["PlayerHarvester"]] = relationship(  # noqa: F821
         back_populates="player", cascade="all, delete-orphan"
     )
+    base: Mapped["PlayerBase"] = relationship(  # noqa: F821
+        back_populates="player", uselist=False, cascade="all, delete-orphan"
+    )
+    mailbox: Mapped["PlayerMailbox"] = relationship(  # noqa: F821
+        back_populates="player", uselist=False, cascade="all, delete-orphan"
+    )
+    shrines: Mapped[List["PlayerShrine"]] = relationship(  # noqa: F821
+        back_populates="player", cascade="all, delete-orphan"
+    )
     lootboxes: Mapped[List["PlayerLootbox"]] = relationship(  # noqa: F821
         back_populates="player", cascade="all, delete-orphan"
     )

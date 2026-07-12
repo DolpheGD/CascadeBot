@@ -9,6 +9,7 @@ from bot.services import character_service, dungeon_service, inventory_service, 
 from bot.database.models.enums import ItemType
 from bot.utils import embedder
 from bot.utils.guild_decorator import guild_decorator
+from bot.utils.ui_guard import OwnedView, check_message_owner
 
 
 # ----------------------------------------------------------------------
@@ -39,6 +40,17 @@ def _in_combat_guard(db, player) -> str | None:
     return None
 
 
+def _no_loadout_change_during_run_guard(db, player) -> str | None:
+    """Equipping/unequipping gear (and, separately, changing your squad --
+    see bot/cogs/squad.py) is locked for the ENTIRE duration of an active
+    expedition, not just mid-battle -- you commit to a loadout before you
+    depart, per the design note that this shouldn't be adjustable
+    mid-run."""
+    if dungeon_service.get_active_expedition(db, player.id) is not None:
+        return "You can't change your equipment loadout during an active run -- finish or abandon your expedition first."
+    return None
+
+
 # ------------------------------------------------------------------
 # Detail mode components
 # ------------------------------------------------------------------
@@ -58,6 +70,8 @@ class EntryNavButton(discord.ui.DynamicItem[discord.ui.Button], template=r"casca
         return cls(match["direction"], match["entry_id"])
 
     async def callback(self, interaction: discord.Interaction):
+        if not await check_message_owner(interaction):
+            return
         await _handle_nav(interaction, self.entry_id, self.direction)
 
 
@@ -74,6 +88,8 @@ class ToListButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade
         return cls(match["entry_id"])
 
     async def callback(self, interaction: discord.Interaction):
+        if not await check_message_owner(interaction):
+            return
         db = SessionLocal()
         try:
             player = get_player(db, interaction.user.id)
@@ -112,13 +128,19 @@ class EquipTargetSelect(discord.ui.Select):
                 await interaction.response.send_message("Item not found.", ephemeral=True)
                 return
 
+            if self.values[0] != "cancel":
+                guard = _no_loadout_change_during_run_guard(db, player)
+                if guard:
+                    await interaction.response.send_message(guard, ephemeral=True)
+                    return
+
             if self.values[0] == "cancel":
                 embed, view = await _render_detail_page(db, player, f"item:{item.id}")
                 await interaction.response.edit_message(content=None, embed=embed, view=view)
                 return
 
             character = next(
-                (pc for pc in character_service.get_squad(db, player) if pc.id == int(self.values[0])),
+                (pc for pc in character_service.list_owned_characters(db, player) if pc.id == int(self.values[0])),
                 None,
             )
             if character is None:
@@ -132,9 +154,9 @@ class EquipTargetSelect(discord.ui.Select):
             db.close()
 
 
-class EquipTargetView(discord.ui.View):
-    def __init__(self, item_id: int, options: list[discord.SelectOption]):
-        super().__init__(timeout=120)
+class EquipTargetView(OwnedView):
+    def __init__(self, item_id: int, options: list[discord.SelectOption], owner_id: int | None = None):
+        super().__init__(timeout=120, owner_id=owner_id)
         self.add_item(EquipTargetSelect(item_id, options))
 
 
@@ -150,6 +172,8 @@ class EntryEquipToggleButton(discord.ui.DynamicItem[discord.ui.Button], template
         return cls(int(match["item_id"]))
 
     async def callback(self, interaction: discord.Interaction):
+        if not await check_message_owner(interaction):
+            return
         await _handle_equip_toggle(interaction, self.item_id)
 
 
@@ -165,6 +189,8 @@ class EntryLevelUpButton(discord.ui.DynamicItem[discord.ui.Button], template=r"c
         return cls(int(match["item_id"]))
 
     async def callback(self, interaction: discord.Interaction):
+        if not await check_message_owner(interaction):
+            return
         await _handle_level_up(interaction, self.item_id)
 
 
@@ -180,6 +206,8 @@ class EntryRerollButton(discord.ui.DynamicItem[discord.ui.Button], template=r"ca
         return cls(int(match["item_id"]))
 
     async def callback(self, interaction: discord.Interaction):
+        if not await check_message_owner(interaction):
+            return
         await _handle_reroll(interaction, self.item_id)
 
 
@@ -195,6 +223,8 @@ class EntrySellButton(discord.ui.DynamicItem[discord.ui.Button], template=r"casc
         return cls(int(match["item_id"]))
 
     async def callback(self, interaction: discord.Interaction):
+        if not await check_message_owner(interaction):
+            return
         await _handle_sell(interaction, self.item_id)
 
 
@@ -211,6 +241,8 @@ class EntryOpenLootboxButton(discord.ui.DynamicItem[discord.ui.Button], template
         return cls(match["tier"])
 
     async def callback(self, interaction: discord.Interaction):
+        if not await check_message_owner(interaction):
+            return
         await _handle_open_lootbox(interaction, self.tier)
 
 
@@ -256,9 +288,9 @@ class JumpButton(discord.ui.Button):
         await interaction.response.send_modal(JumpModal())
 
 
-class EntryDetailView(discord.ui.View):
-    def __init__(self, buttons: list[discord.ui.Item]):
-        super().__init__(timeout=None)
+class EntryDetailView(OwnedView):
+    def __init__(self, buttons: list[discord.ui.Item], owner_id: int | None = None):
+        super().__init__(timeout=None, owner_id=owner_id)
         for b in buttons:
             self.add_item(b)
 
@@ -310,6 +342,8 @@ class ListPageButton(discord.ui.DynamicItem[discord.ui.Button], template=r"casca
         return cls(match["direction"], int(match["page"]))
 
     async def callback(self, interaction: discord.Interaction):
+        if not await check_message_owner(interaction):
+            return
         db = SessionLocal()
         try:
             player = get_player(db, interaction.user.id)
@@ -323,9 +357,9 @@ class ListPageButton(discord.ui.DynamicItem[discord.ui.Button], template=r"casca
         await interaction.response.edit_message(content=None, embed=embed, view=view)
 
 
-class InventoryListView(discord.ui.View):
-    def __init__(self, select: InventorySelectEntry, page_buttons: list[discord.ui.Item]):
-        super().__init__(timeout=None)
+class InventoryListView(OwnedView):
+    def __init__(self, select: InventorySelectEntry, page_buttons: list[discord.ui.Item], owner_id: int | None = None):
+        super().__init__(timeout=None, owner_id=owner_id)
         self.add_item(select)
         for b in page_buttons:
             self.add_item(b)
@@ -361,7 +395,7 @@ async def _render_list_page(db, player, page: int):
     ]
 
     embed = embedder.inventory_list_embed(entries, page, player.username)
-    view = InventoryListView(select, page_buttons)
+    view = InventoryListView(select, page_buttons, owner_id=player.id)
     return embed, view
 
 
@@ -372,7 +406,7 @@ async def _render_detail_page(db, player, entry_id: str):
         entry = entries[0] if entries else None
     if entry is None:
         embed = discord.Embed(title="Inventory", description="Your inventory is empty.")
-        return embed, InventoryListView(InventorySelectEntry(), [])
+        return embed, InventoryListView(InventorySelectEntry(), [], owner_id=player.id)
 
     idx, total = inventory_service.entry_index_and_total(db, player.id, entry.entry_id)
     prev_id = inventory_service.get_neighbor_entry_id(db, player.id, entry.entry_id, "prev")
@@ -401,7 +435,7 @@ async def _render_detail_page(db, player, entry_id: str):
     buttons.append(JumpButton())
 
     embed = embedder.entry_detail_embed(entry, idx, total)
-    view = EntryDetailView(buttons)
+    view = EntryDetailView(buttons, owner_id=player.id)
     return embed, view
 
 
@@ -430,7 +464,7 @@ async def _handle_equip_toggle(interaction: discord.Interaction, item_id: int):
             await interaction.response.send_message("Use `/start` first.", ephemeral=True)
             return
 
-        guard = _in_combat_guard(db, player)
+        guard = _in_combat_guard(db, player) or _no_loadout_change_during_run_guard(db, player)
         if guard:
             await interaction.response.send_message(guard, ephemeral=True)
             return
@@ -446,23 +480,25 @@ async def _handle_equip_toggle(interaction: discord.Interaction, item_id: int):
             await interaction.response.edit_message(content=message, embed=embed, view=view)
             return
 
-        squad = character_service.get_squad(db, player)
-        if len(squad) <= 1:
+        owned = character_service.list_owned_characters(db, player)
+        if len(owned) <= 1:
             character = character_service.ensure_avatar_character(db, player)
             ok, message = inventory_service.equip_item(db, character, item)
             embed, view = await _render_detail_page(db, player, f"item:{item.id}")
             await interaction.response.edit_message(content=message, embed=embed, view=view)
             return
 
+        squad_ids = {pc.id for pc in character_service.get_squad(db, player)}
         options = [
             discord.SelectOption(
                 label=f"{pc.template.name} (Lv{pc.level}, {pc.template.character_class.value.replace('_', ' ').title()})"[:100],
+                description="In your active squad" if pc.id in squad_ids else "Not in your squad",
                 value=str(pc.id),
             )
-            for pc in squad
+            for pc in owned
         ]
         options.append(discord.SelectOption(label="Cancel", value="cancel", emoji="✖️"))
-        view = EquipTargetView(item.id, options)
+        view = EquipTargetView(item.id, options, owner_id=player.id)
         embed = embedder.item_detail_embed(item)
         await interaction.response.edit_message(
             content=f"Which squad member should equip {item.display_name}?",
@@ -562,7 +598,7 @@ async def _handle_open_lootbox(interaction: discord.Interaction, tier: str):
             return
 
         ok, message, rewards = lootbox_service.open_lootboxes(
-            db, player, tier, count=owned.quantity, item_level=character_service.get_progression_level(db, player)
+            db, player, tier, count=owned.quantity
         )
         if not ok:
             await interaction.response.send_message(message, ephemeral=True)

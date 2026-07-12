@@ -15,6 +15,7 @@ from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
 from bot.services import character_service, dungeon_service
 from bot.utils.guild_decorator import guild_decorator
+from bot.utils.ui_guard import OwnedView
 
 SLOT_LABELS = ["Slot 1 (Avatar -- locked)", "Slot 2", "Slot 3", "Slot 4"]
 
@@ -57,9 +58,9 @@ class SquadSlotSelect(discord.ui.Select):
                 return
 
             expedition = dungeon_service.get_active_expedition(db, player.id)
-            if dungeon_service.is_in_combat(expedition):
+            if expedition is not None:
                 await interaction.response.send_message(
-                    "You can't change your squad mid-battle -- finish the fight first!",
+                    "You can't change your squad during an active run -- finish or abandon your expedition first.",
                     ephemeral=True,
                 )
                 return
@@ -83,7 +84,7 @@ class SquadSlotSelect(discord.ui.Select):
 def _build_squad_view(db, player) -> discord.ui.View:
     owned = character_service.list_owned_characters(db, player)
     by_slot = character_service.get_squad_by_slot(db, player)
-    view = discord.ui.View(timeout=180)
+    view = OwnedView(timeout=180, owner_id=player.id)
 
     for slot_index in (1, 2, 3):
         current = by_slot[slot_index]

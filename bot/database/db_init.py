@@ -8,6 +8,7 @@ from bot.database.models import (  # noqa: F401
     economy_model,
     equipment_model,
     expedition_model,
+    hq_model,
     player_model,
 )
 

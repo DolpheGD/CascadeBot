@@ -28,6 +28,7 @@ from bot.game.loot import naming
 from bot.game.loot.abilities import (
     ARMOR_PASSIVES,
     ARTIFACT_SKILLS,
+    ULTIMATE_ABILITIES,
     WEAPON_SKILLS,
     abilities_for_rarity,
 )
@@ -54,10 +55,20 @@ class LootGenerator:
     # ------------------------------------------------------------------
     # Rarity
     # ------------------------------------------------------------------
-    def roll_rarity(self) -> Rarity:
-        """Weighted random rarity."""
-        rarities = list(RARITY_WEIGHTS.keys())
-        weights = list(RARITY_WEIGHTS.values())
+    def roll_rarity(self, max_rarity: Rarity | None = None) -> Rarity:
+        """Weighted random rarity. `max_rarity`, if given, strictly excludes
+        anything above it from the pool -- used to cap drops by region
+        difficulty (see bot/game/dungeon/region_config.py) so easier
+        locations only ever produce lower-tier gear/lootboxes, while
+        harder ones roll the full range (a mix of both, still weighted
+        toward common)."""
+        weights_by_rarity = RARITY_WEIGHTS
+        if max_rarity is not None:
+            weights_by_rarity = {
+                r: w for r, w in RARITY_WEIGHTS.items() if r.sort_order <= max_rarity.sort_order
+            }
+        rarities = list(weights_by_rarity.keys())
+        weights = list(weights_by_rarity.values())
         return self.rng.choices(rarities, weights=weights, k=1)[0]
 
     # ------------------------------------------------------------------
@@ -98,14 +109,27 @@ class LootGenerator:
     # item_type, per the equipment design.
     # ------------------------------------------------------------------
     def roll_ability(
-        self, item_type: ItemType, rarity: Rarity, force: bool = False
+        self, item_type: ItemType, rarity: Rarity, force: bool = False, linked_ability_id: str = "",
     ) -> tuple[dict | None, dict | None]:
         """Returns (active_ability, passive_ability); exactly one may be
         populated, both may be None. `force=True` skips the rarity's
         ability chance roll entirely (used by /admin_testgear so test items
-        always come with an ability to try out)."""
+        always come with an ability to try out). `linked_ability_id`, if
+        given (see ItemTemplate.linked_ability_id), always uses that
+        specific ability instead of a random one from the pool -- still
+        subject to the rarity's ability-chance roll unless force is also
+        set, but WHICH ability is no longer random."""
         if not force and self.rng.random() > RARITY_ABILITY_CHANCE[rarity]:
             return None, None
+
+        if linked_ability_id:
+            for pool, is_passive in ((WEAPON_SKILLS, False), (ARTIFACT_SKILLS, False),
+                                      (ULTIMATE_ABILITIES, False), (ARMOR_PASSIVES, True)):
+                for ability in pool:
+                    if ability["id"] == linked_ability_id:
+                        return (None, ability) if is_passive else (ability, None)
+            # Unknown id -- fall through to the normal random roll rather
+            # than silently giving nothing.
 
         if item_type == ItemType.WEAPON:
             pool = abilities_for_rarity(WEAPON_SKILLS, rarity)
@@ -129,12 +153,15 @@ class LootGenerator:
         item_level: int = 1,
         rarity_override: Rarity | None = None,
         force_ability: bool = False,
+        max_rarity: Rarity | None = None,
     ) -> InventoryItem:
-        rarity = rarity_override or self.roll_rarity()
+        rarity = rarity_override or self.roll_rarity(max_rarity=max_rarity)
 
         main_stat_value = self.roll_main_stat(template, item_level, rarity)
         substats = self.roll_substats(template.main_stat, item_level, rarity)
-        active_ability, passive_ability = self.roll_ability(template.item_type, rarity, force=force_ability)
+        active_ability, passive_ability = self.roll_ability(
+            template.item_type, rarity, force=force_ability, linked_ability_id=template.linked_ability_id,
+        )
 
         display_name = naming.generate_display_name(
             base_name=template.name,
@@ -143,6 +170,7 @@ class LootGenerator:
             active_ability=active_ability,
             passive_ability=passive_ability,
             rng=self.rng,
+            set_prefix=template.set_prefix,
         )
 
         return InventoryItem(

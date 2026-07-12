@@ -73,6 +73,30 @@ class ItemTemplate(Base):
 
     flavor_text: Mapped[str] = mapped_column(String(256), default="")
 
+    # Item sets: a handful of templates belong to a themed set (Wood, Iron,
+    # Sigma Wolf, Crystal, Xendium, Permafrost, Hi-Tech, Error Code,
+    # Voidwalker, Entropic, Refense, and the ultra-rare "500 Billian Gem
+    # Giveaway"). set_prefix is what actually shows up in the generated
+    # display name (see bot/game/loot/naming.py) -- kept separate from
+    # set_name so the display prefix can be shorter/cleaner than the full
+    # set name if needed. Empty string ("" ) means "not part of a set" --
+    # those items get a plain rarity-flavored generic prefix instead.
+    set_name: Mapped[str] = mapped_column(String(64), default="")
+    set_prefix: Mapped[str] = mapped_column(String(32), default="")
+
+    # If set, every instance of this template ALWAYS rolls this specific
+    # ability (by id, looked up across every pool in
+    # bot/game/loot/abilities.py) instead of a random one from its
+    # item_type's pool -- "certain items will be linked to certain
+    # abilities or passives." Still subject to RARITY_ABILITY_CHANCE
+    # unless force_ability is also passed to the generator.
+    linked_ability_id: Mapped[str] = mapped_column(String(64), default="")
+
+    # Deliberately excluded from normal random template rolls -- see
+    # bot/services/item_template_service.py::pick_random_template(). Only
+    # the joke-tier "500 Billian Gem Giveaway" set uses this.
+    is_ultra_rare: Mapped[bool] = mapped_column(Boolean, default=False)
+
     def __repr__(self) -> str:  # pragma: no cover
         return f"<ItemTemplate {self.name!r} slot={self.slot} main_stat={self.main_stat}>"
 

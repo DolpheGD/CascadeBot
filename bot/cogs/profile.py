@@ -7,6 +7,7 @@ from bot.database.session import SessionLocal
 from bot.services.player_service import get_or_create_player, get_player
 from bot.services.currency_service import add_currency
 from bot.services import character_service, inventory_service
+from bot.utils.ui_guard import OwnedView
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils import embedder
 
@@ -41,9 +42,9 @@ class CharacterProfileSelect(discord.ui.Select):
         await _render_profile_page(interaction, self.page, character_id=int(self.values[0]))
 
 
-class ProfilePageView(discord.ui.View):
-    def __init__(self, page: int, character_id: int | None = None, owned: list | None = None):
-        super().__init__(timeout=120)
+class ProfilePageView(OwnedView):
+    def __init__(self, page: int, character_id: int | None = None, owned: list | None = None, owner_id: int | None = None):
+        super().__init__(timeout=120, owner_id=owner_id)
         self.page = page
         self.character_id = character_id
         if owned and len(owned) > 1 and character_id is not None:
@@ -80,7 +81,7 @@ async def _render_profile_page(interaction: discord.Interaction, page: int, char
             avatar_url=interaction.user.display_avatar.url,
             page=page,
         )
-        view = ProfilePageView(page, character_id=character.id, owned=owned)
+        view = ProfilePageView(page, character_id=character.id, owned=owned, owner_id=player.id)
     finally:
         db.close()
 
@@ -149,7 +150,7 @@ class Profile(commands.Cog):
                 avatar_url=ctx.user.display_avatar.url,
                 page=0,
             )
-            view = ProfilePageView(0, character_id=character.id, owned=owned)
+            view = ProfilePageView(0, character_id=character.id, owned=owned, owner_id=player.id)
         finally:
             db.close()
 
