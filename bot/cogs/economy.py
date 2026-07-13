@@ -21,8 +21,13 @@ from bot.services.harvester_service import (
 )
 from bot.services.character_gacha_service import pull_single, pull_multi
 from bot.services import character_service, dungeon_service, lootbox_service
+from bot.services.currency_service import format_currency
+from bot.utils import embedder
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils.ui_guard import OwnedView, check_message_owner
+from bot.utils.logger import get_logger
+
+logger = get_logger("economy")
 
 
 # ----------------------------------------------------------------------
@@ -79,44 +84,46 @@ class HarvesterView(OwnedView):
 
 
 def _build_harvester_embed(db, player) -> discord.Embed:
-    hq_level = base_service.get_hq_level(db, player)
-    templates = [t for t in list_templates(db) if t.unlock_hq_level <= hq_level]
+    templates = list_templates(db)
     owned = {h.template_id: h for h in list_player_harvesters(db, player.id)}
+    hq_level = base_service.get_hq_level(db, player)
 
     embed = discord.Embed(title="Harvesters", color=discord.Color.gold())
-    embed.description = f"Cascade HQ Level {hq_level} -- use `/base` to view HQ, shrines, and the shop."
+    locked_lines = []
     for template in templates:
+        if hq_level < template.unlock_hq_level:
+            locked_lines.append(f"{template.name} -- requires Cascade HQ level {template.unlock_hq_level}")
+            continue
         owned_harvester = owned.get(template.id)
         cap = effective_max_level(template, hq_level)
         if owned_harvester:
             rate = get_production_rate(template, owned_harvester.level)
             value = (
                 f"Owned - Level {owned_harvester.level}/{template.max_level} (cap {cap})\n"
-                f"Producing {rate:.1f} {template.currency}/hr"
+                f"Producing {format_currency(template.currency, round(rate * 10) / 10)}/hr"
             )
         else:
-            cost = "Free" if template.unlock_cost == 0 else f"{template.unlock_cost} {template.unlock_currency}"
+            cost = "Free" if template.unlock_cost == 0 else format_currency(template.unlock_currency, template.unlock_cost)
             value = f"Not owned - Unlock: {cost}"
         embed.add_field(name=template.name, value=value, inline=False)
-
-    locked = [t for t in list_templates(db) if t.unlock_hq_level > hq_level]
-    if locked:
-        names = ", ".join(f"{t.name} (HQ {t.unlock_hq_level})" for t in locked)
-        embed.add_field(name="Locked", value=names, inline=False)
+    if locked_lines:
+        embed.add_field(name="🔒 Locked", value="\n".join(locked_lines), inline=False)
     return embed
 
 
 def _build_harvester_view(db, player) -> HarvesterView:
-    hq_level = base_service.get_hq_level(db, player)
-    templates = [t for t in list_templates(db) if t.unlock_hq_level <= hq_level]
+    templates = list_templates(db)
     owned = {h.template_id: h for h in list_player_harvesters(db, player.id)}
+    hq_level = base_service.get_hq_level(db, player)
 
     buttons = []
     for template in templates:
+        if hq_level < template.unlock_hq_level:
+            continue
         owned_harvester = owned.get(template.id)
         cap = effective_max_level(template, hq_level)
         if owned_harvester is None:
-            cost_text = "Free" if template.unlock_cost == 0 else f"{template.unlock_cost} {template.unlock_currency}"
+            cost_text = "Free" if template.unlock_cost == 0 else format_currency(template.unlock_currency, template.unlock_cost)
             buttons.append(HarvesterActionButton(
                 template.id, label=f"Buy {template.name} ({cost_text})",
                 style=discord.ButtonStyle.success,
@@ -135,7 +142,7 @@ def _build_harvester_view(db, player) -> HarvesterView:
             cost = get_upgrade_cost(template, owned_harvester.level)
             buttons.append(HarvesterActionButton(
                 template.id,
-                label=f"Upgrade {template.name} (Lv{owned_harvester.level}->{owned_harvester.level + 1}, {cost}g)",
+                label=f"Upgrade {template.name} (Lv{owned_harvester.level}->{owned_harvester.level + 1}, {format_currency('gold', cost)})",
                 style=discord.ButtonStyle.primary,
             ))
     return HarvesterView(buttons, owner_id=player.id)
@@ -206,7 +213,7 @@ async def _handle_harvester_collect_all(interaction: discord.Interaction):
         elif not any(totals.values()):
             message = "Nothing to collect yet - check back later!"
         else:
-            parts = [f"{amount} {currency}" for currency, amount in totals.items() if amount]
+            parts = [format_currency(currency, amount) for currency, amount in totals.items() if amount]
             message = f"Collected: {', '.join(parts)}"
 
         embed = _build_harvester_embed(db, player)
@@ -255,11 +262,11 @@ class Economy(commands.Cog):
         finally:
             db.close()
 
-        message = f"Daily reward: **{result['gold']} gold** (streak: {result['streak']} days)"
+        message = f"Daily reward: **{format_currency('gold', result['gold'])}** (streak: {result['streak']} days)"
         if result["reroll_tokens"]:
-            message += f", **{result['reroll_tokens']} reroll tokens**"
+            message += f", **{format_currency('reroll_tokens', result['reroll_tokens'])}**"
         if result["shards"]:
-            message += f" and **{result['shards']} shards** for your streak milestone!"
+            message += f" and **{format_currency('shards', result['shards'])}** for your streak milestone!"
         tier_counts: dict[str, int] = {}
         for tier in result["lootbox_tiers"]:
             tier_counts[tier] = tier_counts.get(tier, 0) + 1
@@ -315,16 +322,28 @@ class Economy(commands.Cog):
                 )
                 return
 
-            if count == 1:
-                success, message, results = pull_single(db, player)
-            else:
-                success, message, results = pull_multi(db, player, count=count)
+            try:
+                if count == 1:
+                    success, message, results = pull_single(db, player)
+                else:
+                    success, message, results = pull_multi(db, player, count=count)
 
-            if not success:
-                await ctx.response.send_message(message, ephemeral=True)
+                if not success:
+                    await ctx.response.send_message(message, ephemeral=True)
+                    return
+
+                embed = embedder.gacha_pull_embed(results)
+            except Exception:
+                # Surface the real error instead of a silent "This
+                # interaction failed" -- makes any future regression here
+                # immediately diagnosable instead of a mystery report.
+                logger.exception("`/pull` failed for player %s (count=%s)", player.id, count)
+                await ctx.response.send_message(
+                    "Something went wrong generating your pull results. This has been logged -- "
+                    "please report it if it keeps happening.",
+                    ephemeral=True,
+                )
                 return
-
-            embed = embedder.gacha_pull_embed(results)
         finally:
             db.close()
 
@@ -334,7 +353,17 @@ class Economy(commands.Cog):
     # Shows gacha odds by star rating, cost, and the duplicate-conversion rule.
     @app_commands.command(name="pull_rates", description="View gacha odds and pull costs.")
     async def pull_rates(self, ctx: discord.Interaction):
-        await ctx.response.send_message(embed=embedder.gacha_rates_embed(), ephemeral=True)
+        try:
+            embed = embedder.gacha_rates_embed()
+        except Exception:
+            logger.exception("`/pull_rates` failed to build its embed")
+            await ctx.response.send_message(
+                "Something went wrong loading gacha rates. This has been logged -- "
+                "please report it if it keeps happening.",
+                ephemeral=True,
+            )
+            return
+        await ctx.response.send_message(embed=embed, ephemeral=True)
 
     # COMMAND: /open
     # Opens every lootbox of the chosen tier at once, rolling gold/shards
@@ -383,9 +412,9 @@ class Economy(commands.Cog):
                 return
 
             embed = discord.Embed(title=message, color=discord.Color.purple())
-            embed.add_field(name="Gold", value=str(rewards["gold"]), inline=True)
+            embed.add_field(name="Gold", value=format_currency("gold", rewards["gold"]), inline=True)
             if rewards["shards"]:
-                embed.add_field(name="Shards", value=str(rewards["shards"]), inline=True)
+                embed.add_field(name="Shards", value=format_currency("shards", rewards["shards"]), inline=True)
             if rewards["items"]:
                 items_text = "\n".join(
                     f"{item.display_name} ({item.rarity.value})" for item in rewards["items"]

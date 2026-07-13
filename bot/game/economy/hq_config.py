@@ -151,7 +151,7 @@ SHRINE_TEMPLATES: list[dict] = [
 
 SHOP_LISTINGS: list[dict] = [
     {
-        "name": "Sell Wood",
+        "name": "Lumber Buyer",
         "description": "The quartermaster always needs lumber.",
         "kind": "exchange",
         "unlock_hq_level": 1,
@@ -162,7 +162,7 @@ SHOP_LISTINGS: list[dict] = [
         "daily_limit": 0,
     },
     {
-        "name": "Sell Stone",
+        "name": "Stone Buyer",
         "description": "The quartermaster always needs stone.",
         "kind": "exchange",
         "unlock_hq_level": 1,
@@ -173,7 +173,7 @@ SHOP_LISTINGS: list[dict] = [
         "daily_limit": 0,
     },
     {
-        "name": "Buy Wood",
+        "name": "Lumber Shipment",
         "description": "Pricier than harvesting it yourself, but instant.",
         "kind": "exchange",
         "unlock_hq_level": 1,
@@ -184,7 +184,7 @@ SHOP_LISTINGS: list[dict] = [
         "daily_limit": 0,
     },
     {
-        "name": "Buy Stone",
+        "name": "Stone Shipment",
         "description": "Pricier than harvesting it yourself, but instant.",
         "kind": "exchange",
         "unlock_hq_level": 1,
@@ -196,7 +196,7 @@ SHOP_LISTINGS: list[dict] = [
     },
     {
         "name": "Rusty Sword Bundle",
-        "description": "A crate of starter weapons. Rolls one basic Iron Sword.",
+        "description": "A crate of starter weapons.",
         "kind": "item",
         "unlock_hq_level": 1,
         "cost_currency": "gold",
@@ -206,8 +206,8 @@ SHOP_LISTINGS: list[dict] = [
         "daily_limit": 3,
     },
     {
-        "name": "Traveler's Vest",
-        "description": "Basic protection for the road ahead. Rolls one Leather Vest.",
+        "name": "Traveler's Vest Bundle",
+        "description": "Basic protection for the road ahead.",
         "kind": "item",
         "unlock_hq_level": 1,
         "cost_currency": "gold",
@@ -217,7 +217,7 @@ SHOP_LISTINGS: list[dict] = [
         "daily_limit": 3,
     },
     {
-        "name": "Refine Stone to Metal",
+        "name": "Metal Refinery",
         "description": "The quarry's forge can refine stone into metal, slowly.",
         "kind": "exchange",
         "unlock_hq_level": 2,
@@ -237,5 +237,75 @@ SHOP_LISTINGS: list[dict] = [
         "reward_currency": "shards",
         "reward_amount": 10,
         "daily_limit": 3,
+    },
+    # -- Mid-tier goods and lootboxes, gradually unlocked as Cascade HQ
+    # levels up. Each tier is a clear step up in item_level/lootbox rarity
+    # over the last, giving HQ levels a tangible shopping payoff on top of
+    # the higher building caps.
+    {
+        "name": "Common Lootbox Crate",
+        "description": "A sealed Cascade supply crate. Contents unknown.",
+        "kind": "lootbox",
+        "unlock_hq_level": 2,
+        "cost_currency": "gold",
+        "cost_amount": 400,
+        "lootbox_tier": "common",
+        "lootbox_quantity": 1,
+        "daily_limit": 5,
+    },
+    {
+        "name": "Runic Robe Bundle",
+        "description": "Mid-tier arcane armor, forge-fresh.",
+        "kind": "item",
+        "unlock_hq_level": 2,
+        "cost_currency": "gold",
+        "cost_amount": 600,
+        "item_template_name": "Runic Robe",
+        "item_level": 8,
+        "daily_limit": 2,
+    },
+    {
+        "name": "Uncommon Lootbox Crate",
+        "description": "A reinforced Cascade supply crate. Better odds inside.",
+        "kind": "lootbox",
+        "unlock_hq_level": 3,
+        "cost_currency": "gold",
+        "cost_amount": 900,
+        "lootbox_tier": "uncommon",
+        "lootbox_quantity": 1,
+        "daily_limit": 5,
+    },
+    {
+        "name": "Arcane Staff Bundle",
+        "description": "A staff humming with stored Cascade energy.",
+        "kind": "item",
+        "unlock_hq_level": 3,
+        "cost_currency": "gold",
+        "cost_amount": 1500,
+        "item_template_name": "Arcane Staff",
+        "item_level": 15,
+        "daily_limit": 2,
+    },
+    {
+        "name": "Rare Lootbox Crate",
+        "description": "A sealed Cascade vault crate. Only the well-established get one.",
+        "kind": "lootbox",
+        "unlock_hq_level": 4,
+        "cost_currency": "gold",
+        "cost_amount": 2000,
+        "lootbox_tier": "rare",
+        "lootbox_quantity": 1,
+        "daily_limit": 3,
+    },
+    {
+        "name": "Charged Plating Bundle",
+        "description": "High-tier armor plating, still warm from the forge.",
+        "kind": "item",
+        "unlock_hq_level": 4,
+        "cost_currency": "gold",
+        "cost_amount": 3500,
+        "item_template_name": "Charged Plating",
+        "item_level": 22,
+        "daily_limit": 2,
     },
 ]

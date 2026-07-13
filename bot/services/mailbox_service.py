@@ -16,7 +16,7 @@ from bot.game.economy.mailbox_config import (
     roll_package,
     upgrade_cost,
 )
-from bot.services.currency_service import add_currency, spend_currency
+from bot.services.currency_service import add_currency, format_currency, spend_currency
 
 
 def get_or_create_mailbox(db, player) -> PlayerMailbox:
@@ -65,7 +65,7 @@ def collect_mailbox(db, player, rng: random.Random | None = None) -> tuple[bool,
     if not rewards:
         return True, "The package was empty this time -- better luck next delivery!", {}
 
-    parts = ", ".join(f"{amount} {currency}" for currency, amount in rewards.items())
+    parts = ", ".join(format_currency(currency, amount) for currency, amount in rewards.items())
     return True, f"A package arrived: {parts}!", rewards
 
 
@@ -81,7 +81,7 @@ def upgrade_mailbox(db, player) -> tuple[bool, str]:
     cost = upgrade_cost(mailbox.level)
     for currency, amount in cost.items():
         if getattr(player, currency) < amount:
-            cost_text = ", ".join(f"{amt} {cur}" for cur, amt in cost.items())
+            cost_text = ", ".join(format_currency(cur, amt) for cur, amt in cost.items())
             return False, f"Not enough resources (need {cost_text})."
 
     for currency, amount in cost.items():

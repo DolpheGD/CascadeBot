@@ -26,3 +26,15 @@ class DamageOverTime:
     duration: int
     source: str = ""
     stat_source: str = ""  # metadata only, for logging/flavor
+
+
+@dataclass
+class HealOverTime:
+    """A heal-per-turn effect (regen). `percent_max_hp` is evaluated against
+    the *owner's own* max_hp each tick (unlike DamageOverTime's frozen flat
+    amount) so a regen effect stays meaningful even if max_hp changes
+    mid-battle -- and because a "heal 5% max HP a turn" support ability
+    reads far more naturally than a frozen flat number."""
+    percent_max_hp: float
+    duration: int
+    source: str = ""

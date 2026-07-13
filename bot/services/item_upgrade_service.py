@@ -19,7 +19,7 @@ from bot.game.loot.rarity_config import (
 )
 from bot.game.loot.upgrades import add_substat as _add_substat_math
 from bot.game.loot.upgrades import level_up, reroll_substats
-from bot.services.currency_service import spend_currency
+from bot.services.currency_service import add_currency, format_currency, spend_currency
 
 LEVEL_UP_GOLD_PER_LEVEL = 15
 LEVEL_UP_MATERIAL_PER_LEVEL = 3
@@ -60,17 +60,18 @@ def reroll_item(db, player, item) -> tuple[bool, str]:
 
     cost = get_reroll_cost(item)
     if getattr(player, "reroll_tokens", 0) < cost["tokens"]:
-        return False, f"Not enough reroll tokens (need {cost['tokens']})."
+        return False, f"Not enough {format_currency('reroll_tokens', cost['tokens'])}."
     if not spend_currency(db, player, "reroll_tokens", cost["tokens"]):
-        return False, f"Not enough reroll tokens (need {cost['tokens']})."
+        return False, f"Not enough {format_currency('reroll_tokens', cost['tokens'])}."
     if not spend_currency(db, player, "gold", cost["gold"]):
-        # refund tokens since gold failed
-        spend_currency(db, player, "reroll_tokens", -cost["tokens"])
-        return False, f"Not enough gold (need {cost['gold']})."
+        # refund tokens since gold failed -- add_currency, never spend_currency
+        # with a negative amount (spend_currency rejects negatives outright).
+        add_currency(db, player, "reroll_tokens", cost["tokens"])
+        return False, f"Not enough {format_currency('gold', cost['gold'])}."
 
     reroll_substats(item)
     db.commit()
-    return True, f"Rerolled {item.display_name} for {cost['tokens']} tokens + {cost['gold']} gold."
+    return True, f"Rerolled {item.display_name} for {format_currency('reroll_tokens', cost['tokens'])} + {format_currency('gold', cost['gold'])}."
 
 
 # ---------------------------------------------------------------------
@@ -89,14 +90,14 @@ def add_substat_to_item(db, player, item) -> tuple[bool, str]:
         return False, f"{item.display_name} already has the maximum of {MAX_SUBSTATS} substats."
 
     if not spend_currency(db, player, "reroll_tokens", cost["tokens"]):
-        return False, f"Not enough reroll tokens (need {cost['tokens']})."
+        return False, f"Not enough {format_currency('reroll_tokens', cost['tokens'])}."
     if not spend_currency(db, player, "gold", cost["gold"]):
-        spend_currency(db, player, "reroll_tokens", -cost["tokens"])
-        return False, f"Not enough gold (need {cost['gold']})."
+        add_currency(db, player, "reroll_tokens", cost["tokens"])
+        return False, f"Not enough {format_currency('gold', cost['gold'])}."
 
     _add_substat_math(item)
     db.commit()
-    return True, f"Added a new substat to {item.display_name} for {cost['tokens']} tokens + {cost['gold']} gold."
+    return True, f"Added a new substat to {item.display_name} for {format_currency('reroll_tokens', cost['tokens'])} + {format_currency('gold', cost['gold'])}."
 
 
 # ---------------------------------------------------------------------
@@ -123,7 +124,7 @@ def level_up_item(db, player, item, levels: int = 1) -> tuple[bool, str]:
         return False, f"{item.display_name} is already at its upgrade cap for {item.rarity.value} rarity ({cap})."
 
     if not spend_currency(db, player, "gold", cost["gold"]):
-        return False, f"Not enough gold (need {cost['gold']})."
+        return False, f"Not enough {format_currency('gold', cost['gold'])}."
 
     spent_materials = []
     for mat_name, qty in cost["materials"].items():
@@ -131,13 +132,13 @@ def level_up_item(db, player, item, levels: int = 1) -> tuple[bool, str]:
             continue
         if not spend_currency(db, player, mat_name, qty):
             # refund gold + any materials already spent this call
-            spend_currency(db, player, "gold", -cost["gold"])
+            add_currency(db, player, "gold", cost["gold"])
             for spent_name, spent_qty in spent_materials:
-                spend_currency(db, player, spent_name, -spent_qty)
-            return False, f"Not enough {mat_name.replace('_', ' ')} (need {qty})."
+                add_currency(db, player, spent_name, spent_qty)
+            return False, f"Not enough {format_currency(mat_name, qty)}."
         spent_materials.append((mat_name, qty))
 
     level_up(item, cost["levels"])
     db.commit()
     note = " (capped)" if cost["at_cap"] else ""
-    return True, f"{item.display_name} leveled up to {item.item_level} for {cost['gold']} gold{note}."
+    return True, f"{item.display_name} leveled up to {item.item_level} for {format_currency('gold', cost['gold'])}{note}."

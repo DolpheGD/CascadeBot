@@ -57,6 +57,7 @@ class Combatant:
 
     modifiers: list = field(default_factory=list)  # list[StatModifier]
     dots: list = field(default_factory=list)        # list[DamageOverTime]
+    heals: list = field(default_factory=list)       # list[HealOverTime]
 
     stunned_turns: int = 0
 

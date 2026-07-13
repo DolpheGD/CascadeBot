@@ -7,15 +7,17 @@ straight from their kit rather than gear:
   * `character_ultimate` -- one active ability, costs 100 ENERGY.
   * `character_passive`  -- one always-on passive, no resource cost, that
     reinforces the character's class role (DPS hits harder as the fight
-    goes on, Sustain saves itself from death's door, etc.) -- reuses the
-    same passive effect kinds gear passives already use
-    (bot/game/combat/effects.py's trigger_on_turn_start/_trigger_on_low_hp),
-    so no new combat-resolution code is needed for these.
+    goes on, Amplifier/Sustain trickle resources/healing to the WHOLE team
+    every turn, etc.) -- reuses the same passive effect kinds gear passives
+    already use (bot/game/combat/effects.py's trigger_on_turn_start), so no
+    new combat-resolution code is needed for these.
 
 Same `effect` dict shape as bot/game/loot/abilities.py so
-bot/game/combat/effects.py resolves them identically -- plus three new
+bot/game/combat/effects.py resolves them identically -- including the
 team-oriented kinds added for this system: `heal_lowest_ally_percent_max_hp`,
-`team_heal_percent_max_hp`, and `team_buff` (see effects.py).
+`team_heal_percent_max_hp`, `team_buff`, and (for the always-on team-aura
+passives specifically) `aura_team_resource_regen` / `aura_team_regen` (see
+effects.py::trigger_on_turn_start).
 
 Two registries:
   * CLASS_KIT_MAP -- keyed by CharacterClass, used ONLY for the player's own
@@ -35,11 +37,13 @@ from bot.database.models.enums import CharacterClass
 
 # ---------------------------------------------------------------------
 # Avatar class kits -- what "You" gets while playing each of the 4 roles.
-# Each class's passive reinforces that role using an existing passive
-# effect kind (see bot/game/loot/abilities.py for the same kinds used on
-# gear): DPS snowballs its own damage, Support DPS snowballs its crit
-# (precision/burst-enabling), Sustain saves itself from a killing blow so
-# it keeps healing the team, Amplifier does the same so it keeps buffing.
+# Each class's passive reinforces that role: DPS/Support DPS snowball
+# their own ATK/Crit Rate turn over turn (self-only, since a solo-fighter
+# identity fits them), while Amplifier/Sustain use the newer team-aura
+# passive kinds (aura_team_resource_regen / aura_team_regen) to trickle
+# resources/healing to the WHOLE team every turn -- a much more direct fit
+# for "support the team" than the earlier one-time save-yourself passives
+# these used before those aura kinds existed.
 # ---------------------------------------------------------------------
 CLASS_KIT_MAP: dict[CharacterClass, dict[str, dict]] = {
     CharacterClass.DPS: {
@@ -95,9 +99,9 @@ CLASS_KIT_MAP: dict[CharacterClass, dict[str, dict]] = {
             "effect": {"kind": "team_buff", "buff_stat": "attack", "buff_percent": 45, "duration": 3},
         },
         "passive": {
-            "id": "avatar_amplifier_passive", "name": "Unshakeable Resolve", "trigger": "on_low_hp",
-            "description": "The first hit that would drop them to 0 HP instead leaves them at 1 -- once per battle, so they stay up to keep the team buffed.",
-            "effect": {"kind": "prevent_death", "charges_per_combat": 1},
+            "id": "avatar_amplifier_passive", "name": "Unshakeable Resolve", "trigger": "on_turn_start",
+            "description": "At the start of every turn, restores 4 energy and 6 mana to the whole team.",
+            "effect": {"kind": "aura_team_resource_regen", "energy_amount": 4, "mana_amount": 6},
         },
     },
     CharacterClass.SUSTAIN: {
@@ -114,9 +118,9 @@ CLASS_KIT_MAP: dict[CharacterClass, dict[str, dict]] = {
             "effect": {"kind": "team_heal_percent_max_hp", "percent": 40},
         },
         "passive": {
-            "id": "avatar_sustain_passive", "name": "Second Wind", "trigger": "on_low_hp",
-            "description": "The first time they drop below 25% HP, heal for 20% of max HP -- once per battle.",
-            "effect": {"kind": "heal_percent_max_hp", "percent": 20, "charges_per_combat": 1},
+            "id": "avatar_sustain_passive", "name": "Second Wind", "trigger": "on_turn_start",
+            "description": "At the start of every turn, the whole team regenerates 3% of their own max HP.",
+            "effect": {"kind": "aura_team_regen", "percent": 3},
         },
     },
 }
@@ -152,13 +156,14 @@ def _support_dps_passive(cid, name, desc, percent_per_stack=3, max_stacks=5):
                       "percent_per_stack": percent_per_stack, "max_stacks": max_stacks})
 
 
-def _amplifier_passive(cid, name, desc):
-    return _passive(cid, name, "on_low_hp", desc, {"kind": "prevent_death", "charges_per_combat": 1})
+def _amplifier_passive(cid, name, desc, energy_amount=4, mana_amount=6):
+    return _passive(cid, name, "on_turn_start", desc,
+                     {"kind": "aura_team_resource_regen", "energy_amount": energy_amount, "mana_amount": mana_amount})
 
 
-def _sustain_passive(cid, name, desc, percent=20):
-    return _passive(cid, name, "on_low_hp", desc,
-                     {"kind": "heal_percent_max_hp", "percent": percent, "charges_per_combat": 1})
+def _sustain_passive(cid, name, desc, percent=3):
+    return _passive(cid, name, "on_turn_start", desc,
+                     {"kind": "aura_team_regen", "percent": percent})
 
 
 # ---------------------------------------------------------------------
@@ -278,11 +283,11 @@ CHARACTER_PASSIVE_MAP: dict[str, dict] = {
     # --- 3-star ---
     "lily_lovelace_passive": _sustain_passive(
         "lily_lovelace_passive", "Comfort Food",
-        "The first time she drops below 25% HP, heal for 20% of max HP -- once per battle.",
+        "At the start of every turn, keeps the whole team fed and healed for 3% of their own max HP.",
     ),
     "nexus_passive": _amplifier_passive(
         "nexus_passive", "Clout Chaser",
-        "The first hit that would knock him out instead leaves him at 1 HP -- once per battle. Can't stop the stream.",
+        "At the start of every turn, hypes up the whole team, restoring 4 energy and 6 mana to each of them.",
     ),
     "fax_passive": _support_dps_passive(
         "fax_passive", "Frequent Flyer",
@@ -296,7 +301,7 @@ CHARACTER_PASSIVE_MAP: dict[str, dict] = {
     # --- 4-star ---
     "bee_jee_passive": _sustain_passive(
         "bee_jee_passive", "Emergency Protocol",
-        "The first time she drops below 25% HP, heal for 25% of max HP -- once per battle.", percent=25,
+        "At the start of every turn, the whole team is stabilized and healed for 4% of their own max HP.", percent=4,
     ),
     "sader_vorae_passive": _support_dps_passive(
         "sader_vorae_passive", "Glacier-Trained Reflexes",
@@ -304,7 +309,8 @@ CHARACTER_PASSIVE_MAP: dict[str, dict] = {
     ),
     "nebula_passive": _amplifier_passive(
         "nebula_passive", "Terrain Advantage",
-        "The first hit that would knock him out instead leaves him at 1 HP -- once per battle. He always finds solid footing.",
+        "At the start of every turn, reads the terrain to keep the whole team's supply lines flowing: 5 energy and 7 mana each.",
+        energy_amount=5, mana_amount=7,
     ),
 
     # --- 5-star ---
@@ -314,7 +320,7 @@ CHARACTER_PASSIVE_MAP: dict[str, dict] = {
     ),
     "refender_passive": _sustain_passive(
         "refender_passive", "Refense Doctrine",
-        "The first time he drops below 25% HP, heal for 25% of max HP -- once per battle.", percent=25,
+        "At the start of every turn, the whole team regenerates 4% of their own max HP -- balance, extended to everyone around him.", percent=4,
     ),
 }
 

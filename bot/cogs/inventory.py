@@ -13,15 +13,17 @@ from bot.utils.ui_guard import OwnedView, check_message_owner
 
 
 # ----------------------------------------------------------------------
-# Two browsing modes over one unified list of items + lootboxes
-# (bot.services.inventory_service.list_combined_entries):
+# /inventory -- the ITEM inventory (equip/sell/level/reroll -- see
+# bot.services.inventory_service.list_combined_entries, items only now).
+# Lootboxes/currencies/materials live in the separate general inventory
+# (/stash, further down this file) since none of those actions apply to
+# them.
 #
 #   LIST mode   -- compact, many-per-page, for skimming a big inventory.
 #                  A Select lets you jump straight into Detail mode for
 #                  any entry on the current page.
 #   DETAIL mode -- one entry at a time, full stats/ability text, with
-#                  Equip/Unequip/Level Up/Reroll (items) or Open All
-#                  (lootboxes).
+#                  Equip/Unequip/Level Up/Reroll/Sell.
 #
 # A "🔍 Jump to #" button (either mode) opens a modal so you can type an
 # exact entry number and land on its Detail page directly, without paging
@@ -366,6 +368,18 @@ class InventoryListView(OwnedView):
         self.add_item(JumpButton())
 
 
+class StashView(OwnedView):
+    """The general inventory's view -- just one Open button per lootbox
+    tier the player actually owns (no pagination/detail mode needed, see
+    embedder.general_inventory_embed)."""
+    def __init__(self, owned_lootboxes: list, owner_id: int | None = None):
+        super().__init__(timeout=None, owner_id=owner_id)
+        for owned in owned_lootboxes:
+            if owned.quantity > 0:
+                self.add_item(EntryOpenLootboxButton(owned.template.tier))
+
+
+
 # ------------------------------------------------------------------
 # Renderers
 # ------------------------------------------------------------------
@@ -379,13 +393,9 @@ async def _render_list_page(db, player, page: int):
 
     options = []
     for i, entry in enumerate(page_entries, start=start + 1):
-        if entry.kind == "lootbox":
-            label = f"{i}. {entry.obj.template.name} x{entry.obj.quantity}"
-            emoji = "📦"
-        else:
-            item = entry.obj
-            label = f"{i}. {item.display_name}"[:100]
-            emoji = embedder.RARITY_EMOJI.get(item.rarity.value, "⚪")
+        item = entry.obj
+        label = f"{i}. {item.display_name}"[:100]
+        emoji = embedder.RARITY_EMOJI.get(item.rarity.value, "⚪")
         options.append(discord.SelectOption(label=label[:100], value=entry.entry_id, emoji=emoji))
 
     select = InventorySelectEntry(options or None)
@@ -418,24 +428,28 @@ async def _render_detail_page(db, player, entry_id: str):
         ToListButton(entry.entry_id),
     ]
 
-    if entry.kind == "lootbox":
-        buttons.append(EntryOpenLootboxButton(entry.obj.template.tier))
-    else:
-        item = entry.obj
-        buttons.append(EntryEquipToggleButton(
-            item.id,
-            label="Unequip" if item.is_equipped else "Equip",
-            style=discord.ButtonStyle.danger if item.is_equipped else discord.ButtonStyle.success,
-        ))
-        buttons.append(EntryLevelUpButton(item.id))
-        buttons.append(EntryRerollButton(item.id))
-        if not item.is_equipped:
-            buttons.append(EntrySellButton(item.id))
+    item = entry.obj
+    buttons.append(EntryEquipToggleButton(
+        item.id,
+        label="Unequip" if item.is_equipped else "Equip",
+        style=discord.ButtonStyle.danger if item.is_equipped else discord.ButtonStyle.success,
+    ))
+    buttons.append(EntryLevelUpButton(item.id))
+    buttons.append(EntryRerollButton(item.id))
+    if not item.is_equipped:
+        buttons.append(EntrySellButton(item.id))
 
     buttons.append(JumpButton())
 
     embed = embedder.entry_detail_embed(entry, idx, total)
     view = EntryDetailView(buttons, owner_id=player.id)
+    return embed, view
+
+
+async def _render_stash(db, player):
+    owned_lootboxes = lootbox_service.list_player_lootboxes(db, player.id)
+    embed = embedder.general_inventory_embed(player, owned_lootboxes)
+    view = StashView(owned_lootboxes, owner_id=player.id)
     return embed, view
 
 
@@ -611,12 +625,7 @@ async def _handle_open_lootbox(interaction: discord.Interaction, tier: str):
                 message += f", 💎 {rewards['shards']} shards"
             message += f"\nItems: {names}"
 
-        entries = inventory_service.list_combined_entries(db, player.id)
-        first_id = entries[0].entry_id if entries else None
-        if first_id:
-            embed, view = await _render_detail_page(db, player, first_id)
-        else:
-            embed, view = await _render_list_page(db, player, 0)
+        embed, view = await _render_stash(db, player)
         await interaction.response.edit_message(content=message, embed=embed, view=view)
     finally:
         db.close()
@@ -636,7 +645,7 @@ class Inventory(commands.Cog):
     # and lootbox stack you own. Pick one from the dropdown (or use 🔍 Jump
     # to #) to see it in full detail, equip it, level it up, reroll its
     # substats, or open a lootbox stack.
-    @app_commands.command(name="inventory", description="Browse your items and lootboxes.")
+    @app_commands.command(name="inventory", description="Browse your items -- equip, sell, level up, or reroll.")
     async def inventory(self, ctx: discord.Interaction):
         db = SessionLocal()
         try:
@@ -651,12 +660,34 @@ class Inventory(commands.Cog):
             entries = inventory_service.list_combined_entries(db, player.id)
             if not entries:
                 await ctx.response.send_message(
-                    "Your inventory is empty. Try `/adventure`, `/pull`, or `/open`.",
+                    "You don't have any items yet. Try `/adventure`, `/pull`, or `/open`.",
                     ephemeral=True,
                 )
                 return
 
             embed, view = await _render_list_page(db, player, 0)
+        finally:
+            db.close()
+
+        await ctx.response.send_message(embed=embed, view=view)
+
+    # COMMAND: /stash
+    # The general inventory: currencies, materials, and lootboxes. None of
+    # these can be sold -- gold/materials get spent through the usual
+    # upgrade/harvester flows, and lootboxes just get opened here.
+    @app_commands.command(name="stash", description="View your gold, shards, materials, and lootboxes.")
+    async def stash(self, ctx: discord.Interaction):
+        db = SessionLocal()
+        try:
+            player = get_player(db, ctx.user.id)
+            if player is None:
+                await ctx.response.send_message(
+                    "You haven't started your journey yet. Use `/start` first.",
+                    ephemeral=True,
+                )
+                return
+
+            embed, view = await _render_stash(db, player)
         finally:
             db.close()
 

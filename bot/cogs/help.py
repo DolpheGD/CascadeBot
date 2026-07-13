@@ -72,11 +72,13 @@ class Help(commands.Cog):
         embed.add_field(
             name="🎒 Gear",
             value=(
-                "`/inventory` -- browse a compact List of everything you own "
-                "(items + lootboxes together), or open any entry in Detail "
-                "mode to see full stats/abilities and Equip, Level Up, "
-                "Reroll, or Open it. Use 🔍 Jump to # to go straight to a "
-                "specific entry.\n"
+                "`/inventory` -- browse your ITEMS: a compact List of everything "
+                "you own, or open any entry in Detail mode to see full "
+                "stats/abilities and Equip, Level Up, Reroll, or Sell it. "
+                "Use 🔍 Jump to # to go straight to a specific entry.\n"
+                "`/stash` -- your general inventory: gold, shards, reroll "
+                "tokens, materials, and lootboxes (open them right there). "
+                "Nothing in `/stash` can be sold.\n"
                 "Each character has 4 slots: Weapon, Artifact, Armor, and Accessory -- "
                 "equipping asks which of your squad members should wear it. "
                 "Ultimates come from characters now, not gear."
@@ -88,9 +90,13 @@ class Help(commands.Cog):
             value=(
                 "`/daily` -- claim your daily reward (gold, reroll tokens, streak bonuses + lootboxes)\n"
                 "`/harvesters` -- buy, upgrade, and collect passive income, all in one place\n"
+                "`/base hq` -- view and upgrade Cascade HQ\n"
+                "`/base shrines` -- build/upgrade party-wide stat shrines\n"
+                "`/base mailbox` -- collect a package of basic supplies every 30min-1hr\n"
+                "`/base shop` -- material exchanges and low-level gear\n"
                 "`/pull` -- spend Shards to pull a new character (single or 10x)\n"
                 "`/pull_rates` -- view gacha odds and costs\n"
-                "`/open <tier>` -- open all lootboxes of a tier (view them in `/inventory`)"
+                "`/open <tier>` -- open all lootboxes of a tier (or use `/stash`)"
             ),
             inline=False,
         )

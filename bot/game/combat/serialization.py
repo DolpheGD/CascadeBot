@@ -13,7 +13,7 @@ import random
 
 from bot.game.combat.battle import Battle
 from bot.game.combat.combatant import Combatant
-from bot.game.combat.status import DamageOverTime, StatModifier
+from bot.game.combat.status import DamageOverTime, HealOverTime, StatModifier
 
 
 def _ability_to_json(ability: dict | None) -> dict | None:
@@ -45,6 +45,7 @@ def combatant_to_dict(c: Combatant) -> dict:
         "stacks": dict(c.stacks),
         "modifiers": [dataclasses.asdict(m) for m in c.modifiers],
         "dots": [dataclasses.asdict(d) for d in c.dots],
+        "heals": [dataclasses.asdict(h) for h in c.heals],
         "stunned_turns": c.stunned_turns,
         "turn_gauge": c.turn_gauge,
     }
@@ -71,6 +72,7 @@ def combatant_from_dict(data: dict) -> Combatant:
         stacks=dict(data["stacks"]),
         modifiers=[StatModifier(**m) for m in data["modifiers"]],
         dots=[DamageOverTime(**d) for d in data["dots"]],
+        heals=[HealOverTime(**h) for h in data.get("heals", [])],
         stunned_turns=data["stunned_turns"],
         turn_gauge=data.get("turn_gauge", 0.0),
     )
@@ -86,7 +88,7 @@ def battle_to_dict(battle: Battle) -> dict:
         "result": battle.result,
         "target_index": battle.target_index,
         # Index into party + enemies -- unambiguous even when two
-        # combatants share a name (e.g. two Goblins).
+        # combatants share a name (e.g. two Xender Henchmen).
         "current_actor_index": all_combatants.index(battle._current_actor),
     }
 

@@ -171,13 +171,24 @@ class Battle:
             dot.duration -= 1
         combatant.dots = [d for d in combatant.dots if d.duration > 0]
 
+        # Regen (heal-over-time) ticks the same way, on the healed
+        # combatant's own turn.
+        for regen in list(combatant.heals):
+            healed = combatant.heal(combatant.max_hp * regen.percent_max_hp / 100)
+            if healed:
+                self.log.append(f"🌿 {combatant.name} regenerates {healed} HP from {regen.source}.")
+            regen.duration -= 1
+        combatant.heals = [h for h in combatant.heals if h.duration > 0]
+
         if not combatant.is_alive():
             self._check_end_conditions()
             if not self.is_over():
                 self._begin_next_turn()
             return
 
-        effects.trigger_on_turn_start(combatant, self.log)
+        own_side = self.party if combatant.is_player else self.enemies
+        allies = [c for c in own_side if c is not combatant and c.is_alive()]
+        effects.trigger_on_turn_start(combatant, self.log, allies=allies)
         if not combatant.is_alive():
             self._check_end_conditions()
             if not self.is_over():
@@ -236,6 +247,7 @@ class Battle:
             self.select_target(target_index)
         target = self._pick_enemy_target(self.target_index)
         allies = [c for c in self.party if c is not actor and c.is_alive()]
+        opponents = self.living_enemies()
 
         if action == "attack":
             effects.resolve_basic_attack(actor, target, self.rng, self.log)
@@ -244,13 +256,13 @@ class Battle:
             if ability is None or not actor.ability_ready(ability):
                 self.log.append(f"{actor.name} can't use that ability right now.")
                 return
-            effects.resolve_active_ability(actor, target, ability, self.rng, self.log, allies=allies)
+            effects.resolve_active_ability(actor, target, ability, self.rng, self.log, allies=allies, opponents=opponents)
         elif action == "ultimate":
             ability = actor.ultimate_ability
             if ability is None or not actor.ability_ready(ability):
                 self.log.append(f"{actor.name}'s ultimate isn't ready yet.")
                 return
-            effects.resolve_active_ability(actor, target, ability, self.rng, self.log, allies=allies)
+            effects.resolve_active_ability(actor, target, ability, self.rng, self.log, allies=allies, opponents=opponents)
         else:
             self.log.append(f"Unknown action: {action}")
             return
@@ -293,16 +305,17 @@ class Battle:
 
         target = self._pick_party_target()
         allies = [e for e in self.enemies if e is not enemy and e.is_alive()]
+        opponents = self.living_party()
 
         if enemy.ultimate_ready() and self.rng.random() < 0.5:
-            effects.resolve_active_ability(enemy, target, enemy.ultimate_ability, self.rng, self.log, allies=allies)
+            effects.resolve_active_ability(enemy, target, enemy.ultimate_ability, self.rng, self.log, allies=allies, opponents=opponents)
             self._end_turn(enemy)
             return
 
         usable = [a for a in enemy.active_abilities if enemy.ability_ready(a)]
         if usable and self.rng.random() < 0.5:
             ability = self.rng.choice(usable)
-            effects.resolve_active_ability(enemy, target, ability, self.rng, self.log, allies=allies)
+            effects.resolve_active_ability(enemy, target, ability, self.rng, self.log, allies=allies, opponents=opponents)
         else:
             effects.resolve_basic_attack(enemy, target, self.rng, self.log)
 

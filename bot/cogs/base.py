@@ -15,6 +15,7 @@ from bot.database.models.hq_model import ShrineTemplate
 from bot.services.player_service import get_player
 from bot.services import base_service, dungeon_service, mailbox_service
 from bot.game.economy.hq_config import is_max_hq_level, upgrade_requirements
+from bot.services.currency_service import format_currency
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils.ui_guard import OwnedView, check_message_owner
 
@@ -73,7 +74,7 @@ def _build_hq_embed(db, player) -> discord.Embed:
     )
     embed.description = (
         "Your base of operations. Harvesters, shrines, the mailbox, and the shop "
-        "all grow with HQ level -- use `/harvesters`, `/shrines`, `/mailbox`, and `/shop`."
+        "all grow with HQ level -- use `/harvesters`, `/base shrines`, `/base mailbox`, and `/base shop`."
     )
 
     if is_max_hq_level(base.hq_level):
@@ -81,7 +82,7 @@ def _build_hq_embed(db, player) -> discord.Embed:
         return embed
 
     cost = upgrade_requirements(base.hq_level)["upgrade_cost"]
-    cost_text = ", ".join(f"{amount} {currency}" for currency, amount in cost.items())
+    cost_text = ", ".join(format_currency(currency, amount) for currency, amount in cost.items())
     embed.add_field(name="Next level cost", value=cost_text, inline=False)
 
     missing = base_service.missing_hq_requirements(db, player)
@@ -103,7 +104,7 @@ def _build_hq_view(db, player) -> HQView:
     else:
         ready, _ = base_service.can_upgrade_hq(db, player)
         cost = upgrade_requirements(base.hq_level)["upgrade_cost"]
-        cost_text = "/".join(f"{amount}{currency[:1]}" for currency, amount in cost.items())
+        cost_text = "/".join(format_currency(currency, amount) for currency, amount in cost.items())
         button = HQUpgradeButton(
             label=f"Upgrade HQ to Lv{base.hq_level + 1} ({cost_text})",
             style=discord.ButtonStyle.success if ready else discord.ButtonStyle.secondary,
@@ -193,7 +194,7 @@ def _build_shrine_embed(db, player) -> discord.Embed:
                 f"+{bonus:g}{suffix} {template.stat} to the whole party"
             )
         else:
-            value = f"Not built - Build cost: {template.build_cost_gold} gold"
+            value = f"Not built - Build cost: {format_currency('gold', template.build_cost_gold)}"
         embed.add_field(name=template.name, value=value, inline=False)
 
     locked = [t for t in base_service.list_shrine_templates(db) if t.unlock_hq_level > hq_level]
@@ -214,7 +215,7 @@ def _build_shrine_view(db, player) -> ShrineView:
         cap = base_service.shrine_effective_max_level(template, hq_level)
         if owned_shrine is None:
             buttons.append(ShrineActionButton(
-                template.id, label=f"Build {template.name} ({template.build_cost_gold}g)",
+                template.id, label=f"Build {template.name} ({format_currency('gold', template.build_cost_gold)})",
                 style=discord.ButtonStyle.success,
             ))
         elif owned_shrine.level >= template.max_level:
@@ -231,7 +232,7 @@ def _build_shrine_view(db, player) -> ShrineView:
             cost = base_service.get_shrine_upgrade_cost(template, owned_shrine.level)
             buttons.append(ShrineActionButton(
                 template.id,
-                label=f"Upgrade {template.name} (Lv{owned_shrine.level}->{owned_shrine.level + 1}, {cost}g)",
+                label=f"Upgrade {template.name} (Lv{owned_shrine.level}->{owned_shrine.level + 1}, {format_currency('gold', cost)})",
                 style=discord.ButtonStyle.primary,
             ))
     return ShrineView(buttons, owner_id=player.id)
@@ -289,6 +290,32 @@ class ShopView(OwnedView):
             self.add_item(button)
 
 
+def _shop_listing_summary(listing) -> str:
+    """Exact, unambiguous 'what you give / what you get' line -- always
+    derived straight from the listing's numbers, never from hand-written
+    copy, so it can't drift out of sync with what actually happens."""
+    give = format_currency(listing.cost_currency, listing.cost_amount)
+    if listing.kind == "item":
+        return f"Give {give} -> Receive 1x {listing.item_template_name} (item level {listing.item_level})"
+    if listing.kind == "lootbox":
+        return f"Give {give} -> Receive {listing.lootbox_quantity}x {listing.lootbox_tier.title()} Lootbox"
+    return f"Give {give} -> Receive {format_currency(listing.reward_currency, listing.reward_amount)}"
+
+
+def _shop_listing_button_label(listing) -> str:
+    if listing.kind == "item":
+        return f"Buy {listing.item_template_name} ({format_currency(listing.cost_currency, listing.cost_amount)})"
+    if listing.kind == "lootbox":
+        return (
+            f"Buy {listing.lootbox_quantity}x {listing.lootbox_tier.title()} Lootbox "
+            f"({format_currency(listing.cost_currency, listing.cost_amount)})"
+        )
+    return (
+        f"{format_currency(listing.cost_currency, listing.cost_amount)} "
+        f"-> {format_currency(listing.reward_currency, listing.reward_amount)}"
+    )
+
+
 def _build_shop_embed(db, player) -> discord.Embed:
     hq_level = base_service.get_hq_level(db, player)
     listings = base_service.list_shop_listings(db, hq_level)
@@ -296,9 +323,9 @@ def _build_shop_embed(db, player) -> discord.Embed:
     embed = discord.Embed(title="Local Shop", color=discord.Color.orange())
     embed.description = "Low-level goods and material exchanges. More unlocks as Cascade HQ levels up."
     for listing in listings:
-        value = f"{listing.description}\nCost: {listing.cost_amount} {listing.cost_currency}"
+        value = f"{listing.description}\n{_shop_listing_summary(listing)}"
         if listing.daily_limit:
-            value += f" (max {listing.daily_limit}/day)"
+            value += f"\n(max {listing.daily_limit}/day)"
         embed.add_field(name=listing.name, value=value, inline=False)
     if not listings:
         embed.add_field(name="Nothing here yet", value="Check back after upgrading Cascade HQ.", inline=False)
@@ -312,7 +339,7 @@ def _build_shop_view(db, player) -> ShopView:
     buttons = []
     for listing in listings[:25]:
         buttons.append(ShopBuyButton(
-            listing.id, label=f"Buy {listing.name} ({listing.cost_amount} {listing.cost_currency})",
+            listing.id, label=_shop_listing_button_label(listing),
             style=discord.ButtonStyle.primary,
         ))
     return ShopView(buttons, owner_id=player.id)
@@ -418,7 +445,7 @@ def _build_mailbox_embed(db, player) -> discord.Embed:
 
     cost = mailbox_service.get_mailbox_upgrade_cost(mailbox)
     if cost:
-        cost_text = ", ".join(f"{amount} {currency}" for currency, amount in cost.items())
+        cost_text = ", ".join(format_currency(currency, amount) for currency, amount in cost.items())
         embed.add_field(name="Upgrade cost", value=cost_text, inline=False)
     else:
         embed.add_field(name="Upgrade cost", value="Mailbox is at max level.", inline=False)
@@ -438,7 +465,7 @@ def _build_mailbox_view(db, player) -> MailboxView:
     if cost is None:
         upgrade_button = MailboxUpgradeButton(label="Mailbox (MAX)", style=discord.ButtonStyle.secondary, disabled=True)
     else:
-        cost_text = "/".join(f"{amount}{currency[:1]}" for currency, amount in cost.items())
+        cost_text = "/".join(format_currency(currency, amount) for currency, amount in cost.items())
         upgrade_button = MailboxUpgradeButton(label=f"Upgrade Mailbox ({cost_text})", style=discord.ButtonStyle.primary)
 
     return MailboxView(collect_button, upgrade_button, owner_id=player.id)
@@ -449,7 +476,7 @@ def _build_mailbox_view(db, player) -> MailboxView:
 # ----------------------------------------------------------------------
 
 @guild_decorator
-class Base(commands.Cog):
+class Base(commands.GroupCog, name="base", description="Cascade HQ base-building commands."):
     def __init__(self, bot):
         self.bot = bot
         db = SessionLocal()
@@ -458,8 +485,8 @@ class Base(commands.Cog):
         finally:
             db.close()
 
-    @app_commands.command(name="base", description="View and upgrade your Cascade HQ.")
-    async def base_cmd(self, ctx: discord.Interaction):
+    @app_commands.command(name="hq", description="View and upgrade your Cascade HQ.")
+    async def hq_cmd(self, ctx: discord.Interaction):
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
@@ -508,7 +535,6 @@ class Base(commands.Cog):
         finally:
             db.close()
         await ctx.response.send_message(embed=embed, view=view)
-
 
     @app_commands.command(name="mailbox", description="Check your mailbox for a package of basic supplies.")
     async def mailbox_cmd(self, ctx: discord.Interaction):

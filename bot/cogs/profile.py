@@ -80,6 +80,7 @@ async def _render_profile_page(interaction: discord.Interaction, page: int, char
             equipped_items=inventory_service.list_equipped(db, character.id),
             avatar_url=interaction.user.display_avatar.url,
             page=page,
+            db=db,
         )
         view = ProfilePageView(page, character_id=character.id, owned=owned, owner_id=player.id)
     finally:
@@ -149,6 +150,7 @@ class Profile(commands.Cog):
                 equipped_items=inventory_service.list_equipped(db, character.id),
                 avatar_url=ctx.user.display_avatar.url,
                 page=0,
+                db=db,
             )
             view = ProfilePageView(0, character_id=character.id, owned=owned, owner_id=player.id)
         finally:

@@ -6,6 +6,7 @@ from discord import app_commands
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
 from bot.services import character_service, dungeon_service, combat_service
+from bot.services.currency_service import currency_emoji
 from bot.utils import embedder
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils.ui_guard import OwnedView
@@ -101,12 +102,18 @@ class CombatView(OwnedView):
         target_options: list[discord.SelectOption] | None = None,
         ultimate_ready: bool = False,
         ultimate_exists: bool = False,
+        ultimate_energy: int = 0,
+        ultimate_cost: int = 100,
         owner_id: int | None = None,
     ):
         super().__init__(timeout=None, owner_id=owner_id)
         self.attack_button.disabled = False
         self.ultimate_button.disabled = not ultimate_ready
-        self.ultimate_button.label = "💥 Ultimate" if ultimate_exists else "💥 No Ultimate"
+        if ultimate_exists:
+            status = "Ready!" if ultimate_ready else f"{ultimate_energy}/{ultimate_cost} EN"
+            self.ultimate_button.label = f"💥 Ultimate ({status})"
+        else:
+            self.ultimate_button.label = "💥 No Ultimate"
         if not ultimate_exists:
             self.remove_item(self.ultimate_button)
 
@@ -163,7 +170,7 @@ class PuzzleView(OwnedView):
 class ShopBuyButton(discord.ui.Button):
     def __init__(self, offer: dict):
         super().__init__(
-            label=f"Buy {offer['name']} ({offer['cost_gold']}g)"[:80],
+            label=f"Buy {offer['name']} ({offer['cost_gold']}{currency_emoji('gold')})"[:80],
             style=discord.ButtonStyle.success,
             custom_id=f"cascade_shop_buy:{offer['id']}",
         )
@@ -215,7 +222,20 @@ def _build_combat_view(battle, owner_id: int) -> CombatView:
     for ability in actor.active_abilities:
         ready = actor.ability_ready(ability)
         source_icon = {"character": "🌀", "weapon": "⚔️", "artifact": "🔮"}.get(ability.get("source"), "✨")
-        label = f"{source_icon} {ability['name']}" if ready else f"{source_icon} {ability['name']} (not ready)"
+        unit = "MP" if ability["resource_type"] == "mana" else "EN"
+        cost_str = f"{ability['resource_cost']} {unit}"
+
+        if ready:
+            status = "Ready"
+        else:
+            cooldown_remaining = actor.cooldowns.get(ability["id"], 0)
+            if cooldown_remaining > 0:
+                status = f"ready in {cooldown_remaining}t"
+            else:
+                pool = actor.mana if ability["resource_type"] == "mana" else actor.energy
+                status = f"need {ability['resource_cost'] - pool} more {unit}"
+
+        label = f"{source_icon} {ability['name']} -- {cost_str} ({status})"
         ability_options.append(discord.SelectOption(
             label=label[:100],
             value=ability["id"],
@@ -238,6 +258,8 @@ def _build_combat_view(battle, owner_id: int) -> CombatView:
         target_options or None,
         ultimate_ready=actor.ultimate_ready(),
         ultimate_exists=actor.ultimate_ability is not None,
+        ultimate_energy=actor.energy,
+        ultimate_cost=actor.ultimate_ability["resource_cost"] if actor.ultimate_ability else 100,
         owner_id=owner_id,
     )
 

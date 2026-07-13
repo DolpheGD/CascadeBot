@@ -10,6 +10,7 @@ import discord
 from bot.database.models.enums import (
     CLASS_DISPLAY_NAME,
     MATERIAL_DISPLAY_NAME,
+    MATERIAL_EMOJI,
     SLOT_DISPLAY_NAME,
     SLOT_EMOJI,
     EquipmentSlot,
@@ -20,6 +21,7 @@ from bot.database.models.character_model import LEVEL_CAP
 from bot.game.combat.combatant import STAT_KEYS
 from bot.game.combat.factory import base_character_stats as _base_character_stats
 from bot.game.combat.factory import build_character_combatant
+from bot.services.currency_service import currency_emoji, format_currency
 
 ROOM_TYPE_EMOJI = {
     "start": "🚪", "combat": "⚔️", "elite": "🔥", "treasure": "💰",
@@ -52,10 +54,6 @@ STAT_LABEL = {
     "attack": "ATK", "defense": "DEF", "elemental": "ELE", "speed": "SPD",
     "max_hp": "HP", "max_mana": "MP", "crit_rate": "Crit Rate",
     "crit_damage": "Crit DMG", "recharge": "Recharge",
-}
-
-ITEM_TYPE_EMOJI = {
-    ItemType.WEAPON: "⚔️", ItemType.ARMOR: "🛡️", ItemType.ARTIFACT: "🔮",
 }
 
 PERCENT_STATS = {"crit_rate", "crit_damage"}
@@ -96,23 +94,28 @@ PROFILE_PAGE_COUNT = len(PROFILE_PAGE_TITLES)
 
 
 def profile_embed(
-    player, character, equipped_items: list, avatar_url: str | None = None, page: int = 0
+    player, character, equipped_items: list, avatar_url: str | None = None, page: int = 0, db=None
 ) -> discord.Embed:
     """`character` is the PlayerCharacter whose stats/gear/kit this profile
     shows -- normally the player's own avatar (see
     character_service.ensure_avatar_character). Full per-squad-member
     profile switching is a later UI pass; for now /profile always shows
-    your avatar."""
+    your avatar. `db`, if given, lets the overview page fold in built
+    shrine bonuses (bot/services/base_service.py::apply_shrine_bonuses) on
+    top of character+gear stats -- the same adjustment battles get."""
     page = max(0, min(page, PROFILE_PAGE_COUNT - 1))
     if page == 0:
-        return _profile_overview_page(player, character, equipped_items, avatar_url)
+        return _profile_overview_page(player, character, equipped_items, avatar_url, db)
     if page == 1:
         return _profile_equipment_page(player, character, equipped_items, avatar_url)
     return _profile_abilities_page(player, character, equipped_items, avatar_url)
 
 
-def _profile_overview_page(player, character, equipped_items, avatar_url) -> discord.Embed:
+def _profile_overview_page(player, character, equipped_items, avatar_url, db=None) -> discord.Embed:
     combatant = build_character_combatant(character, equipped_items)
+    if db is not None:
+        from bot.services import base_service
+        base_service.apply_shrine_bonuses(db, player, [combatant])
 
     embed = discord.Embed(
         title=f"{player.username}'s Profile -- {character.template.name}",
@@ -364,6 +367,8 @@ def battle_info_embed(battle) -> discord.Embed:
             lines.append(f"{sign}{m.percent:g}% {m.stat} ({m.duration}t) -- {m.source}")
         for d in c.dots:
             lines.append(f"🔥 {d.flat_amount:g} dmg/turn ({d.duration}t) -- {d.source}")
+        for h in c.heals:
+            lines.append(f"🌿 {h.percent_max_hp:g}% max HP/turn ({h.duration}t) -- {h.source}")
         if c.stunned_turns > 0:
             lines.append(f"😵 Stunned ({c.stunned_turns}t)")
         for ability_id, remaining in c.cooldowns.items():
@@ -395,7 +400,7 @@ def item_detail_embed(item, position: int | None = None, total: int | None = Non
     """One item shown in full detail: main stat, substats, ability, and
     flavor text -- used by the /inventory detail browser."""
     color = RARITY_COLORS.get(item.rarity.value, discord.Color.light_grey())
-    type_icon = ITEM_TYPE_EMOJI.get(item.item_type, "📦")
+    type_icon = SLOT_EMOJI[item.slot]
     embed = discord.Embed(title=f"{type_icon} {item.display_name}", color=color)
 
     embed.add_field(name="Rarity", value=f"{RARITY_EMOJI.get(item.rarity.value, '')} {item.rarity.value.title()}", inline=True)
@@ -450,23 +455,23 @@ def item_detail_embed(item, position: int | None = None, total: int | None = Non
         next_cost = get_level_up_cost(item, levels=1)
         if next_cost["levels"] > 0:
             mat_text = ", ".join(
-                f"{qty} {MATERIAL_DISPLAY_NAME.get(MaterialType(name), name.replace('_', ' ').title())}"
+                format_currency(name, qty)
                 for name, qty in next_cost["materials"].items() if qty > 0
             )
-            value = f"{next_cost['gold']} gold" + (f" + {mat_text}" if mat_text else "")
+            value = format_currency("gold", next_cost["gold"]) + (f" + {mat_text}" if mat_text else "")
             embed.add_field(name=f"⬆️ Level Up Cost (Lv{item.item_level}→{item.item_level + 1}, cap {cap})", value=value, inline=False)
     else:
         embed.add_field(name="⬆️ Level Up", value=f"At cap ({cap}) for {item.rarity.value} rarity", inline=True)
 
     if item.substats:
         r_cost = reroll_cost(item.rarity)
-        embed.add_field(name="🎲 Reroll Cost", value=f"{r_cost['tokens']} tokens + {r_cost['gold']} gold", inline=True)
+        embed.add_field(name="🎲 Reroll Cost", value=f"{format_currency('reroll_tokens', r_cost['tokens'])} + {format_currency('gold', r_cost['gold'])}", inline=True)
     if len(item.substats) < MAX_SUBSTATS:
         a_cost = add_substat_cost(item.rarity)
-        embed.add_field(name="➕ Add Substat Cost", value=f"{a_cost['tokens']} tokens + {a_cost['gold']} gold", inline=True)
+        embed.add_field(name="➕ Add Substat Cost", value=f"{format_currency('reroll_tokens', a_cost['tokens'])} + {format_currency('gold', a_cost['gold'])}", inline=True)
 
     if not item.is_equipped:
-        embed.add_field(name="💰 Sell Value", value=f"{get_sell_value(item)} gold", inline=True)
+        embed.add_field(name="💰 Sell Value", value=format_currency("gold", get_sell_value(item)), inline=True)
 
     if item.template is not None and item.template.flavor_text:
         embed.set_footer(text=item.template.flavor_text)
@@ -487,10 +492,10 @@ def lootbox_detail_embed(owned_lootbox, position: int | None = None, total: int 
         color=discord.Color.purple(),
     )
     embed.add_field(name="Quantity Owned", value=str(owned_lootbox.quantity), inline=True)
-    gold_range = f"{template.min_gold}-{template.max_gold} gold"
+    gold_range = f"{template.min_gold}-{template.max_gold} {currency_emoji('gold')}"
     embed.add_field(name="Contains", value=gold_range, inline=True)
     if template.max_shards:
-        embed.add_field(name="Shards", value=f"{template.min_shards}-{template.max_shards}", inline=True)
+        embed.add_field(name="Shards", value=f"{template.min_shards}-{template.max_shards} {currency_emoji('shards')}", inline=True)
     embed.add_field(name="Items per box", value=str(template.item_count), inline=True)
 
     weights = LOOTBOX_RARITY_WEIGHTS.get(template.tier)
@@ -528,29 +533,74 @@ def inventory_list_embed(entries: list, page: int, player_name: str) -> discord.
     page_entries = entries[start:start + ITEMS_PER_LIST_PAGE]
 
     embed = discord.Embed(
-        title=f"🎒 {player_name}'s Inventory",
-        description=f"Page {page + 1}/{total_pages} -- {len(entries)} total entries",
+        title=f"🎒 {player_name}'s Item Inventory",
+        description=f"Page {page + 1}/{total_pages} -- {len(entries)} total items",
         color=discord.Color.dark_teal(),
     )
 
     if not page_entries:
-        embed.add_field(name="Empty", value="Nothing here yet -- try `/adventure`, `/pull`, or `/daily`.", inline=False)
+        embed.add_field(name="Empty", value="Nothing here yet -- try `/adventure`, `/pull`, or `/open`.", inline=False)
         return embed
 
     lines = []
     for i, entry in enumerate(page_entries, start=start + 1):
-        if entry.kind == "lootbox":
-            template = entry.obj.template
-            lines.append(f"`{i:>3}.` 📦 {template.name} x{entry.obj.quantity}")
-        else:
-            item = entry.obj
-            rarity_emoji = RARITY_EMOJI.get(item.rarity.value, "⚪")
-            type_icon = ITEM_TYPE_EMOJI.get(item.item_type, "📦")
-            equipped_tag = " ✅" if item.is_equipped else ""
-            lines.append(f"`{i:>3}.` {rarity_emoji} {type_icon} {item.display_name} (Lv{item.item_level}){equipped_tag}")
+        item = entry.obj
+        rarity_emoji = RARITY_EMOJI.get(item.rarity.value, "⚪")
+        type_icon = SLOT_EMOJI[item.slot]
+        equipped_tag = " ✅" if item.is_equipped else ""
+        lines.append(f"`{i:>3}.` {rarity_emoji} {type_icon} {item.display_name} (Lv{item.item_level}){equipped_tag}")
 
     embed.add_field(name="Items", value="\n".join(lines), inline=False)
-    embed.set_footer(text="Use 🔍 Jump to # to go straight to an entry, or switch to Detail Mode to equip/open/upgrade.")
+    embed.set_footer(text="Use 🔍 Jump to # to go straight to an entry, or switch to Detail Mode to equip/sell/upgrade. Currencies, materials, and lootboxes are in /stash.")
+    return embed
+
+
+def general_inventory_embed(player, owned_lootboxes: list) -> discord.Embed:
+    """The general inventory (/stash): currencies, tiered materials, and
+    lootboxes -- everything that isn't a rolled item and so can't be
+    equipped, sold, leveled, or rerolled the way /inventory's items can.
+    Deliberately simpler than the item browser (one embed, no pagination
+    or detail mode) since the set of currencies/materials is small and
+    fixed and lootboxes only really need an Open action."""
+    embed = discord.Embed(
+        title=f"🎒 {player.username}'s General Inventory",
+        description="Currencies, materials, and lootboxes -- can't be sold, only spent or opened.",
+        color=discord.Color.dark_gold(),
+    )
+
+    embed.add_field(
+        name="💰 Currencies",
+        value=(
+            f"🪙 Gold: {player.gold}\n"
+            f"💎 Shards: {player.shards}\n"
+            f"🎲 Reroll Tokens: {player.reroll_tokens}"
+        ),
+        inline=False,
+    )
+
+    tier_lines = {0: [], 1: [], 2: [], 3: []}
+    for material in MaterialType:
+        amount = getattr(player, material.value)
+        emoji = MATERIAL_EMOJI.get(material, "◽")
+        name = MATERIAL_DISPLAY_NAME.get(material, material.value.replace("_", " ").title())
+        tier_lines[material.tier].append(f"{emoji} {name}: {amount}")
+
+    tier_titles = {0: "Common Materials", 1: "Uncommon Materials", 2: "Rare Materials", 3: "Rarest Materials"}
+    for tier in (0, 1, 2, 3):
+        embed.add_field(name=f"🧱 {tier_titles[tier]}", value="\n".join(tier_lines[tier]), inline=True)
+
+    if owned_lootboxes:
+        lines = [f"📦 {o.template.name}: x{o.quantity}" for o in owned_lootboxes if o.quantity > 0]
+        embed.add_field(
+            name="🎁 Lootboxes",
+            value="\n".join(lines) if lines else "*None.*",
+            inline=False,
+        )
+        embed.set_footer(text="Tap a tier below to open all of your lootboxes of that tier.")
+    else:
+        embed.add_field(name="🎁 Lootboxes", value="*None yet -- try `/daily` or explore a dungeon!*", inline=False)
+        embed.set_footer(text="Gear and rolled items live in /inventory instead.")
+
     return embed
 
 
@@ -672,7 +722,7 @@ def shop_embed(player, offers: list[dict], message: str | None = None) -> discor
     embed.add_field(name="🪙 Your Gold", value=str(player.gold), inline=False)
     for offer in offers:
         embed.add_field(
-            name=f"{offer['name']} -- {offer['cost_gold']} gold",
+            name=f"{offer['name']} -- {format_currency('gold', offer['cost_gold'])}",
             value=offer["description"],
             inline=False,
         )

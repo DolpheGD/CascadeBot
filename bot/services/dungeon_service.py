@@ -13,7 +13,6 @@ from __future__ import annotations
 import random
 
 from bot.database.models.enums import (
-    MATERIAL_DISPLAY_NAME,
     ExpeditionStatus,
     MaterialType,
     Rarity,
@@ -38,7 +37,7 @@ from bot.game.dungeon.region_config import get_region_difficulty
 from bot.game.economy.lootbox_config import tier_for_floor_and_region
 from bot.game.loot.generator import LootGenerator
 from bot.services import character_service, combat_service, lootbox_service
-from bot.services.currency_service import add_currency, spend_currency
+from bot.services.currency_service import add_currency, format_currency, spend_currency
 
 # Which material tier drops from treasure/secret rooms at a given floor --
 # mirrors the tier progression harvesters/upgrades use (see
@@ -141,17 +140,22 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
         if expedition.combat_state:
             return {"kind": "combat", "message": "Battle already in progress."}
 
-        templates = (
-            enemy_catalog.get_templates_by_role(room_type.value)
-            or enemy_catalog.get_templates_by_role("combat")
-        )
-        if room_type == RoomType.COMBAT:
-            count = rng.choices([1, 2, 3, 4], weights=[40, 30, 20, 10], k=1)[0]
-        elif room_type == RoomType.ELITE:
-            count = rng.choices([1, 2], weights=[75, 25], k=1)[0]
+        if room_type == RoomType.BOSS:
+            # Usually a single boss template; occasionally (see
+            # enemy_catalog.BOSS_GROUP_CHANCE) a named multi-enemy group
+            # like the Eruptor Trio instead.
+            chosen = enemy_catalog.get_boss_encounter(rng)
         else:
-            count = 1
-        chosen = [rng.choice(templates) for _ in range(count)]
+            templates = (
+                enemy_catalog.get_templates_by_role(room_type.value)
+                or enemy_catalog.get_templates_by_role("combat")
+            )
+            if room_type == RoomType.COMBAT:
+                count = rng.choices([1, 2, 3, 4], weights=[40, 30, 20, 10], k=1)[0]
+            else:  # ELITE
+                count = rng.choices([1, 2], weights=[75, 25], k=1)[0]
+            chosen = [rng.choice(templates) for _ in range(count)]
+
         level = node["floor"] + 1 + difficulty["level_offset"]
         combat_service.start_battle(db, expedition, player, chosen, level=level)
 
@@ -173,12 +177,12 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
         # (no fight risked), just not absurdly so.
         gold = round(rng.randint(15, 30) * (node["floor"] + 1) // 2 * difficulty["reward_multiplier"])
         add_currency(db, player, "gold", gold)
-        message = f"You find a treasure chest containing {gold} gold!"
+        message = f"You find a treasure chest containing {format_currency('gold', gold)}!"
 
         material = _material_for_floor(node["floor"])
         material_amount = rng.randint(3, 8)
         add_currency(db, player, material.value, material_amount)
-        message += f" (+{material_amount} {MATERIAL_DISPLAY_NAME[material]})"
+        message += f" (+{format_currency(material.value, material_amount)})"
 
         drop_chance = min(0.25 + node["floor"] * 0.015, 0.45)
         if rng.random() < drop_chance:
@@ -201,7 +205,7 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
             "kind": "resolved",
             "message": (
                 f"A hidden passage reveals a Cascade supply cache, forgotten but intact. "
-                f"(+{gold} gold, +1 {tier.title()} Lootbox)"
+                f"(+{format_currency('gold', gold)}, +1 {tier.title()} Lootbox)"
             ),
         }
 
@@ -215,14 +219,14 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
         add_currency(db, player, "gold", gold)
         gu.mark_completed(expedition.graph, expedition.current_node_id)
         db.commit()
-        return {"kind": "resolved", "message": f"{_story_fragment(rng)} (+{gold} gold)"}
+        return {"kind": "resolved", "message": f"{_story_fragment(rng)} (+{format_currency('gold', gold)})"}
 
     if room_type == RoomType.SHRINE:
         gold = round(rng.randint(4, 15) * difficulty["reward_multiplier"])
         add_currency(db, player, "gold", gold)
         gu.mark_completed(expedition.graph, expedition.current_node_id)
         db.commit()
-        return {"kind": "resolved", "message": f"{ROOM_FLAVOR[RoomType.SHRINE]} (+{gold} gold)"}
+        return {"kind": "resolved", "message": f"{ROOM_FLAVOR[RoomType.SHRINE]} (+{format_currency('gold', gold)})"}
 
     if room_type == RoomType.TRAP:
         expedition.pending_interaction = {"kind": "trap"}
@@ -324,14 +328,14 @@ def resolve_trap_choice(db, expedition: Expedition, player, choice_id: str, rng:
     if success:
         gold = round(base_gold * choice["success_gold_mult"])
         add_currency(db, player, "gold", gold)
-        message = f"{TRAP_SUCCESS_FLAVOR} (+{gold} gold)"
+        message = f"{TRAP_SUCCESS_FLAVOR} (+{format_currency('gold', gold)})"
     else:
         gold = round(base_gold * choice["fail_gold_mult"])
         if gold:
             add_currency(db, player, "gold", gold)
         message = TRAP_FAIL_FLAVOR
         if gold:
-            message += f" (+{gold} gold)"
+            message += f" (+{format_currency('gold', gold)})"
 
         fail_damage_percent = choice.get("fail_damage_percent")
         if fail_damage_percent:
@@ -371,11 +375,11 @@ def resolve_puzzle_choice(db, expedition: Expedition, player, option_index: int,
 
     if correct:
         gold = round(base_gold * PUZZLE_SUCCESS_GOLD_MULT)
-        message = f"Correct! The terminal unlocks a small cache. (+{gold} gold)"
+        message = f"Correct! The terminal unlocks a small cache. (+{format_currency('gold', gold)})"
     else:
         gold = round(base_gold * PUZZLE_FAIL_GOLD_MULT)
         answer = puzzle["options"][puzzle["correct_index"]]
-        message = f"Not quite -- the answer was '{answer}'. You still scavenge a little on your way out. (+{gold} gold)"
+        message = f"Not quite -- the answer was '{answer}'. You still scavenge a little on your way out. (+{format_currency('gold', gold)})"
 
     add_currency(db, player, "gold", gold)
     expedition.pending_interaction = None
@@ -399,18 +403,18 @@ def buy_shop_item(db, expedition: Expedition, player, offer_id: str, rng: random
         return False, "That's not for sale here."
 
     if not spend_currency(db, player, "gold", offer["cost_gold"]):
-        return False, f"Not enough gold (need {offer['cost_gold']})."
+        return False, f"Not enough {format_currency('gold', offer['cost_gold'])}."
 
     if offer["kind"] == "lootbox":
         lootbox_service.grant_lootbox(db, player, offer["tier"], quantity=1)
         message = f"Bought a {offer['tier'].title()} Lootbox!"
     elif offer["kind"] == "shards":
         add_currency(db, player, "shards", offer["amount"])
-        message = f"Bought {offer['amount']} Shards!"
+        message = f"Bought {format_currency('shards', offer['amount'])}!"
     else:  # "item" -- a random basic (Common) item
         templates = db.query(ItemTemplate).filter_by(is_ultra_rare=False).all()
         if not templates:
-            spend_currency(db, player, "gold", -offer["cost_gold"])  # refund, nothing to give
+            add_currency(db, player, "gold", offer["cost_gold"])  # refund, nothing to give
             return False, "The quartermaster is out of stock."
         template = rng.choice(templates)
         item = LootGenerator(rng=rng).generate_item(

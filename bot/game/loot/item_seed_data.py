@@ -127,6 +127,14 @@ ITEM_TEMPLATES: list[dict] = [
     # ability instead of a random roll. Main stat is fixed per template
     # (same as every other item -- substats are still random), and each
     # set leans toward a particular role without being exclusive to it.
+    #
+    # Each set now has TWO pieces -- one from the "active" slots
+    # (weapon/artifact, using WEAPON_SKILLS/ARTIFACT_SKILLS) and one from
+    # the "passive" slots (armor/accessory, using ARMOR_PASSIVES) -- so a
+    # set actually covers two of a character's four gear slots instead of
+    # just one, and several now carry abilities from the newer status-
+    # effect content pass (retaliation_plating, system_purge, emp_burst,
+    # combat_medic, regen_field_generator, support_matrix).
     # ---------------------------------------------------------------
 
     # Wood -- earliest material tier, generic/defensive, simple starter set.
@@ -134,66 +142,110 @@ ITEM_TEMPLATES: list[dict] = [
      "main_stat": "defense", "base_main_stat_value": 7,
      "set_name": "Wood Set", "set_prefix": "Wood", "linked_ability_id": "iron_skin",
      "flavor_text": "Cheap, plentiful, and better than nothing. Most Cascade wanderers start here."},
+    {"name": "Club", "item_type": ItemType.WEAPON, "slot": EquipmentSlot.WEAPON,
+     "main_stat": "attack", "base_main_stat_value": 8,
+     "set_name": "Wood Set", "set_prefix": "Wood", "linked_ability_id": "shield_bash",
+     "flavor_text": "Splintery, heavy, and effective. Nobody asks where the wood came from."},
 
     # Iron -- generic/flexible, the reliable step up from Wood.
     {"name": "Longsword", "item_type": ItemType.WEAPON, "slot": EquipmentSlot.WEAPON,
      "main_stat": "attack", "base_main_stat_value": 9,
      "set_name": "Iron Set", "set_prefix": "Iron", "linked_ability_id": "power_strike",
      "flavor_text": "No frills. It cuts, and it doesn't break."},
+    {"name": "Cuirass", "item_type": ItemType.ARMOR, "slot": EquipmentSlot.ARMOR,
+     "main_stat": "defense", "base_main_stat_value": 9,
+     "set_name": "Iron Set", "set_prefix": "Iron", "linked_ability_id": "retaliation_plating",
+     "flavor_text": "Dented in a dozen places. Still standing in all of them."},
 
     # Sigma Wolf -- feral, aggressive, DPS-leaning.
     {"name": "Fang", "item_type": ItemType.WEAPON, "slot": EquipmentSlot.WEAPON,
      "main_stat": "attack", "base_main_stat_value": 10,
      "set_name": "Sigma Wolf Set", "set_prefix": "Sigma Wolf", "linked_ability_id": "berserker_rage",
      "flavor_text": "Runs with a pack of one. Answers to nobody."},
+    {"name": "Fangguard", "item_type": ItemType.ARMOR, "slot": EquipmentSlot.ACCESSORY,
+     "main_stat": "crit_damage", "base_main_stat_value": 12,
+     "set_name": "Sigma Wolf Set", "set_prefix": "Sigma Wolf", "linked_ability_id": "vampiric_edge",
+     "flavor_text": "Every kill feeds the next one."},
 
     # Crystal -- mana/elemental, caster/Amplifier-leaning.
     {"name": "Prism", "item_type": ItemType.ARTIFACT, "slot": EquipmentSlot.ARTIFACT,
      "main_stat": "elemental", "base_main_stat_value": 9,
      "set_name": "Crystal Set", "set_prefix": "Crystal", "linked_ability_id": "arcane_burst",
      "flavor_text": "Refracts more than just light."},
+    {"name": "Focus Lens", "item_type": ItemType.ARMOR, "slot": EquipmentSlot.ACCESSORY,
+     "main_stat": "max_mana", "base_main_stat_value": 20,
+     "set_name": "Crystal Set", "set_prefix": "Crystal", "linked_ability_id": "arcane_battery",
+     "flavor_text": "Hums faintly, always drawing in a little more than it gives off."},
 
     # Xendium -- lava/fire, aggressive elemental weapon.
     {"name": "Cinderblade", "item_type": ItemType.WEAPON, "slot": EquipmentSlot.WEAPON,
      "main_stat": "elemental", "base_main_stat_value": 10,
      "set_name": "Xendium Set", "set_prefix": "Xendium", "linked_ability_id": "flame_strike",
      "flavor_text": "Forged in Hotlands magma. Never quite cools down."},
+    {"name": "Slagplate", "item_type": ItemType.ARMOR, "slot": EquipmentSlot.ARMOR,
+     "main_stat": "defense", "base_main_stat_value": 8,
+     "set_name": "Xendium Set", "set_prefix": "Xendium", "linked_ability_id": "iron_skin",
+     "flavor_text": "Cooled just enough to wear. Just barely."},
 
     # Permafrost -- ice/defense, tank/Sustain-leaning.
     {"name": "Plate", "item_type": ItemType.ARMOR, "slot": EquipmentSlot.ARMOR,
      "main_stat": "defense", "base_main_stat_value": 8,
      "set_name": "Permafrost Set", "set_prefix": "Permafrost", "linked_ability_id": "thornmail",
      "flavor_text": "Frozen solid centuries ago. Still holds an edge -- and a grudge."},
+    {"name": "Frostbrand", "item_type": ItemType.WEAPON, "slot": EquipmentSlot.WEAPON,
+     "main_stat": "elemental", "base_main_stat_value": 9,
+     "set_name": "Permafrost Set", "set_prefix": "Permafrost", "linked_ability_id": "frost_lance",
+     "flavor_text": "Draws the warmth out of anything it touches."},
 
     # Hi-Tech -- crit/precision, Support DPS-leaning.
     {"name": "Visor", "item_type": ItemType.ARMOR, "slot": EquipmentSlot.ACCESSORY,
      "main_stat": "crit_rate", "base_main_stat_value": 5,
-     "set_name": "Hi-Tech Set", "set_prefix": "Hi-Tech", "linked_ability_id": "momentum",
-     "flavor_text": "Scavenged, patched, and somehow still calibrating."},
+     "set_name": "Hi-Tech Set", "set_prefix": "Hi-Tech", "linked_ability_id": "support_matrix",
+     "flavor_text": "Scavenged, patched, and somehow still calibrating -- for the whole squad, not just its wearer."},
+    {"name": "Diagnostic Core", "item_type": ItemType.ARTIFACT, "slot": EquipmentSlot.ARTIFACT,
+     "main_stat": "elemental", "base_main_stat_value": 9,
+     "set_name": "Hi-Tech Set", "set_prefix": "Hi-Tech", "linked_ability_id": "system_purge",
+     "flavor_text": "Finds every gap in an enemy's armor and reports back instantly."},
 
     # Error Code -- glitchy, chaotic/flexible, recharge-leaning.
     {"name": "Fragment", "item_type": ItemType.ARMOR, "slot": EquipmentSlot.ACCESSORY,
      "main_stat": "recharge", "base_main_stat_value": 4,
      "set_name": "Error Code Set", "set_prefix": "Error Code", "linked_ability_id": "arcane_battery",
      "flavor_text": "It shouldn't work. It works anyway."},
+    {"name": "Corrupted Drive", "item_type": ItemType.ARTIFACT, "slot": EquipmentSlot.ARTIFACT,
+     "main_stat": "elemental", "base_main_stat_value": 9,
+     "set_name": "Error Code Set", "set_prefix": "Error Code", "linked_ability_id": "emp_burst",
+     "flavor_text": "Whatever it corrupts on the way in, it corrupts twice as hard on the way out."},
 
     # Voidwalker -- high-end elemental artifact.
     {"name": "Rift Shard", "item_type": ItemType.ARTIFACT, "slot": EquipmentSlot.ARTIFACT,
      "main_stat": "elemental", "base_main_stat_value": 11,
      "set_name": "Voidwalker Set", "set_prefix": "Voidwalker", "linked_ability_id": "void_grasp",
      "flavor_text": "Colder than Permafrost. Emptier than anything."},
+    {"name": "Abyssal Plate", "item_type": ItemType.ARMOR, "slot": EquipmentSlot.ARMOR,
+     "main_stat": "defense", "base_main_stat_value": 10,
+     "set_name": "Voidwalker Set", "set_prefix": "Voidwalker", "linked_ability_id": "undying_will",
+     "flavor_text": "The void doesn't let go easily -- apparently that cuts both ways."},
 
     # Entropic -- high-end, crit damage / chaos-leaning.
     {"name": "Husk", "item_type": ItemType.ARTIFACT, "slot": EquipmentSlot.ARTIFACT,
      "main_stat": "crit_damage", "base_main_stat_value": 14,
      "set_name": "Entropic Set", "set_prefix": "Entropic", "linked_ability_id": "soul_siphon",
      "flavor_text": "Falls apart a little more every time it's used. Somehow that's the point."},
+    {"name": "Decay Band", "item_type": ItemType.ARMOR, "slot": EquipmentSlot.ACCESSORY,
+     "main_stat": "crit_rate", "base_main_stat_value": 5,
+     "set_name": "Entropic Set", "set_prefix": "Entropic", "linked_ability_id": "executioner",
+     "flavor_text": "Finds the weak point in everything, including itself."},
 
     # Refense -- Refender's philosophy, balance of offense/defense, Sustain-leaning.
     {"name": "Bulwark", "item_type": ItemType.ARMOR, "slot": EquipmentSlot.ARMOR,
      "main_stat": "defense", "base_main_stat_value": 9,
      "set_name": "Refense Set", "set_prefix": "Refense", "linked_ability_id": "second_wind",
      "flavor_text": "Neither sword nor shield alone. Refender would approve."},
+    {"name": "Refense Core", "item_type": ItemType.ARTIFACT, "slot": EquipmentSlot.ARTIFACT,
+     "main_stat": "max_hp", "base_main_stat_value": 30,
+     "set_name": "Refense Set", "set_prefix": "Refense", "linked_ability_id": "combat_medic",
+     "flavor_text": "Balance isn't just personal -- Refender's teachings hold the whole line together."},
 
     # "500 Billian Gem Giveaway" -- ultra rare joke set. The misspelling of
     # "Billion" is intentional; the creator, a silly man named Thedoggyp,
@@ -203,4 +255,9 @@ ITEM_TEMPLATES: list[dict] = [
      "set_name": "500 Billian Gem Giveaway", "set_prefix": "Billian",
      "linked_ability_id": "starfall", "is_ultra_rare": True,
      "flavor_text": "Certificate of authenticity signed 'Thedoggyp' in crayon. Somehow still worth it."},
+    {"name": "Coin", "item_type": ItemType.ARMOR, "slot": EquipmentSlot.ACCESSORY,
+     "main_stat": "crit_damage", "base_main_stat_value": 12,
+     "set_name": "500 Billian Gem Giveaway", "set_prefix": "Billian",
+     "linked_ability_id": "regen_field_generator", "is_ultra_rare": True,
+     "flavor_text": "Novelty currency from a giveaway nobody remembers entering. Heals the whole team anyway."},
 ]

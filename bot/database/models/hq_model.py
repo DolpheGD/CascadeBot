@@ -17,9 +17,11 @@ stats at battle-build time (bot/services/base_service.py::apply_shrine_bonuses).
 
 The shop (ShopListing) is simpler still -- no ownership/leveling, just a
 catalog of things purchasable with currency: low-level goods (rolls an
-InventoryItem from a specific ItemTemplate) and material exchanges
-(currency -> currency conversions). PlayerShopPurchase tracks per-player,
-per-listing daily purchase counts for listings with a `daily_limit`.
+InventoryItem from a specific ItemTemplate), material exchanges
+(currency -> currency conversions), and lootboxes. Higher Cascade HQ levels
+gradually unlock better goods and lootbox tiers via `unlock_hq_level`.
+PlayerShopPurchase tracks per-player, per-listing daily purchase counts for
+listings with a `daily_limit`.
 
 The mailbox (PlayerMailbox) is simpler still and unique to each player (no
 template catalog needed) -- it's created automatically at level 1, always
@@ -127,6 +129,8 @@ class ShopListing(Base):
     # "exchange" = spend cost_currency, receive reward_currency.
     # "item" = spend cost_currency, roll one InventoryItem from
     # item_template_name at item_level.
+    # "lootbox" = spend cost_currency, receive lootbox_quantity lootboxes
+    # of lootbox_tier (see bot/services/lootbox_service.py for valid tiers).
     kind: Mapped[str] = mapped_column(String(16), default="exchange")
     unlock_hq_level: Mapped[int] = mapped_column(Integer, default=1)
 
@@ -138,6 +142,9 @@ class ShopListing(Base):
 
     item_template_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
     item_level: Mapped[int] = mapped_column(Integer, default=1)
+
+    lootbox_tier: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    lootbox_quantity: Mapped[int] = mapped_column(Integer, default=1)
 
     # 0 = unlimited purchases. Otherwise, max buys per player per 24h --
     # see PlayerShopPurchase / base_service.purchase_listing.

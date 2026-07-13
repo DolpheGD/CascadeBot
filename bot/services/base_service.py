@@ -39,7 +39,7 @@ from bot.game.economy.hq_config import (
     upgrade_requirements,
 )
 from bot.services import harvester_service
-from bot.services.currency_service import add_currency, spend_currency
+from bot.services.currency_service import add_currency, currency_emoji, format_currency, spend_currency
 
 DAILY_LIMIT_WINDOW = dt.timedelta(hours=24)
 
@@ -145,7 +145,7 @@ def upgrade_hq(db, player) -> tuple[bool, str]:
     cost = upgrade_requirements(base.hq_level)["upgrade_cost"]
     for currency, amount in cost.items():
         if getattr(player, currency) < amount:
-            return False, f"Not enough {currency} (need {amount})."
+            return False, f"Not enough {currency_emoji(currency)} -- need {format_currency(currency, amount)}."
 
     for currency, amount in cost.items():
         spend_currency(db, player, currency, amount)
@@ -198,7 +198,7 @@ def build_shrine(db, player, template_id: int, hq_level: int) -> tuple[bool, str
         return False, f"You already have a {template.name}."
 
     if not spend_currency(db, player, "gold", template.build_cost_gold):
-        return False, f"Not enough gold (need {template.build_cost_gold})."
+        return False, f"Not enough {format_currency('gold', template.build_cost_gold)}."
 
     shrine = PlayerShrine(player_id=player.id, template_id=template_id, level=1)
     db.add(shrine)
@@ -220,11 +220,11 @@ def upgrade_shrine(db, player, shrine: PlayerShrine, hq_level: int) -> tuple[boo
 
     cost = get_shrine_upgrade_cost(template, shrine.level)
     if not spend_currency(db, player, template.upgrade_currency, cost):
-        return False, f"Not enough {template.upgrade_currency} (need {cost})."
+        return False, f"Not enough {format_currency(template.upgrade_currency, cost)}."
 
     shrine.level += 1
     db.commit()
-    return True, f"{template.name} upgraded to level {shrine.level} for {cost} {template.upgrade_currency}."
+    return True, f"{template.name} upgraded to level {shrine.level} for {format_currency(template.upgrade_currency, cost)}."
 
 
 def apply_shrine_bonuses(db, player, combatants: list) -> None:
@@ -311,11 +311,11 @@ def purchase_listing(db, player, listing_id: int, hq_level: int) -> tuple[bool, 
         purchase_row = None
 
     if not spend_currency(db, player, listing.cost_currency, listing.cost_amount):
-        return False, f"Not enough {listing.cost_currency} (need {listing.cost_amount})."
+        return False, f"Not enough {currency_emoji(listing.cost_currency)} -- need {format_currency(listing.cost_currency, listing.cost_amount)}."
 
     if listing.kind == "exchange":
         add_currency(db, player, listing.reward_currency, listing.reward_amount)
-        result_text = f"Received {listing.reward_amount} {listing.reward_currency}."
+        result_text = f"Received {format_currency(listing.reward_currency, listing.reward_amount)}."
     elif listing.kind == "item":
         from bot.database.models.equipment_model import ItemTemplate
         from bot.game.loot.generator import LootGenerator
@@ -329,6 +329,11 @@ def purchase_listing(db, player, listing_id: int, hq_level: int) -> tuple[bool, 
         db.add(item)
         db.commit()
         result_text = f"Received {item.display_name}!"
+    elif listing.kind == "lootbox":
+        from bot.services import lootbox_service
+
+        lootbox_service.grant_lootbox(db, player, listing.lootbox_tier, quantity=listing.lootbox_quantity)
+        result_text = f"Received {listing.lootbox_quantity}x {listing.lootbox_tier.title()} Lootbox!"
     else:
         add_currency(db, player, listing.cost_currency, listing.cost_amount)
         return False, f"{listing.name} has an unknown listing type."

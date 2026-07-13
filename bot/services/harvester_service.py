@@ -11,7 +11,7 @@ import datetime as dt
 from bot.database.models.economy_model import HarvesterTemplate, PlayerHarvester
 from bot.game.economy.harvester_config import HARVESTER_TEMPLATES
 from bot.game.economy.hq_config import building_level_cap
-from bot.services.currency_service import add_currency, spend_currency
+from bot.services.currency_service import add_currency, format_currency, spend_currency
 
 
 def ensure_harvester_templates_seeded(db) -> None:
@@ -74,10 +74,7 @@ def buy_harvester(db, player, template_id: int, hq_level: int = 1) -> tuple[bool
 
     if template.unlock_cost > 0:
         if not spend_currency(db, player, template.unlock_currency, template.unlock_cost):
-            return False, (
-                f"Not enough {template.unlock_currency} "
-                f"(need {template.unlock_cost})."
-            ), None
+            return False, f"Not enough {format_currency(template.unlock_currency, template.unlock_cost)}.", None
 
     harvester = PlayerHarvester(
         player_id=player.id,
@@ -131,8 +128,8 @@ def upgrade_harvester(db, player, harvester: PlayerHarvester, hq_level: int = 1)
 
     cost = get_upgrade_cost(template, harvester.level)
     if not spend_currency(db, player, "gold", cost):
-        return False, f"Not enough gold (need {cost})."
+        return False, f"Not enough {format_currency('gold', cost)}."
 
     harvester.level += 1
     db.commit()
-    return True, f"{template.name} upgraded to level {harvester.level} for {cost} gold."
+    return True, f"{template.name} upgraded to level {harvester.level} for {format_currency('gold', cost)}."

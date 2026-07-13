@@ -13,7 +13,8 @@ Damage pipeline for a single hit (_resolve_hit):
      elemental (elemental-based) -- there's no separate resist stat.
   3. Defender's always-on damage_reduction passives (e.g. Iron Skin).
   4. Subtract HP, then resolve always-on reactive passives: attacker's
-     lifesteal, defender's damage_reflect.
+     lifesteal, defender's damage_reflect, defender's chance to stun the
+     attacker (chance_stun_attacker).
   5. Check on_low_hp (heal-at-threshold / prevent-death) and on_kill hooks.
 
 Resource economy: the basic Attack action is the only thing that generates
@@ -21,6 +22,13 @@ energy and mana (by the attacker's Recharge stat) -- see
 Combatant.gain_energy_and_mana(). Skills (weapon/artifact) spend mana.
 The ultimate (from an equipped scroll) spends energy instead, and is only
 usable once energy hits 100.
+
+Team-oriented effect kinds (own-side buffs/heals/resource restores, and
+opposing-side debuffs) apply identically whether the caster is a player or
+an enemy -- "allies" is whoever else is alive on the caster's own side,
+"opponents" is everyone alive on the other side. Both are optional and
+default to empty/[defender], so single-target effect kinds can ignore them
+entirely.
 """
 
 from __future__ import annotations
@@ -29,7 +37,7 @@ import random
 
 from bot.game.combat import formulas
 from bot.game.combat.combatant import Combatant
-from bot.game.combat.status import DamageOverTime, StatModifier
+from bot.game.combat.status import DamageOverTime, HealOverTime, StatModifier
 
 
 def resolve_basic_attack(attacker: Combatant, defender: Combatant, rng: random.Random, log: list) -> None:
@@ -41,15 +49,19 @@ def resolve_basic_attack(attacker: Combatant, defender: Combatant, rng: random.R
 
 def resolve_active_ability(
     attacker: Combatant, defender: Combatant, ability: dict, rng: random.Random, log: list,
-    allies: list[Combatant] | None = None,
+    allies: list[Combatant] | None = None, opponents: list[Combatant] | None = None,
 ) -> None:
     """`allies` is every OTHER living combatant on attacker's side (not
     including attacker) -- only used by team-oriented effect kinds
-    (team_heal_percent_max_hp, heal_lowest_ally_percent_max_hp, team_buff),
-    introduced for the Combat Overhaul's Sustain/Amplifier/Support DPS
-    character kits (bot/game/combat/skills.py). Every other effect kind
-    ignores it, so it's safe to omit for simple 1v1-style abilities."""
+    (team_heal_percent_max_hp, heal_lowest_ally_percent_max_hp, team_buff,
+    team_resource_restore, team_regen_over_time), introduced for the Combat
+    Overhaul's Sustain/Amplifier/Support DPS character kits
+    (bot/game/combat/skills.py). `opponents` is every living combatant on
+    the OTHER side (including defender) -- only used by team_debuff. Every
+    other effect kind ignores both, so they're safe to omit for simple
+    1v1-style abilities."""
     allies = allies or []
+    opponents = opponents if opponents is not None else [defender]
     attacker.spend_resource(ability)
     icon = "💥" if ability.get("is_ultimate") else "✨"
     log.append(f"{icon} {attacker.name} uses {ability['name']}!")
@@ -165,6 +177,88 @@ def resolve_active_ability(
             ))
         log.append(f"📡 {attacker.name}'s {ability['name']} empowers the whole team!")
 
+    elif kind == "execute_below_threshold":
+        # Deals normal damage, but a much harder hit if the target is
+        # already below the given HP% -- a finisher move.
+        is_execute = defender.current_hp <= defender.max_hp * effect["hp_threshold_percent"] / 100
+        percent = effect["execute_damage_percent"] if is_execute else effect["damage_percent"]
+        _resolve_hit(attacker, defender, percent, effect.get("damage_stat", "attack"), rng, log)
+        if is_execute:
+            log.append(f"⚔️ {attacker.name} finishes with a decisive blow!")
+
+    elif kind == "true_damage_percent_max_hp":
+        # Ignores defense and damage_reduction entirely -- a flat
+        # percentage of the target's max HP, for punching through
+        # heavily armored targets.
+        damage = defender.max_hp * effect["percent"] / 100
+        dealt = defender.take_raw_hp_loss(damage)
+        log.append(f"🔺 {attacker.name}'s {ability['name']} deals {dealt} true damage to {defender.name}, ignoring defense!")
+        _trigger_on_low_hp(defender, log)
+        if not defender.is_alive():
+            _trigger_on_kill(attacker, log)
+
+    elif kind == "damage_and_resource_drain":
+        # Deals damage and strips energy/mana from the target -- an EMP-
+        # style effect that can delay an ultimate or starve out a skill.
+        hit = _resolve_hit(attacker, defender, effect["damage_percent"],
+                            effect.get("damage_stat", "attack"), rng, log)
+        if hit and defender.is_alive():
+            energy_drained = min(defender.energy, effect.get("energy_drain", 0))
+            mana_drained = min(defender.mana, effect.get("mana_drain", 0))
+            defender.energy -= energy_drained
+            defender.mana -= mana_drained
+            if energy_drained or mana_drained:
+                log.append(f"🔌 {defender.name} loses {energy_drained} energy and {mana_drained} mana!")
+
+    elif kind == "cleanse_self_and_heal":
+        # Self-repair: strips the caster's own debuffs/DOTs and heals a
+        # percentage of max HP.
+        removed = len([m for m in attacker.modifiers if m.percent < 0]) + len(attacker.dots)
+        attacker.modifiers = [m for m in attacker.modifiers if m.percent >= 0]
+        attacker.dots = []
+        healed = attacker.heal(attacker.max_hp * effect["percent"] / 100)
+        log.append(f"🛠️ {attacker.name} purges {removed} negative effect(s) and repairs {healed} HP.")
+
+    elif kind == "damage_scales_with_missing_hp":
+        # Ramping finisher -- the lower the target's current HP%, the
+        # bigger the hit, up to bonus_damage_percent_at_zero_hp extra at
+        # (theoretical) 0 HP.
+        missing_fraction = 1 - (defender.current_hp / max(1, defender.max_hp))
+        total_percent = effect["base_damage_percent"] + effect["bonus_damage_percent_at_zero_hp"] * missing_fraction
+        _resolve_hit(attacker, defender, total_percent, effect.get("damage_stat", "elemental"), rng, log)
+
+    elif kind == "team_debuff":
+        # Applies a stat debuff to every living combatant on the OTHER
+        # side at once -- the opposing-side counterpart to team_buff.
+        for target in opponents:
+            target.modifiers.append(StatModifier(
+                effect["debuff_stat"], effect["debuff_percent"], effect["duration"], ability["name"]
+            ))
+        log.append(f"🌀 {attacker.name}'s {ability['name']} weakens the entire opposing side!")
+
+    elif kind == "team_resource_restore":
+        # Instant support burst -- restores flat energy and/or mana to the
+        # caster's whole side at once (as opposed to Arcane Battery-style
+        # passives, which trickle a smaller amount every turn).
+        for member in [attacker] + [a for a in allies if a.is_alive()]:
+            energy_gained = min(member.max_energy - member.energy, effect.get("energy_amount", 0))
+            mana_gained = min(member.max_mana - member.mana, effect.get("mana_amount", 0))
+            member.energy += energy_gained
+            member.mana += mana_gained
+            if energy_gained or mana_gained:
+                log.append(f"🔋 {member.name} gains {energy_gained} energy and {mana_gained} mana from {ability['name']}.")
+
+    elif kind == "team_regen_over_time":
+        # True regen -- unlike team_heal_percent_max_hp (an instant burst),
+        # this heals the caster's whole side a percentage of their own max
+        # HP at the start of each of their turns for several turns.
+        for member in [attacker] + [a for a in allies if a.is_alive()]:
+            member.heals.append(HealOverTime(
+                percent_max_hp=effect["percent_max_hp_per_turn"], duration=effect["duration"],
+                source=ability["name"],
+            ))
+        log.append(f"🌿 {attacker.name}'s {ability['name']} sets in, regenerating the whole team over time.")
+
     else:
         log.append(f"({ability['name']} has no combat effect implemented yet)")
 
@@ -201,6 +295,11 @@ def _resolve_hit(attacker: Combatant, defender: Combatant, damage_percent: float
         reflected = attacker.take_raw_hp_loss(dealt * passive["effect"]["percent"] / 100)
         if reflected:
             log.append(f"🪞 {attacker.name} takes {reflected} reflected damage!")
+
+    for passive in defender.find_passive("chance_stun_attacker"):
+        if formulas.roll_percent(passive["effect"]["percent"], rng):
+            attacker.stunned_turns += passive["effect"]["duration"]
+            log.append(f"⚡ {defender.name}'s {passive['name']} stuns {attacker.name}!")
 
     _trigger_on_low_hp(defender, log)
 
@@ -247,7 +346,11 @@ def _trigger_on_low_hp(combatant: Combatant, log: list) -> None:
                     log.append(f"💚 {combatant.name}'s {passive['name']} triggers, healing {healed} HP!")
 
 
-def trigger_on_turn_start(combatant: Combatant, log: list) -> None:
+def trigger_on_turn_start(combatant: Combatant, log: list, allies: list[Combatant] | None = None) -> None:
+    """`allies` is every OTHER living combatant on combatant's own side --
+    only used by team-aura passive kinds (aura_team_resource_regen,
+    aura_team_regen). Every other passive kind ignores it."""
+    allies = allies or []
     for passive in combatant.passive_abilities:
         if passive.get("trigger") != "on_turn_start":
             continue
@@ -265,3 +368,23 @@ def trigger_on_turn_start(combatant: Combatant, log: list) -> None:
             else:
                 combatant.energy = min(combatant.max_energy, combatant.energy + effect["amount"])
             log.append(f"🔋 {combatant.name} restores {effect['amount']} {effect['resource_type']} from {passive['name']}.")
+
+        elif effect["kind"] == "aura_team_resource_regen":
+            # Support aura -- restores energy/mana to combatant AND its
+            # living allies every turn, not just the owner.
+            for member in [combatant] + [a for a in allies if a.is_alive()]:
+                energy_gained = min(member.max_energy - member.energy, effect.get("energy_amount", 0))
+                mana_gained = min(member.max_mana - member.mana, effect.get("mana_amount", 0))
+                member.energy += energy_gained
+                member.mana += mana_gained
+                if energy_gained or mana_gained:
+                    log.append(f"🔋 {member.name} gains {energy_gained} energy and {mana_gained} mana from {combatant.name}'s {passive['name']}.")
+
+        elif effect["kind"] == "aura_team_regen":
+            # Support aura -- heals combatant AND its living allies a
+            # percentage of their own max HP every turn, for free (no
+            # resource cost, unlike the active team_regen_over_time).
+            for member in [combatant] + [a for a in allies if a.is_alive()]:
+                healed = member.heal(member.max_hp * effect["percent"] / 100)
+                if healed:
+                    log.append(f"💚 {member.name} is healed for {healed} HP by {combatant.name}'s {passive['name']}.")

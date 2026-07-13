@@ -16,7 +16,7 @@ from dataclasses import dataclass
 
 from bot.database.models.enums import EquipmentSlot, Rarity
 from bot.database.models.equipment_model import InventoryItem
-from bot.services.currency_service import add_currency
+from bot.services.currency_service import add_currency, format_currency
 
 # Flat sell value per rarity at item_level 1, scaling up modestly with
 # level -- selling is meant to clear out clutter for a bit of gold, not
@@ -35,13 +35,13 @@ SELL_VALUE_PER_LEVEL = 0.08  # +8% of base value per item_level above 1
 
 @dataclass
 class InventoryEntry:
-    """A single row in the unified inventory browser -- either a rolled
-    InventoryItem or a stack of lootboxes of one tier. `entry_id` is a
-    stable string key ("item:<id>" / "box:<tier>") used for Prev/Next/Jump
-    navigation so both kinds can be paged through as one list."""
+    """A single row in the item inventory browser -- always a rolled
+    InventoryItem now (lootboxes moved to the separate general inventory
+    -- see list_combined_entries' docstring). `entry_id` is a stable
+    string key ("item:<id>") used for Prev/Next/Jump navigation."""
     entry_id: str
-    kind: str  # "item" | "lootbox"
-    obj: object  # InventoryItem | PlayerLootbox
+    kind: str  # always "item" now
+    obj: object  # InventoryItem
     sort_key: tuple
 
 
@@ -149,22 +149,18 @@ def sell_item(db, player, item: InventoryItem) -> tuple[bool, str]:
     name = item.display_name
     db.delete(item)
     db.commit()
-    return True, f"Sold {name} for {value} gold."
-
-
-# ----------------------------------------------------------------------
-# Unified browsing: items + lootboxes as one navigable, paginatable list.
-# Lootboxes sort after items so gear (which you equip/upgrade more often)
-# always comes first; within each group, items keep their normal slot/
-# rarity ordering and lootboxes sort by tier.
-# ----------------------------------------------------------------------
-
-_LOOTBOX_TIER_ORDER = {"common": 0, "uncommon": 1, "rare": 2, "epic": 3, "legendary": 4, "mythic": 5}
+    return True, f"Sold {name} for {format_currency('gold', value)}."
 
 
 def list_combined_entries(db, player_id: int) -> list["InventoryEntry"]:
-    from bot.services import lootbox_service  # local import: avoids a service-to-service cycle
-
+    """Despite the name (kept to avoid touching every call site), this is
+    now ITEMS ONLY -- lootboxes moved to their own general-inventory view
+    (/stash, see cogs/inventory.py's general_inventory command) since they
+    can't be equipped/sold/leveled/rerolled the way items can, and mixing
+    them into the same sellable-items browser was confusing. `kind` is
+    always "item" now; kept on InventoryEntry rather than collapsing the
+    type entirely in case a different non-item entry needs to slot in here
+    again later."""
     entries: list[InventoryEntry] = []
     for item in list_inventory(db, player_id):
         entries.append(InventoryEntry(
@@ -173,15 +169,6 @@ def list_combined_entries(db, player_id: int) -> list["InventoryEntry"]:
             obj=item,
             sort_key=(0, item.slot.value, -item.rarity.sort_order, item.id),
         ))
-    for owned in lootbox_service.list_player_lootboxes(db, player_id):
-        tier = owned.template.tier
-        entries.append(InventoryEntry(
-            entry_id=f"box:{tier}",
-            kind="lootbox",
-            obj=owned,
-            sort_key=(1, _LOOTBOX_TIER_ORDER.get(tier, 99)),
-        ))
-
     entries.sort(key=lambda e: e.sort_key)
     return entries
 
