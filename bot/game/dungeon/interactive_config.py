@@ -1,9 +1,12 @@
 """
-Content for the three interactive room types the Adventure Overhaul spec
-calls out specifically: Trap (a decision with randomized success/fail),
-Puzzle (a basic multiple-choice puzzle), and Merchant (a basic shop).
-Resolution logic lives in bot/services/dungeon_service.py; this module is
-just the data each one draws from.
+Content for the interactive room types that still have their own bespoke
+mini-game: Trap (a decision with randomized success/fail) and Puzzle (a
+basic multiple-choice puzzle). Merchant used to live here too (a basic
+shop), but it's been fully replaced by the Encounter system -- see
+bot/game/dungeon/encounter_config.py's "merchant"-tagged encounters and
+dungeon_service.ROOM_ENCOUNTER_CHANCE. Resolution logic for Trap/Puzzle
+lives in bot/services/dungeon_service.py; this module is just the data
+each one draws from.
 """
 
 from __future__ import annotations
@@ -85,47 +88,10 @@ PUZZLE_SUCCESS_GOLD_MULT = 1.6
 PUZZLE_FAIL_GOLD_MULT = 0.4
 
 # ---------------------------------------------------------------------
-# Merchant rooms: a basic shop. Per the spec, kept intentionally simple --
-# a handful of gold-cost offers, no haggling/rotating inventory system.
+# Merchant rooms no longer have a bespoke shop UI/offer table at all --
+# they resolve entirely through the Encounter system now (see
+# bot/game/dungeon/encounter_config.py's "merchant"-tagged encounters,
+# e.g. Tbnr/Boss John/Bee Jee/The Colosseum Bookie, and
+# bot/services/dungeon_service.py's ROOM_ENCOUNTER_CHANCE, where
+# RoomType.MERCHANT always rolls an encounter).
 # ---------------------------------------------------------------------
-SHOP_OFFERS = [
-    {
-        "id": "lootbox_common",
-        "name": "Common Lootbox",
-        "description": "A simple satchel of supplies.",
-        "cost_gold": 90,
-        "kind": "lootbox",
-        "tier": "common",
-    },
-    {
-        "id": "lootbox_uncommon",
-        "name": "Uncommon Lootbox",
-        "description": "A sturdy sack, a small step up.",
-        "cost_gold": 190,
-        "kind": "lootbox",
-        "tier": "uncommon",
-    },
-    {
-        "id": "lootbox_rare",
-        "name": "Rare Lootbox",
-        "description": "A reinforced chest, guaranteed at least Uncommon.",
-        "cost_gold": 340,
-        "kind": "lootbox",
-        "tier": "rare",
-    },
-    {
-        "id": "shards_small",
-        "name": "5 Shards",
-        "description": "A small bundle of Cascade Shards.",
-        "cost_gold": 480,
-        "kind": "shards",
-        "amount": 5,
-    },
-    {
-        "id": "basic_item",
-        "name": "Basic Gear Piece",
-        "description": "A random, low-rarity item -- nothing special, but it's something.",
-        "cost_gold": 70,
-        "kind": "item",
-    },
-]

@@ -1,11 +1,17 @@
 """
 Expedition lifecycle: starting a run, moving between dungeon nodes, and
 resolving whatever each room type does. Combat rooms hand off to
-combat_service. Trap/Puzzle/Merchant rooms are genuinely interactive --
-they set Expedition.pending_interaction and hand off to the resolver
-functions at the bottom of this module (called from cogs/dungeon.py's
-button/select handlers), rather than resolving instantly like the simpler
-flavor rooms (Story/Shrine/Secret) still do.
+combat_service. Trap/Puzzle rooms are genuinely interactive -- they set
+Expedition.pending_interaction and hand off to the resolver functions at
+the bottom of this module (called from cogs/dungeon.py's button/select
+handlers). Story/Merchant rooms are now resolved entirely through the
+Encounter system (see bot/game/dungeon/encounter_config.py and
+ROOM_ENCOUNTER_CHANCE below) -- Story replaces its old always-quiet lore
+snippet with a named-NPC Encounter almost every time, and Merchant no
+longer has a bespoke shop UI at all, replaced outright by "merchant"-
+tagged Encounters (Tbnr, Boss John, Bee Jee, The Colosseum Bookie).
+Treasure/Trap/Shrine/Puzzle/Secret roll an Encounter at a lower, tuned
+chance and otherwise fall back to their own simpler resolution below.
 """
 
 from __future__ import annotations
@@ -21,12 +27,12 @@ from bot.database.models.enums import (
 from bot.database.models.expedition_model import Expedition
 from bot.game.combat import enemies as enemy_catalog
 from bot.game.dungeon import graph_utils as gu
+from bot.game.dungeon.encounter_config import get_encounter_by_id, get_encounters_for_room_type
 from bot.game.dungeon.generator import DungeonGenerator
 from bot.game.dungeon.interactive_config import (
     PUZZLE_FAIL_GOLD_MULT,
     PUZZLE_SUCCESS_GOLD_MULT,
     PUZZLES,
-    SHOP_OFFERS,
     TRAP_CHOICES,
     TRAP_FAIL_FLAVOR,
     TRAP_INTRO,
@@ -185,8 +191,12 @@ ROOM_FLAVOR = {
     RoomType.SHRINE: "You find a stable shard of Void matter, still humming faintly. It offers a small blessing before going dark.",
 }
 
-# Story rooms reveal fragments of the world's history one piece at a time,
-# never the whole picture at once -- see docs/WORLD_LORE.md for the
+# Story rooms used to always show one of these quiet, no-choice lore
+# snippets. Now that Story rolls a named-NPC Encounter every time (see
+# ROOM_ENCOUNTER_CHANCE below), these only ever surface as a defensive
+# fallback -- if the Encounter pool for "story" were ever empty -- so the
+# atmospheric world-lore beats still have somewhere to land rather than
+# the room silently doing nothing. See docs/WORLD_LORE.md for the
 # broader continuity these are drawn from.
 STORY_FRAGMENTS = [
     "You find a weathered journal page. The handwriting shakes: '...my head hurt... I ran to check on friends and family but I can't find them...'",
@@ -202,6 +212,41 @@ STORY_FRAGMENTS = [
 
 def _story_fragment(rng: random.Random) -> str:
     return rng.choice(STORY_FRAGMENTS)
+
+
+# Odds that a given room type rolls a full interactive NPC Encounter
+# instead of that room's plain, no-choice/bespoke resolution. Story and
+# Merchant are full replacements now (1.0 -- see the module docstring):
+# Story's old quiet lore-snippet fallback and Merchant's old bespoke shop
+# UI are both gone in favor of Encounters, with STORY_FRAGMENTS/"the
+# trading post is closed today" kept only as defensive fallbacks for an
+# (in practice, never) empty pool. The other room types each only have a
+# small, thematically-tagged pool (see encounter_config.py's room_types),
+# so they roll less often -- often enough to be a genuine recurring
+# surprise, not so often the room's own normal identity gets buried.
+ROOM_ENCOUNTER_CHANCE: dict[RoomType, float] = {
+    RoomType.STORY: 1.0,
+    RoomType.TREASURE: 0.35,
+    RoomType.TRAP: 0.4,
+    RoomType.SHRINE: 0.45,
+    RoomType.PUZZLE: 0.35,
+    RoomType.SECRET: 0.5,
+    RoomType.MERCHANT: 1.0,
+}
+
+
+def _maybe_roll_encounter(room_type: RoomType, rng: random.Random) -> dict | None:
+    """Picks a random encounter tagged for this room type, at that room
+    type's configured odds -- or None if this roll/room type doesn't get
+    one, in which case the caller falls back to that room's simpler
+    (non-encounter) resolution, if it has one."""
+    chance = ROOM_ENCOUNTER_CHANCE.get(room_type)
+    if not chance or rng.random() >= chance:
+        return None
+    pool = get_encounters_for_room_type(room_type.value)
+    if not pool:
+        return None
+    return rng.choice(pool)
 
 
 def get_active_expedition(db, player_id: int) -> Expedition | None:
@@ -255,8 +300,9 @@ def start_expedition(db, player, region: str, num_floors: int | None = None) -> 
 def enter_node(db, expedition: Expedition, player, rng: random.Random | None = None) -> dict:
     """Resolves whatever's at the expedition's current node. Returns a
     dict describing what happened; `kind` tells the cog which view to
-    render ("combat" -> battle view, "trap"/"puzzle"/"shop" -> their own
-    interactive views, "resolved"/"expedition_complete" -> map view)."""
+    render ("combat" -> battle view, "trap"/"puzzle"/"encounter" -> their
+    own interactive views, "resolved"/"expedition_complete" -> map view).
+    """
     rng = rng or random.Random()
     node = expedition.graph["nodes"][expedition.current_node_id]
     room_type = RoomType(node["room_type"])
@@ -310,6 +356,13 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
         return {"kind": "resolved", "message": "You rest at the campfire. Your squad heals to full."}
 
     if room_type == RoomType.TREASURE:
+        encounter = _maybe_roll_encounter(room_type, rng)
+        if encounter is not None:
+            intro = rng.choice(encounter["intros"])
+            expedition.pending_interaction = {"kind": "encounter", "encounter_id": encounter["id"]}
+            db.commit()
+            return {"kind": "encounter", "message": intro}
+
         # Balancing pass: this used to be 20-60 gold * (floor+1), which at
         # floor 8 could hand out ~9x a combat room's reward for zero risk --
         # exactly the "treasure rooms give so much more" imbalance called
@@ -338,6 +391,13 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
         return {"kind": "resolved", "message": message}
 
     if room_type == RoomType.SECRET:
+        encounter = _maybe_roll_encounter(room_type, rng)
+        if encounter is not None:
+            intro = rng.choice(encounter["intros"])
+            expedition.pending_interaction = {"kind": "encounter", "encounter_id": encounter["id"]}
+            db.commit()
+            return {"kind": "encounter", "message": intro}
+
         gold = round(rng.randint(5, 25) * difficulty["reward_multiplier"])
         add_currency(db, player, "gold", gold)
         _ledger_add_gold(expedition, gold)
@@ -360,6 +420,16 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
         return {"kind": "resolved", "message": "Your expedition begins."}
 
     if room_type == RoomType.STORY:
+        encounter = _maybe_roll_encounter(room_type, rng)
+        if encounter is not None:
+            intro = rng.choice(encounter["intros"])
+            expedition.pending_interaction = {"kind": "encounter", "encounter_id": encounter["id"]}
+            db.commit()
+            return {"kind": "encounter", "message": intro}
+
+        # Defensive fallback only -- shouldn't happen with ENCOUNTERS
+        # populated, since RoomType.STORY rolls an encounter at 1.0
+        # chance above (see ROOM_ENCOUNTER_CHANCE).
         gold = round(rng.randint(4, 15) * difficulty["reward_multiplier"])
         add_currency(db, player, "gold", gold)
         _ledger_add_gold(expedition, gold)
@@ -368,6 +438,13 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
         return {"kind": "resolved", "message": f"{_story_fragment(rng)} (+{format_currency('gold', gold)})"}
 
     if room_type == RoomType.SHRINE:
+        encounter = _maybe_roll_encounter(room_type, rng)
+        if encounter is not None:
+            intro = rng.choice(encounter["intros"])
+            expedition.pending_interaction = {"kind": "encounter", "encounter_id": encounter["id"]}
+            db.commit()
+            return {"kind": "encounter", "message": intro}
+
         gold = round(rng.randint(4, 15) * difficulty["reward_multiplier"])
         add_currency(db, player, "gold", gold)
         _ledger_add_gold(expedition, gold)
@@ -376,20 +453,45 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
         return {"kind": "resolved", "message": f"{ROOM_FLAVOR[RoomType.SHRINE]} (+{format_currency('gold', gold)})"}
 
     if room_type == RoomType.TRAP:
+        encounter = _maybe_roll_encounter(room_type, rng)
+        if encounter is not None:
+            intro = rng.choice(encounter["intros"])
+            expedition.pending_interaction = {"kind": "encounter", "encounter_id": encounter["id"]}
+            db.commit()
+            return {"kind": "encounter", "message": intro}
+
         expedition.pending_interaction = {"kind": "trap"}
         db.commit()
         return {"kind": "trap", "message": TRAP_INTRO}
 
     if room_type == RoomType.PUZZLE:
+        encounter = _maybe_roll_encounter(room_type, rng)
+        if encounter is not None:
+            intro = rng.choice(encounter["intros"])
+            expedition.pending_interaction = {"kind": "encounter", "encounter_id": encounter["id"]}
+            db.commit()
+            return {"kind": "encounter", "message": intro}
+
         puzzle = rng.choice(PUZZLES)
         expedition.pending_interaction = {"kind": "puzzle", "puzzle_id": puzzle["id"]}
         db.commit()
         return {"kind": "puzzle", "message": "You find an old Cascade terminal, still active.", "puzzle": puzzle}
 
     if room_type == RoomType.MERCHANT:
-        expedition.pending_interaction = {"kind": "shop"}
+        encounter = _maybe_roll_encounter(room_type, rng)
+        if encounter is not None:
+            intro = rng.choice(encounter["intros"])
+            expedition.pending_interaction = {"kind": "encounter", "encounter_id": encounter["id"]}
+            db.commit()
+            return {"kind": "encounter", "message": intro}
+
+        # Defensive fallback only -- shouldn't happen with ENCOUNTERS
+        # populated, since RoomType.MERCHANT rolls an encounter at 1.0
+        # chance above (see ROOM_ENCOUNTER_CHANCE). Merchant rooms no
+        # longer have a bespoke shop UI at all.
+        _mark_completed(expedition, expedition.current_node_id)
         db.commit()
-        return {"kind": "shop", "message": "A Cascade quartermaster has set up a supply cache here."}
+        return {"kind": "resolved", "message": "The trading post is closed today."}
 
     _mark_completed(expedition, expedition.current_node_id)
     db.commit()
@@ -545,52 +647,316 @@ def resolve_puzzle_choice(db, expedition: Expedition, player, option_index: int,
 
 
 # ----------------------------------------------------------------------
-# Merchant / shop resolution
+# Encounter room resolution -- a small generic interpreter for the data
+# in encounter_config.py. See that module's docstring for the full shape
+# of an encounter/choice/outcome; the short version is every choice is
+# one of "leave" (no roll), "risk" (no cost, straight success_chance),
+# "trade" (pay `cost` up front, then success_chance), or "gamble" (pay
+# `cost`, then pick one of several weighted `tiers`).
+#
+# Every gain/loss/spend routed through here also feeds the expedition's
+# loot ledger (see the _ledger_* helpers up top) so encounter rewards
+# and merchant purchases show up in the whole-run summary exactly like
+# combat/treasure/trap/puzzle rewards do.
 # ----------------------------------------------------------------------
 
-def get_shop_offers() -> list[dict]:
-    return SHOP_OFFERS
+def get_pending_encounter(expedition: Expedition) -> dict | None:
+    """Reconstructs the active encounter dict from
+    Expedition.pending_interaction -- used when re-rendering an encounter
+    room without going through enter_node again (e.g. resuming via
+    /adventure after a restart), same pattern as get_pending_puzzle."""
+    interaction = expedition.pending_interaction or {}
+    if interaction.get("kind") != "encounter":
+        return None
+    return get_encounter_by_id(interaction.get("encounter_id"))
 
 
-def buy_shop_item(db, expedition: Expedition, player, offer_id: str, rng: random.Random | None = None) -> tuple[bool, str]:
+def get_encounter_choices(encounter: dict) -> list[dict]:
+    return encounter["choices"]
+
+
+def _can_afford(player, cost: dict) -> bool:
+    """Checked BEFORE anything is spent -- if the player can't afford
+    even one currency in `cost`, the trade/gamble never touches the
+    player's balances at all (see resolve_encounter_choice's
+    "cant_afford_text" branch)."""
+    return all(getattr(player, currency, 0) >= amount for currency, amount in cost.items())
+
+
+def _spend_cost(db, player, cost: dict, expedition: Expedition) -> None:
+    """Only ever called after _can_afford has already confirmed the
+    player can cover every currency in `cost` -- but spend_currency
+    itself also refuses to take a balance negative (returns False,
+    changes nothing) as a second, independent safety net, so this can
+    never leave a currency below zero even if that pre-check were ever
+    skipped or raced."""
+    for currency, amount in cost.items():
+        spend_currency(db, player, currency, amount)
+        if currency == "gold":
+            _ledger_add_gold(expedition, amount, spent=True)
+
+
+def _roll_amount(rng: random.Random, amount) -> int:
+    if isinstance(amount, (list, tuple)):
+        return rng.randint(amount[0], amount[1])
+    return amount
+
+
+def _apply_hp_damage(db, player, rng: random.Random, percent: int) -> str | None:
+    """Same mechanic as TRAP_CHOICES' fail_damage_percent: knocks a random
+    squad member for `percent`% of their (gear-adjusted) max HP. Clamped
+    to a minimum of 1 HP -- an encounter can never itself knock a
+    character out."""
+    squad = character_service.get_squad(db, player)
+    if not squad:
+        return None
+
+    from bot.game.combat.factory import build_character_combatant
+
+    equipped_by_char = character_service.get_equipped_items_by_character(db, [pc.id for pc in squad])
+    victim = rng.choice(squad)
+    combatant = build_character_combatant(victim, equipped_by_char.get(victim.id, []))
+    lost = max(1, round(combatant.max_hp * percent / 100))
+    victim.current_hp = max(1, combatant.current_hp - lost)
+    return f"{victim.template.name} takes {lost} damage!"
+
+
+def _apply_gain(
+    db, player, rng: random.Random, gain: dict, gold_mult: float, expedition: Expedition,
+    max_item_rarity: Rarity | None = None, item_level: int = 1,
+) -> list[str]:
+    gain = dict(gain)
+    lines: list[str] = []
+
+    if "material_tier" in gain:
+        tier = gain.pop("material_tier")
+        amount = _roll_amount(rng, gain.pop("amount", [1, 3]))
+        material = rng.choice(_MATERIAL_TIERS[tier])
+        if amount > 0:
+            add_currency(db, player, material.value, amount)
+            _ledger_add_material(expedition, material.value, amount)
+            lines.append(f"+{format_currency(material.value, amount)}")
+
+    item_spec = gain.pop("item", False)
+    if item_spec:
+        # Rarity is rolled FIRST, then a template is picked to match it
+        # (via item_template_service.pick_random_template's `rarity`
+        # filter) -- the same decoupled roll-then-select order every
+        # other item source in the game uses (see
+        # combat_service.apply_victory_rewards), rather than picking a
+        # random template up front and deriving/forcing a rarity onto it.
+        generator = LootGenerator(rng=rng)
+        if item_spec == "natural":
+            # No rarity_override -- rolls the normal weighted rarity,
+            # capped by the region's max_item_rarity, same as any other
+            # in-run drop. Usually Common/Uncommon, rarely much better --
+            # this is the "possible but rare higher tier reward" path for
+            # encounter-granted gear.
+            rarity = generator.roll_rarity(max_rarity=max_item_rarity)
+        elif item_spec is True:
+            # True -> guaranteed Common, like a basic shop item.
+            rarity = Rarity.COMMON
+        else:
+            # An explicit rarity string ("uncommon"/"rare"/"epic"/
+            # "legendary"/"mythic"). This is what the High Roller shop
+            # (Colosseum Bookie) sells: a GUARANTEED rarity, no chance
+            # involved -- deliberately bypasses the region's usual
+            # rarity cap. Gold buys certainty here, not odds.
+            rarity = Rarity(item_spec)
+
+        template = item_template_service.pick_random_template(db, rng=rng, rarity=rarity)
+        if template is not None:
+            item = generator.generate_item(
+                template, player_id=player.id, item_level=item_level, rarity_override=rarity,
+            )
+            db.add(item)
+            db.commit()
+            db.refresh(item)
+            _ledger_add_item(expedition, item)
+            lines.append(f"a {item.rarity.value.title()} {item.display_name}")
+
+    lootbox_tier = gain.pop("lootbox", None)
+    if lootbox_tier:
+        lootbox_service.grant_lootbox(db, player, lootbox_tier, quantity=1)
+        _ledger_add_lootbox(expedition, lootbox_tier, quantity=1)
+        lines.append(f"a {lootbox_tier.title()} Lootbox")
+
+    xp_spec = gain.pop("xp", None)
+    if xp_spec:
+        xp_amount = _roll_amount(rng, xp_spec)
+        squad = character_service.get_squad(db, player)
+        if squad and xp_amount > 0:
+            level_ups = combat_service.apply_character_xp(db, squad, xp_amount)
+            _ledger_add_xp(expedition, xp_amount)
+            _ledger_record_level_ups(expedition, level_ups)
+            suffix = " -- level up!" if level_ups else ""
+            lines.append(f"+{xp_amount} XP (whole squad){suffix}")
+
+    for currency, value in gain.items():
+        amount = _roll_amount(rng, value)
+        if currency == "gold":
+            amount = round(amount * gold_mult)
+        if amount <= 0:
+            continue
+        add_currency(db, player, currency, amount)
+        if currency == "gold":
+            _ledger_add_gold(expedition, amount)
+        elif currency == "shards":
+            _ledger_add_shards(expedition, amount)
+        elif currency in {m.value for m in MaterialType}:
+            _ledger_add_material(expedition, currency, amount)
+        lines.append(f"+{format_currency(currency, amount)}")
+
+    return lines
+
+
+def _apply_loss(db, player, rng: random.Random, loss: dict, expedition: Expedition) -> list[str]:
+    """Every loss is clamped to `min(what the player actually has, the
+    rolled amount)` before spend_currency is ever called -- an encounter
+    can only take what's really there, never push a balance negative."""
+    loss = dict(loss)
+    lines: list[str] = []
+
+    if "material_tier" in loss:
+        tier = loss.pop("material_tier")
+        amount = _roll_amount(rng, loss.pop("amount", [1, 3]))
+        material = rng.choice(_MATERIAL_TIERS[tier])
+        actual = min(getattr(player, material.value), amount)
+        if actual > 0:
+            spend_currency(db, player, material.value, actual)
+            lines.append(f"-{format_currency(material.value, actual)}")
+
+    for currency, value in loss.items():
+        amount = _roll_amount(rng, value)
+        actual = min(getattr(player, currency, 0), amount)
+        if actual > 0:
+            spend_currency(db, player, currency, actual)
+            if currency == "gold":
+                _ledger_add_gold(expedition, actual, spent=True)
+            lines.append(f"-{format_currency(currency, actual)}")
+
+    return lines
+
+
+def _apply_heal(db, player, rng: random.Random, heal_spec) -> str | None:
+    """Restores squad HP -- the reward-side counterpart to
+    _apply_hp_damage. Unlike damage (which always lands on one random
+    squad member, matching how TRAP_CHOICES' fail_damage_percent always
+    worked), healing is applied to the WHOLE squad: it reads better as a
+    reward, and there's no squad-wide damage path to mirror anyway.
+    heal_spec is either the string "full" (same full-heal semantics as
+    Campfire rooms -- current_hp = None) or an int percent of each
+    member's own max HP."""
+    squad = character_service.get_squad(db, player)
+    if not squad:
+        return None
+
+    if heal_spec == "full":
+        for pc in squad:
+            pc.current_hp = None
+        return "Your squad is fully healed!"
+
+    from bot.game.combat.factory import build_character_combatant
+
+    equipped_by_char = character_service.get_equipped_items_by_character(db, [pc.id for pc in squad])
+    healed_any = False
+    for pc in squad:
+        combatant = build_character_combatant(pc, equipped_by_char.get(pc.id, []))
+        if combatant.current_hp >= combatant.max_hp:
+            continue
+        restored = max(1, round(combatant.max_hp * heal_spec / 100))
+        pc.current_hp = min(combatant.max_hp, combatant.current_hp + restored)
+        healed_any = True
+
+    return f"Your squad recovers {heal_spec}% HP." if healed_any else None
+
+
+def _apply_outcome(
+    db, player, rng: random.Random, outcome: dict, gold_mult: float, expedition: Expedition,
+    max_item_rarity: Rarity | None = None, item_level: int = 1,
+) -> list[str]:
+    if not outcome:
+        return []
+    lines: list[str] = []
+    if outcome.get("gain"):
+        lines += _apply_gain(db, player, rng, outcome["gain"], gold_mult, expedition, max_item_rarity, item_level)
+    if outcome.get("loss"):
+        lines += _apply_loss(db, player, rng, outcome["loss"], expedition)
+    if outcome.get("hp_damage_percent"):
+        line = _apply_hp_damage(db, player, rng, outcome["hp_damage_percent"])
+        if line:
+            lines.append(line)
+    if outcome.get("heal"):
+        line = _apply_heal(db, player, rng, outcome["heal"])
+        if line:
+            lines.append(line)
+    bonus = outcome.get("bonus")
+    if bonus:
+        # "bonus" can be a single {"chance": p, "gain": {...}} dict, or a
+        # list of them -- each rolled independently. This is how a choice
+        # can carry e.g. a small Shard chance AND a separate small
+        # Lootbox chance without them competing for the same roll.
+        for spec in (bonus if isinstance(bonus, list) else [bonus]):
+            if rng.random() < spec.get("chance", 0):
+                lines += _apply_gain(db, player, rng, spec.get("gain", {}), gold_mult, expedition, max_item_rarity, item_level)
+    return lines
+
+
+def resolve_encounter_choice(db, expedition: Expedition, player, choice_id: str, rng: random.Random | None = None) -> dict:
     rng = rng or random.Random()
-    offer = next((o for o in SHOP_OFFERS if o["id"] == offer_id), None)
-    if offer is None:
-        return False, "That's not for sale here."
+    encounter = get_pending_encounter(expedition)
+    if encounter is None:
+        return {"kind": "encounter", "message": "Something's gone wrong with this encounter."}
 
-    if not spend_currency(db, player, "gold", offer["cost_gold"]):
-        return False, f"Not enough {format_currency('gold', offer['cost_gold'])}."
+    choice = next((c for c in encounter["choices"] if c["id"] == choice_id), None)
+    if choice is None:
+        return {"kind": "encounter", "message": "Not a valid choice."}
 
-    if offer["kind"] == "lootbox":
-        lootbox_service.grant_lootbox(db, player, offer["tier"], quantity=1)
-        _ledger_add_gold(expedition, offer["cost_gold"], spent=True)
-        _ledger_add_lootbox(expedition, offer["tier"], quantity=1, bought=True)
-        message = f"Bought a {offer['tier'].title()} Lootbox!"
-    elif offer["kind"] == "shards":
-        add_currency(db, player, "shards", offer["amount"])
-        _ledger_add_gold(expedition, offer["cost_gold"], spent=True)
-        _ledger_add_shards(expedition, offer["amount"])
-        message = f"Bought {format_currency('shards', offer['amount'])}!"
-    else:  # "item" -- a random basic (Common) item
-        template = item_template_service.pick_random_template(db, rng=rng, rarity=Rarity.COMMON)
-        if template is None:
-            add_currency(db, player, "gold", offer["cost_gold"])  # refund, nothing to give
-            return False, "The quartermaster is out of stock."
-        item = LootGenerator(rng=rng).generate_item(
-            template, player_id=player.id, item_level=1, rarity_override=Rarity.COMMON,
-        )
-        db.add(item)
-        db.commit()
-        _ledger_add_gold(expedition, offer["cost_gold"], spent=True)
-        _ledger_add_item(expedition, item, bought=True)
-        message = f"Bought {item.display_name}!"
+    node = expedition.graph["nodes"][expedition.current_node_id]
+    difficulty = get_region_difficulty(expedition.region)
+    gold_mult = difficulty["reward_multiplier"]
+    max_item_rarity = difficulty["max_item_rarity"]
+    item_level = node["floor"] + 1 + difficulty["level_offset"]
+    action = choice["action"]
 
-    db.commit()
-    return True, message
+    if action == "leave":
+        message = choice.get("text") or f"You leave {encounter['name']} behind."
 
+    elif action == "risk":
+        success = rng.random() < choice.get("success_chance", 0.5)
+        outcome = choice.get("on_success" if success else "on_fail", {})
+        message = choice.get("success_text" if success else "fail_text", "") or ""
+        lines = _apply_outcome(db, player, rng, outcome, gold_mult, expedition, max_item_rarity, item_level)
+        if lines:
+            message = f"{message}\n{', '.join(lines)}" if message else ", ".join(lines)
 
-def leave_shop(db, expedition: Expedition) -> dict:
+    elif action in ("trade", "gamble"):
+        # Affordability is checked BEFORE anything is spent -- if the
+        # player can't cover the full cost, the choice just declines
+        # (cant_afford_text) and nothing about their balances changes.
+        cost = choice.get("cost", {})
+        if not _can_afford(player, cost):
+            message = choice.get("cant_afford_text") or "You don't have enough for that."
+        else:
+            _spend_cost(db, player, cost, expedition)
+            if action == "trade":
+                success = rng.random() < choice.get("success_chance", 1.0)
+                outcome = choice.get("on_success" if success else "on_fail", {})
+                message = choice.get("success_text" if success else "fail_text", "") or ""
+            else:  # gamble
+                tiers = choice.get("tiers", [])
+                tier = rng.choices(tiers, weights=[t["chance"] for t in tiers], k=1)[0]
+                outcome = tier.get("outcome", {})
+                message = tier.get("text", "") or ""
+
+            lines = _apply_outcome(db, player, rng, outcome, gold_mult, expedition, max_item_rarity, item_level)
+            if lines:
+                message = f"{message}\n{', '.join(lines)}" if message else ", ".join(lines)
+
+    else:
+        message = "Nothing happens."
+
     expedition.pending_interaction = None
     _mark_completed(expedition, expedition.current_node_id)
     db.commit()
-    return {"kind": "resolved", "message": "You head back out onto the path."}
+    return {"kind": "resolved", "message": message}

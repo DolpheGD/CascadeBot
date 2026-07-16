@@ -464,11 +464,13 @@ def expedition_summary_embed(ledger: dict, won: bool) -> discord.Embed:
     """The whole-run tally shown once when an expedition ends -- win or
     lose -- on top of that final battle's own reward message. Everything
     here accumulated across every room of the run (combat rewards,
-    treasure/secret/story/shrine rooms, trap/puzzle outcomes, shop
-    purchases), not just the last fight; see the `_ledger_*` helpers in
-    bot/services/dungeon_service.py. Nothing is actually taken away on a
-    loss -- gains from earlier in the run are kept -- so "lost" here means
-    gold spent at the merchant, not gold clawed back on defeat."""
+    treasure/secret/story/shrine rooms, trap/puzzle outcomes, encounter
+    trades/gambles -- including merchant purchases, which are now just
+    "trade"-action encounter choices), not just the last fight; see the
+    `_ledger_*` helpers in bot/services/dungeon_service.py. Nothing is
+    actually taken away on a loss -- gains from earlier in the run are
+    kept -- so "lost" here means gold spent on encounter trades, not gold
+    clawed back on defeat."""
     title = "🏆 Expedition Complete -- Summary" if won else "💀 Expedition Ended -- Summary"
     embed = discord.Embed(
         title=title,
@@ -492,7 +494,7 @@ def expedition_summary_embed(ledger: dict, won: bool) -> discord.Embed:
 
     spent_lines = []
     if ledger["gold_spent"]:
-        spent_lines.append(f"{format_currency('gold', ledger['gold_spent'])} at the merchant")
+        spent_lines.append(f"{format_currency('gold', ledger['gold_spent'])} on trades")
     embed.add_field(
         name="📉 Spent",
         value="\n".join(spent_lines) if spent_lines else "*Nothing.*",
@@ -815,7 +817,7 @@ def gacha_rates_embed() -> discord.Embed:
 
 
 # ----------------------------------------------------------------------
-# Interactive dungeon rooms: Trap, Puzzle, Merchant
+# Interactive dungeon rooms: Trap, Puzzle, Encounter
 # ----------------------------------------------------------------------
 
 def trap_embed(node: dict, choices: list[dict], message: str | None = None) -> discord.Embed:
@@ -841,18 +843,23 @@ def puzzle_embed(node: dict, puzzle: dict, message: str | None = None) -> discor
     return embed
 
 
-def shop_embed(player, offers: list[dict], message: str | None = None) -> discord.Embed:
+def encounter_embed(node: dict, encounter: dict, message: str | None = None) -> discord.Embed:
+    """Story/Treasure/Trap/Shrine/Puzzle/Secret/Merchant-room NPC
+    Encounters (bot/game/dungeon/encounter_config.py) -- unlike
+    trap/puzzle, these carry their own flavor art (ported from the old
+    JS bot's explore.js `imageUrl` fields), rendered full-size via
+    set_image rather than as the usual avatar set_thumbnail. This is
+    also what a Merchant room renders now -- merchant rooms no longer
+    have a bespoke shop embed of their own (see shop offers/goods laid
+    out as "trade" choices below instead)."""
     embed = discord.Embed(
-        title="🛒 Cascade Quartermaster",
-        description=message or "A basic supply cache -- gold only, no haggling.",
-        color=discord.Color.dark_gold(),
+        title=f"📜 {encounter['name']} -- Floor {node['floor']}",
+        description=message or "",
+        color=discord.Color.dark_purple(),
     )
-    embed.add_field(name="🪙 Your Gold", value=str(player.gold), inline=False)
-    for offer in offers:
-        embed.add_field(
-            name=f"{offer['name']} -- {format_currency('gold', offer['cost_gold'])}",
-            value=offer["description"],
-            inline=False,
-        )
-    embed.set_footer(text="Buy as many as you can afford, then Leave when you're done.")
+    for choice in encounter["choices"]:
+        embed.add_field(name=choice["label"], value=choice["description"] or "\u200b", inline=False)
+    image_url = encounter.get("image_url")
+    if image_url:
+        embed.set_image(url=image_url)
     return embed

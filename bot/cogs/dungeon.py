@@ -6,7 +6,6 @@ from discord import app_commands
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
 from bot.services import character_service, dungeon_service, combat_service
-from bot.services.currency_service import currency_emoji
 from bot.utils import embedder
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils.ui_guard import OwnedView
@@ -188,33 +187,29 @@ class PuzzleView(OwnedView):
             self.add_item(PuzzleOptionButton(i, option))
 
 
-class ShopBuyButton(discord.ui.Button):
-    def __init__(self, offer: dict):
-        super().__init__(
-            label=f"Buy {offer['name']} ({offer['cost_gold']}{currency_emoji('gold')})"[:80],
-            style=discord.ButtonStyle.success,
-            custom_id=f"cascade_shop_buy:{offer['id']}",
-        )
-        self.offer_id = offer["id"]
+_BUTTON_STYLES = {
+    "primary": discord.ButtonStyle.primary,
+    "secondary": discord.ButtonStyle.secondary,
+    "success": discord.ButtonStyle.success,
+    "danger": discord.ButtonStyle.danger,
+}
+
+
+class EncounterChoiceButton(discord.ui.Button):
+    def __init__(self, choice: dict):
+        style = _BUTTON_STYLES.get(choice.get("style"), discord.ButtonStyle.secondary)
+        super().__init__(label=choice["label"][:80], style=style, custom_id=f"cascade_encounter:{choice['id']}")
+        self.choice_id = choice["id"]
 
     async def callback(self, interaction: discord.Interaction):
-        await _handle_shop_buy(interaction, self.offer_id)
+        await _handle_encounter_choice(interaction, self.choice_id)
 
 
-class ShopLeaveButton(discord.ui.Button):
-    def __init__(self):
-        super().__init__(label="🚪 Leave", style=discord.ButtonStyle.danger, custom_id="cascade_shop_leave")
-
-    async def callback(self, interaction: discord.Interaction):
-        await _handle_shop_leave(interaction)
-
-
-class ShopView(OwnedView):
-    def __init__(self, offers: list[dict], owner_id: int | None = None):
+class EncounterView(OwnedView):
+    def __init__(self, choices: list[dict], owner_id: int | None = None):
         super().__init__(timeout=180, owner_id=owner_id)
-        for offer in offers:
-            self.add_item(ShopBuyButton(offer))
-        self.add_item(ShopLeaveButton())
+        for choice in choices:
+            self.add_item(EncounterChoiceButton(choice))
 
 
 def _build_dungeon_view(expedition) -> DungeonView | None:
@@ -418,7 +413,7 @@ async def _handle_start_battle(interaction: discord.Interaction):
 
 def _render_room(db, expedition, player, kind: str, message: str, avatar_url: str) -> tuple[discord.Embed, discord.ui.View | None]:
     """Builds the (embed, view) pair for whatever room state the expedition
-    is currently in -- shop/trap/puzzle get their own interactive views;
+    is currently in -- encounter/trap/puzzle get their own interactive views;
     everything else falls back to the normal dungeon map."""
     node = expedition.graph["nodes"][expedition.current_node_id]
 
@@ -433,9 +428,15 @@ def _render_room(db, expedition, player, kind: str, message: str, avatar_url: st
             return _render_room(db, expedition, player, "resolved", message, avatar_url)
         return embedder.puzzle_embed(node, puzzle, message), PuzzleView(puzzle, owner_id=expedition.player_id)
 
-    if kind == "shop":
-        offers = dungeon_service.get_shop_offers()
-        return embedder.shop_embed(player, offers, message), ShopView(offers, owner_id=expedition.player_id)
+    if kind == "encounter":
+        encounter = dungeon_service.get_pending_encounter(expedition)
+        if encounter is None:
+            # Interaction state was lost somehow -- fail safe back to the map.
+            return _render_room(db, expedition, player, "resolved", message, avatar_url)
+        return (
+            embedder.encounter_embed(node, encounter, message),
+            EncounterView(dungeon_service.get_encounter_choices(encounter), owner_id=expedition.player_id),
+        )
 
     return (
         embedder.dungeon_map_embed(
@@ -479,35 +480,16 @@ async def _handle_puzzle_choice(interaction: discord.Interaction, option_index: 
         db.close()
 
 
-async def _handle_shop_buy(interaction: discord.Interaction, offer_id: str):
+async def _handle_encounter_choice(interaction: discord.Interaction, choice_id: str):
     db = SessionLocal()
     try:
         player = get_player(db, interaction.user.id)
         expedition = dungeon_service.get_active_expedition(db, player.id) if player else None
         if player is None or expedition is None or not expedition.pending_interaction:
-            await interaction.response.send_message("There's nothing to buy here right now.", ephemeral=True)
+            await interaction.response.send_message("There's nothing to resolve here right now.", ephemeral=True)
             return
 
-        ok, message = dungeon_service.buy_shop_item(db, expedition, player, offer_id)
-        avatar_url = interaction.user.display_avatar.url
-        embed, view = _render_room(db, expedition, player, "shop", message, avatar_url)
-        await interaction.response.edit_message(embed=embed, view=view)
-        if not ok:
-            await interaction.followup.send(message, ephemeral=True)
-    finally:
-        db.close()
-
-
-async def _handle_shop_leave(interaction: discord.Interaction):
-    db = SessionLocal()
-    try:
-        player = get_player(db, interaction.user.id)
-        expedition = dungeon_service.get_active_expedition(db, player.id) if player else None
-        if player is None or expedition is None:
-            await interaction.response.send_message("You're not shopping right now.", ephemeral=True)
-            return
-
-        result = dungeon_service.leave_shop(db, expedition)
+        result = dungeon_service.resolve_encounter_choice(db, expedition, player, choice_id)
         avatar_url = interaction.user.display_avatar.url
         embed, view = _render_room(db, expedition, player, result["kind"], result["message"], avatar_url)
         await interaction.response.edit_message(embed=embed, view=view)
