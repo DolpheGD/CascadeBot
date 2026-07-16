@@ -13,15 +13,20 @@ immediately before each boss is forced to be all CAMPFIRE (so the player can
 always heal up before the fight), and everything else is weighted-random per
 room_config.py, subject to per-run caps and the "no elite too early" rule.
 
-Adventure Overhaul: a single expedition can now contain 1-4 boss fights, not
-just one -- see room_config.NUM_BOSSES_WEIGHTS. Internally this is built as
-several independently-generated "segments" (each its own mini dungeon
-ending in a boss floor) stitched together: segment N+1's own START node is
-discarded and its edges are reattached directly to segment N's boss node,
-so the boss node itself becomes the next segment's entry point. Only the
-FINAL boss ends the expedition (see resolve_battle_end in
+Adventure Overhaul: a single expedition now contains 2-4 REGULAR boss fights
+plus one guaranteed, tougher FINAL boss at the very end -- see
+room_config.NUM_REGULAR_BOSSES_WEIGHTS. Internally this is built as several
+independently-generated "segments" (each its own mini dungeon ending in a
+boss floor) stitched together: segment N+1's own START node is discarded
+and its edges are reattached directly to segment N's boss node, so the
+boss node itself becomes the next segment's entry point. Only the FINAL
+segment's boss ends the expedition (see resolve_battle_end in
 bot/services/dungeon_service.py) -- earlier bosses are big, rewarding
-checkpoints along a longer run.
+checkpoints along a longer run. Which enemy template a BOSS floor actually
+gets (a regular boss vs a final-boss-caliber one) is decided at combat-
+start time by enemy_catalog.get_boss_encounter, based on whether that
+node is the last entry in graph["boss_nodes"] -- the generator itself
+doesn't need to know or care which segment is "the final one".
 
 Output shape (JSON-serializable, matches Expedition.graph):
 
@@ -47,11 +52,10 @@ from bot.database.models.enums import RoomType
 from bot.game.dungeon.room_config import (
     ELITE_MIN_FLOOR_INDEX,
     MAX_PER_RUN,
-    NUM_BOSSES_WEIGHTS,
     REST_FLOOR_WIDTH,
     ROOM_WEIGHTS_BY_STAGE,
     SEGMENT_FLOOR_RANGE,
-    roll_num_bosses,
+    roll_num_regular_bosses,
 )
 
 
@@ -68,13 +72,15 @@ class DungeonGenerator:
         min_width: int = 3,
         max_width: int = 5,
     ) -> dict:
-        """If `num_bosses` isn't given, it's rolled per room_config.NUM_BOSSES_WEIGHTS.
-        If `num_floors` isn't given, each boss segment independently rolls a
-        length from room_config.SEGMENT_FLOOR_RANGE (so total length scales
-        with num_bosses). Passing `num_floors` explicitly forces a single
-        segment of exactly that length (used by tests/tools that want the
-        old fixed-length behavior)."""
-        num_bosses = num_bosses or roll_num_bosses(self.rng)
+        """If `num_bosses` isn't given, it's rolled as 2-4 REGULAR bosses
+        (room_config.NUM_REGULAR_BOSSES_WEIGHTS) plus one guaranteed extra
+        FINAL boss segment on top -- so the total segment count produced
+        here is 3-5. If `num_floors` isn't given, each boss segment
+        independently rolls a length from room_config.SEGMENT_FLOOR_RANGE
+        (so total length scales with num_bosses). Passing `num_floors`
+        explicitly forces a single segment of exactly that length (used
+        by tests/tools that want the old fixed-length behavior)."""
+        num_bosses = num_bosses or (roll_num_regular_bosses(self.rng) + 1)
 
         if num_floors is not None:
             segment_lengths = [num_floors]

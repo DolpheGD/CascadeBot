@@ -43,6 +43,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # first thing most new operatives fight.
         "name": "Wandering Vagrant",
         "role": "combat",
+        "regions": ['Glacier 15', 'The Wastelands'],
         "base_stats": {
             "attack": 6, "defense": 3, "elemental": 1, "speed": 7,
             "max_hp": 32, "max_mana": 999, "crit_rate": 4, "crit_damage": 140, "recharge": 5,
@@ -56,6 +57,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # issue armor. Seen wherever Acatrya projects authority.
         "name": "Xender Henchmen",
         "role": "combat",
+        "regions": ['The Wastelands', 'The Hotlands'],
         "base_stats": {
             "attack": 8, "defense": 5, "elemental": 3, "speed": 8,
             "max_hp": 42, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 5,
@@ -69,6 +71,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # actually expects to see combat, not just crowd control.
         "name": "Xender Enforcer",
         "role": "combat",
+        "regions": ['The Wastelands', 'The Hotlands'],
         "base_stats": {
             "attack": 10, "defense": 7, "elemental": 5, "speed": 9,
             "max_hp": 52, "max_mana": 999, "crit_rate": 6, "crit_damage": 155, "recharge": 5,
@@ -82,6 +85,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # shutdown order" -- still patrolling the ruin decades later.
         "name": "Rogue Security Drone",
         "role": "combat",
+        "regions": ['Glacier 15'],
         "base_stats": {
             "attack": 7, "defense": 9, "elemental": 5, "speed": 6,
             "max_hp": 58, "max_mana": 999, "crit_rate": 4, "crit_damage": 150, "recharge": 5,
@@ -98,6 +102,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # scrub, surfacing to ram anything that gets close.
         "name": "Dune Digger",
         "role": "combat",
+        "regions": ['The Wastelands', 'Voidcrest Desert'],
         "base_stats": {
             "attack": 9, "defense": 10, "elemental": 3, "speed": 5,
             "max_hp": 60, "max_mana": 999, "crit_rate": 4, "crit_damage": 150, "recharge": 5,
@@ -111,6 +116,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # drilling unit that never stopped clearing ice tunnels.
         "name": "Glacial Piercer",
         "role": "combat",
+        "regions": ['Glacier 15'],
         "base_stats": {
             "attack": 8, "defense": 6, "elemental": 7, "speed": 8,
             "max_hp": 48, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 5,
@@ -124,6 +130,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # fast, and prone to unpredictable elemental discharge.
         "name": "Voidcrest Skitterer",
         "role": "combat",
+        "regions": ['Voidcrest Desert'],
         "base_stats": {
             "attack": 7, "defense": 3, "elemental": 9, "speed": 12,
             "max_hp": 30, "max_mana": 999, "crit_rate": 8, "crit_damage": 160, "recharge": 6,
@@ -138,6 +145,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # anger, not a paycheck.
         "name": "Wasteland Striker",
         "role": "combat",
+        "regions": ['The Wastelands'],
         "base_stats": {
             "attack": 11, "defense": 5, "elemental": 2, "speed": 9,
             "max_hp": 45, "max_mana": 999, "crit_rate": 6, "crit_damage": 150, "recharge": 5,
@@ -154,6 +162,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # -- can't move, doesn't need to.
         "name": "Ash Turret",
         "role": "combat",
+        "regions": ['The Hotlands'],
         "base_stats": {
             "attack": 9, "defense": 12, "elemental": 8, "speed": 3,
             "max_hp": 65, "max_mana": 999, "crit_rate": 3, "crit_damage": 150, "recharge": 4,
@@ -167,6 +176,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # battlefield data, so putting one down feeds the others.
         "name": "Acatrya Riot Trooper",
         "role": "combat",
+        "regions": ['The Wastelands', 'The Hotlands'],
         "base_stats": {
             "attack": 9, "defense": 8, "elemental": 3, "speed": 7,
             "max_hp": 50, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 5,
@@ -180,6 +190,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # wanders too deep into contested salvage territory.
         "name": "Scrap Hound",
         "role": "combat",
+        "regions": ['The Wastelands', 'Voidcrest Desert'],
         "base_stats": {
             "attack": 10, "defense": 4, "elemental": 2, "speed": 11,
             "max_hp": 38, "max_mana": 999, "crit_rate": 9, "crit_damage": 165, "recharge": 5,
@@ -194,6 +205,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # same breath, and doesn't seem to notice either.
         "name": "Static-Choked Wanderer",
         "role": "combat",
+        "regions": ['The Wastelands', 'Voidcrest Desert'],
         "base_stats": {
             "attack": 7, "defense": 5, "elemental": 8, "speed": 7,
             "max_hp": 44, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 5,
@@ -212,6 +224,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # it's doing.
         "name": "Acatrya Field Medic",
         "role": "combat",
+        "regions": ['The Wastelands', 'The Hotlands'],
         "base_stats": {
             "attack": 6, "defense": 6, "elemental": 8, "speed": 8,
             "max_hp": 45, "max_mana": 999, "crit_rate": 4, "crit_damage": 150, "recharge": 5,
@@ -230,6 +243,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # to its own side and jamming static at the party's.
         "name": "Xender Command Relay",
         "role": "combat",
+        "regions": ['The Wastelands', 'The Hotlands'],
         "base_stats": {
             "attack": 7, "defense": 7, "elemental": 6, "speed": 7,
             "max_hp": 50, "max_mana": 999, "crit_rate": 4, "crit_damage": 150, "recharge": 5,
@@ -249,6 +263,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # slower, but built to shrug off small-arms fire.
         "name": "Xender Tank",
         "role": "elite",
+        "regions": ['The Wastelands', 'The Hotlands'],
         "base_stats": {
             "attack": 15, "defense": 18, "elemental": 6, "speed": 7,
             "max_hp": 140, "max_mana": 999, "crit_rate": 7, "crit_damage": 155, "recharge": 6,
@@ -266,6 +281,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # not built by anyone still alive to ask about it.
         "name": "Voidwarp Construct",
         "role": "elite",
+        "regions": ['The Hotlands', 'Voidcrest Desert'],
         "base_stats": {
             "attack": 12, "defense": 14, "elemental": 16, "speed": 9,
             "max_hp": 130, "max_mana": 999, "crit_rate": 8, "crit_damage": 160, "recharge": 6,
@@ -285,6 +301,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # hard enough to hurt.
         "name": "Dolpo",
         "role": "elite",
+        "regions": ['The Wastelands', 'The Hotlands'],
         "base_stats": {
             "attack": 11, "defense": 8, "elemental": 15, "speed": 14,
             "max_hp": 100, "max_mana": 999, "crit_rate": 15, "crit_damage": 170, "recharge": 7,
@@ -304,6 +321,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # fraying.
         "name": "H-Nation Vanguard",
         "role": "elite",
+        "regions": ['The Hotlands', 'Voidcrest Desert'],
         "base_stats": {
             "attack": 17, "defense": 12, "elemental": 5, "speed": 10,
             "max_hp": 120, "max_mana": 999, "crit_rate": 14, "crit_damage": 180, "recharge": 6,
@@ -322,6 +340,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # look like a normal soldier's.
         "name": "Ocellios Test Subject",
         "role": "elite",
+        "regions": ['The Hotlands', 'Voidcrest Desert'],
         "base_stats": {
             "attack": 13, "defense": 9, "elemental": 18, "speed": 11,
             "max_hp": 125, "max_mana": 999, "crit_rate": 9, "crit_damage": 165, "recharge": 7,
@@ -339,6 +358,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # overcharge loop -- it never runs dry, it just keeps firing.
         "name": "Xendium Overcharge Drone",
         "role": "elite",
+        "regions": ['The Hotlands', 'Voidcrest Desert'],
         "base_stats": {
             "attack": 10, "defense": 10, "elemental": 20, "speed": 9,
             "max_hp": 115, "max_mana": 999, "crit_rate": 10, "crit_damage": 165, "recharge": 9,
@@ -357,6 +377,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # shutdown order.
         "name": "Glacier 15 Custodian",
         "role": "elite",
+        "regions": ['Glacier 15', 'The Wastelands'],
         "base_stats": {
             "attack": 14, "defense": 16, "elemental": 10, "speed": 8,
             "max_hp": 150, "max_mana": 999, "crit_rate": 8, "crit_damage": 160, "recharge": 6,
@@ -377,6 +398,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # a Xendium reactor overload -- still walking, still armed.
         "name": "Cinderclad Devastator",
         "role": "boss",
+        "region_roles": {'The Hotlands': 'final'},
         "base_stats": {
             "attack": 22, "defense": 12, "elemental": 24, "speed": 10,
             "max_hp": 260, "max_mana": 999, "crit_rate": 12, "crit_damage": 175, "recharge": 7,
@@ -394,6 +416,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # deployed wherever Xender wants a show of force from above.
         "name": "XG-23 Heavy Drone",
         "role": "boss",
+        "region_roles": {'Glacier 15': 'regular', 'The Wastelands': 'regular', 'The Hotlands': 'regular'},
         "base_stats": {
             "attack": 20, "defense": 14, "elemental": 20, "speed": 14,
             "max_hp": 240, "max_mana": 999, "crit_rate": 14, "crit_damage": 170, "recharge": 7,
@@ -414,6 +437,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # Team Cascade comes to cut the signal.
         "name": "The Broadcast",
         "role": "boss",
+        "region_roles": {'The Wastelands': 'final'},
         "base_stats": {
             "attack": 18, "defense": 14, "elemental": 26, "speed": 9,
             "max_hp": 250, "max_mana": 999, "crit_rate": 11, "crit_damage": 170, "recharge": 7,
@@ -432,6 +456,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # was meant to become, this is what got loose.
         "name": "Subject 29",
         "role": "boss",
+        "region_roles": {'Glacier 15': 'final', 'The Hotlands': 'regular', 'Voidcrest Desert': 'regular'},
         "base_stats": {
             "attack": 16, "defense": 10, "elemental": 28, "speed": 12,
             "max_hp": 230, "max_mana": 999, "crit_rate": 16, "crit_damage": 185, "recharge": 7,
@@ -450,6 +475,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # rarely encountered, and built not to stay down.
         "name": "Stubby's Failsafe",
         "role": "boss",
+        "region_roles": {'Voidcrest Desert': 'final'},
         "base_stats": {
             "attack": 24, "defense": 18, "elemental": 18, "speed": 8,
             "max_hp": 280, "max_mana": 999, "crit_rate": 12, "crit_damage": 175, "recharge": 7,
@@ -539,14 +565,35 @@ BOSS_GROUPS: dict[str, list[str]] = {
     "eruptor_trio": ["Borehole", "Rupture", "Gatekeeper"],
 }
 
-# Chance that a BOSS room rolls one of BOSS_GROUPS instead of a single
-# "boss"-role template. Kept low -- these are meant to be rare, harder
-# set-piece fights, not the default boss encounter.
+# Same idea as a solo boss template's "region_roles" field (see
+# ENEMY_TEMPLATES above): which region(s) this group can show up in, and
+# whether it counts as a "regular" checkpoint boss or reserved for that
+# region's FINAL boss there.
+BOSS_GROUP_REGION_ROLES: dict[str, dict[str, str]] = {
+    "eruptor_trio": {"The Wastelands": "final", "Voidcrest Desert": "final"},
+}
+
+# Chance that a BOSS room rolls one of the eligible BOSS_GROUPS instead of
+# a single solo "boss"-role template. Kept low -- these are meant to be
+# rare, harder set-piece fights, not the default boss encounter.
 BOSS_GROUP_CHANCE = 0.2
 
 
-def get_templates_by_role(role: str) -> list[dict]:
-    return [t for t in ENEMY_TEMPLATES if t["role"] == role]
+def get_templates_by_role(role: str, region: str | None = None) -> list[dict]:
+    """All templates for a role, optionally narrowed to ones eligible for
+    `region` (via each template's "regions" field -- combat/elite -- or
+    "region_roles" field -- boss). If narrowing to a region leaves nothing
+    (shouldn't happen given the roster's region coverage, but content gaps
+    are easy to introduce by accident), falls back to the full, unfiltered
+    role pool rather than crash or return an empty combat encounter."""
+    templates = [t for t in ENEMY_TEMPLATES if t["role"] == role]
+    if region is None:
+        return templates
+    if role == "boss":
+        narrowed = [t for t in templates if region in t.get("region_roles", {})]
+    else:
+        narrowed = [t for t in templates if region in t.get("regions", [])]
+    return narrowed or templates
 
 
 def get_template_by_name(name: str) -> dict:
@@ -556,14 +603,52 @@ def get_template_by_name(name: str) -> dict:
     raise KeyError(f"No enemy template named {name!r}")
 
 
-def get_boss_encounter(rng: random.Random | None = None) -> list[dict]:
+def get_boss_encounter(
+    rng: random.Random | None = None, region: str | None = None, final: bool = False
+) -> list[dict]:
     """Returns the list of enemy template(s) for a BOSS room: usually a
     single random "boss"-role template, occasionally (BOSS_GROUP_CHANCE)
-    one of the named BOSS_GROUPS fought together instead."""
+    one of the named BOSS_GROUPS fought together instead.
+
+    `region` narrows candidates to that region's roster; `final=True`
+    narrows further to templates/groups whose region_roles designates them
+    as that region's FINAL boss (reserved for the last boss node of a run
+    -- see dungeon_service.enter_node), rather than an earlier checkpoint
+    boss. If a region has no dedicated candidates for the requested
+    role (regular/final), this widens step by step -- same role in any
+    region, then any boss at all -- instead of crashing."""
     rng = rng or random.Random()
-    if BOSS_GROUPS and rng.random() < BOSS_GROUP_CHANCE:
-        group_name = rng.choice(list(BOSS_GROUPS.keys()))
+    role = "final" if final else "regular"
+
+    def _solo_candidates(strict: bool) -> list[dict]:
+        solo = get_templates_by_role("boss")
+        if region is None:
+            return solo
+        if strict:
+            return [t for t in solo if t.get("region_roles", {}).get(region) == role]
+        return [t for t in solo if role in t.get("region_roles", {}).values()]
+
+    def _group_candidates(strict: bool) -> list[str]:
+        if region is None:
+            return list(BOSS_GROUP_REGION_ROLES.keys())
+        if strict:
+            return [g for g, roles in BOSS_GROUP_REGION_ROLES.items() if roles.get(region) == role]
+        return [g for g, roles in BOSS_GROUP_REGION_ROLES.items() if role in roles.values()]
+
+    solo_strict, group_strict = _solo_candidates(strict=True), _group_candidates(strict=True)
+    if solo_strict or group_strict:
+        # This exact region+role combination has real candidates -- use
+        # only those, so e.g. Glacier 15's final boss never accidentally
+        # pulls in a group that's only meant for Wastelands/Voidcrest.
+        solo_candidates, group_candidates = solo_strict, group_strict
+    else:
+        # No dedicated content for this region+role -- widen step by step
+        # (same role anywhere, then any boss at all) rather than crash.
+        solo_candidates = _solo_candidates(strict=False) or get_templates_by_role("boss")
+        group_candidates = _group_candidates(strict=False)
+
+    if group_candidates and rng.random() < BOSS_GROUP_CHANCE:
+        group_name = rng.choice(group_candidates)
         return [get_template_by_name(n) for n in BOSS_GROUPS[group_name]]
 
-    solo_bosses = get_templates_by_role("boss")
-    return [rng.choice(solo_bosses)]
+    return [rng.choice(solo_candidates)]

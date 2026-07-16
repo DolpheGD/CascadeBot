@@ -55,18 +55,29 @@ class LootGenerator:
     # ------------------------------------------------------------------
     # Rarity
     # ------------------------------------------------------------------
-    def roll_rarity(self, max_rarity: Rarity | None = None) -> Rarity:
+    def roll_rarity(self, max_rarity: Rarity | None = None, min_rarity: Rarity | None = None) -> Rarity:
         """Weighted random rarity. `max_rarity`, if given, strictly excludes
         anything above it from the pool -- used to cap drops by region
         difficulty (see bot/game/dungeon/region_config.py) so easier
         locations only ever produce lower-tier gear/lootboxes, while
         harder ones roll the full range (a mix of both, still weighted
-        toward common)."""
+        toward common). `min_rarity` similarly excludes anything below it
+        -- used for a template's own tier floor (see ItemTemplate.min_rarity)
+        so e.g. a Voidwalker-set piece never rolls plain Common."""
         weights_by_rarity = RARITY_WEIGHTS
         if max_rarity is not None:
             weights_by_rarity = {
-                r: w for r, w in RARITY_WEIGHTS.items() if r.sort_order <= max_rarity.sort_order
+                r: w for r, w in weights_by_rarity.items() if r.sort_order <= max_rarity.sort_order
             }
+        if min_rarity is not None:
+            weights_by_rarity = {
+                r: w for r, w in weights_by_rarity.items() if r.sort_order >= min_rarity.sort_order
+            }
+        if not weights_by_rarity:
+            # min_rarity above max_rarity (a region cap stricter than this
+            # template's own floor) -- fall back to the template's floor
+            # itself rather than producing nothing.
+            return min_rarity or max_rarity or Rarity.COMMON
         rarities = list(weights_by_rarity.keys())
         weights = list(weights_by_rarity.values())
         return self.rng.choices(rarities, weights=weights, k=1)[0]
@@ -155,7 +166,16 @@ class LootGenerator:
         force_ability: bool = False,
         max_rarity: Rarity | None = None,
     ) -> InventoryItem:
-        rarity = rarity_override or self.roll_rarity(max_rarity=max_rarity)
+        if rarity_override is not None:
+            rarity = rarity_override
+        else:
+            template_max = getattr(template, "max_rarity", None)
+            effective_max = template_max if max_rarity is None else min(
+                max_rarity, template_max or max_rarity, key=lambda r: r.sort_order
+            )
+            rarity = self.roll_rarity(
+                max_rarity=effective_max, min_rarity=getattr(template, "min_rarity", None)
+            )
 
         main_stat_value = self.roll_main_stat(template, item_level, rarity)
         substats = self.roll_substats(template.main_stat, item_level, rarity)

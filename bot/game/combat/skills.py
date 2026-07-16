@@ -100,7 +100,7 @@ CLASS_KIT_MAP: dict[CharacterClass, dict[str, dict]] = {
         },
         "passive": {
             "id": "avatar_amplifier_passive", "name": "Unshakeable Resolve", "trigger": "on_turn_start",
-            "description": "At the start of every turn, restores 4 energy and 6 mana to the whole team.",
+            "description": "At the start of every turn, restores 4 energy and 6 SP to the whole team.",
             "effect": {"kind": "aura_team_resource_regen", "energy_amount": 4, "mana_amount": 6},
         },
     },
@@ -287,7 +287,7 @@ CHARACTER_PASSIVE_MAP: dict[str, dict] = {
     ),
     "nexus_passive": _amplifier_passive(
         "nexus_passive", "Clout Chaser",
-        "At the start of every turn, hypes up the whole team, restoring 4 energy and 6 mana to each of them.",
+        "At the start of every turn, hypes up the whole team, restoring 4 energy and 6 SP to each of them.",
     ),
     "fax_passive": _support_dps_passive(
         "fax_passive", "Frequent Flyer",
@@ -309,7 +309,7 @@ CHARACTER_PASSIVE_MAP: dict[str, dict] = {
     ),
     "nebula_passive": _amplifier_passive(
         "nebula_passive", "Terrain Advantage",
-        "At the start of every turn, reads the terrain to keep the whole team's supply lines flowing: 5 energy and 7 mana each.",
+        "At the start of every turn, reads the terrain to keep the whole team's supply lines flowing: 5 energy and 7 SP each.",
         energy_amount=5, mana_amount=7,
     ),
 

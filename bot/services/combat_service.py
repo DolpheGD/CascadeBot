@@ -127,13 +127,16 @@ def apply_victory_rewards(
     items = []
     drop_chance = ITEM_DROP_CHANCE.get(room_type, 0.4)
     if rng.random() < drop_chance:
-        template = item_template_service.pick_random_template(db, rng=rng)
+        generator = LootGenerator(rng=rng)
+        rarity = generator.roll_rarity(max_rarity=difficulty["max_item_rarity"])
+        template = item_template_service.pick_random_template(db, rng=rng, rarity=rarity)
         if template is not None:
             # Equipment always starts at level 1 -- the player levels it up
             # themselves. Power at drop time comes from RARITY (capped by
-            # region difficulty) instead of a floor-scaled starting level.
-            item = LootGenerator(rng=rng).generate_item(
-                template, player_id=player.id, item_level=1, max_rarity=difficulty["max_item_rarity"],
+            # region difficulty, and by the template's own tier window)
+            # instead of a floor-scaled starting level.
+            item = generator.generate_item(
+                template, player_id=player.id, item_level=1, rarity_override=rarity,
             )
             db.add(item)
             db.commit()

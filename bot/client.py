@@ -49,7 +49,7 @@ class CascadeBot(commands.Bot):
         # delivers the real ones the user saw), only its custom_id does, so
         # every conditionally-shown component gets a non-empty placeholder
         # here to guarantee its custom_id is actually registered.
-        from bot.cogs.dungeon import CombatView, DungeonView
+        from bot.cogs.dungeon import CombatView, DungeonView, StartBattleView
         from bot.cogs.inventory import (
             EntryEquipToggleButton,
             EntryLevelUpButton,
@@ -75,6 +75,7 @@ class CascadeBot(commands.Bot):
         dummy_target_options = [discord.SelectOption(label="dummy", value="0")]
 
         self.add_view(DungeonView())
+        self.add_view(StartBattleView())
         self.add_view(CombatView(
             ability_options=dummy_ability_options,
             target_options=dummy_target_options,

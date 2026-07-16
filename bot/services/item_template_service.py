@@ -29,25 +29,43 @@ def ensure_item_templates_seeded(db) -> None:
     db.commit()
 
 
-def pick_random_template(db, rng: random.Random | None = None) -> ItemTemplate | None:
+def pick_random_template(
+    db, rng: random.Random | None = None, rarity=None
+) -> ItemTemplate | None:
     """Every random "which item template drops" roll across the bot
-    (combat rewards, treasure rooms, lootboxes, the shop's basic item)
-    should go through this instead of `db.query(ItemTemplate).all()` +
-    `rng.choice(...)` directly -- it keeps ultra-rare set templates (see
+    (combat rewards, treasure rooms, lootboxes, gacha, the shop's basic
+    item) should go through this instead of `db.query(ItemTemplate).all()`
+    + `rng.choice(...)` directly -- it keeps ultra-rare set templates (see
     ItemTemplate.is_ultra_rare) out of the normal pool so they stay
-    genuinely rare instead of dropping at the same rate as everything else."""
+    genuinely rare instead of dropping at the same rate as everything else.
+
+    If `rarity` is given (the target rarity, already decided by the
+    caller -- e.g. a gacha/lootbox roll, or a region's rarity cap), only
+    templates whose [min_rarity, max_rarity] window actually includes it
+    are eligible, so e.g. a Legendary roll can't land on a template that's
+    only ever supposed to be Common/Uncommon. Falls back to the
+    unfiltered pool if nothing matches (a content gap safety net -- with
+    reasonable rarity_range coverage across the catalog this shouldn't
+    normally trigger)."""
     rng = rng or random.Random()
 
+    def _matches(t: ItemTemplate) -> bool:
+        return rarity is None or t.min_rarity.sort_order <= rarity.sort_order <= t.max_rarity.sort_order
+
     if rng.random() < ULTRA_RARE_CHANCE:
-        ultra = db.query(ItemTemplate).filter_by(is_ultra_rare=True).all()
+        ultra = [t for t in db.query(ItemTemplate).filter_by(is_ultra_rare=True).all() if _matches(t)]
         if ultra:
             return rng.choice(ultra)
 
-    normal = db.query(ItemTemplate).filter_by(is_ultra_rare=False).all()
+    normal = [t for t in db.query(ItemTemplate).filter_by(is_ultra_rare=False).all() if _matches(t)]
     if normal:
         return rng.choice(normal)
 
-    # Fallback: if somehow only ultra-rare templates exist, don't return
-    # nothing.
+    # Fall back a step at a time: ignore the rarity filter, then ignore
+    # ultra-rare exclusion too, rather than returning nothing.
+    normal_any_rarity = db.query(ItemTemplate).filter_by(is_ultra_rare=False).all()
+    if normal_any_rarity:
+        return rng.choice(normal_any_rarity)
+
     all_templates = db.query(ItemTemplate).all()
     return rng.choice(all_templates) if all_templates else None

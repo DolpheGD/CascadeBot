@@ -44,7 +44,7 @@ def resolve_basic_attack(attacker: Combatant, defender: Combatant, rng: random.R
     _resolve_hit(attacker, defender, damage_percent=100, damage_stat="attack", rng=rng, log=log)
     energy_gained, mana_gained = attacker.gain_energy_and_mana()
     if energy_gained or mana_gained:
-        log.append(f"{attacker.name} gains {energy_gained} energy and {mana_gained} mana.")
+        log.append(f"{attacker.name} gains {energy_gained} energy and {mana_gained} SP.")
 
 
 def resolve_active_ability(
@@ -208,7 +208,7 @@ def resolve_active_ability(
             defender.energy -= energy_drained
             defender.mana -= mana_drained
             if energy_drained or mana_drained:
-                log.append(f"🔌 {defender.name} loses {energy_drained} energy and {mana_drained} mana!")
+                log.append(f"🔌 {defender.name} loses {energy_drained} energy and {mana_drained} SP!")
 
     elif kind == "cleanse_self_and_heal":
         # Self-repair: strips the caster's own debuffs/DOTs and heals a
@@ -246,7 +246,7 @@ def resolve_active_ability(
             member.energy += energy_gained
             member.mana += mana_gained
             if energy_gained or mana_gained:
-                log.append(f"🔋 {member.name} gains {energy_gained} energy and {mana_gained} mana from {ability['name']}.")
+                log.append(f"🔋 {member.name} gains {energy_gained} energy and {mana_gained} SP from {ability['name']}.")
 
     elif kind == "team_regen_over_time":
         # True regen -- unlike team_heal_percent_max_hp (an instant burst),
@@ -320,7 +320,7 @@ def _trigger_on_kill(killer: Combatant, log: list) -> None:
             effect = passive["effect"]
             healed = killer.heal(killer.max_hp * effect["hp_percent"] / 100)
             killer.mana = min(killer.max_mana, killer.mana + effect["mana"])
-            log.append(f"☠️ {killer.name}'s {passive['name']} restores {healed} HP and {effect['mana']} mana.")
+            log.append(f"☠️ {killer.name}'s {passive['name']} restores {healed} HP and {effect['mana']} SP.")
 
 
 def _trigger_on_low_hp(combatant: Combatant, log: list) -> None:
@@ -378,7 +378,7 @@ def trigger_on_turn_start(combatant: Combatant, log: list, allies: list[Combatan
                 member.energy += energy_gained
                 member.mana += mana_gained
                 if energy_gained or mana_gained:
-                    log.append(f"🔋 {member.name} gains {energy_gained} energy and {mana_gained} mana from {combatant.name}'s {passive['name']}.")
+                    log.append(f"🔋 {member.name} gains {energy_gained} energy and {mana_gained} SP from {combatant.name}'s {passive['name']}.")
 
         elif effect["kind"] == "aura_team_regen":
             # Support aura -- heals combatant AND its living allies a

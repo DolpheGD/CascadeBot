@@ -18,7 +18,6 @@ from bot.database.models.enums import (
     Rarity,
     RoomType,
 )
-from bot.database.models.equipment_model import ItemTemplate
 from bot.database.models.expedition_model import Expedition
 from bot.game.combat import enemies as enemy_catalog
 from bot.game.dungeon import graph_utils as gu
@@ -36,7 +35,7 @@ from bot.game.dungeon.interactive_config import (
 from bot.game.dungeon.region_config import get_region_difficulty
 from bot.game.economy.lootbox_config import tier_for_floor_and_region
 from bot.game.loot.generator import LootGenerator
-from bot.services import character_service, combat_service, lootbox_service
+from bot.services import character_service, combat_service, item_template_service, lootbox_service
 from bot.services.currency_service import add_currency, format_currency, spend_currency
 
 # Which material tier drops from treasure/secret rooms at a given floor --
@@ -54,6 +53,132 @@ def _material_for_floor(floor: int, rng: random.Random | None = None) -> Materia
     rng = rng or random
     tier_index = min(floor // 4, len(_MATERIAL_TIERS) - 1)
     return rng.choice(_MATERIAL_TIERS[tier_index])
+
+
+def _mark_completed(expedition: Expedition, node_id: str) -> None:
+    """Marks a node completed without ever mutating expedition.graph (or
+    its nested "nodes" dict) in place -- copies at each level first, then
+    reassigns the whole attribute. graph is a plain JSON column (no
+    MutableDict wrapper), so SQLAlchemy only detects a change here if the
+    value assigned to expedition.graph is genuinely different in content
+    from what it held before this call. Mutating in place and reassigning
+    afterwards (e.g. `gu.mark_completed(expedition.graph, id); expedition.graph
+    = dict(expedition.graph)`) does NOT work: the in-place mutation happens
+    first, so the "old" and "new" snapshots are already equal by the time
+    of reassignment, and the change is silently dropped on commit. Without
+    this, "completed" never actually persists past the current session --
+    e.g. the boss-defeated counter in dungeon_map_embed would show the
+    right count immediately after beating a boss, then revert to the old
+    count the next time the expedition is loaded fresh (a new /adventure
+    invocation, a different button click, a restart)."""
+    graph = dict(expedition.graph)
+    nodes = dict(graph["nodes"])
+    nodes[node_id] = {**nodes[node_id], "completed": True}
+    graph["nodes"] = nodes
+    expedition.graph = graph
+
+
+# ----------------------------------------------------------------------
+# Expedition ledger -- a running tally of everything gained/spent since
+# the expedition started, surfaced as a whole-run summary when it ends
+# (see resolve_battle_end's expedition_complete/defeat branches and
+# bot/utils/embedder.py::expedition_summary_embed). Every helper below
+# reassigns Expedition.loot_ledger wholesale rather than mutating the
+# dict in place -- a plain JSON column doesn't pick up in-place mutation,
+# only attribute reassignment.
+# ----------------------------------------------------------------------
+
+def _new_ledger() -> dict:
+    return {
+        "gold_gained": 0,
+        "gold_spent": 0,
+        "shards_gained": 0,
+        "xp_gained": 0,
+        "materials": {},        # material value -> qty gained
+        "items_found": [],      # [{"name":, "rarity":}] -- combat/treasure drops
+        "items_bought": [],     # [{"name":, "rarity":}] -- shop purchases
+        "lootboxes_found": {},  # tier -> qty -- treasure/secret rooms
+        "lootboxes_bought": {}, # tier -> qty -- shop purchases
+        "level_ups": {},        # character name -> {"from":, "to":}
+    }
+
+
+def _ledger(expedition: Expedition) -> dict:
+    ledger = dict(expedition.loot_ledger or {})
+    for key, default in _new_ledger().items():
+        ledger.setdefault(key, default)
+    return ledger
+
+
+def _ledger_add_gold(expedition: Expedition, amount: int, spent: bool = False) -> None:
+    if not amount:
+        return
+    ledger = _ledger(expedition)
+    key = "gold_spent" if spent else "gold_gained"
+    ledger[key] = ledger[key] + amount
+    expedition.loot_ledger = ledger
+
+
+def _ledger_add_shards(expedition: Expedition, amount: int) -> None:
+    if not amount:
+        return
+    ledger = _ledger(expedition)
+    ledger["shards_gained"] = ledger["shards_gained"] + amount
+    expedition.loot_ledger = ledger
+
+
+def _ledger_add_xp(expedition: Expedition, amount: int) -> None:
+    if not amount:
+        return
+    ledger = _ledger(expedition)
+    ledger["xp_gained"] = ledger["xp_gained"] + amount
+    expedition.loot_ledger = ledger
+
+
+def _ledger_add_material(expedition: Expedition, material: str, amount: int) -> None:
+    if not amount:
+        return
+    ledger = _ledger(expedition)
+    materials = dict(ledger["materials"])
+    materials[material] = materials.get(material, 0) + amount
+    ledger["materials"] = materials
+    expedition.loot_ledger = ledger
+
+
+def _ledger_add_item(expedition: Expedition, item, bought: bool = False) -> None:
+    ledger = _ledger(expedition)
+    key = "items_bought" if bought else "items_found"
+    entries = list(ledger[key])
+    entries.append({"name": item.display_name, "rarity": item.rarity.value})
+    ledger[key] = entries
+    expedition.loot_ledger = ledger
+
+
+def _ledger_add_lootbox(expedition: Expedition, tier: str, quantity: int = 1, bought: bool = False) -> None:
+    ledger = _ledger(expedition)
+    key = "lootboxes_bought" if bought else "lootboxes_found"
+    boxes = dict(ledger[key])
+    boxes[tier] = boxes.get(tier, 0) + quantity
+    ledger[key] = boxes
+    expedition.loot_ledger = ledger
+
+
+def _ledger_record_level_ups(expedition: Expedition, level_ups: list[dict]) -> None:
+    if not level_ups:
+        return
+    ledger = _ledger(expedition)
+    tracked = dict(ledger["level_ups"])
+    for lu in level_ups:
+        name = lu["name"]
+        if name in tracked:
+            tracked[name] = {
+                "from": min(tracked[name]["from"], lu["from"]),
+                "to": max(tracked[name]["to"], lu["to"]),
+            }
+        else:
+            tracked[name] = {"from": lu["from"], "to": lu["to"]}
+    ledger["level_ups"] = tracked
+    expedition.loot_ledger = ledger
 
 
 ROOM_FLAVOR = {
@@ -97,8 +222,9 @@ def is_in_interaction(expedition: Expedition | None) -> bool:
 
 def start_expedition(db, player, region: str, num_floors: int | None = None) -> Expedition:
     """`num_floors` is normally left unset so the generator rolls a random
-    number of bosses (1-4) and floor count per the run-length spec item --
-    pass it explicitly to force the old fixed-length single-boss shape."""
+    number of bosses (2-4 regular + 1 guaranteed final = 3-5 total) and
+    floor count per the run-length spec item -- pass it explicitly to
+    force the old fixed-length single-boss shape."""
     existing = get_active_expedition(db, player.id)
     if existing is not None:
         return existing
@@ -143,21 +269,35 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
         if room_type == RoomType.BOSS:
             # Usually a single boss template; occasionally (see
             # enemy_catalog.BOSS_GROUP_CHANCE) a named multi-enemy group
-            # like the Eruptor Trio instead.
-            chosen = enemy_catalog.get_boss_encounter(rng)
+            # like the Eruptor Trio instead. Only the LAST boss node of
+            # the run draws from that region's "final" pool -- earlier
+            # boss nodes are checkpoints and stay "regular" caliber even
+            # though they're still full boss fights.
+            is_final = expedition.current_node_id == expedition.graph.get(
+                "boss_nodes", [expedition.graph.get("boss_node")]
+            )[-1]
+            chosen = enemy_catalog.get_boss_encounter(rng, region=expedition.region, final=is_final)
         else:
             templates = (
-                enemy_catalog.get_templates_by_role(room_type.value)
-                or enemy_catalog.get_templates_by_role("combat")
+                enemy_catalog.get_templates_by_role(room_type.value, region=expedition.region)
+                or enemy_catalog.get_templates_by_role("combat", region=expedition.region)
             )
-            if room_type == RoomType.COMBAT:
-                count = rng.choices([1, 2, 3, 4], weights=[40, 30, 20, 10], k=1)[0]
-            else:  # ELITE
-                count = rng.choices([1, 2], weights=[75, 25], k=1)[0]
+            squad_weights = (
+                difficulty["combat_squad_weights"] if room_type == RoomType.COMBAT
+                else difficulty["elite_squad_weights"]
+            )
+            count = rng.choices(list(squad_weights.keys()), weights=list(squad_weights.values()), k=1)[0]
             chosen = [rng.choice(templates) for _ in range(count)]
 
         level = node["floor"] + 1 + difficulty["level_offset"]
         combat_service.start_battle(db, expedition, player, chosen, level=level)
+        # Awaiting an explicit "Start Battle" press before any turns are
+        # fast-forwarded (see _combat_entry_view_and_embed in
+        # bot/cogs/dungeon.py) -- otherwise, facing enemies faster than
+        # the whole party, the player's first-ever glimpse of the fight
+        # would already be several turns in, with those opening enemy
+        # turns having resolved before they saw anything.
+        expedition.pending_interaction = {"kind": "start_battle"}
 
         names = ", ".join(c["name"] for c in chosen)
         return {"kind": "combat", "message": f"{names} appears!"}
@@ -165,7 +305,7 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
     if room_type == RoomType.CAMPFIRE:
         for pc in character_service.get_squad(db, player):
             pc.current_hp = None  # None == full HP, see PlayerCharacter.current_hp
-        gu.mark_completed(expedition.graph, expedition.current_node_id)
+        _mark_completed(expedition, expedition.current_node_id)
         db.commit()
         return {"kind": "resolved", "message": "You rest at the campfire. Your squad heals to full."}
 
@@ -177,29 +317,34 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
         # (no fight risked), just not absurdly so.
         gold = round(rng.randint(15, 30) * (node["floor"] + 1) // 2 * difficulty["reward_multiplier"])
         add_currency(db, player, "gold", gold)
+        _ledger_add_gold(expedition, gold)
         message = f"You find a treasure chest containing {format_currency('gold', gold)}!"
 
         material = _material_for_floor(node["floor"])
         material_amount = rng.randint(3, 8)
         add_currency(db, player, material.value, material_amount)
+        _ledger_add_material(expedition, material.value, material_amount)
         message += f" (+{format_currency(material.value, material_amount)})"
 
         drop_chance = min(0.25 + node["floor"] * 0.015, 0.45)
         if rng.random() < drop_chance:
             tier = tier_for_floor_and_region(node["floor"], difficulty["max_lootbox_tier"])
             lootbox_service.grant_lootbox(db, player, tier, quantity=1)
+            _ledger_add_lootbox(expedition, tier, quantity=1)
             message += f" It also contains a {tier.title()} Lootbox!"
 
-        gu.mark_completed(expedition.graph, expedition.current_node_id)
+        _mark_completed(expedition, expedition.current_node_id)
         db.commit()
         return {"kind": "resolved", "message": message}
 
     if room_type == RoomType.SECRET:
         gold = round(rng.randint(5, 25) * difficulty["reward_multiplier"])
         add_currency(db, player, "gold", gold)
+        _ledger_add_gold(expedition, gold)
         tier = tier_for_floor_and_region(node["floor"], difficulty["max_lootbox_tier"])
         lootbox_service.grant_lootbox(db, player, tier, quantity=1)
-        gu.mark_completed(expedition.graph, expedition.current_node_id)
+        _ledger_add_lootbox(expedition, tier, quantity=1)
+        _mark_completed(expedition, expedition.current_node_id)
         db.commit()
         return {
             "kind": "resolved",
@@ -210,21 +355,23 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
         }
 
     if room_type == RoomType.START:
-        gu.mark_completed(expedition.graph, expedition.current_node_id)
+        _mark_completed(expedition, expedition.current_node_id)
         db.commit()
         return {"kind": "resolved", "message": "Your expedition begins."}
 
     if room_type == RoomType.STORY:
         gold = round(rng.randint(4, 15) * difficulty["reward_multiplier"])
         add_currency(db, player, "gold", gold)
-        gu.mark_completed(expedition.graph, expedition.current_node_id)
+        _ledger_add_gold(expedition, gold)
+        _mark_completed(expedition, expedition.current_node_id)
         db.commit()
         return {"kind": "resolved", "message": f"{_story_fragment(rng)} (+{format_currency('gold', gold)})"}
 
     if room_type == RoomType.SHRINE:
         gold = round(rng.randint(4, 15) * difficulty["reward_multiplier"])
         add_currency(db, player, "gold", gold)
-        gu.mark_completed(expedition.graph, expedition.current_node_id)
+        _ledger_add_gold(expedition, gold)
+        _mark_completed(expedition, expedition.current_node_id)
         db.commit()
         return {"kind": "resolved", "message": f"{ROOM_FLAVOR[RoomType.SHRINE]} (+{format_currency('gold', gold)})"}
 
@@ -244,7 +391,7 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
         db.commit()
         return {"kind": "shop", "message": "A Cascade quartermaster has set up a supply cache here."}
 
-    gu.mark_completed(expedition.graph, expedition.current_node_id)
+    _mark_completed(expedition, expedition.current_node_id)
     db.commit()
     return {"kind": "resolved", "message": "Something happens."}
 
@@ -266,7 +413,7 @@ def move_to_node(db, expedition: Expedition, target_node_id: str) -> tuple[bool,
 def resolve_battle_end(db, expedition: Expedition, player, battle) -> dict:
     """Call once battle.is_over(). Applies rewards/penalties, clears combat
     state, and returns a summary dict for the cog to render. A run can have
-    1-4 bosses (see the generator) -- only defeating the FINAL one in
+    3-5 bosses (see the generator) -- only defeating the FINAL one in
     graph['boss_nodes'] completes the expedition; earlier ones are big,
     rewarding checkpoints that let the run continue."""
     combat_service.sync_party_hp_to_characters(db, battle)
@@ -274,14 +421,19 @@ def resolve_battle_end(db, expedition: Expedition, player, battle) -> dict:
     if battle.result == "won":
         room_type = expedition.graph["nodes"][expedition.current_node_id]["room_type"]
         rewards = combat_service.apply_victory_rewards(db, player, expedition, room_type=room_type)
-        gu.mark_completed(expedition.graph, expedition.current_node_id)
+        _ledger_add_gold(expedition, rewards["gold"])
+        _ledger_add_xp(expedition, rewards["xp"])
+        for item in rewards["items"]:
+            _ledger_add_item(expedition, item)
+        _ledger_record_level_ups(expedition, rewards["level_ups"])
+        _mark_completed(expedition, expedition.current_node_id)
         combat_service.clear_battle(db, expedition)
 
         final_boss = expedition.graph.get("boss_nodes", [expedition.graph.get("boss_node")])[-1]
         if expedition.current_node_id == final_boss:
             expedition.status = ExpeditionStatus.COMPLETED
             db.commit()
-            return {"kind": "expedition_complete", "rewards": rewards}
+            return {"kind": "expedition_complete", "rewards": rewards, "ledger": _ledger(expedition)}
 
         db.commit()
         is_boss = expedition.current_node_id in expedition.graph.get("boss_nodes", [])
@@ -290,8 +442,9 @@ def resolve_battle_end(db, expedition: Expedition, player, battle) -> dict:
     if battle.result == "lost":
         expedition.status = ExpeditionStatus.FAILED
         combat_service.clear_battle(db, expedition)
+        ledger = _ledger(expedition)
         db.commit()
-        return {"kind": "defeat"}
+        return {"kind": "defeat", "ledger": ledger}
 
     return {"kind": "ongoing"}
 
@@ -328,11 +481,13 @@ def resolve_trap_choice(db, expedition: Expedition, player, choice_id: str, rng:
     if success:
         gold = round(base_gold * choice["success_gold_mult"])
         add_currency(db, player, "gold", gold)
+        _ledger_add_gold(expedition, gold)
         message = f"{TRAP_SUCCESS_FLAVOR} (+{format_currency('gold', gold)})"
     else:
         gold = round(base_gold * choice["fail_gold_mult"])
         if gold:
             add_currency(db, player, "gold", gold)
+            _ledger_add_gold(expedition, gold)
         message = TRAP_FAIL_FLAVOR
         if gold:
             message += f" (+{format_currency('gold', gold)})"
@@ -351,7 +506,7 @@ def resolve_trap_choice(db, expedition: Expedition, player, choice_id: str, rng:
                 message += f"\n{victim.template.name} takes {lost} damage from the blast!"
 
     expedition.pending_interaction = None
-    gu.mark_completed(expedition.graph, expedition.current_node_id)
+    _mark_completed(expedition, expedition.current_node_id)
     db.commit()
     return {"kind": "resolved", "message": message}
 
@@ -382,8 +537,9 @@ def resolve_puzzle_choice(db, expedition: Expedition, player, option_index: int,
         message = f"Not quite -- the answer was '{answer}'. You still scavenge a little on your way out. (+{format_currency('gold', gold)})"
 
     add_currency(db, player, "gold", gold)
+    _ledger_add_gold(expedition, gold)
     expedition.pending_interaction = None
-    gu.mark_completed(expedition.graph, expedition.current_node_id)
+    _mark_completed(expedition, expedition.current_node_id)
     db.commit()
     return {"kind": "resolved", "message": message}
 
@@ -407,21 +563,26 @@ def buy_shop_item(db, expedition: Expedition, player, offer_id: str, rng: random
 
     if offer["kind"] == "lootbox":
         lootbox_service.grant_lootbox(db, player, offer["tier"], quantity=1)
+        _ledger_add_gold(expedition, offer["cost_gold"], spent=True)
+        _ledger_add_lootbox(expedition, offer["tier"], quantity=1, bought=True)
         message = f"Bought a {offer['tier'].title()} Lootbox!"
     elif offer["kind"] == "shards":
         add_currency(db, player, "shards", offer["amount"])
+        _ledger_add_gold(expedition, offer["cost_gold"], spent=True)
+        _ledger_add_shards(expedition, offer["amount"])
         message = f"Bought {format_currency('shards', offer['amount'])}!"
     else:  # "item" -- a random basic (Common) item
-        templates = db.query(ItemTemplate).filter_by(is_ultra_rare=False).all()
-        if not templates:
+        template = item_template_service.pick_random_template(db, rng=rng, rarity=Rarity.COMMON)
+        if template is None:
             add_currency(db, player, "gold", offer["cost_gold"])  # refund, nothing to give
             return False, "The quartermaster is out of stock."
-        template = rng.choice(templates)
         item = LootGenerator(rng=rng).generate_item(
             template, player_id=player.id, item_level=1, rarity_override=Rarity.COMMON,
         )
         db.add(item)
         db.commit()
+        _ledger_add_gold(expedition, offer["cost_gold"], spent=True)
+        _ledger_add_item(expedition, item, bought=True)
         message = f"Bought {item.display_name}!"
 
     db.commit()
@@ -430,6 +591,6 @@ def buy_shop_item(db, expedition: Expedition, player, offer_id: str, rng: random
 
 def leave_shop(db, expedition: Expedition) -> dict:
     expedition.pending_interaction = None
-    gu.mark_completed(expedition.graph, expedition.current_node_id)
+    _mark_completed(expedition, expedition.current_node_id)
     db.commit()
     return {"kind": "resolved", "message": "You head back out onto the path."}

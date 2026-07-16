@@ -52,7 +52,7 @@ STAT_EMOJI = {
 
 STAT_LABEL = {
     "attack": "ATK", "defense": "DEF", "elemental": "ELE", "speed": "SPD",
-    "max_hp": "HP", "max_mana": "MP", "crit_rate": "Crit Rate",
+    "max_hp": "HP", "max_mana": "SP", "crit_rate": "Crit Rate",
     "crit_damage": "Crit DMG", "recharge": "Recharge",
 }
 
@@ -188,14 +188,14 @@ def _profile_abilities_page(player, character, equipped_items, avatar_url) -> di
         if not skills:
             return "*None equipped.*"
         return "\n".join(
-            f"**{a['name']}** ({a['resource_cost']} MP): {a['description']}"
+            f"**{a['name']}** ({a['resource_cost']} SP): {a['description']}"
             for a in skills
         )
 
     if character_skill:
         embed.add_field(
             name="🌀 Character Skill",
-            value=f"**{character_skill['name']}** ({character_skill['resource_cost']} MP): {character_skill['description']}",
+            value=f"**{character_skill['name']}** ({character_skill['resource_cost']} SP): {character_skill['description']}",
             inline=False,
         )
     embed.add_field(name="⚔️ Weapon Skill", value=_skill_lines(weapon_skills), inline=False)
@@ -220,7 +220,7 @@ def _profile_abilities_page(player, character, equipped_items, avatar_url) -> di
         lines = "*No armor passives active.*"
     embed.add_field(name="🛡️ Passives (from Armor/Accessory)", value=lines, inline=False)
 
-    embed.set_footer(text="Basic Attack always builds Energy + Mana by your Recharge stat.")
+    embed.set_footer(text="Basic Attack always builds Energy + SP by your Recharge stat.")
     return embed
 
 
@@ -290,6 +290,53 @@ def _turn_order_line(battle, count: int = 6) -> str:
     return " ➜ ".join(icons) if icons else "--"
 
 
+def dungeon_map_graph_embed(expedition) -> discord.Embed:
+    """The 🗺️ Map button's view: a floor-by-floor breakdown of every room
+    between here and the NEXT boss (not the whole multi-boss run --
+    anything past that boss hasn't been reached yet and would just be
+    noise). Marks the current room and anything already cleared."""
+    graph = expedition.graph
+    current_node_id = expedition.current_node_id
+    current_floor = graph["nodes"][current_node_id]["floor"]
+
+    boss_nodes = graph.get("boss_nodes", [graph.get("boss_node")])
+    boss_floors = sorted(graph["nodes"][b]["floor"] for b in boss_nodes if b in graph["nodes"])
+    next_boss_floor = next((f for f in boss_floors if f >= current_floor), None)
+    if next_boss_floor is None:
+        next_boss_floor = max(n["floor"] for n in graph["nodes"].values())
+    is_final_stretch = not boss_floors or next_boss_floor == boss_floors[-1]
+
+    by_floor: dict[int, list[tuple[str, dict]]] = {}
+    for node_id, node in graph["nodes"].items():
+        if current_floor <= node["floor"] <= next_boss_floor:
+            by_floor.setdefault(node["floor"], []).append((node_id, node))
+
+    lines = []
+    for floor in sorted(by_floor):
+        room_strs = []
+        for node_id, node in sorted(by_floor[floor]):
+            emoji = ROOM_TYPE_EMOJI.get(node["room_type"], "❔")
+            if node_id == current_node_id:
+                room_strs.append(f"[{emoji}]")
+            elif node.get("completed"):
+                room_strs.append(f"~~{emoji}~~")
+            else:
+                room_strs.append(emoji)
+        if floor == next_boss_floor:
+            floor_label = "🐲 FINAL BOSS" if is_final_stretch else "🐲 Boss"
+        else:
+            floor_label = f"Floor {floor}"
+        lines.append(f"**{floor_label}**  " + "  ".join(room_strs))
+
+    embed = discord.Embed(
+        title="🗺️ Map to the Next Boss",
+        description="\n".join(lines) if lines else "*Nothing charted yet.*",
+        color=discord.Color.blurple(),
+    )
+    embed.set_footer(text="[bracketed] = you are here. ~~struck-through~~ = already cleared.")
+    return embed
+
+
 def combat_embed(battle, avatar_url: str | None = None) -> discord.Embed:
     """Renders the current battle state: HP/resource bars for everyone, the
     turn order preview, current target marker, and the last few log lines,
@@ -327,13 +374,14 @@ def combat_embed(battle, avatar_url: str | None = None) -> discord.Embed:
         )
     embed.add_field(name="🧑 Your Squad", value="\n".join(party_lines), inline=False)
 
-    living_enemies = battle.living_enemies()
     enemy_lines = []
+    living_i = 0
     for enemy in battle.enemies:
         if not enemy.is_alive():
             enemy_lines.append(f"**{enemy.name}** -- 💀 Defeated")
             continue
-        is_target = living_enemies.index(enemy) == battle.target_index
+        is_target = living_i == battle.target_index
+        living_i += 1
         target_tag = " 🎯" if is_target else ""
         enemy_lines.append(
             f"**{enemy.name}**{target_tag}\n"
@@ -341,16 +389,34 @@ def combat_embed(battle, avatar_url: str | None = None) -> discord.Embed:
         )
     embed.add_field(name="👹 Enemies", value="\n".join(enemy_lines), inline=False)
 
-    log_tail = battle.log[-5:]
-    if log_tail:
-        embed.add_field(name="📜 Battle Log", value="\n".join(log_tail), inline=False)
-
     if battle.is_over():
         result_text = {"won": "🏆 Victory!", "lost": "💀 Defeat..."}[battle.result]
         embed.add_field(name="Result", value=result_text, inline=False)
     else:
-        embed.set_footer(text="Tap ℹ️ Info for full status effects and cooldowns.")
+        embed.set_footer(text="Tap ℹ️ Info for status effects/cooldowns, 📜 Log for the full battle log.")
 
+    return embed
+
+
+def battle_log_embed(battle) -> discord.Embed:
+    """The full battle log, shown via the 📜 Log button -- unlike the main
+    battle message's brief in-line tail (now removed entirely in favor of
+    this button, since the two purposes were fighting for the same
+    limited embed space), this shows everything that's happened so far,
+    trimmed from the oldest end only if it would overflow an embed
+    description (4096 chars)."""
+    embed = discord.Embed(title="📜 Battle Log", color=discord.Color.dark_grey())
+    if not battle.log:
+        embed.description = "*Nothing has happened yet.*"
+        return embed
+
+    lines = list(battle.log)
+    text = "\n".join(lines)
+    if len(text) > 4000:
+        while lines and len("\n".join(lines)) > 3900:
+            lines.pop(0)
+        text = "*(earlier entries truncated)*\n" + "\n".join(lines)
+    embed.description = text
     return embed
 
 
@@ -362,6 +428,8 @@ def battle_info_embed(battle) -> discord.Embed:
 
     def _status_lines(c) -> str:
         lines = []
+        for p in c.passive_abilities:
+            lines.append(f"🧬 **{p['name']}**: {p['description']}")
         for m in c.modifiers:
             sign = "+" if m.percent >= 0 else ""
             lines.append(f"{sign}{m.percent:g}% {m.stat} ({m.duration}t) -- {m.source}")
@@ -383,12 +451,72 @@ def battle_info_embed(battle) -> discord.Embed:
     for member in battle.party:
         if not member.is_alive():
             continue
-        embed.add_field(name=f"🧑 {member.name}", value=_status_lines(member), inline=True)
+        embed.add_field(name=f"🧑 **{member.name}**", value=_status_lines(member), inline=True)
 
     for enemy in battle.living_enemies():
-        embed.add_field(name=f"👹 {enemy.name}", value=_status_lines(enemy), inline=True)
+        embed.add_field(name=f"👹 **{enemy.name}**", value=_status_lines(enemy), inline=True)
 
     embed.add_field(name="Turn", value=str(battle.turn_count), inline=False)
+    return embed
+
+
+def expedition_summary_embed(ledger: dict, won: bool) -> discord.Embed:
+    """The whole-run tally shown once when an expedition ends -- win or
+    lose -- on top of that final battle's own reward message. Everything
+    here accumulated across every room of the run (combat rewards,
+    treasure/secret/story/shrine rooms, trap/puzzle outcomes, shop
+    purchases), not just the last fight; see the `_ledger_*` helpers in
+    bot/services/dungeon_service.py. Nothing is actually taken away on a
+    loss -- gains from earlier in the run are kept -- so "lost" here means
+    gold spent at the merchant, not gold clawed back on defeat."""
+    title = "🏆 Expedition Complete -- Summary" if won else "💀 Expedition Ended -- Summary"
+    embed = discord.Embed(
+        title=title,
+        color=discord.Color.gold() if won else discord.Color.dark_gray(),
+    )
+
+    gained_lines = []
+    if ledger["gold_gained"]:
+        gained_lines.append(f"{format_currency('gold', ledger['gold_gained'])}")
+    if ledger["shards_gained"]:
+        gained_lines.append(f"{format_currency('shards', ledger['shards_gained'])}")
+    if ledger["xp_gained"]:
+        gained_lines.append(f"✨ {ledger['xp_gained']} XP")
+    for material, qty in ledger["materials"].items():
+        gained_lines.append(format_currency(material, qty))
+    embed.add_field(
+        name="📈 Gained",
+        value="\n".join(gained_lines) if gained_lines else "*Nothing.*",
+        inline=True,
+    )
+
+    spent_lines = []
+    if ledger["gold_spent"]:
+        spent_lines.append(f"{format_currency('gold', ledger['gold_spent'])} at the merchant")
+    embed.add_field(
+        name="📉 Spent",
+        value="\n".join(spent_lines) if spent_lines else "*Nothing.*",
+        inline=True,
+    )
+
+    loot_lines = []
+    for entry in ledger["items_found"]:
+        loot_lines.append(f"{entry['name']} ({entry['rarity'].title()})")
+    for entry in ledger["items_bought"]:
+        loot_lines.append(f"{entry['name']} ({entry['rarity'].title()}, bought)")
+    for tier, qty in ledger["lootboxes_found"].items():
+        loot_lines.append(f"{qty}x {tier.title()} Lootbox")
+    for tier, qty in ledger["lootboxes_bought"].items():
+        loot_lines.append(f"{qty}x {tier.title()} Lootbox (bought)")
+    if loot_lines:
+        embed.add_field(name="🎒 Items & Lootboxes", value="\n".join(loot_lines), inline=False)
+
+    if ledger["level_ups"]:
+        level_lines = [
+            f"{name} Lv.{lu['from']} → Lv.{lu['to']}" for name, lu in ledger["level_ups"].items()
+        ]
+        embed.add_field(name="📈 Level Ups", value="\n".join(level_lines), inline=False)
+
     return embed
 
 
@@ -426,10 +554,10 @@ def item_detail_embed(item, position: int | None = None, total: int | None = Non
         a = item.active_ability
         if item.item_type == ItemType.ARTIFACT:
             heading = f"🔮 Artifact Skill: {a['name']}"
-            cost_line = f"Cost: {a['resource_cost']} Mana | Cooldown: {a['cooldown']} turn(s)"
+            cost_line = f"Cost: {a['resource_cost']} SP | Cooldown: {a['cooldown']} turn(s)"
         else:
             heading = f"⚔️ Weapon Skill: {a['name']}"
-            cost_line = f"Cost: {a['resource_cost']} Mana | Cooldown: {a['cooldown']} turn(s)"
+            cost_line = f"Cost: {a['resource_cost']} SP | Cooldown: {a['cooldown']} turn(s)"
         embed.add_field(name=heading, value=f"{a['description']}\n{cost_line}", inline=False)
 
     if item.passive_ability:

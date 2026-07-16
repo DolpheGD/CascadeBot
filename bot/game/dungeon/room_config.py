@@ -66,22 +66,29 @@ ELITE_MIN_FLOOR_INDEX = 2
 # Width (node count) of the forced rest floor placed right before the boss.
 REST_FLOOR_WIDTH = 2
 
-# How many boss fights a single expedition has, end to end -- picked once
-# at expedition start. Weighted toward shorter runs so a typical run stays
-# quick, with longer 3-4 boss runs as a rarer, bigger commitment for bigger
-# cumulative rewards (each boss kill pays out the BOSS reward multiplier --
-# see combat_service.ROOM_TYPE_REWARD_MULTIPLIER).
-NUM_BOSSES_WEIGHTS: dict[int, float] = {1: 55.0, 2: 30.0, 3: 12.0, 4: 3.0}
+# How many REGULAR boss fights a single expedition has before its
+# guaranteed FINAL boss -- picked once at expedition start. The run always
+# ends with one extra, tougher final-boss segment on top of this count
+# (see DungeonGenerator.generate() and enemy_catalog.get_boss_encounter's
+# region_roles "final" vs "regular" split) -- so total boss fights per run
+# is this value + 1, i.e. 3-5 end to end. Weighted toward the shorter end
+# so a typical run stays reasonable, with a 4-regular-boss (5 total)
+# marathon as a rarer, bigger commitment for bigger cumulative rewards
+# (each boss kill pays out the BOSS reward multiplier -- see
+# combat_service.ROOM_TYPE_REWARD_MULTIPLIER).
+NUM_REGULAR_BOSSES_WEIGHTS: dict[int, float] = {2: 45.0, 3: 35.0, 4: 20.0}
 
 # Random floors-per-segment range (a "segment" = the floors leading up to
-# and including one boss fight, not counting the shared entry floor). Kept
-# the same regardless of how many bosses the run has, so total length
-# scales roughly linearly with num_bosses rather than each segment
+# and including one boss fight, not counting the shared entry floor). This
+# range yields 6-9 real rooms before hitting each boss (segment length
+# minus the start/campfire/boss floors that aren't randomized), and is
+# kept the same regardless of how many bosses the run has, so total length
+# scales roughly linearly with the boss count rather than each segment
 # shrinking to compensate.
-SEGMENT_FLOOR_RANGE = (5, 8)
+SEGMENT_FLOOR_RANGE = (8, 11)
 
 
-def roll_num_bosses(rng) -> int:
-    counts = list(NUM_BOSSES_WEIGHTS.keys())
-    weights = list(NUM_BOSSES_WEIGHTS.values())
+def roll_num_regular_bosses(rng) -> int:
+    counts = list(NUM_REGULAR_BOSSES_WEIGHTS.keys())
+    weights = list(NUM_REGULAR_BOSSES_WEIGHTS.values())
     return rng.choices(counts, weights=weights, k=1)[0]

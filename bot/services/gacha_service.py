@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import random
 
-from bot.database.models.equipment_model import InventoryItem, ItemTemplate
+from bot.database.models.equipment_model import InventoryItem
 from bot.game.economy.gacha_config import (
     MULTI_PULL_COST_SHARDS,
     MULTI_PULL_COUNT,
@@ -17,16 +17,15 @@ from bot.game.economy.gacha_config import (
     roll_gacha_rarity,
 )
 from bot.game.loot.generator import LootGenerator
+from bot.services import item_template_service
 from bot.services.currency_service import spend_currency
 
 
 def _pull_one(db, player, item_level: int, rng: random.Random) -> InventoryItem:
-    templates = db.query(ItemTemplate).all()
-    if not templates:
-        raise ValueError("No item templates exist to pull from yet.")
-
-    template = rng.choice(templates)
     rarity = roll_gacha_rarity(rng)
+    template = item_template_service.pick_random_template(db, rng=rng, rarity=rarity)
+    if template is None:
+        raise ValueError("No item templates exist to pull from yet.")
 
     generator = LootGenerator(rng=rng)
     item = generator.generate_item(

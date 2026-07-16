@@ -70,7 +70,7 @@ class CharacterTemplate(Base):
     base_speed: Mapped[int] = mapped_column(Integer, default=100)
     base_crit_rate: Mapped[int] = mapped_column(Integer, default=5)      # percent
     base_crit_damage: Mapped[int] = mapped_column(Integer, default=150)  # percent
-    base_recharge: Mapped[int] = mapped_column(Integer, default=5)       # percent of mana/energy per basic attack
+    base_recharge: Mapped[int] = mapped_column(Integer, default=10)       # percent of mana/energy per basic attack
     base_energy: Mapped[int] = mapped_column(Integer, default=100)       # ultimate always triggers at 100 energy
 
     # Flat amount added to the matching base_* stat per level (1 -> 100).

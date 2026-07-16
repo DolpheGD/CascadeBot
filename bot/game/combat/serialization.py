@@ -87,9 +87,16 @@ def battle_to_dict(battle: Battle) -> dict:
         "log": list(battle.log),
         "result": battle.result,
         "target_index": battle.target_index,
-        # Index into party + enemies -- unambiguous even when two
-        # combatants share a name (e.g. two Xender Henchmen).
-        "current_actor_index": all_combatants.index(battle._current_actor),
+        # Index into party + enemies -- found by identity (`is`), not
+        # list.index()'s value-equality, since Combatant is a dataclass
+        # with default (value-based) __eq__: two combatants in an
+        # identical state (e.g. two fresh copies of the same enemy type,
+        # before either has taken damage or a cooldown) would otherwise
+        # compare equal, and list.index() would silently return whichever
+        # one happens to come first instead of the actual current actor.
+        "current_actor_index": next(
+            i for i, c in enumerate(all_combatants) if c is battle._current_actor
+        ),
     }
 
 

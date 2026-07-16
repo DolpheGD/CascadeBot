@@ -64,11 +64,15 @@ class DungeonView(OwnedView):
         super().__init__(timeout=None, owner_id=owner_id)
         self.add_item(MoveSelect(options))
 
+    @discord.ui.button(label="🗺️ Map", style=discord.ButtonStyle.secondary, custom_id="cascade_dungeon_map")
+    async def map_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await _handle_dungeon_map(interaction)
+
 
 class AbilitySelect(discord.ui.Select):
     def __init__(self, options: list[discord.SelectOption]):
         super().__init__(
-            placeholder="Use a skill (costs Mana)...",
+            placeholder="Use a skill (costs SP)...",
             options=options,
             custom_id="cascade_ability_select",
             min_values=1,
@@ -133,6 +137,23 @@ class CombatView(OwnedView):
     @discord.ui.button(label="ℹ️ Info", style=discord.ButtonStyle.secondary, custom_id="cascade_combat_info", row=4)
     async def info_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await _handle_combat_info(interaction)
+
+    @discord.ui.button(label="📜 Log", style=discord.ButtonStyle.secondary, custom_id="cascade_combat_log", row=4)
+    async def log_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await _handle_combat_log(interaction)
+
+
+class StartBattleView(OwnedView):
+    """Shown instead of the normal CombatView for a freshly-created battle,
+    before any turns (including a faster enemy's opening turn) have been
+    resolved -- see _combat_entry_view_and_embed."""
+
+    def __init__(self, owner_id: int | None = None):
+        super().__init__(timeout=None, owner_id=owner_id)
+
+    @discord.ui.button(label="⚔️ Start Battle", style=discord.ButtonStyle.danger, custom_id="cascade_start_battle")
+    async def start_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await _handle_start_battle(interaction)
 
 
 class TrapChoiceButton(discord.ui.Button):
@@ -222,7 +243,7 @@ def _build_combat_view(battle, owner_id: int) -> CombatView:
     for ability in actor.active_abilities:
         ready = actor.ability_ready(ability)
         source_icon = {"character": "🌀", "weapon": "⚔️", "artifact": "🔮"}.get(ability.get("source"), "✨")
-        unit = "MP" if ability["resource_type"] == "mana" else "EN"
+        unit = "SP" if ability["resource_type"] == "mana" else "EN"
         cost_str = f"{ability['resource_cost']} {unit}"
 
         if ready:
@@ -262,6 +283,20 @@ def _build_combat_view(battle, owner_id: int) -> CombatView:
         ultimate_cost=actor.ultimate_ability["resource_cost"] if actor.ultimate_ability else 100,
         owner_id=owner_id,
     )
+
+
+def _expedition_summary_kwargs(summary: dict | None) -> tuple[dict, bool] | None:
+    """If `summary` represents the expedition actually ending (won by
+    clearing the final boss, or lost to a defeat), returns
+    (ledger, won) for embedder.expedition_summary_embed. Returns None for
+    an ordinary in-run combat win, where the expedition continues."""
+    if summary is None:
+        return None
+    if summary["kind"] == "expedition_complete":
+        return summary["ledger"], True
+    if summary["kind"] == "defeat":
+        return summary["ledger"], False
+    return None
 
 
 def _battle_end_message(summary: dict) -> str | None:
@@ -318,6 +353,61 @@ def _advance_to_player_or_end(db, expedition, player, battle) -> dict | None:
 
     combat_service.save_battle(db, expedition, battle)
     return None
+
+
+def _combat_entry_view_and_embed(db, expedition, player, avatar_url: str):
+    """Builds the embed+view to show whenever a COMBAT/ELITE/BOSS room is
+    entered or resumed. If this is a freshly-created battle the player
+    hasn't pressed Start Battle for yet (expedition.pending_interaction ==
+    {"kind": "start_battle"}, set by dungeon_service.enter_node), returns
+    a pre-battle preview with StartBattleView instead of immediately
+    fast-forwarding through any enemies faster than the whole party --
+    without this, facing faster enemies, the player's first-ever glimpse
+    of the fight would already be several turns in, with those opening
+    enemy turns having resolved before they saw anything. Otherwise
+    (already started, resuming an ongoing fight) behaves exactly like
+    before: fast-forward to the player's turn or the battle's end.
+    Returns (embed, view, summary) -- summary is None unless the battle
+    ended during this call, exactly like _advance_to_player_or_end."""
+    battle = combat_service.load_battle(expedition)
+
+    if (expedition.pending_interaction or {}).get("kind") == "start_battle":
+        return embedder.combat_embed(battle, avatar_url=avatar_url), StartBattleView(owner_id=expedition.player_id), None
+
+    summary = _advance_to_player_or_end(db, expedition, player, battle)
+    embed = embedder.combat_embed(battle, avatar_url=avatar_url)
+    if summary is not None:
+        return embed, None, summary
+    return embed, _build_combat_view(battle, expedition.player_id), None
+
+
+async def _handle_start_battle(interaction: discord.Interaction):
+    db = SessionLocal()
+    try:
+        player = get_player(db, interaction.user.id)
+        expedition = dungeon_service.get_active_expedition(db, player.id) if player else None
+        if player is None or expedition is None or not expedition.combat_state:
+            await interaction.response.send_message("You're not in a battle right now.", ephemeral=True)
+            return
+
+        expedition.pending_interaction = None
+        db.commit()
+
+        avatar_url = interaction.user.display_avatar.url
+        embed, view, summary = _combat_entry_view_and_embed(db, expedition, player, avatar_url)
+        await interaction.response.edit_message(embed=embed, view=view)
+
+        if summary is not None:
+            follow_up_text = _battle_end_message(summary)
+            if follow_up_text:
+                embed2, view2 = _render_room(db, expedition, player, "resolved", follow_up_text, avatar_url)
+                await interaction.followup.send(embed=embed2, view=view2)
+            exp_summary = _expedition_summary_kwargs(summary)
+            if exp_summary:
+                ledger, won = exp_summary
+                await interaction.followup.send(embed=embedder.expedition_summary_embed(ledger, won))
+    finally:
+        db.close()
 
 
 # ----------------------------------------------------------------------
@@ -449,24 +539,37 @@ async def _handle_move(interaction: discord.Interaction, target_node_id: str):
         avatar_url = interaction.user.display_avatar.url
 
         if result["kind"] == "combat":
-            battle = combat_service.load_battle(expedition)
-            summary = _advance_to_player_or_end(db, expedition, player, battle)
+            embed, view, summary = _combat_entry_view_and_embed(db, expedition, player, avatar_url)
+            await interaction.response.edit_message(embed=embed, view=view)
 
             if summary is not None:
-                await interaction.response.edit_message(
-                    embed=embedder.combat_embed(battle, avatar_url=avatar_url), view=None
-                )
                 follow_up_text = _battle_end_message(summary)
                 if follow_up_text:
-                    embed, view = _render_room(db, expedition, player, "resolved", follow_up_text, avatar_url)
-                    await interaction.followup.send(embed=embed, view=view)
-            else:
-                await interaction.response.edit_message(
-                    embed=embedder.combat_embed(battle, avatar_url=avatar_url), view=_build_combat_view(battle, expedition.player_id)
-                )
+                    embed2, view2 = _render_room(db, expedition, player, "resolved", follow_up_text, avatar_url)
+                    await interaction.followup.send(embed=embed2, view=view2)
+                exp_summary = _expedition_summary_kwargs(summary)
+                if exp_summary:
+                    ledger, won = exp_summary
+                    await interaction.followup.send(embed=embedder.expedition_summary_embed(ledger, won))
         else:
             embed, view = _render_room(db, expedition, player, result["kind"], result["message"], avatar_url)
             await interaction.response.edit_message(embed=embed, view=view)
+    finally:
+        db.close()
+
+
+async def _handle_dungeon_map(interaction: discord.Interaction):
+    """Free, non-committal: shows the floor-by-floor path to the next
+    boss ephemerally, without touching or re-sending the shared message."""
+    db = SessionLocal()
+    try:
+        player = get_player(db, interaction.user.id)
+        expedition = dungeon_service.get_active_expedition(db, player.id) if player else None
+        if player is None or expedition is None:
+            await interaction.response.send_message("You don't have an active expedition.", ephemeral=True)
+            return
+
+        await interaction.response.send_message(embed=embedder.dungeon_map_graph_embed(expedition), ephemeral=True)
     finally:
         db.close()
 
@@ -486,6 +589,24 @@ async def _handle_combat_info(interaction: discord.Interaction):
 
         battle = combat_service.load_battle(expedition)
         await interaction.response.send_message(embed=embedder.battle_info_embed(battle), ephemeral=True)
+    finally:
+        db.close()
+
+
+async def _handle_combat_log(interaction: discord.Interaction):
+    """Free, non-turn-consuming: shows the full battle log (not just the
+    short tail on the main battle message), ephemerally, without touching
+    the shared battle message."""
+    db = SessionLocal()
+    try:
+        player = get_player(db, interaction.user.id)
+        expedition = dungeon_service.get_active_expedition(db, player.id) if player else None
+        if player is None or expedition is None or not expedition.combat_state:
+            await interaction.response.send_message("You're not in a battle right now.", ephemeral=True)
+            return
+
+        battle = combat_service.load_battle(expedition)
+        await interaction.response.send_message(embed=embedder.battle_log_embed(battle), ephemeral=True)
     finally:
         db.close()
 
@@ -523,6 +644,10 @@ async def _handle_combat_action(interaction: discord.Interaction, action: str, a
             if follow_up_text:
                 embed, view = _render_room(db, expedition, player, "resolved", follow_up_text, avatar_url)
                 await interaction.followup.send(embed=embed, view=view)
+            exp_summary = _expedition_summary_kwargs(summary)
+            if exp_summary:
+                ledger, won = exp_summary
+                await interaction.followup.send(embed=embedder.expedition_summary_embed(ledger, won))
         else:
             await interaction.response.edit_message(
                 embed=embedder.combat_embed(battle, avatar_url=avatar_url), view=_build_combat_view(battle, expedition.player_id)
@@ -591,45 +716,70 @@ class Dungeon(commands.Cog):
             expedition = dungeon_service.get_active_expedition(db, player.id)
             avatar_url = ctx.user.display_avatar.url
 
+            resume_region_note = None
             if expedition is None:
                 expedition = dungeon_service.start_expedition(db, player, region)
                 result = dungeon_service.enter_node(db, expedition, player)
                 message = result["message"]
                 entry_kind = result["kind"]
             else:
-                message = "Resuming your expedition..."
+                # There's no such thing as two concurrent expeditions for
+                # the same player (start_expedition itself just returns
+                # the existing one) -- but silently resuming without
+                # saying so, especially when the person picked a
+                # DIFFERENT region than the one they're actually about to
+                # see, reads as "I asked for a new adventure and got stuck
+                # on the old one". Always say plainly which is happening.
+                if region != expedition.region:
+                    resume_region_note = (
+                        f"You already have an expedition underway in **{expedition.region}** -- "
+                        f"resuming that instead of starting a new one in {region}. "
+                        f"Finish or lose that run first to adventure somewhere else."
+                    )
+                    message = resume_region_note
+                else:
+                    message = "Resuming your expedition..."
                 entry_kind = None  # figure out from expedition state below
 
             if expedition.combat_state:
-                battle = combat_service.load_battle(expedition)
-                summary = _advance_to_player_or_end(db, expedition, player, battle)
+                embed, view, summary = _combat_entry_view_and_embed(db, expedition, player, avatar_url)
                 if summary is not None:
-                    embed = embedder.combat_embed(battle, avatar_url=avatar_url)
-                    view = None
                     follow_up_text = _battle_end_message(summary)
+                    exp_summary = _expedition_summary_kwargs(summary)
                 else:
-                    embed = embedder.combat_embed(battle, avatar_url=avatar_url)
-                    view = _build_combat_view(battle, expedition.player_id)
                     follow_up_text = None
+                    exp_summary = None
             else:
                 if entry_kind is None:
                     interaction_kind = (expedition.pending_interaction or {}).get("kind")
                     entry_kind = interaction_kind or "resolved"
                 embed, view = _render_room(db, expedition, player, entry_kind, message, avatar_url)
                 follow_up_text = None
+                exp_summary = None
         finally:
             db.close()
 
         await ctx.response.send_message(embed=embed, view=view)
+        if resume_region_note and expedition.combat_state:
+            await ctx.followup.send(resume_region_note, ephemeral=True)
         if follow_up_text:
-            db = SessionLocal()
-            try:
-                player = get_player(db, ctx.user.id)
-                expedition = dungeon_service.get_active_expedition(db, player.id)
-                embed, view = _render_room(db, expedition, player, "resolved", follow_up_text, avatar_url)
-                await ctx.followup.send(embed=embed, view=view)
-            finally:
-                db.close()
+            if exp_summary:
+                # The expedition itself has ended (won or lost) -- there's no
+                # active expedition left to fetch/render a map for, so just
+                # send the plain battle-end message, then the whole-run
+                # summary, rather than routing through _render_room.
+                ledger, won = exp_summary
+                await ctx.followup.send(embed=discord.Embed(description=follow_up_text))
+                await ctx.followup.send(embed=embedder.expedition_summary_embed(ledger, won))
+            else:
+                db = SessionLocal()
+                try:
+                    player = get_player(db, ctx.user.id)
+                    expedition = dungeon_service.get_active_expedition(db, player.id)
+                    embed, view = _render_room(db, expedition, player, "resolved", follow_up_text, avatar_url)
+                    await ctx.followup.send(embed=embed, view=view)
+                finally:
+                    db.close()
 
 
 async def setup(bot):

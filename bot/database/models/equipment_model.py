@@ -97,6 +97,20 @@ class ItemTemplate(Base):
     # the joke-tier "500 Billian Gem Giveaway" set uses this.
     is_ultra_rare: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # The rarity WINDOW this template can ever roll, inclusive -- a
+    # material/craftsmanship ceiling (and floor), independent of the
+    # is_ultra_rare gate above. Leather is always going to be Common/
+    # Uncommon no matter how lucky the roll is; a Voidwalker-set piece is
+    # never going to show up as plain Common. Enforced in
+    # LootGenerator.generate_item() (as a safety net for every path) and,
+    # for actual random template SELECTION, in
+    # item_template_service.pick_random_template()'s optional `rarity`
+    # filter (so a roll that already landed on a high rarity picks from
+    # templates that can actually produce it, rather than picking any
+    # template and then clamping down after the fact).
+    min_rarity: Mapped[Rarity] = mapped_column(default=Rarity.COMMON)
+    max_rarity: Mapped[Rarity] = mapped_column(default=Rarity.DIVINE)
+
     def __repr__(self) -> str:  # pragma: no cover
         return f"<ItemTemplate {self.name!r} slot={self.slot} main_stat={self.main_stat}>"
 

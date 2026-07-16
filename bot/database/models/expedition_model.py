@@ -54,6 +54,16 @@ class Expedition(Base):
     relics: Mapped[list] = mapped_column(JSON, default=list)      # expedition-only relics
     gold_collected: Mapped[int] = mapped_column(Integer, default=0)
 
+    # Running tally of everything gained and spent since the expedition
+    # started -- gold/shards/materials/items/lootboxes/XP/level-ups --
+    # rendered as a whole-run summary when the expedition ends, win or
+    # lose (see bot/services/dungeon_service.py's _ledger_* helpers and
+    # bot/utils/embedder.py::expedition_summary_embed). Always reassigned
+    # wholesale rather than mutated in place, same reasoning as
+    # combat_state/pending_interaction above: JSON columns don't pick up
+    # in-place dict mutation without an explicit Mutable wrapper.
+    loot_ledger: Mapped[dict] = mapped_column(JSON, default=dict)
+
     started_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

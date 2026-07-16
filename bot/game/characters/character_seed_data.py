@@ -29,15 +29,15 @@ from bot.database.models.enums import CharacterClass
 # ---------------------------------------------------------------------
 _BASELINE_BY_STAR = {
     3: dict(base_hp=85, base_attack=8, base_defense=7, base_mana=42,
-            base_elemental=6, base_speed=9, base_crit_rate=5, base_crit_damage=145, base_recharge=4,
+            base_elemental=6, base_speed=9, base_crit_rate=5, base_crit_damage=145, base_recharge=10,
             growth_hp=2.3, growth_attack=0.21, growth_defense=0.14,
             growth_mana=0.80, growth_elemental=0.12, growth_speed=0.09),
     4: dict(base_hp=95, base_attack=9, base_defense=8, base_mana=47,
-            base_elemental=7, base_speed=10, base_crit_rate=5, base_crit_damage=150, base_recharge=4,
+            base_elemental=7, base_speed=10, base_crit_rate=5, base_crit_damage=150, base_recharge=10,
             growth_hp=2.6, growth_attack=0.25, growth_defense=0.16,
             growth_mana=0.90, growth_elemental=0.14, growth_speed=0.11),
     5: dict(base_hp=105, base_attack=10, base_defense=9, base_mana=52,
-            base_elemental=8, base_speed=11, base_crit_rate=6, base_crit_damage=155, base_recharge=4,
+            base_elemental=8, base_speed=11, base_crit_rate=6, base_crit_damage=155, base_recharge=10,
             growth_hp=2.9, growth_attack=0.29, growth_defense=0.18,
             growth_mana=1.00, growth_elemental=0.16, growth_speed=0.12),
 }

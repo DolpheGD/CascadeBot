@@ -99,10 +99,10 @@ def open_lootboxes(
             total_shards += rng.randint(template.min_shards, template.max_shards)
 
         for _ in range(template.item_count):
-            item_template = item_template_service.pick_random_template(db, rng=rng)
+            rarity = _roll_rarity(tier, rng)
+            item_template = item_template_service.pick_random_template(db, rng=rng, rarity=rarity)
             if item_template is None:
                 continue
-            rarity = _roll_rarity(tier, rng)
             item = generator.generate_item(
                 item_template, player_id=player.id, item_level=item_level, rarity_override=rarity
             )
