@@ -21,10 +21,10 @@ DAILY_REROLL_TOKENS = 3
 # Lootbox tiers granted alongside gold/shards. Every claim grants a Common
 # box; hitting a weekly/monthly streak milestone grants a better one too
 # (in addition to, not instead of, the Common).
-DAILY_LOOTBOX_BASE_TIER = "common"
+DAILY_LOOTBOX_BASE_TIER = "rare"
 DAILY_LOOTBOX_MILESTONES = {
-    7: "rare",
-    30: "epic",
+    7: "epic",
+    30: "legendary",
 }
 
 # A streak survives if the player claims again within this many hours of

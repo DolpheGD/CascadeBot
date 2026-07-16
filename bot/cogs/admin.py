@@ -23,11 +23,11 @@ from bot.services.currency_service import add_currency
 from bot.services.player_service import get_or_create_player
 from bot.utils.guild_decorator import guild_decorator
 
-TEST_GOLD = 100_000
-TEST_SHARDS = 10_000
-TEST_LOOTBOXES_PER_TIER = 10
-TEST_RARITY = Rarity.LEGENDARY
-TEST_ITEM_LEVEL = 25
+TEST_GOLD = 1000
+TEST_SHARDS = 150
+TEST_LOOTBOXES_PER_TIER = 1
+TEST_RARITY = Rarity.RARE
+TEST_ITEM_LEVEL = 15
 
 
 def _is_admin(interaction: discord.Interaction) -> bool:

@@ -11,7 +11,8 @@ from bot.utils.ui_guard import OwnedView
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils import embedder
 
-STARTING_GOLD = 150
+STARTING_GOLD = 250
+STARTING_SHARDS = 150
 
 
 # ----------------------------------------------------------------------
@@ -115,12 +116,13 @@ class Profile(commands.Cog):
             get_or_create_player(db, ctx.user.id, ctx.user.display_name)
             player = get_player(db, ctx.user.id)
             add_currency(db, player, "gold", STARTING_GOLD)
+            add_currency(db, player, "shards", STARTING_SHARDS)
         finally:
             db.close()
 
         await ctx.response.send_message(
             f"Welcome to the Cascade, **{ctx.user.display_name}**. "
-            f"Your journey begins at level 1 with 🪙 {STARTING_GOLD} gold to get started. "
+            f"Your journey begins at level 1 with 🪙 {STARTING_GOLD} gold and 💎 {STARTING_SHARDS} shards to get started. "
             "Use `/profile` any time to check your stats, gear, and abilities."
         )
 
