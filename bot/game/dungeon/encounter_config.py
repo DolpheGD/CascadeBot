@@ -862,7 +862,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "subject29_terminal",
         "name": "Subject 29",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527141898588913945/8xiLC9AAAABklEQVQDAIIqAsBtunbaAAAAAElFTkSuQmCC.png?ex=6a599539&is=6a5843b9&hm=4134e2625331d872cd17a6f99a7c5d6135bae2f6e22c4a38d9b0ca2fcddc362c&",
         "room_types": ["puzzle"],
         "intros": [
             "A cracked terminal hums back to life as you approach. A single line blinks: SUBJECT 29 -- STATUS: ACTIVE?",
@@ -924,7 +924,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "humming_shard",
         "name": "The Humming Shard",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527142359094136883/image.png?ex=6a5995a7&is=6a584427&hm=c4c5f2b9511215c031b762b5073a00b12b371ad87b0c5a2cf405f3a455af276c&",
         "room_types": ["shrine"],
         "intros": [
             "A stable shard of Void matter hums quietly in a hollow, casting faint light on the walls around it.",
@@ -988,7 +988,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "flux_sighting",
         "name": "Flux",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527164237560942726/1527176290963034253/image.png?ex=6a59b541&is=6a5863c1&hm=8e0ae8c9b49f5ad0c992078aa8e7f47298754fc85c36859075aaa8cd482f96e4&",
         "room_types": ["secret"],
         "intros": [
             "You catch a flicker of movement -- gone before you can focus on it. Someone left behind a half-eaten meal and a name scratched into the dirt: FLUX.",
@@ -1214,7 +1214,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "broskm_voidlab",
         "name": "Broskm's Voidlab",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527143956654325800/download_2.png?ex=6a599724&is=6a5845a4&hm=77a3611d48ac0a5d7db095ebab1e14945e17905c0fd472717aa33a374b7699d4&",
         "room_types": ["shrine"],
         "intros": [
             "A makeshift lab is bolted into the rock here -- cables snake toward a humming void containment ring. A nameplate reads BROSKM, though the handwriting looks rushed.",
@@ -1277,7 +1277,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "caliper_range",
         "name": "Caliper",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527144237332697220/ii7xLgAAAAZJREFUAwAp0ICWxD4Q0AAAAABJRU5ErkJggg.png?ex=6a599767&is=6a5845e7&hm=41cc2d2e92f3f113a2aebae458b32e44e1b5804680f0851380c6473d9cfeb330&",
         "room_types": ["trap"],
         "intros": [
             "A trip-wire snaps taut behind you -- and Caliper steps out from cover, rifle already raised. \"Didn't expect company. Let's see what you've got.\"",
@@ -1330,7 +1330,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "xero_minefield",
         "name": "Xero",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527145720015098017/3yoEloAAAAGSURBVAMAdWp6JqgeYbcAAAAASUVORK5CYII.png?ex=6a5998c8&is=6a584748&hm=1546a46216797d9c358e867898d5d9b7689bd63748581b0079b75984cc3c3940&",
         "room_types": ["trap"],
         "intros": [
             "The ground ahead is studded with half-buried charges. Xero crouches nearby, utterly unbothered. \"Wrong path,\" he says flatly.",
@@ -1384,7 +1384,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "slikrz_cube",
         "name": "Slikrz",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527145961866924032/0VqQMAAAAGSURBVAMAxNJvo2z6dlsAAAAASUVORK5CYII.png?ex=6a599902&is=6a584782&hm=eaca20ed07e7b9a710b812acf711a3c571ed86bceff7513012e5c8ecba94606d&",
         "room_types": ["secret"],
         "intros": [
             "A cube-shaped figure sits perfectly still in the dark, humming an incantation under its breath. It doesn't seem to notice you -- or does it?",
@@ -1436,7 +1436,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "mr_r_terminal",
         "name": "Mr. R",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527148271141785680/New_Piskel_1.png?ex=6a599b28&is=6a5849a8&hm=08e7bc71f6dadcfce7cff206efda2f052162a656fc0dcfef48e8d8c14c27dc5b&",
         "room_types": ["puzzle"],
         "intros": [
             "A terminal blinks with a message that definitely wasn't there a second ago: \"hi. -Mr. R\"",
@@ -1497,7 +1497,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "nyrvite_duel",
         "name": "Nyrvite",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527148474720583870/2wpUVcAAAAGSURBVAMAl9UFHHTB7aIAAAAASUVORK5CYII.png?ex=6a599b59&is=6a5849d9&hm=6359434bb9dcba084e0c9e4a3be382a054c31ac54540d52522abd44f97655cb7&",
         "room_types": ["story"],
         "intros": [
             "Nyrvite drops down from somewhere above, twin energy machetes already drawn. \"You're either backup or a problem. Let's find out which.\"",
@@ -1548,7 +1548,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "antivoid_recruiter",
         "name": "The Anti-Void Recruiter",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527148702932668496/image.png?ex=6a599b8f&is=6a584a0f&hm=092f5673130fe4fe7ff5678d3d1279996014521905ab43c099e0e8bc31c735ce&",
         "room_types": ["story"],
         "intros": [
             "A masked figure presses a pamphlet into your hands before you can object. \"VOID IS A CORRUPTION -- JOIN THE ALLEGIANCE.\"",
@@ -1598,7 +1598,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "dolpo_standoff",
         "name": "Dolpo",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527148818842517646/image.png?ex=6a599bab&is=6a584a2b&hm=660a32448be6885238a85b01d3b5efd85d3da6070223bcc75532f6930afc4c4b&",
         "room_types": ["story"],
         "intros": [
             "A lone gunner watches you from atop a collapsed wall, rifle already tracking your movement. \"Cascade,\" he mutters, like the word itself is an insult.",
@@ -1651,7 +1651,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "xg_scamera",
         "name": "XG-SCamera",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527148979249348648/PCpy8gAAAAZJREFUAwDeVBEL31fZMAAAAABJRU5ErkJggg.png?ex=6a599bd1&is=6a584a51&hm=880db4409f683397d0f329cafef869a414a223bb599df15b6291cead05194775&",
         "room_types": ["story"],
         "intros": [
             "A surveillance camera watches from a rusted mount overhead, its red light blinking steadily. Xender's network never really stopped watching.",
@@ -1702,7 +1702,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "dorve_sighting",
         "name": "Dorve",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527150632904167535/image.png?ex=6a599d5b&is=6a584bdb&hm=47a22eee37446e46eae367c40a54c9d48b471914dfc6f11c184918131d607c77&",
         "room_types": ["story"],
         "intros": [
             "You catch a glimpse of Dorve, Xender's elite assistant, reviewing something on a tablet from a passing convoy. He doesn't so much as glance your way.",
@@ -1741,7 +1741,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "h_henchmen_patrol",
         "name": "H-Henchmen",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527151081203830925/lrpAAAABklEQVQDADdKIxQC4AB8AAAAAElFTkSuQmCC.png?ex=6a599dc6&is=6a584c46&hm=bc45af6abe4dd14fe77eae1c7a53f134ab2c254a5cc56c6d8f81600d3e2775f3&",
         "room_types": ["trap"],
         "intros": [
             "A pair of H-Henchmen are arguing about whose turn it is to patrol. Neither one has noticed you yet.",
@@ -1786,7 +1786,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "stubby_sighting",
         "name": "Stubby",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527151252876693534/TydX9AkAdIAAAAASUVORK5CYII.png?ex=6a599def&is=6a584c6f&hm=b7d6e8f2283b1f02262b9c277b07630bbc4e11fbeab06b190a6745bfc4809af5&",
         "room_types": ["shrine"],
         "intros": [
             "A figure watches you from an impossible distance, features never quite resolving no matter how you look. You get the distinct feeling you are being studied, not seen.",
@@ -1823,7 +1823,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "corrupted_bli",
         "name": "Corrupted Bli",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527151489405947986/AAAAAZJREFUAwDGeSgtpuZ7tAAAAABJRU5ErkJggg.png?ex=6a599e28&is=6a584ca8&hm=2a7670d191d02a876c177134b5d87b83b68a6813dafb8a662a6f28a7b35b6a52&",
         "room_types": ["trap"],
         "intros": [
             "The temperature drops sharply. Something with too many mismatched parts is standing perfectly still at the end of the corridor -- until it isn't.",
@@ -1864,7 +1864,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "eris_relic",
         "name": "Eris Relic Fragment",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527151657241280583/image.png?ex=6a599e50&is=6a584cd0&hm=fefb1a23336c8e8aa19cafd2bc9c9048cf51950c8a49f96d8da83ed9350fc83e&",
         "room_types": ["treasure"],
         "intros": [
             "A fragment of something ancient juts out of the rock -- crystalline, faintly warm, humming at a frequency that makes your teeth ache. Eris tech, unmistakably.",
@@ -1916,7 +1916,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "xg23_patrol",
         "name": "XG-23 Patrol Drone",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527151859578572860/8DPgdLAAAABklEQVQDABtlzdiJOkHeAAAAAElFTkSuQmCC.png?ex=6a599e80&is=6a584d00&hm=2da05a901a73e3162d91a63fb081ac57a13b2ace7f67b3ca47b0a6f26607457c&",
         "room_types": ["puzzle"],
         "intros": [
             "An XG-23 patrol drone hums past overhead, scanning in slow, methodical sweeps. Its optical sensor hasn't locked onto you. Yet.",
@@ -1965,7 +1965,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "jofrog_meeting",
         "name": "Jofrog",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527152048192098325/hSioQAAAAZJREFUAwB0bhXeRqijSAAAAABJRU5ErkJggg.png?ex=6a599ead&is=6a584d2d&hm=eb00b24e2197dde9e887d0988583c0713f6ca41474501d5b51d269d0ef53b182&",
         "room_types": ["story"],
         "intros": [
             "A boxy robot with a hand-painted smile waves at you. \"Oh! A traveler! I'm Jofrog. I used to be somebody's bodyguard. Now I'm just... me, I guess.\"",
@@ -2014,7 +2014,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "blueflame_encounter",
         "name": "Blueflame",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527152594256924672/image.png?ex=6a599f2f&is=6a584daf&hm=09c8d6586113cf4ca6c8306112492a59ee5bf839b70df7eb832e3afe7233061a&",
         "room_types": ["story"],
         "intros": [
             "A figure wreathed in flickering blue flame sits alone, staring at nothing. The flame gutters low, then flares, tracking something you can't see.",
@@ -2064,7 +2064,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "refender_speech",
         "name": "Refender",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527152707675230319/download.png?ex=6a599f4a&is=6a584dca&hm=af5ccb4ae28945ee40e86398765a7acb95672676e1d669ad7b7926218b185831&",
         "room_types": ["story"],
         "intros": [
             "A weathered man stands on a crate, mid-speech, to an audience of exactly no one. \"REFENSE!\" he shouts. \"The balance of offense and defense!\"",
@@ -2116,7 +2116,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "lily_kitchen",
         "name": "Lily Lovelace",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527152932091330560/7PEccAAAAGSURBVAMAdpCHdVGIpEAAAAASUVORK5CYII.png?ex=6a599f80&is=6a584e00&hm=bf9297eeacea2d602ac397c2a2f37afec31ed8c937556aa502d918bd3a527f59&",
         "room_types": ["story"],
         "intros": [
             "Lily Lovelace has set up a small travelling kitchen here, humming to herself as something simmers. \"Oh! A new face. Sit, sit -- you look like you need a good meal.\"",
@@ -2179,7 +2179,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "evz_checkup",
         "name": "Evz",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527153166028898395/6xhfqAAAAAGSURBVAMA8cJi1MzmR2oAAAAASUVORK5CYII.png?ex=6a599fb7&is=6a584e37&hm=135782dc07589dc59a7bbf2303a734877ab64668baaf46cb646567de3df88374&",
         "room_types": ["story"],
         "intros": [
             "Evz has set up a field aid station here, more out of habit than necessity. \"Old doctor instincts,\" he explains, waving you over.",
@@ -2229,7 +2229,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "vegtam_carrots",
         "name": "Vegetable Tam",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527153345234473070/2gAAAAZJREFUAwB3TUpsdlpnJAAAAABJRU5ErkJggg.png?ex=6a599fe2&is=6a584e62&hm=681897783be0f5257dc8bba9fd5d4b2243265e9ca0b13b15b7cae94aa60d8fa3&",
         "room_types": ["story"],
         "intros": [
             "Vegetable Tam is tending a small patch of carrots that absolutely should not be growing here. \"They like the attention,\" he explains, unprompted.",
@@ -2281,7 +2281,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "void_hydra_echo",
         "name": "Void Hydra",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527153478130991144/image.png?ex=6a59a002&is=6a584e82&hm=023511633e139f1a10a3b7ea707b6c6e38b45402dc58e1e41241c9b011551a40&",
         "room_types": ["trap"],
         "intros": [
             "The ground splits. Something enormous and half-buried stirs beneath the ice -- the Void Hydra, or what's left of it, waking up because you got too close.",
@@ -2322,7 +2322,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "ravaged_convoy",
         "name": "The Ravaged Convoy",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527153654061203586/image.png?ex=6a59a02c&is=6a584eac&hm=d5b0b690d6fbe531bee0daf5800d1e249701dee09ab543884af73e3263a09c92&",
         "room_types": ["trap"],
         "intros": [
             "A supply convoy lies overturned and burning. Whatever hit it might still be nearby.",
@@ -2363,7 +2363,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "ocellios_breach",
         "name": "The Ocellios Breach",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527153846130839632/image.png?ex=6a59a05a&is=6a584eda&hm=3f437e43a30127bccd2681562c0e8d35b99cccd978ce9390d5feecf1a7aa0b6c&",
         "room_types": ["secret"],
         "intros": [
             "A containment breach hisses quietly in the dark -- old Ocellios tech, still venting something that glows faintly wrong.",
@@ -2399,7 +2399,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "andy_engine",
         "name": "Andy",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527154496956793003/ZgjwaAAAAAZJREFUAwCyMLBQqtz3owAAAABJRU5ErkJggg.png?ex=6a59a0f5&is=6a584f75&hm=f848de0ca77930350c801800a2e5b75bd6f2035226ebb69bda46884d05b592a2&",
         "room_types": ["story"],
         "intros": [
             "Andy is elbow-deep in an airship engine, muttering calculations under his breath. \"Almost -- there. Oh! Didn't see you there.\"",
@@ -2449,7 +2449,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "gostley_calculations",
         "name": "Gostley",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527155714940731462/New_Piskel_2.png?ex=6a59a217&is=6a585097&hm=b4001cd4c6e8dff9a43f86bc4323b4044b25a9fd38858bb385faaec8f7ace7b9&",
         "room_types": ["puzzle"],
         "intros": [
             "Gostley is staring at a wall of numbers only visible through his visor, muttering calculations to himself.",
@@ -2498,7 +2498,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "bee_jee_shop",
         "name": "Bee Jee",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527156995898081370/avsvsvs_1.png?ex=6a59a349&is=6a5851c9&hm=d56d6518c21fbf89a2bc72cc128a1dd0423b3e301764c3aa4ae64150857620f8&",
         "room_types": ["merchant"],
         "intros": [
             "Bee Jee has her goggles flipped down, examining a rifle scope with more attention than the rifle probably deserves. \"Oh -- customer. What do you need?\"",
@@ -2550,7 +2550,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "nexus_grind",
         "name": "Nexus",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527157222193369088/81QmKcAAAAGSURBVAMAIPr6UVw8WgMAAAAASUVORK5CYII.png?ex=6a59a37e&is=6a5851fe&hm=00a4cea91ab475aac6ef49187e136455b1785b01d989bacf9588ac06ad9f678d&",
         "room_types": ["treasure"],
         "intros": [
             "Nexus is standing in the exact same spot doing the exact same low-effort task he was doing the last time anyone saw him. \"Building experience,\" he explains, unconvincingly.",
@@ -2607,7 +2607,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "high_roller_shop",
         "name": "The Colosseum Bookie",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527157780522205294/image.png?ex=6a59a404&is=6a585284&hm=a86f8a98d0e10220465e58104167a2f7c563889448c48d8424ddff66a09070da&",
         "room_types": ["merchant"],
         "intros": [
             "A figure in an expensive coat has set up shop here, flanked by two very large, very quiet men. \"Word is you've got coin to burn,\" they say. \"I deal in the good stuff. For the right price.\"",
@@ -2687,6 +2687,283 @@ ENCOUNTERS: list[dict] = [
                 "action": "leave",
                 "style": "secondary",
                 "text": "You decide you're not quite that rich yet, and leave.",
+            },
+        ],
+    },
+    # ------------------------------------------------------------------
+    # Jungle Treasure Chest -- new. Plain, unnamed TREASURE find: no NPC,
+    # no risk/fail branch, just a guaranteed common-tier haul. This is
+    # the "you found a chest" baseline the rest of the treasure roster
+    # (Duko, Daffysamlake, etc.) escalates from -- success_chance 1.0 via
+    # "risk" (no cost) is how a truly guaranteed opener is expressed in
+    # this schema, same trick a "trade" with cost {} and 1.0 would do.
+    # ------------------------------------------------------------------
+    {
+        "id": "jungle_treasure_chest",
+        "name": "Jungle Treasure Chest",
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527175021695598682/image.png?ex=6a59b412&is=6a586292&hm=043193f2601d4f7be3c55ace3aaa85a82f0523e6875b9bad223e22921979e578&",
+        "room_types": ["treasure"],
+        "intros": [
+            "Half-buried in vines and jungle rot, a wooden chest sits wedged between two roots.",
+            "Sunlight filters through the canopy onto a weathered chest, its lock long since rusted through.",
+            "You nearly trip over it: a jungle chest, moss-covered but clearly still intact.",
+        ],
+        "choices": [
+            {
+                "id": "open_chest",
+                "label": "📦 Open the chest",
+                "description": "Guaranteed loot inside.",
+                "action": "risk",
+                "style": "success",
+                "success_chance": 1.0,
+                "success_text": "The lid creaks open, revealing a straightforward but solid haul of common materials and a handful of gold.",
+                "on_success": {"gain": {"material_tier": 0, "amount": [15, 30], "gold": [10, 20]}},
+                "fail_text": "",
+                "on_fail": {},
+            },
+            {
+                "id": "leave",
+                "label": "🚪 Leave it be",
+                "description": "",
+                "action": "leave",
+                "style": "secondary",
+                "text": "You decide to leave the chest where it lies and continue on your way.",
+            },
+        ],
+    },
+    # ------------------------------------------------------------------
+    # Voidlands Plains Chest -- new. Same "guaranteed find" shape as the
+    # jungle chest above, but re-tuned to the Voidlands' rougher, more
+    # dangerous flavor (see Void matter / Voidwarp / Void Hydra
+    # elsewhere in this file) -- a medium (tier-1/uncommon) guaranteed
+    # haul instead of tier-0, with a small bonus-shard chance riding
+    # along like other mid-tier guaranteed finds do.
+    # ------------------------------------------------------------------
+    {
+        "id": "voidlands_plains_chest",
+        "name": "Voidlands Plains Chest",
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527175045808394320/image.png?ex=6a59b418&is=6a586298&hm=789a37324be9438356c0a5c4a40dcfce64201cccb0d71a16592135d89e18665b&",
+        "room_types": ["treasure"],
+        "intros": [
+            "A reinforced chest sits alone on the cracked, glassy plains, humming faintly with residual Void energy.",
+            "Out here in the open Voidlands plains, a lone chest is the last thing you expected to find intact.",
+            "The chest's metal casing is scorched and pitted, but whatever's inside survived the plains just fine.",
+        ],
+        "choices": [
+            {
+                "id": "open_chest",
+                "label": "📦 Open the chest",
+                "description": "Guaranteed medium-tier loot inside.",
+                "action": "risk",
+                "style": "success",
+                "success_chance": 1.0,
+                "success_text": "The chest pops open to reveal a solid stash of uncommon materials, along with a decent amount of gold.",
+                "on_success": {"gain": {"material_tier": 1, "amount": [12, 22], "gold": [20, 40]}, "bonus": {"chance": 0.06, "gain": {"shards": 1}}},
+                "fail_text": "",
+                "on_fail": {},
+            },
+            {
+                "id": "leave",
+                "label": "🚪 Leave it be",
+                "description": "",
+                "action": "leave",
+                "style": "secondary",
+                "text": "You decide to leave the chest where it lies and continue across the plains.",
+            },
+        ],
+    },
+    # ------------------------------------------------------------------
+    # Tbnr, Josh, and you -- new SECRET encounter. A pure whimsy detour:
+    # the three of you stumble on an abandoned easel and decide to paint
+    # a portrait of Hu Tao (Genshin Impact) together, purely for the
+    # bit. Rewards/actions are original: painting quality gates the
+    # payout (careful > rushed), and there's a "let Josh handle the
+    # brush" gamble option in keeping with his character elsewhere in
+    # this file.
+    # ------------------------------------------------------------------
+    {
+        "id": "hu_tao_painting",
+        "name": "Tbnr & Josh",
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527175107485765702/image.png?ex=6a59b427&is=6a5862a7&hm=4658095e9b28898efff99fde9afa89212f9d352ac40dafa343aeb68815f2b5a4&",
+        "room_types": ["secret"],
+        "intros": [
+            "You find Tbnr and Josh crouched over an abandoned easel and a half-empty paint set. \"We're painting Hu Tao,\" Tbnr says, like that explains everything.",
+            "\"Perfect timing,\" Josh says, already mixing colors wrong. \"We need a third opinion. We're doing Hu Tao. Obviously.\"",
+            "Tbnr has sketched an extremely rough outline. Josh is holding a paintbrush like a weapon. Somehow, this was already happening before you showed up.",
+        ],
+        "choices": [
+            {
+                "id": "paint_carefully",
+                "label": "🎨 Take your time and paint it properly",
+                "description": "Slow, but it might actually turn out good.",
+                "action": "risk",
+                "style": "success",
+                "success_chance": 0.75,
+                "success_text": "Between the three of you, the painting comes together beautifully. Tbnr insists on selling prints -- you get a cut.",
+                "on_success": {"gain": {"gold": [25, 45], "material_tier": 0, "amount": [10, 20]}, "bonus": {"chance": 0.06, "gain": {"shards": 1}}},
+                "fail_text": "The proportions go horribly wrong somewhere around the death scythe. Josh insists it's \"abstract\" now.",
+                "on_fail": {"gain": {"material_tier": 0, "amount": [5, 12]}},
+            },
+            {
+                "id": "let_josh_paint",
+                "label": "🎲 Let Josh take the brush",
+                "description": "This can only go well.",
+                "action": "gamble",
+                "style": "primary",
+                "cost": {},
+                "tiers": [
+                    {"chance": 0.1, "text": "Against all odds, Josh's chaotic technique actually works -- the finished piece is stunning. He immediately tries to sell it for way too much.", "outcome": {"gain": {"gold": [40, 70], "material_tier": 1, "amount": [6, 12]}, "bonus": {"chance": 0.08, "gain": {"lootbox": "uncommon"}}}},
+                    {"chance": 0.45, "text": "It's... a painting. Technically. Tbnr looks personally offended, but a passing trader buys it out of pity.", "outcome": {"gain": {"gold": [10, 20]}}},
+                    {"chance": 0.45, "text": "Josh knocks over the entire paint set. You spend the next twenty minutes cleaning it off everything, including yourself.", "outcome": {"loss": {"material_tier": 0, "amount": [2, 6]}}},
+                ],
+            },
+            {
+                "id": "leave",
+                "label": "🚪 Leave them to it",
+                "description": "",
+                "action": "leave",
+                "style": "secondary",
+                "text": "You decide art isn't your calling today and leave Tbnr and Josh to their masterpiece.",
+            },
+        ],
+    },
+    # ------------------------------------------------------------------
+    # Josh's Betting Table -- new MERCHANT encounter. Straight
+    # double-or-nothing: pay a stake, 50% chance to walk away with
+    # double, 50% chance it's just gone. The data schema here is choice
+    # buttons, not a free-text amount prompt, so "varying amounts" is
+    # expressed as several fixed stake tiers (small/medium/large/
+    # everything) rather than a single arbitrary-amount bet -- if a
+    # true numeric bet input gets added to the interpreter later, this
+    # is the encounter to wire it into. All four options use identical
+    # 50/50 odds; only the stake and payout scale.
+    # ------------------------------------------------------------------
+    {
+        "id": "josh_betting_table",
+        "name": "Josh",
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527175408674406471/image.png?ex=6a59b46e&is=6a5862ee&hm=4ce4cd521653ad9c16b19f69566bacf21c521cbcf78ae71befdfb178fde6df82&",
+        "room_types": ["merchant"],
+        "intros": [
+            "Josh has set up a rickety table with a hand-painted sign: \"DOUBLE OR NOTHING, 50/50, TOTALLY FAIR.\"",
+            "\"Coin flip,\" Josh says, already flipping one. \"Heads you double it, tails I keep it. Simple.\"",
+            "Josh grins at you from behind his betting table. \"I've only lost track of the count a *few* times today.\"",
+        ],
+        "choices": [
+            {
+                "id": "bet_small",
+                "label": "🪙 Bet 25 gold",
+                "description": "Low stakes, 50/50 odds to double it.",
+                "action": "trade",
+                "style": "primary",
+                "cost": {"gold": 25},
+                "success_chance": 0.5,
+                "success_text": "The coin lands your way. Josh grumbles and doubles you up.",
+                "on_success": {"gain": {"gold": 50}},
+                "fail_text": "Tails. Josh pockets your gold with a completely straight face.",
+                "on_fail": {},
+            },
+            {
+                "id": "bet_medium",
+                "label": "🪙🪙 Bet 75 gold",
+                "description": "Medium stakes, same 50/50 odds.",
+                "action": "trade",
+                "style": "primary",
+                "cost": {"gold": 75},
+                "success_chance": 0.5,
+                "success_text": "Your call lands. Josh hands over double, visibly pained about it.",
+                "on_success": {"gain": {"gold": 150}},
+                "fail_text": "Josh flips it, catches it, and doesn't even show you before sweeping your gold away.",
+                "on_fail": {},
+            },
+            {
+                "id": "bet_large",
+                "label": "🪙🪙🪙 Bet 200 gold",
+                "description": "High stakes, same 50/50 odds.",
+                "action": "trade",
+                "style": "danger",
+                "cost": {"gold": 200},
+                "success_chance": 0.5,
+                "success_text": "\"...Fine. FINE.\" Josh doubles you up, looking personally betrayed by the coin.",
+                "on_success": {"gain": {"gold": 400}},
+                "fail_text": "Josh lets out a whoop of victory that is deeply unprofessional for a man running a betting table.",
+                "on_fail": {},
+            },
+            {
+                "id": "bet_all_in",
+                "label": "🎰 Go all in (500 gold)",
+                "description": "Josh's max stake. Same 50/50 odds, biggest swing.",
+                "action": "trade",
+                "style": "danger",
+                "cost": {"gold": 500},
+                "success_chance": 0.5,
+                "success_text": "Josh stares at the coin like it personally wronged him and slides a thousand gold across the table.",
+                "on_success": {"gain": {"gold": 1000}},
+                "fail_text": "\"Better luck next time,\" Josh says, already counting your gold into his own pocket.",
+                "on_fail": {},
+            },
+            {
+                "id": "leave",
+                "label": "🚪 Walk away from the table",
+                "description": "",
+                "action": "leave",
+                "style": "secondary",
+                "text": "You decide you know better than to bet against Josh and walk away from the table.",
+            },
+        ],
+    },
+    # ------------------------------------------------------------------
+    # Void Reactor Remnants -- new STORY encounter. Environmental
+    # set-piece (no NPC), matching the "no character, just a place"
+    # pattern the two new treasure chests above use. Explosion +
+    # poisoning is represented as hp_damage_percent (this project's only
+    # per-member damage mechanic -- see file docstring) rather than a
+    # bespoke status effect, since there isn't one to hook into here.
+    # The careless option risks real harm for real reward; the cautious
+    # option is a smaller, safer guaranteed salvage; walking away is
+    # always free.
+    # ------------------------------------------------------------------
+    {
+        "id": "void_reactor_remnants",
+        "name": "Void Reactor Remnants",
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527175504287760384/image.png?ex=6a59b485&is=6a586305&hm=c532bf89df2bac7d72dcbe511e33fcbd9bc18661c6a551e51499fb243f377baf&",
+        "room_types": ["story"],
+        "intros": [
+            "The crater is unmistakable: a Void reactor went critical here, and recently. A sickly haze still clings to the wreckage.",
+            "Twisted, half-melted machinery juts out of scorched earth. Whatever this reactor was containing, it clearly didn't stay contained.",
+            "The air here tastes wrong. At the center of the blast site, the reactor core sits cracked open, still leaking something faintly luminous.",
+        ],
+        "choices": [
+            {
+                "id": "salvage_carefully",
+                "label": "🧤 Salvage from a safe distance",
+                "description": "Stick to the outer wreckage. Smaller, safer haul.",
+                "action": "risk",
+                "style": "success",
+                "success_chance": 0.9,
+                "success_text": "You keep well clear of the core and strip usable parts from the outer wreckage without incident.",
+                "on_success": {"gain": {"material_tier": 1, "amount": [10, 18], "gold": [15, 25]}},
+                "fail_text": "A stray gust carries the haze your way and you catch a lungful before backing off.",
+                "on_fail": {"hp_damage_percent": 8},
+            },
+            {
+                "id": "push_to_core",
+                "label": "☢️ Push through the poisoned zone to the core",
+                "description": "The real materials are at the center. High risk.",
+                "action": "risk",
+                "style": "danger",
+                "success_chance": 0.45,
+                "success_text": "You reach the cracked core and pull out a dense cluster of rare, still-warm Void-touched materials before the haze forces you back.",
+                "on_success": {"gain": {"material_tier": 2, "amount": [6, 14], "gold": [30, 55]}, "bonus": {"chance": 0.08, "gain": {"shards": 1}}},
+                "fail_text": "The haze thickens fast. By the time you stumble back out, the poison has already done its damage.",
+                "on_fail": {"hp_damage_percent": 28, "loss": {"material_tier": 0, "amount": [8, 15]}},
+            },
+            {
+                "id": "leave",
+                "label": "🚪 Steer clear entirely",
+                "description": "",
+                "action": "leave",
+                "style": "secondary",
+                "text": "You decide the void-tainted wreckage isn't worth the risk and give the crater a wide berth.",
             },
         ],
     },
