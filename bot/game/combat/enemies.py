@@ -647,7 +647,7 @@ ENEMY_TEMPLATES: list[dict] = [
         },
         "level_scale_percent": 10,
         "active_abilities": [
-            get_ability_by_id(ARTIFACT_SKILLS, "frost_lance"),
+            get_ability_by_id(WEAPON_SKILLS, "frost_lance"),
             get_ability_by_id(WEAPON_SKILLS, "shield_bash"),
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
         ],
@@ -688,7 +688,7 @@ ENEMY_TEMPLATES: list[dict] = [
         },
         "level_scale_percent": 10,
         "active_abilities": [
-            get_ability_by_id(ARTIFACT_SKILLS, "frost_lance"),
+            get_ability_by_id(WEAPON_SKILLS, "frost_lance"),
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
             get_ability_by_id(ARTIFACT_SKILLS, "overclock_repair"),
         ],
