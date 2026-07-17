@@ -155,38 +155,6 @@ class StartBattleView(OwnedView):
         await _handle_start_battle(interaction)
 
 
-class TrapChoiceButton(discord.ui.Button):
-    def __init__(self, choice: dict):
-        super().__init__(label=choice["label"][:80], style=discord.ButtonStyle.secondary, custom_id=f"cascade_trap:{choice['id']}")
-        self.choice_id = choice["id"]
-
-    async def callback(self, interaction: discord.Interaction):
-        await _handle_trap_choice(interaction, self.choice_id)
-
-
-class TrapView(OwnedView):
-    def __init__(self, choices: list[dict], owner_id: int | None = None):
-        super().__init__(timeout=180, owner_id=owner_id)
-        for choice in choices:
-            self.add_item(TrapChoiceButton(choice))
-
-
-class PuzzleOptionButton(discord.ui.Button):
-    def __init__(self, index: int, label: str):
-        super().__init__(label=f"{index + 1}. {label}"[:80], style=discord.ButtonStyle.primary, custom_id=f"cascade_puzzle:{index}")
-        self.option_index = index
-
-    async def callback(self, interaction: discord.Interaction):
-        await _handle_puzzle_choice(interaction, self.option_index)
-
-
-class PuzzleView(OwnedView):
-    def __init__(self, puzzle: dict, owner_id: int | None = None):
-        super().__init__(timeout=180, owner_id=owner_id)
-        for i, option in enumerate(puzzle["options"]):
-            self.add_item(PuzzleOptionButton(i, option))
-
-
 _BUTTON_STYLES = {
     "primary": discord.ButtonStyle.primary,
     "secondary": discord.ButtonStyle.secondary,
@@ -452,40 +420,6 @@ def _render_room(db, expedition, player, kind: str, message: str, avatar_url: st
         ),
         _build_dungeon_view(expedition),
     )
-
-
-async def _handle_trap_choice(interaction: discord.Interaction, choice_id: str):
-    db = SessionLocal()
-    try:
-        player = get_player(db, interaction.user.id)
-        expedition = dungeon_service.get_active_expedition(db, player.id) if player else None
-        if player is None or expedition is None or not expedition.pending_interaction:
-            await interaction.response.send_message("There's nothing to resolve here right now.", ephemeral=True)
-            return
-
-        result = dungeon_service.resolve_trap_choice(db, expedition, player, choice_id)
-        avatar_url = interaction.user.display_avatar.url
-        embed, view = _render_room(db, expedition, player, result["kind"], result["message"], avatar_url)
-        await interaction.response.edit_message(embed=embed, view=view)
-    finally:
-        db.close()
-
-
-async def _handle_puzzle_choice(interaction: discord.Interaction, option_index: int):
-    db = SessionLocal()
-    try:
-        player = get_player(db, interaction.user.id)
-        expedition = dungeon_service.get_active_expedition(db, player.id) if player else None
-        if player is None or expedition is None or not expedition.pending_interaction:
-            await interaction.response.send_message("There's nothing to resolve here right now.", ephemeral=True)
-            return
-
-        result = dungeon_service.resolve_puzzle_choice(db, expedition, player, option_index)
-        avatar_url = interaction.user.display_avatar.url
-        embed, view = _render_room(db, expedition, player, result["kind"], result["message"], avatar_url)
-        await interaction.response.edit_message(embed=embed, view=view)
-    finally:
-        db.close()
 
 
 async def _handle_encounter_choice(interaction: discord.Interaction, choice_id: str):

@@ -42,7 +42,7 @@ class Expedition(Base):
 
     # Set while the player is in the middle of an interactive non-combat
     # room (Trap/Puzzle/Encounter -- see bot/services/dungeon_service.py's
-    # resolve_trap_choice/resolve_puzzle_choice/resolve_encounter_choice).
+    # resolve_encounter_choice).
     # Same "load -> mutate -> save" persistence pattern as combat_state, so
     # these survive a bot restart too. None outside of one of those rooms.
     pending_interaction: Mapped[dict | None] = mapped_column(JSON, nullable=True)
