@@ -11,15 +11,15 @@ from character kits -- see bot/game/characters/character_seed_data.py).
 
 The back half of this catalog is the item SET system: Wood, Iron, Sigma
 Wolf, Crystal, Xendium, Permafrost, Hi-Tech, Error Code, Voidwalker,
-Entropic, Refense, and the ultra-rare "500 Billian Gem Giveaway". Each set
-piece has a fixed `set_prefix` (so its display name is always just
+Entropic, Refense, Aegis, and the ultra-rare "500 Billian Gem Giveaway".
+Each set piece has a fixed `set_prefix` (so its display name is always just
 "{prefix} {item name}" -- see bot/game/loot/naming.py) and a
 `linked_ability_id` that's ALWAYS the ability it rolls (when it rolls one
 at all -- still gated by RARITY_ABILITY_CHANCE), rather than a random pick
 from its item_type's pool. Sets lean toward a particular class role
-(Crystal/Xendium -> casters, Permafrost/Refense -> tanks/Sustain, Hi-Tech ->
-Support DPS, Sigma Wolf -> DPS) without being exclusive to it, alongside
-Wood/Iron as simple, generic, flexible early options.
+(Crystal/Xendium -> casters, Permafrost/Refense/Aegis -> tanks/Sustain,
+Hi-Tech -> Support DPS, Sigma Wolf -> DPS) without being exclusive to it,
+alongside Wood/Iron as simple, generic, flexible early options.
 
 Seeded on startup the same way harvester/lootbox templates are (see
 bot/services/item_template_service.py). Expanding this catalog with more
@@ -54,6 +54,14 @@ ITEM_TEMPLATES: list[dict] = [
      "main_stat": "elemental", "base_main_stat_value": 13,
      "flavor_text": "Forged from crystallized Void matter -- cold to hold, colder to face.",
      "min_rarity": Rarity.UNCOMMON, "max_rarity": Rarity.RARE},
+    {"name": "Windrunner Rapier", "item_type": ItemType.WEAPON, "slot": EquipmentSlot.WEAPON,
+     "main_stat": "speed", "base_main_stat_value": 11,
+     "flavor_text": "Barely touches the target before it's already somewhere else.",
+     "min_rarity": Rarity.RARE, "max_rarity": Rarity.EPIC},
+    {"name": "Serrated Kris", "item_type": ItemType.WEAPON, "slot": EquipmentSlot.WEAPON,
+     "main_stat": "attack", "base_main_stat_value": 11,
+     "flavor_text": "Every notch along the blade catches on the way out, not the way in.",
+     "min_rarity": Rarity.RARE, "max_rarity": Rarity.EPIC},
 
     # ---------------------------------------------------------------
     # Armor -- single slot now. Main stat: defense, health, speed, energy
@@ -142,6 +150,14 @@ ITEM_TEMPLATES: list[dict] = [
      "main_stat": "max_hp", "base_main_stat_value": 35,
      "flavor_text": "Grown, not forged -- it beats faintly, like something alive.",
      "min_rarity": Rarity.UNCOMMON, "max_rarity": Rarity.RARE},
+    {"name": "Static Coil", "item_type": ItemType.ARTIFACT, "slot": EquipmentSlot.ARTIFACT,
+     "main_stat": "recharge", "base_main_stat_value": 5,
+     "flavor_text": "Winds itself tighter with every basic attack, waiting to let go all at once.",
+     "min_rarity": Rarity.RARE, "max_rarity": Rarity.EPIC},
+    {"name": "Warden's Lantern", "item_type": ItemType.ARTIFACT, "slot": EquipmentSlot.ARTIFACT,
+     "main_stat": "max_hp", "base_main_stat_value": 38,
+     "flavor_text": "Casts a faint barrier of light around whoever carries it.",
+     "min_rarity": Rarity.RARE, "max_rarity": Rarity.EPIC},
 
     # ---------------------------------------------------------------
     # Item sets. Each set has a fixed prefix (the whole display name is
@@ -291,6 +307,21 @@ ITEM_TEMPLATES: list[dict] = [
      "set_name": "Refense Set", "set_prefix": "Refense", "linked_ability_id": "combat_medic",
      "flavor_text": "Balance isn't just personal -- Refender's teachings hold the whole line together.",
      "min_rarity": Rarity.MYTHIC, "max_rarity": Rarity.DIVINE},
+
+    # Aegis -- shield-kit showcase set, tanky/Sustain-leaning. Both pieces
+    # are new-content additions built around Combatant.shield (see
+    # bot/game/combat/combatant.py and bot/game/combat/effects.py) rather
+    # than heals or flat mitigation.
+    {"name": "Barrier Blade", "item_type": ItemType.WEAPON, "slot": EquipmentSlot.WEAPON,
+     "main_stat": "defense", "base_main_stat_value": 10,
+     "set_name": "Aegis Set", "set_prefix": "Aegis", "linked_ability_id": "guard_splitter",
+     "flavor_text": "Less a sword than a promise: whatever gets past this doesn't get far.",
+     "min_rarity": Rarity.EPIC, "max_rarity": Rarity.LEGENDARY},
+    {"name": "Shellcasing", "item_type": ItemType.ARMOR, "slot": EquipmentSlot.ARMOR,
+     "main_stat": "defense", "base_main_stat_value": 9,
+     "set_name": "Aegis Set", "set_prefix": "Aegis", "linked_ability_id": "capacitor_shell",
+     "flavor_text": "Hums faintly between hits, rebuilding whatever it just lost.",
+     "min_rarity": Rarity.EPIC, "max_rarity": Rarity.LEGENDARY},
 
     # "500 Billian Gem Giveaway" -- ultra rare joke set. The misspelling of
     # "Billion" is intentional; the creator, a silly man named Thedoggyp,

@@ -20,6 +20,20 @@ New effect kinds can be added there without changing the loot generator.
 
 There is no dodge in this game, so no ability here keys off dodging or
 grants dodge chance.
+
+Content pass (shield kit + stat-scaled hits): adds a handful of new effect
+kinds -- self_shield_percent_max_hp / team_shield_percent_max_hp / shield_regen
+(a flat damage-absorbing pool, see Combatant.shield in combatant.py),
+damage_bonus_if_debuffed (rewards follow-up damage on an already-debuffed
+target), chance_double_hit (flat chance to swing twice), and
+damage_reduction_scales_with_missing_hp (mitigation that grows the lower
+the wearer's own HP is) -- plus several abilities that reuse the existing
+damage_multiplier/damage_and_debuff kinds with a non-attack damage_stat
+(speed, defense, recharge, crit_damage) for extra mechanical variety
+without needing new combat code. Each new entry below is tagged "filler"
+(cheap, simple, broadly reusable -- mostly existing kinds at new numbers)
+or "unique" (a new effect kind, or an existing one used in a genuinely new
+way) in its comment.
 """
 
 from __future__ import annotations
@@ -112,6 +126,72 @@ WEAPON_SKILLS: list[dict] = [
         "effect": {"kind": "execute_below_threshold", "damage_percent": 130,
                    "execute_damage_percent": 220, "damage_stat": "attack",
                    "hp_threshold_percent": 30},
+    },
+    {
+        # filler -- cheap, no-frills Common opener; a slightly stronger
+        # variant of Power Strike's shape at a lower cooldown/cost for
+        # more early-rarity variety.
+        "id": "quickdraw_slash",
+        "name": "Quickdraw Slash",
+        "min_rarity": Rarity.COMMON,
+        "resource_cost": 12,
+        "resource_type": "mana",
+        "cooldown": 1,
+        "description": "Deal 150% ATK damage to the target.",
+        "effect": {"kind": "damage_multiplier", "damage_percent": 150, "damage_stat": "attack"},
+    },
+    {
+        # filler -- Sunder Strike's "cripple then hit" shape, reskinned
+        # onto DEF instead of a HP-threshold check, at Uncommon.
+        "id": "guard_splitter",
+        "name": "Guard Splitter",
+        "min_rarity": Rarity.UNCOMMON,
+        "resource_cost": 18,
+        "resource_type": "mana",
+        "cooldown": 2,
+        "description": "Deal 110% ATK damage and reduce the target's DEF by 15% for 2 turns.",
+        "effect": {"kind": "damage_and_debuff", "damage_percent": 110, "damage_stat": "attack",
+                   "debuff_stat": "defense", "debuff_percent": -15, "duration": 2},
+    },
+    {
+        # unique -- reuses damage_multiplier but keys the hit off SPEED
+        # instead of ATK, the first weapon skill to do so. A blade meant
+        # for a fast, low-ATK build rather than a heavy hitter.
+        "id": "tempest_edge",
+        "name": "Tempest Edge",
+        "min_rarity": Rarity.RARE,
+        "resource_cost": 22,
+        "resource_type": "mana",
+        "cooldown": 2,
+        "description": "Deal damage equal to 160% of your SPD stat to the target.",
+        "effect": {"kind": "damage_multiplier", "damage_percent": 160, "damage_stat": "speed"},
+    },
+    {
+        # unique -- new damage_bonus_if_debuffed kind: a finisher that
+        # rewards going in AFTER a debuff (Frost Lance, Guard Splitter,
+        # etc.) has already landed on the target.
+        "id": "opportunist_strike",
+        "name": "Opportunist Strike",
+        "min_rarity": Rarity.RARE,
+        "resource_cost": 24,
+        "resource_type": "mana",
+        "cooldown": 2,
+        "description": "Deal 120% ATK damage, or 210% ATK damage if the target is already weakened by a debuff.",
+        "effect": {"kind": "damage_bonus_if_debuffed", "damage_percent": 120,
+                   "bonus_damage_percent": 90, "damage_stat": "attack"},
+    },
+    {
+        # unique -- new chance_double_hit kind: every swing has a flat
+        # chance to immediately swing again for the same damage.
+        "id": "riftcutter",
+        "name": "Riftcutter",
+        "min_rarity": Rarity.EPIC,
+        "resource_cost": 30,
+        "resource_type": "mana",
+        "cooldown": 3,
+        "description": "Deal 130% ATK damage. 35% chance to strike again for another 130% ATK damage.",
+        "effect": {"kind": "chance_double_hit", "damage_percent": 130,
+                   "chance_percent": 35, "damage_stat": "attack"},
     },
 ]
 
@@ -260,6 +340,70 @@ ARTIFACT_SKILLS: list[dict] = [
         "description": "Your whole side regenerates 8% max HP at the start of each of their turns for 3 turns.",
         "effect": {"kind": "team_regen_over_time", "percent_max_hp_per_turn": 8, "duration": 3},
     },
+    {
+        # filler -- cheap Common-tier bolt, the artifact-side equivalent
+        # of Quickdraw Slash for early ELE rolls.
+        "id": "overcharged_bolt",
+        "name": "Overcharged Bolt",
+        "min_rarity": Rarity.COMMON,
+        "resource_cost": 14,
+        "resource_type": "mana",
+        "cooldown": 1,
+        "description": "Deal 130% ELE damage to the target.",
+        "effect": {"kind": "damage_multiplier", "damage_percent": 130, "damage_stat": "elemental"},
+    },
+    {
+        # unique -- reuses damage_multiplier keyed off RECHARGE instead of
+        # ELE: literally channels stored energy into the hit, so it hits
+        # hardest on a high-Recharge support/caster build.
+        "id": "kinetic_feedback",
+        "name": "Kinetic Feedback",
+        "min_rarity": Rarity.RARE,
+        "resource_cost": 24,
+        "resource_type": "mana",
+        "cooldown": 2,
+        "description": "Discharge stored energy, dealing damage equal to 900% of your Recharge stat.",
+        "effect": {"kind": "damage_multiplier", "damage_percent": 900, "damage_stat": "recharge"},
+    },
+    {
+        # unique -- the artifact-side damage_bonus_if_debuffed, at ELE
+        # instead of ATK, for caster builds that want the same
+        # punish-a-weakened-target payoff as Opportunist Strike.
+        "id": "weakpoint_scanner",
+        "name": "Weakpoint Scanner",
+        "min_rarity": Rarity.RARE,
+        "resource_cost": 26,
+        "resource_type": "mana",
+        "cooldown": 2,
+        "description": "Deal 110% ELE damage, or 195% ELE damage if the target is already weakened by a debuff.",
+        "effect": {"kind": "damage_bonus_if_debuffed", "damage_percent": 110,
+                   "bonus_damage_percent": 85, "damage_stat": "elemental"},
+    },
+    {
+        # unique -- new self_shield_percent_max_hp kind: a burst of
+        # absorb shield instead of a heal, for soaking the next few hits
+        # rather than topping HP back up.
+        "id": "ionic_ward",
+        "name": "Ionic Ward",
+        "min_rarity": Rarity.EPIC,
+        "resource_cost": 28,
+        "resource_type": "mana",
+        "cooldown": 4,
+        "description": "Raise a shield that absorbs damage equal to 35% of your max HP.",
+        "effect": {"kind": "self_shield_percent_max_hp", "percent": 35},
+    },
+    {
+        # unique -- team version of Ionic Ward; a Support/Amplifier-style
+        # burst of shield across the whole side at once.
+        "id": "aegis_broadcast",
+        "name": "Aegis Broadcast",
+        "min_rarity": Rarity.LEGENDARY,
+        "resource_cost": 38,
+        "resource_type": "mana",
+        "cooldown": 5,
+        "description": "Shield your whole side, each member absorbing damage equal to 25% of their own max HP.",
+        "effect": {"kind": "team_shield_percent_max_hp", "percent": 25},
+    },
 ]
 
 ULTIMATE_ABILITIES: list[dict] = [
@@ -336,6 +480,60 @@ ULTIMATE_ABILITIES: list[dict] = [
         "description": "Deal 150% ELE damage, increased by up to 150% more the lower the target's HP is.",
         "effect": {"kind": "damage_scales_with_missing_hp", "base_damage_percent": 150,
                    "bonus_damage_percent_at_zero_hp": 150, "damage_stat": "elemental"},
+    },
+    {
+        # filler -- Phoenix Rebirth's shape at a lower rarity gate and
+        # slightly smaller numbers, for more Uncommon/Rare-tier ultimate
+        # variety on enemies that shouldn't have the full 50%/30% version.
+        "id": "last_stand",
+        "name": "Last Stand",
+        "min_rarity": Rarity.UNCOMMON,
+        "resource_cost": 50,
+        "resource_type": "energy",
+        "cooldown": 0,
+        "description": "Restore 35% max HP and gain 20% ATK for 3 turns.",
+        "effect": {"kind": "heal_and_self_buff", "heal_percent": 35, "buff_stat": "attack",
+                   "buff_percent": 20, "duration": 3},
+    },
+    {
+        # unique -- reuses damage_multiplier keyed off SPEED at ultimate
+        # scale, the signature-move counterpart to Tempest Edge; a huge
+        # payoff for a build that's stacked Speed instead of ATK/ELE.
+        "id": "gale_ascendant",
+        "name": "Gale Ascendant",
+        "min_rarity": Rarity.RARE,
+        "resource_cost": 50,
+        "resource_type": "energy",
+        "cooldown": 0,
+        "description": "Deal damage equal to 700% of your SPD stat to the target.",
+        "effect": {"kind": "damage_multiplier", "damage_percent": 700, "damage_stat": "speed"},
+    },
+    {
+        # unique -- ultimate-scale damage_bonus_if_debuffed: a true
+        # finishing move meant to come down AFTER a debuff (from a
+        # teammate, an earlier skill, anything) has already landed.
+        "id": "null_strike",
+        "name": "Null Strike",
+        "min_rarity": Rarity.EPIC,
+        "resource_cost": 50,
+        "resource_type": "energy",
+        "cooldown": 0,
+        "description": "Deal 240% ATK damage, or 440% ATK damage if the target is already weakened by a debuff.",
+        "effect": {"kind": "damage_bonus_if_debuffed", "damage_percent": 240,
+                   "bonus_damage_percent": 200, "damage_stat": "attack"},
+    },
+    {
+        # unique -- ultimate-scale team_shield_percent_max_hp: a
+        # Sustain/tank signature move that soaks incoming damage across
+        # the whole side rather than healing it back afterward.
+        "id": "aegis_protocol",
+        "name": "Aegis Protocol",
+        "min_rarity": Rarity.LEGENDARY,
+        "resource_cost": 50,
+        "resource_type": "energy",
+        "cooldown": 0,
+        "description": "Shield your whole side, each member absorbing damage equal to 45% of their own max HP.",
+        "effect": {"kind": "team_shield_percent_max_hp", "percent": 45},
     },
 ]
 
@@ -436,6 +634,61 @@ ARMOR_PASSIVES: list[dict] = [
         "trigger": "on_turn_start",
         "description": "At the start of every turn, heal your whole side for 4% of their own max HP.",
         "effect": {"kind": "aura_team_regen", "percent": 4},
+    },
+    {
+        # filler -- a cheaper, Common-tier Iron Skin variant so early-game
+        # armor has more than one flat-mitigation option to roll.
+        "id": "scrap_armor",
+        "name": "Scrap Armor",
+        "min_rarity": Rarity.COMMON,
+        "trigger": "always",
+        "description": "Reduce all incoming damage by 3%.",
+        "effect": {"kind": "damage_reduction", "percent": 3},
+    },
+    {
+        # filler -- Retaliation Plating's shape at a lower rarity gate and
+        # a shorter stun, for more Uncommon-tier reactive-defense variety.
+        "id": "static_discharge",
+        "name": "Static Discharge",
+        "min_rarity": Rarity.UNCOMMON,
+        "trigger": "always",
+        "description": "15% chance to stun an attacker for 1 turn whenever you take a hit.",
+        "effect": {"kind": "chance_stun_attacker", "percent": 15, "duration": 1},
+    },
+    {
+        # filler -- Executioner's shape at a lower rarity gate and a
+        # smaller bonus, for more Uncommon-tier crit-damage variety.
+        "id": "focused_lens",
+        "name": "Focused Lens",
+        "min_rarity": Rarity.UNCOMMON,
+        "trigger": "on_crit",
+        "description": "Critical hits deal an additional 8% damage.",
+        "effect": {"kind": "crit_damage_bonus", "percent": 8},
+    },
+    {
+        # unique -- new shield_regen kind: trickles a small self-shield
+        # every turn instead of Iron Skin's flat percent mitigation --
+        # absorbs a chunk of a hit outright rather than shaving a little
+        # off every hit forever.
+        "id": "capacitor_shell",
+        "name": "Capacitor Shell",
+        "min_rarity": Rarity.RARE,
+        "trigger": "on_turn_start",
+        "description": "At the start of every turn, gain a shield equal to 6% of your max HP (capped at 30%).",
+        "effect": {"kind": "shield_regen", "percent": 6, "cap_percent": 30},
+    },
+    {
+        # unique -- new damage_reduction_scales_with_missing_hp kind: a
+        # "gets sturdier while hurt" passive, the mitigation counterpart
+        # to Second Wind's one-time heal-at-25% -- this scales smoothly
+        # instead of triggering once.
+        "id": "adaptive_plating",
+        "name": "Adaptive Plating",
+        "min_rarity": Rarity.EPIC,
+        "trigger": "always",
+        "description": "Reduce incoming damage by 5%, plus up to 20% more the lower your own HP is.",
+        "effect": {"kind": "damage_reduction_scales_with_missing_hp", "base_percent": 5,
+                   "bonus_percent_at_zero_hp": 20},
     },
 ]
 

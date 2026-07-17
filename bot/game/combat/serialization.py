@@ -48,6 +48,7 @@ def combatant_to_dict(c: Combatant) -> dict:
         "heals": [dataclasses.asdict(h) for h in c.heals],
         "stunned_turns": c.stunned_turns,
         "turn_gauge": c.turn_gauge,
+        "shield": c.shield,
     }
 
 
@@ -75,6 +76,7 @@ def combatant_from_dict(data: dict) -> Combatant:
         heals=[HealOverTime(**h) for h in data.get("heals", [])],
         stunned_turns=data["stunned_turns"],
         turn_gauge=data.get("turn_gauge", 0.0),
+        shield=data.get("shield", 0.0),
     )
 
 

@@ -46,6 +46,21 @@ caster if no ally is alive, so the effect is never wasted. damage_and_double_deb
 and team_resource_drain round out the debuff side: the former stacks two
 stat debuffs from one hit, the latter drains energy/mana from the WHOLE
 opposing side at once (opponents' counterpart to team_resource_restore).
+
+Shield kit (content pass, new abilities): Combatant.shield is a flat
+HP-equivalent pool that absorbs incoming damage before current_hp does
+(see _resolve_hit). self_shield_percent_max_hp / team_shield_percent_max_hp
+grant it as a burst from an active ability; the passive kind shield_regen
+trickles a small amount every turn instead (trigger_on_turn_start), capped
+so it can't be stacked indefinitely. Shields never expire on a timer --
+they just get worn down by damage. damage_bonus_if_debuffed and
+chance_double_hit are two more active kinds: the former rewards
+follow-up damage after a debuff lands (synergizes with anything that
+applies a StatModifier first), the latter is a flat percent chance to
+swing a second time. damage_reduction_scales_with_missing_hp is the
+passive counterpart of "gets sturdier while hurt" -- unlike the flat
+damage_reduction passive (Iron Skin), its mitigation grows the lower the
+wearer's own HP% is, evaluated fresh on every hit in _resolve_hit.
 """
 
 from __future__ import annotations
@@ -384,6 +399,48 @@ def resolve_active_ability(
             ))
         log.append(f"🌿 {attacker.name}'s {ability['name']} sets in, regenerating the whole team over time.")
 
+    elif kind == "self_shield_percent_max_hp":
+        # Ionic Ward-style burst shield -- grants the caster a flat
+        # HP-equivalent pool (Combatant.shield) that absorbs incoming
+        # damage before current_hp does (see _resolve_hit). Adds onto any
+        # shield already up rather than overwriting it.
+        gained = attacker.max_hp * effect["percent"] / 100
+        attacker.shield += gained
+        log.append(f"🔷 {attacker.name} raises a shield worth {round(gained)} HP.")
+
+    elif kind == "team_shield_percent_max_hp":
+        # Aegis Broadcast-style team shield -- same idea as
+        # self_shield_percent_max_hp but for the caster's whole side at
+        # once, each member shielded off their OWN max HP.
+        for member in [attacker] + [a for a in allies if a.is_alive()]:
+            gained = member.max_hp * effect["percent"] / 100
+            member.shield += gained
+        log.append(f"🔷 {attacker.name}'s {ability['name']} shields the whole team!")
+
+    elif kind == "damage_bonus_if_debuffed":
+        # Weakpoint Scanner-style finisher -- deals extra damage if the
+        # target already has ANY active negative StatModifier (from
+        # anything -- a debuff kind on gear, a character skill, doesn't
+        # matter which), rewarding follow-up damage after a debuff lands.
+        has_debuff = any(m.percent < 0 for m in defender.modifiers)
+        percent = effect["damage_percent"] + (effect["bonus_damage_percent"] if has_debuff else 0)
+        _resolve_hit(attacker, defender, percent, effect.get("damage_stat", "attack"), rng, log)
+        if has_debuff:
+            log.append(f"🎯 {attacker.name} exploits {defender.name}'s weakened state!")
+
+    elif kind == "chance_double_hit":
+        # Riftcutter-style flat percent chance to swing again immediately
+        # for the same damage. The first hit always lands; the second is
+        # gated behind chance_percent and skipped if the first hit already
+        # finished the target.
+        _resolve_hit(attacker, defender, effect["damage_percent"],
+                     effect.get("damage_stat", "attack"), rng, log, suppress_kill_log=True)
+        if defender.is_alive() and formulas.roll_percent(effect["chance_percent"], rng):
+            log.append(f"⚡ {attacker.name}'s {ability['name']} strikes again!")
+            _resolve_hit(attacker, defender, effect["damage_percent"],
+                         effect.get("damage_stat", "attack"), rng, log, suppress_kill_log=True)
+        _trigger_on_kill_if_dead(attacker, defender, log)
+
     else:
         log.append(f"({ability['name']} has no combat effect implemented yet)")
 
@@ -406,6 +463,19 @@ def _resolve_hit(attacker: Combatant, defender: Combatant, damage_percent: float
 
     for passive in defender.find_passive("damage_reduction"):
         damage *= 1 - passive["effect"]["percent"] / 100
+
+    missing_fraction = 1 - (defender.current_hp / max(1, defender.max_hp))
+    for passive in defender.find_passive("damage_reduction_scales_with_missing_hp"):
+        eff = passive["effect"]
+        reduction = eff["base_percent"] + eff["bonus_percent_at_zero_hp"] * missing_fraction
+        damage *= 1 - reduction / 100
+
+    if defender.shield > 0:
+        absorbed = min(damage, defender.shield)
+        defender.shield -= absorbed
+        damage -= absorbed
+        if absorbed:
+            log.append(f"🔷 {defender.name}'s shield absorbs {round(absorbed)} damage.")
 
     dealt = defender.take_raw_hp_loss(damage)
     crit_tag = " (💥 CRIT!)" if is_crit else ""
@@ -493,6 +563,19 @@ def trigger_on_turn_start(combatant: Combatant, log: list, allies: list[Combatan
             else:
                 combatant.energy = min(combatant.max_energy, combatant.energy + effect["amount"])
             log.append(f"🔋 {combatant.name} restores {effect['amount']} {effect['resource_type']} from {passive['name']}.")
+
+        elif effect["kind"] == "shield_regen":
+            # Capacitor Shell-style trickle shield -- unlike the burst
+            # self_shield_percent_max_hp active, this adds a small amount
+            # of shield every turn for free, capped (default 50% of max
+            # HP) so it can't be stacked into an unbreakable wall turn
+            # after turn.
+            cap = combatant.max_hp * effect.get("cap_percent", 50) / 100
+            gained = min(cap - combatant.shield, combatant.max_hp * effect["percent"] / 100)
+            gained = max(0.0, gained)
+            combatant.shield += gained
+            if gained:
+                log.append(f"🔷 {combatant.name}'s {passive['name']} reinforces their shield (+{round(gained)}).")
 
         elif effect["kind"] == "aura_team_resource_regen":
             # Support aura -- restores energy/mana to combatant AND its

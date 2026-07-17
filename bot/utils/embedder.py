@@ -369,9 +369,10 @@ def combat_embed(battle, avatar_url: str | None = None) -> discord.Embed:
             party_lines.append(f"**{member.name}**{acting_tag} -- 💀 Down")
             continue
         ult_flag = " 💥" if member.ultimate_ready() else ""
+        shield_tag = f" 🔷{round(member.shield)}" if member.shield > 0 else ""
         party_lines.append(
             f"**{member.name}**{acting_tag}{ult_flag}\n"
-            f"┗ ❤️{member.current_hp}/{member.max_hp} {_bar(member.current_hp, member.max_hp, length=8)}"
+            f"┗ ❤️{member.current_hp}/{member.max_hp} {_bar(member.current_hp, member.max_hp, length=8)}{shield_tag}"
             f"  💧{member.mana}/{member.max_mana}  🔋{member.energy}/{member.max_energy}"
         )
     embed.add_field(name="🧑 Your Squad", value="\n".join(party_lines), inline=False)
@@ -385,9 +386,10 @@ def combat_embed(battle, avatar_url: str | None = None) -> discord.Embed:
         is_target = living_i == battle.target_index
         living_i += 1
         target_tag = " 🎯" if is_target else ""
+        shield_tag = f" 🔷{round(enemy.shield)}" if enemy.shield > 0 else ""
         enemy_lines.append(
             f"**{enemy.name}**{target_tag}\n"
-            f"┗ ❤️{enemy.current_hp}/{enemy.max_hp} {_bar(enemy.current_hp, enemy.max_hp, length=8)}"
+            f"┗ ❤️{enemy.current_hp}/{enemy.max_hp} {_bar(enemy.current_hp, enemy.max_hp, length=8)}{shield_tag}"
         )
     embed.add_field(name="👹 Enemies", value="\n".join(enemy_lines), inline=False)
 

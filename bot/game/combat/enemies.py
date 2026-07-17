@@ -61,8 +61,8 @@ ENEMY_TEMPLATES: list[dict] = [
             "max_hp": 32, "max_mana": 999, "crit_rate": 4, "crit_damage": 140, "recharge": 5,
         },
         "level_scale_percent": 8,
-        "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "power_strike")],
-        "passive_abilities": [],
+        "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "quickdraw_slash")],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "scrap_armor")],
     },
     {
         # Rank-and-file Xender muscle -- crowd control batons, standard
@@ -76,7 +76,7 @@ ENEMY_TEMPLATES: list[dict] = [
         },
         "level_scale_percent": 8,
         "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "shield_bash")],
-        "passive_abilities": [],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "static_discharge")],
     },
     {
         # A step up from Henchmen -- carries incendiary rounds and
@@ -89,7 +89,10 @@ ENEMY_TEMPLATES: list[dict] = [
             "max_hp": 52, "max_mana": 999, "crit_rate": 6, "crit_damage": 155, "recharge": 5,
         },
         "level_scale_percent": 8,
-        "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "flame_strike")],
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "flame_strike"),
+            get_ability_by_id(WEAPON_SKILLS, "opportunist_strike"),
+        ],
         "passive_abilities": [],
     },
     {
@@ -121,7 +124,10 @@ ENEMY_TEMPLATES: list[dict] = [
         },
         "level_scale_percent": 8,
         "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "shield_bash")],
-        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "retaliation_plating")],
+        "passive_abilities": [
+            get_ability_by_id(ARMOR_PASSIVES, "retaliation_plating"),
+            get_ability_by_id(ARMOR_PASSIVES, "focused_lens"),
+        ],
     },
     {
         # Glacier 15's cold-region counterpart to the Dune Digger -- a
@@ -148,7 +154,10 @@ ENEMY_TEMPLATES: list[dict] = [
             "max_hp": 30, "max_mana": 999, "crit_rate": 8, "crit_damage": 160, "recharge": 6,
         },
         "level_scale_percent": 8,
-        "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "frost_lance")],
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "frost_lance"),
+            get_ability_by_id(ARTIFACT_SKILLS, "overcharged_bolt"),
+        ],
         "passive_abilities": [],
     },
     {
@@ -208,7 +217,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "max_hp": 38, "max_mana": 999, "crit_rate": 9, "crit_damage": 165, "recharge": 5,
         },
         "level_scale_percent": 8,
-        "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "phoenix_dive")],
+        "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "riftcutter")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "vampiric_edge")],
     },
     {
@@ -226,6 +235,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "flame_strike"),
             get_ability_by_id(WEAPON_SKILLS, "frost_lance"),
+            get_ability_by_id(ARTIFACT_SKILLS, "weakpoint_scanner"),
         ],
         "passive_abilities": [],
     },
@@ -245,7 +255,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "combat_medic"),
             get_ability_by_id(ARTIFACT_SKILLS, "regenerative_field"),
-            get_ability_by_id(ARTIFACT_SKILLS, "power_transfer"),
+            get_ability_by_id(ARTIFACT_SKILLS, "ionic_ward"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "support_matrix")],
     },
@@ -299,7 +309,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "max_hp": 40, "max_mana": 999, "crit_rate": 7, "crit_damage": 155, "recharge": 5,
         },
         "level_scale_percent": 8,
-        "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "power_strike")],
+        "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "tempest_edge")],
         "passive_abilities": [],
     },
     {
@@ -379,7 +389,10 @@ ENEMY_TEMPLATES: list[dict] = [
             get_ability_by_id(WEAPON_SKILLS, "shield_bash"),
             get_ability_by_id(WEAPON_SKILLS, "rending_cleave"),
         ],
-        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "thornmail")],
+        "passive_abilities": [
+            get_ability_by_id(ARMOR_PASSIVES, "thornmail"),
+            get_ability_by_id(ARMOR_PASSIVES, "capacitor_shell"),
+        ],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "cascade_barrage"),
     },
     {
@@ -398,7 +411,7 @@ ENEMY_TEMPLATES: list[dict] = [
             get_ability_by_id(ARTIFACT_SKILLS, "emp_burst"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "thornmail")],
-        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "voidstorm"),
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "last_stand"),
     },
     {
         # A grifter who's built a whole act around impersonating Dolphe
@@ -515,8 +528,8 @@ ENEMY_TEMPLATES: list[dict] = [
             get_ability_by_id(WEAPON_SKILLS, "sunder_strike"),
             get_ability_by_id(ARTIFACT_SKILLS, "arcane_burst"),
         ],
-        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "retaliation_plating")],
-        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "ascension"),
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "adaptive_plating")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "aegis_protocol"),
     },
     {
         # Every other elite represents an official faction or a construct
@@ -536,6 +549,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "sunder_strike"),
             get_ability_by_id(WEAPON_SKILLS, "berserker_rage"),
+            get_ability_by_id(WEAPON_SKILLS, "riftcutter"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "momentum")],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "phoenix_rebirth"),
@@ -559,7 +573,7 @@ ENEMY_TEMPLATES: list[dict] = [
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "arcane_battery")],
-        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "voidstorm"),
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "gale_ascendant"),
     },
     # ---------------------------------------------------------------
     # Regular Bosses -- standalone 
@@ -571,13 +585,13 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss",
         "region_roles": {'Glacier 15': 'regular', 'The Wastelands': 'regular', 'The Hotlands': 'regular'},
         "base_stats": {
-            "attack": 26, "defense": 10, "elemental": 10, "speed": 14,
+            "attack": 24, "defense": 10, "elemental": 10, "speed": 14,
             "max_hp": 270, "max_mana": 999, "crit_rate": 14, "crit_damage": 170, "recharge": 7,
         },
         "level_scale_percent": 10,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
-            get_ability_by_id(ARTIFACT_SKILLS, "flame_strike"),
+            get_ability_by_id(ARTIFACT_SKILLS, "kinetic_feedback"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "momentum")],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "cascade_barrage"),
@@ -588,7 +602,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss",
         "region_roles": {'Glacier 15': 'regular', 'The Wastelands': 'regular', 'The Hotlands': 'regular', 'Voidcrest Desert': 'regular'},
         "base_stats": {
-            "attack": 14, "defense": 12, "elemental": 6, "speed": 8,
+            "attack": 18, "defense": 12, "elemental": 6, "speed": 8,
             "max_hp": 670, "max_mana": 999, "crit_rate": 9, "crit_damage": 190, "recharge": 7,
         },
         "level_scale_percent": 10,
@@ -608,7 +622,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss",
         "region_roles": {'The Wastelands': 'regular', 'Voidcrest Desert': 'regular'},
         "base_stats": {
-            "attack": 25, "defense": 8, "elemental": 45, "speed": 10,
+            "attack": 26, "defense": 8, "elemental": 45, "speed": 10,
             "max_hp": 350, "max_mana": 999, "crit_rate": 10, "crit_damage": 165, "recharge": 6,
         },
         "level_scale_percent": 10,
@@ -617,7 +631,7 @@ ENEMY_TEMPLATES: list[dict] = [
             get_ability_by_id(WEAPON_SKILLS, "rending_cleave"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "iron_skin")],
-        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "cascade_barrage"),
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "null_strike"),
     },
     {
         # HHyper ship, the first of its kind deployed to the region
@@ -630,7 +644,7 @@ ENEMY_TEMPLATES: list[dict] = [
         },
         "level_scale_percent": 10,
         "active_abilities": [
-            get_ability_by_id(WEAPON_SKILLS, "shield_bash"),
+            get_ability_by_id(WEAPON_SKILLS, "guard_splitter"),
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "executioner")],
@@ -642,12 +656,12 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss",
         "region_roles": {'Glacier 15': 'regular', 'Voidcrest Desert': 'regular'},
         "base_stats": {
-            "attack": 12, "defense": 2, "elemental": 15, "speed": 15,
+            "attack": 12, "defense": 2, "elemental": 15, "speed": 16,
             "max_hp": 400, "max_mana": 999, "crit_rate": 6, "crit_damage": 220, "recharge": 10,
         },
         "level_scale_percent": 10,
         "active_abilities": [
-            get_ability_by_id(WEAPON_SKILLS, "frost_lance"),
+            get_ability_by_id(WEAPON_SKILLS, "riftcutter"),
             get_ability_by_id(WEAPON_SKILLS, "shield_bash"),
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
         ],
@@ -690,7 +704,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "frost_lance"),
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
-            get_ability_by_id(ARTIFACT_SKILLS, "overclock_repair"),
+            get_ability_by_id(ARTIFACT_SKILLS, "ionic_ward"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "vampiric_edge")],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "meteor_ultimate"),
@@ -707,7 +721,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "level_scale_percent": 10,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "rousing_signal"),
-            get_ability_by_id(ARTIFACT_SKILLS, "healing_light"),
+            get_ability_by_id(ARTIFACT_SKILLS, "aegis_broadcast"),
             get_ability_by_id(ARTIFACT_SKILLS, "starfall"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "arcane_battery")],
@@ -729,7 +743,10 @@ ENEMY_TEMPLATES: list[dict] = [
             get_ability_by_id(ARTIFACT_SKILLS, "starfall"),
             get_ability_by_id(WEAPON_SKILLS, "flame_strike"),
         ],
-        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "iron_skin")],
+        "passive_abilities": [
+            get_ability_by_id(ARMOR_PASSIVES, "iron_skin"),
+            get_ability_by_id(ARMOR_PASSIVES, "capacitor_shell"),
+        ],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "cataclysm"),
     },
     # ---------------------------------------------------------------
@@ -773,7 +790,7 @@ ENEMY_TEMPLATES: list[dict] = [
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "momentum")],
-        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "cascade_barrage"),
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "gale_ascendant"),
     },
     {
         # The Trio's brain: an oversized display rig that never leaves
@@ -790,7 +807,7 @@ ENEMY_TEMPLATES: list[dict] = [
         },
         "level_scale_percent": 10,
         "active_abilities": [
-            get_ability_by_id(ARTIFACT_SKILLS, "rousing_signal"),
+            get_ability_by_id(ARTIFACT_SKILLS, "aegis_broadcast"),
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
         ],
         "passive_abilities": [

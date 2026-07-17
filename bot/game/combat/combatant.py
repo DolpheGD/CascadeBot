@@ -61,6 +61,12 @@ class Combatant:
 
     stunned_turns: int = 0
 
+    # Flat HP-equivalent pool that absorbs incoming damage before current_hp
+    # does (see self_shield_percent_max_hp / team_shield_percent_max_hp /
+    # shield_regen in bot/game/combat/effects.py). Consumed first, in full
+    # or in part, on every hit; never expires on its own -- it just runs out.
+    shield: float = 0.0
+
     # ATB-style turn gauge: fills each "tick" proportional to speed; a
     # combatant acts whenever it crosses TURN_THRESHOLD (see battle.py).
     # A much faster combatant's gauge crosses the threshold repeatedly
