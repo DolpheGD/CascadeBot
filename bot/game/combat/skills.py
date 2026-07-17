@@ -213,6 +213,60 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         "Deal 380% ELE damage to the target.",
         {"kind": "damage_multiplier", "damage_percent": 380, "damage_stat": "elemental"},
     ),
+    "slikrz_skill": _skill(
+        "slikrz_skill", "Blank Stare", 18, 1,
+        "Deal 130% ATK damage and reduce the target's DEF by 15% for 2 turns.",
+        {"kind": "damage_and_debuff", "damage_percent": 130, "damage_stat": "attack",
+         "debuff_stat": "defense", "debuff_percent": -15, "duration": 2},
+    ),
+    "slikrz_ultimate": _ultimate(
+        "slikrz_ultimate", "Flatline Frenzy",
+        "Strike the target 3 times for 95% ATK damage each.",
+        {"kind": "multi_hit", "hits": 3, "damage_percent_per_hit": 95, "damage_stat": "attack"},
+    ),
+    "evz_skill": _skill(
+        "evz_skill", "Bedside Manner", 18, 1,
+        "Heal the lowest-HP ally for 20% of their max HP.",
+        {"kind": "heal_lowest_ally_percent_max_hp", "percent": 20},
+    ),
+    "evz_ultimate": _ultimate(
+        "evz_ultimate", "Emergency Landing",
+        "Heal the whole team for 35% of each member's max HP.",
+        {"kind": "team_heal_percent_max_hp", "percent": 35},
+    ),
+    "caandy_skill": _skill(
+        "caandy_skill", "Visor Sync", 20, 2,
+        "Instantly restore 15 energy and 20 SP to the whole team.",
+        {"kind": "team_resource_restore", "energy_amount": 15, "mana_amount": 20},
+    ),
+    "caandy_ultimate": _ultimate(
+        "caandy_ultimate", "AI Overclock",
+        "Boost the whole team's ATK by 40% for 3 turns.",
+        {"kind": "team_buff", "buff_stat": "attack", "buff_percent": 40, "duration": 3},
+    ),
+    "axel_skill": _skill(
+        "axel_skill", "Weakpoint Strike", 18, 1,
+        "Deal 125% ATK damage and reduce the target's ATK and DEF by 15% each for 2 turns.",
+        {"kind": "damage_and_double_debuff", "damage_percent": 125, "damage_stat": "attack",
+         "debuff_stat_1": "attack", "debuff_percent_1": -15,
+         "debuff_stat_2": "defense", "debuff_percent_2": -15, "duration": 2},
+    ),
+    "axel_ultimate": _ultimate(
+        "axel_ultimate", "Exposed Wound",
+        "Deal 170% ATK damage, plus up to 170% more the lower the target's HP is.",
+        {"kind": "damage_scales_with_missing_hp", "base_damage_percent": 170,
+         "bonus_damage_percent_at_zero_hp": 170, "damage_stat": "attack"},
+    ),
+    "ih_skill": _skill(
+        "ih_skill", "Overcharge Support", 18, 2,
+        "Boost the ally who needs it most ATK by 25% for 2 turns.",
+        {"kind": "ally_buff", "buff_stat": "attack", "buff_percent": 25, "duration": 2},
+    ),
+    "ih_ultimate": _ultimate(
+        "ih_ultimate", "Triple Tap",
+        "Strike the target 3 times for 100% ATK damage each.",
+        {"kind": "multi_hit", "hits": 3, "damage_percent_per_hit": 100, "damage_stat": "attack"},
+    ),
 
     # --- 4-star ---
     "bee_jee_skill": _skill(
@@ -246,6 +300,58 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         "Boost the whole team's ATK by 40% for 3 turns.",
         {"kind": "team_buff", "buff_stat": "attack", "buff_percent": 40, "duration": 3},
     ),
+    "andy_skill": _skill(
+        "andy_skill", "Command Strafe", 20, 1,
+        "Deal 135% ATK damage and reduce the target's DEF by 18% for 2 turns.",
+        {"kind": "damage_and_debuff", "damage_percent": 135, "damage_stat": "attack",
+         "debuff_stat": "defense", "debuff_percent": -18, "duration": 2},
+    ),
+    "andy_ultimate": _ultimate(
+        "andy_ultimate", "Squadron Bombardment",
+        "Strike the target 3 times for 110% ATK damage each.",
+        {"kind": "multi_hit", "hits": 3, "damage_percent_per_hit": 110, "damage_stat": "attack"},
+    ),
+    "star_skill": _skill(
+        "star_skill", "Lazy Haymaker", 20, 1,
+        "Deal 220% ATK damage to the target.",
+        {"kind": "damage_multiplier", "damage_percent": 220, "damage_stat": "attack"},
+    ),
+    "star_ultimate": _ultimate(
+        "star_ultimate", "One and Done",
+        "Deal 280% ATK damage to the target, or 450% if they're below 30% HP.",
+        {"kind": "execute_below_threshold", "damage_percent": 280, "execute_damage_percent": 450,
+         "hp_threshold_percent": 30, "damage_stat": "attack"},
+    ),
+    "kotori_skill": _skill(
+        "kotori_skill", "Vein Offering", 18, 1,
+        "Sacrifice 12% of your own max HP to heal the lowest-HP ally for 30% of their max HP.",
+        {"kind": "sacrifice_hp_heal_lowest_ally_percent_max_hp", "self_cost_percent": 12, "heal_percent": 30},
+    ),
+    "kotori_ultimate": _ultimate(
+        "kotori_ultimate", "Crimson Devotion",
+        "Sacrifice 20% of your own max HP to heal the whole team for 35% of each member's max HP.",
+        {"kind": "sacrifice_hp_heal_team_percent_max_hp", "self_cost_percent": 20, "heal_percent": 35},
+    ),
+    "jofrog_skill": _skill(
+        "jofrog_skill", "Battery Swap", 18, 1,
+        "Instantly restore 20 energy and 25 SP to the ally who needs it most.",
+        {"kind": "restore_resource_to_lowest_ally", "energy_amount": 20, "mana_amount": 25},
+    ),
+    "jofrog_ultimate": _ultimate(
+        "jofrog_ultimate", "Full Grid Sync",
+        "Instantly restore 25 energy and 30 SP to the whole team.",
+        {"kind": "team_resource_restore", "energy_amount": 25, "mana_amount": 30},
+    ),
+    "aura_skill": _skill(
+        "aura_skill", "Field Dressing", 18, 1,
+        "Cleanse all negative effects from the lowest-HP ally and heal them for 25% of their max HP.",
+        {"kind": "cleanse_ally_and_heal", "heal_percent": 25},
+    ),
+    "aura_ultimate": _ultimate(
+        "aura_ultimate", "Triage Surge",
+        "Heal the whole team for 45% of each member's max HP.",
+        {"kind": "team_heal_percent_max_hp", "percent": 45},
+    ),
 
     # --- 5-star ---
     "josh_skill": _skill(
@@ -269,6 +375,38 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         "refender_ultimate", "Perfect Balance",
         "Heal the whole team for 40% of each member's max HP.",
         {"kind": "team_heal_percent_max_hp", "percent": 40},
+    ),
+    "dolphe_skill": _skill(
+        "dolphe_skill", "Cascade Directive", 22, 2,
+        "Boost the whole team's ATK by 28% for 2 turns.",
+        {"kind": "team_buff", "buff_stat": "attack", "buff_percent": 28, "duration": 2},
+    ),
+    "dolphe_ultimate": _ultimate(
+        "dolphe_ultimate", "Full Cascade",
+        "Boost the whole team's ATK by 50% for 3 turns.",
+        {"kind": "team_buff", "buff_stat": "attack", "buff_percent": 50, "duration": 3},
+    ),
+    "caliper_skill": _skill(
+        "caliper_skill", "Twin Trigger", 22, 1,
+        "Deal 145% ATK damage and reduce the target's DEF by 20% for 2 turns.",
+        {"kind": "damage_and_debuff", "damage_percent": 145, "damage_stat": "attack",
+         "debuff_stat": "defense", "debuff_percent": -20, "duration": 2},
+    ),
+    "caliper_ultimate": _ultimate(
+        "caliper_ultimate", "Point-Blank Barrage",
+        "Strike the target 4 times for 95% ATK damage each.",
+        {"kind": "multi_hit", "hits": 4, "damage_percent_per_hit": 95, "damage_stat": "attack"},
+    ),
+    "nyrvite_skill": _skill(
+        "nyrvite_skill", "Signal Jam", 20, 1,
+        "Deal 130% ATK damage and drain 15 energy and 15 SP from the target.",
+        {"kind": "damage_and_resource_drain", "damage_percent": 130, "damage_stat": "attack",
+         "energy_drain": 15, "mana_drain": 15},
+    ),
+    "nyrvite_ultimate": _ultimate(
+        "nyrvite_ultimate", "Blackout Protocol",
+        "Drain 30 energy and 35 SP from every enemy at once.",
+        {"kind": "team_resource_drain", "energy_amount": 30, "mana_amount": 35},
     ),
 }
 
@@ -297,6 +435,26 @@ CHARACTER_PASSIVE_MAP: dict[str, dict] = {
         "arkiver_passive", "Elemental Momentum",
         "Gains 4% ATK per turn (max 5 stacks) -- his gauntlets build charge the longer he fights.",
     ),
+    "slikrz_passive": _support_dps_passive(
+        "slikrz_passive", "Empty Static",
+        "Gains 3% Crit Rate per turn (max 5 stacks) -- whatever's left of his focus sharpens the longer the fight runs.",
+    ),
+    "evz_passive": _sustain_passive(
+        "evz_passive", "Old Habits",
+        "At the start of every turn, the whole team is kept stable and healed for 3% of their own max HP.",
+    ),
+    "caandy_passive": _amplifier_passive(
+        "caandy_passive", "HUD Uplink",
+        "At the start of every turn, her visor feeds the whole team 4 energy and 6 SP.",
+    ),
+    "axel_passive": _dps_passive(
+        "axel_passive", "Predator's Focus",
+        "Gains 4% ATK per turn (max 5 stacks) -- she reads an opponent's weaknesses faster the longer she studies them.",
+    ),
+    "ih_passive": _support_dps_passive(
+        "ih_passive", "Loadout Sync",
+        "Gains 3% Crit Rate per turn (max 5 stacks) -- his own aim sharpens the longer he keeps the squad running.",
+    ),
 
     # --- 4-star ---
     "bee_jee_passive": _sustain_passive(
@@ -312,6 +470,28 @@ CHARACTER_PASSIVE_MAP: dict[str, dict] = {
         "At the start of every turn, reads the terrain to keep the whole team's supply lines flowing: 5 energy and 7 SP each.",
         energy_amount=5, mana_amount=7,
     ),
+    "andy_passive": _support_dps_passive(
+        "andy_passive", "Squadron Discipline",
+        "Gains 3% Crit Rate per turn (max 5 stacks) -- years of commanding a squadron sharpen every follow-up shot.",
+    ),
+    "star_passive": _dps_passive(
+        "star_passive", "Cruise Control",
+        "Gains 4% ATK per turn (max 5 stacks) -- he never rushes, but he never stops building up steam either.",
+    ),
+    "kotori_passive": _passive(
+        "kotori_passive", "Bloodgift", "on_turn_start",
+        "At the start of every turn, sacrifices 2% of her own max HP to heal the rest of the team for 4% of their own max HP each.",
+        {"kind": "aura_team_regen_self_sacrifice", "self_cost_percent": 2, "percent": 4},
+    ),
+    "jofrog_passive": _amplifier_passive(
+        "jofrog_passive", "Steady Supply",
+        "At the start of every turn, keeps the whole team's systems topped up: 5 energy and 7 SP each.",
+        energy_amount=5, mana_amount=7,
+    ),
+    "aura_passive": _sustain_passive(
+        "aura_passive", "Steady Hands",
+        "At the start of every turn, the whole team is stabilized and healed for 4% of their own max HP.", percent=4,
+    ),
 
     # --- 5-star ---
     "josh_passive": _dps_passive(
@@ -321,6 +501,21 @@ CHARACTER_PASSIVE_MAP: dict[str, dict] = {
     "refender_passive": _sustain_passive(
         "refender_passive", "Refense Doctrine",
         "At the start of every turn, the whole team regenerates 4% of their own max HP -- balance, extended to everyone around him.", percent=4,
+    ),
+    "dolphe_passive": _amplifier_passive(
+        "dolphe_passive", "Leader's Wavelength",
+        "At the start of every turn, keeps the whole team synced and supplied: 6 energy and 8 SP each.",
+        energy_amount=6, mana_amount=8,
+    ),
+    "caliper_passive": _support_dps_passive(
+        "caliper_passive", "Dead Aim",
+        "Gains 4% Crit Rate per turn (max 5 stacks) -- there isn't a shot she can't eventually thread.",
+        percent_per_stack=4,
+    ),
+    "nyrvite_passive": _support_dps_passive(
+        "nyrvite_passive", "Ghost Protocol",
+        "Gains 4% Crit Rate per turn (max 5 stacks) -- unseen and unheard, she lines up the perfect shot.",
+        percent_per_stack=4,
     ),
 }
 

@@ -29,6 +29,23 @@ an enemy -- "allies" is whoever else is alive on the caster's own side,
 "opponents" is everyone alive on the other side. Both are optional and
 default to empty/[defender], so single-target effect kinds can ignore them
 entirely.
+
+Blood-Sustain effect kinds (sacrifice_hp_heal_lowest_ally_percent_max_hp,
+sacrifice_hp_heal_team_percent_max_hp, and the always-on passive kind
+aura_team_regen_self_sacrifice) pay for their heal with the caster's OWN
+HP via take_raw_hp_loss instead of mana/energy, and never heal the caster
+themself -- introduced for Kotori (bot/game/combat/skills.py), a Sustain
+who gives her own vitality to the team rather than trickling free HP.
+
+Single-ally-targeted support kinds (ally_buff, restore_resource_to_lowest_ally,
+cleanse_ally_and_heal) mirror their team-wide counterparts (team_buff,
+team_resource_restore, cleanse_self_and_heal) but pick exactly one living
+ally to help -- whichever needs it most by the relevant metric -- instead
+of hitting the whole side or the caster. Each falls back to targeting the
+caster if no ally is alive, so the effect is never wasted. damage_and_double_debuff
+and team_resource_drain round out the debuff side: the former stacks two
+stat debuffs from one hit, the latter drains energy/mana from the WHOLE
+opposing side at once (opponents' counterpart to team_resource_restore).
 """
 
 from __future__ import annotations
@@ -236,6 +253,114 @@ def resolve_active_ability(
             ))
         log.append(f"🌀 {attacker.name}'s {ability['name']} weakens the entire opposing side!")
 
+    elif kind == "sacrifice_hp_heal_lowest_ally_percent_max_hp":
+        # Blood-Sustain kit piece (Kotori) -- pays for the heal with the
+        # caster's OWN HP instead of a resource, then mends whichever ally
+        # (never the caster) is lowest on HP%. With no living ally to give
+        # to, the caster heals themself instead so the cost isn't wasted.
+        self_cost = attacker.max_hp * effect["self_cost_percent"] / 100
+        paid = attacker.take_raw_hp_loss(self_cost)
+        if paid:
+            log.append(f"🩸 {attacker.name} sacrifices {paid} HP to fuel {ability['name']}.")
+        living_allies = [a for a in allies if a.is_alive()]
+        target = min(living_allies, key=lambda c: c.current_hp / max(1, c.max_hp)) if living_allies else attacker
+        healed = target.heal(target.max_hp * effect["heal_percent"] / 100)
+        if healed:
+            log.append(f"💚 {attacker.name}'s {ability['name']} heals {target.name} for {healed} HP.")
+        _trigger_on_low_hp(attacker, log)
+
+    elif kind == "sacrifice_hp_heal_team_percent_max_hp":
+        # Blood-Sustain ultimate piece (Kotori) -- pays for a full-team heal
+        # with the caster's own HP. Only living allies are healed, not the
+        # caster; the whole point is giving her own vitality away.
+        self_cost = attacker.max_hp * effect["self_cost_percent"] / 100
+        paid = attacker.take_raw_hp_loss(self_cost)
+        if paid:
+            log.append(f"🩸 {attacker.name} sacrifices {paid} HP to fuel {ability['name']}.")
+        for member in [a for a in allies if a.is_alive()]:
+            healed = member.heal(member.max_hp * effect["heal_percent"] / 100)
+            if healed:
+                log.append(f"💚 {member.name} is healed for {healed} HP by {ability['name']}.")
+        _trigger_on_low_hp(attacker, log)
+
+    elif kind == "damage_and_double_debuff":
+        # Debuff-specialist kit piece (Axel) -- like damage_and_debuff but
+        # strips down TWO stats on the target at once (e.g. ATK and DEF),
+        # for characters built around dismantling a target rather than
+        # just chipping DEF for a follow-up hit.
+        hit = _resolve_hit(attacker, defender, effect["damage_percent"],
+                            effect.get("damage_stat", "attack"), rng, log)
+        if hit and defender.is_alive():
+            defender.modifiers.append(StatModifier(
+                stat=effect["debuff_stat_1"], percent=effect["debuff_percent_1"],
+                duration=effect["duration"], source=ability["name"],
+            ))
+            defender.modifiers.append(StatModifier(
+                stat=effect["debuff_stat_2"], percent=effect["debuff_percent_2"],
+                duration=effect["duration"], source=ability["name"],
+            ))
+            log.append(f"🔻 {defender.name}'s {effect['debuff_stat_1']} and {effect['debuff_stat_2']} are reduced!")
+
+    elif kind == "ally_buff":
+        # Single-target buff support piece (IH) -- unlike team_buff,
+        # this empowers just ONE ally (whichever living ally has the
+        # lowest effective value of the buffed stat, i.e. who needs it
+        # most) rather than the whole side. Falls back to buffing the
+        # caster if no ally is alive to receive it.
+        living_allies = [a for a in allies if a.is_alive()]
+        target = min(living_allies, key=lambda c: c.effective_stat(effect["buff_stat"])) if living_allies else attacker
+        target.modifiers.append(StatModifier(
+            stat=effect["buff_stat"], percent=effect["buff_percent"],
+            duration=effect["duration"], source=ability["name"],
+        ))
+        log.append(f"📈 {attacker.name}'s {ability['name']} empowers {target.name}!")
+
+    elif kind == "restore_resource_to_lowest_ally":
+        # Single-target resource-restore support piece (Jofrog) -- unlike
+        # team_resource_restore, this tops off just whichever living ally
+        # (never the caster) has the lowest combined energy+mana ratio.
+        # Falls back to restoring the caster if no ally is alive.
+        living_allies = [a for a in allies if a.is_alive()]
+
+        def _resource_ratio(c):
+            pool = c.max_energy + c.max_mana
+            return (c.energy + c.mana) / pool if pool else 0
+
+        target = min(living_allies, key=_resource_ratio) if living_allies else attacker
+        energy_gained = min(target.max_energy - target.energy, effect.get("energy_amount", 0))
+        mana_gained = min(target.max_mana - target.mana, effect.get("mana_amount", 0))
+        target.energy += energy_gained
+        target.mana += mana_gained
+        if energy_gained or mana_gained:
+            log.append(f"🔋 {target.name} gains {energy_gained} energy and {mana_gained} SP from {attacker.name}'s {ability['name']}.")
+
+    elif kind == "cleanse_ally_and_heal":
+        # Single-target cleanse support piece (Aura) -- the ally-facing
+        # counterpart to cleanse_self_and_heal. Picks whichever living ally
+        # is lowest on HP% (never the caster), strips their debuffs/DOTs,
+        # and heals them. Falls back to cleansing/healing the caster if no
+        # ally is alive.
+        living_allies = [a for a in allies if a.is_alive()]
+        target = min(living_allies, key=lambda c: c.current_hp / max(1, c.max_hp)) if living_allies else attacker
+        removed = len([m for m in target.modifiers if m.percent < 0]) + len(target.dots)
+        target.modifiers = [m for m in target.modifiers if m.percent >= 0]
+        target.dots = []
+        healed = target.heal(target.max_hp * effect["heal_percent"] / 100)
+        log.append(f"🛠️ {attacker.name}'s {ability['name']} purges {removed} negative effect(s) from {target.name} and heals {healed} HP.")
+
+    elif kind == "team_resource_drain":
+        # Utility debuff piece (Nyrvite) -- the opposing-side counterpart to
+        # team_resource_restore. Strips flat energy/mana from every living
+        # combatant on the OTHER side at once, delaying their ultimates
+        # and starving their skills.
+        for target in [o for o in opponents if o.is_alive()]:
+            energy_lost = min(target.energy, effect.get("energy_amount", 0))
+            mana_lost = min(target.mana, effect.get("mana_amount", 0))
+            target.energy -= energy_lost
+            target.mana -= mana_lost
+            if energy_lost or mana_lost:
+                log.append(f"🔌 {target.name} loses {energy_lost} energy and {mana_lost} SP to {attacker.name}'s {ability['name']}!")
+
     elif kind == "team_resource_restore":
         # Instant support burst -- restores flat energy and/or mana to the
         # caster's whole side at once (as opposed to Arcane Battery-style
@@ -388,3 +513,18 @@ def trigger_on_turn_start(combatant: Combatant, log: list, allies: list[Combatan
                 healed = member.heal(member.max_hp * effect["percent"] / 100)
                 if healed:
                     log.append(f"💚 {member.name} is healed for {healed} HP by {combatant.name}'s {passive['name']}.")
+
+        elif effect["kind"] == "aura_team_regen_self_sacrifice":
+            # Blood-Sustain aura (Kotori) -- unlike aura_team_regen, this
+            # does NOT heal the owner. Every turn it costs the owner a
+            # slice of their own max HP and gives that vitality to living
+            # allies as a percentage heal, no resource cost either way.
+            self_cost = combatant.max_hp * effect["self_cost_percent"] / 100
+            paid = combatant.take_raw_hp_loss(self_cost)
+            if paid:
+                log.append(f"🩸 {combatant.name}'s {passive['name']} costs them {paid} HP.")
+            for member in [a for a in allies if a.is_alive()]:
+                healed = member.heal(member.max_hp * effect["percent"] / 100)
+                if healed:
+                    log.append(f"💚 {member.name} is healed for {healed} HP by {combatant.name}'s {passive['name']}.")
+            _trigger_on_low_hp(combatant, log)
