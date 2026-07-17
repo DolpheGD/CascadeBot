@@ -13,14 +13,27 @@ from bot.utils.ui_guard import OwnedView
 
 def _squad_hp_lines(db, player) -> list[str]:
     """Real, persisted per-character HP for the dungeon map view -- see
-    PlayerCharacter.current_hp / combat_service.sync_party_hp_to_characters."""
+    PlayerCharacter.current_hp / combat_service.sync_party_hp_to_characters.
+
+    Builds Combatant objects for each squad member, applies any built
+    shrine bonuses (so max_hp reflects shrine effects outside of battle),
+    then renders name and HP using those adjusted combatants.
+    """
     from bot.game.combat.factory import build_character_combatant
+    from bot.services import base_service
 
     squad = character_service.get_squad(db, player)
+    if not squad:
+        return []
+
     equipped_by_char = character_service.get_equipped_items_by_character(db, [pc.id for pc in squad])
+    combatants = [build_character_combatant(pc, equipped_by_char.get(pc.id, [])) for pc in squad]
+
+    # Apply shrine bonuses so max_hp / max_mana are up-to-date outside of battle
+    base_service.apply_shrine_bonuses(db, player, combatants)
+
     lines = []
-    for pc in squad:
-        combatant = build_character_combatant(pc, equipped_by_char.get(pc.id, []))
+    for pc, combatant in zip(squad, combatants):
         lines.append(f"{pc.template.name}: {combatant.current_hp}/{combatant.max_hp}")
     return lines
 
