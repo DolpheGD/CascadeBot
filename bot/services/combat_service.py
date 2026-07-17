@@ -65,14 +65,30 @@ def _material_for_floor(floor: int, rng: random.Random) -> MaterialType:
     return rng.choice(_MATERIAL_TIERS[tier_index])
 
 
-def start_battle(db, expedition, player, enemy_templates: list[dict], level: int) -> Battle:
+def start_battle(db, expedition, player, enemy_templates: list, level: int) -> Battle:
+    """Start a battle.
+
+    `enemy_templates` may be either a list of template dicts (legacy behavior)
+    in which case every enemy uses the shared `level` parameter, or a list of
+    (template, level) pairs to allow per-enemy level overrides (used for
+    mixing regular enemies into elite encounters so normal enemies can scale
+    off the region's combat_level_offset while elites use the standard
+    level_offset).
+    """
     squad = character_service.get_squad(db, player)
     equipped_by_char = character_service.get_equipped_items_by_character(
         db, [pc.id for pc in squad]
     )
     party_combatants = build_party_combatants(squad, equipped_by_char)
     base_service.apply_shrine_bonuses(db, player, party_combatants)
-    enemy_combatants = [build_enemy_combatant(t, level=level) for t in enemy_templates]
+
+    enemy_combatants = []
+    for entry in enemy_templates:
+        if isinstance(entry, (list, tuple)) and len(entry) == 2:
+            tpl, tpl_level = entry
+            enemy_combatants.append(build_enemy_combatant(tpl, level=tpl_level))
+        else:
+            enemy_combatants.append(build_enemy_combatant(entry, level=level))
 
     battle = Battle(party_combatants, enemy_combatants)
     expedition.combat_state = battle_to_dict(battle)

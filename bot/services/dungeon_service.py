@@ -345,11 +345,26 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
         # that ELITE/BOSS still use -- otherwise normal enemies in the
         # harder regions lag badly behind how strong a player actually is
         # by the time they're fighting there.
-        offset = (
-            difficulty["combat_level_offset"] if room_type == RoomType.COMBAT
-            else difficulty["level_offset"]
-        )
-        level = node["floor"] // 8 + 1 + offset
+        elite_offset = difficulty["level_offset"]
+        combat_offset = difficulty["combat_level_offset"]
+        elite_level = node["floor"] // 8 + 1 + elite_offset
+        combat_level = node["floor"] // 8 + 1 + combat_offset
+
+        # Allow 0-2 regular (combat-role) enemies to appear during an elite
+        # encounter. 0 is common, 1 is uncommon, 2 is rare.
+        if room_type == RoomType.ELITE:
+            reg_weights = {0: 80, 1: 15, 2: 5}
+            reg_count = rng.choices(list(reg_weights.keys()), weights=list(reg_weights.values()), k=1)[0]
+            if reg_count > 0:
+                combat_templates = enemy_catalog.get_templates_by_role("combat", region=expedition.region) or []
+                reg_chosen = [rng.choice(combat_templates) for _ in range(reg_count)]
+                # For these regular enemies, preserve their own scaling by
+                # passing (template, level) pairs into start_battle.
+                chosen = chosen + [(t, combat_level) for t in reg_chosen]
+
+        # Decide which overall level to pass into start_battle for any
+        # enemies that don't provide an explicit per-template level.
+        level = elite_level if room_type in (RoomType.ELITE, RoomType.BOSS) else combat_level
         combat_service.start_battle(db, expedition, player, chosen, level=level)
         # Awaiting an explicit "Start Battle" press before any turns are
         # fast-forwarded (see _combat_entry_view_and_embed in
@@ -359,7 +374,10 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
         # turns having resolved before they saw anything.
         expedition.pending_interaction = {"kind": "start_battle"}
 
-        names = ", ".join(c["name"] for c in chosen)
+        def _template_name(item):
+            return item[0]["name"] if isinstance(item, (list, tuple)) else item["name"]
+
+        names = ", ".join(_template_name(c) for c in chosen)
         return {"kind": "combat", "message": f"{names} appears!"}
 
     if room_type == RoomType.CAMPFIRE:
