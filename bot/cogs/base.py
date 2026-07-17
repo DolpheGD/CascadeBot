@@ -638,7 +638,7 @@ class MailboxView(OwnedView):
 def _build_mailbox_embed(db, player) -> discord.Embed:
     mailbox = mailbox_service.get_or_create_mailbox(db, player)
     embed = discord.Embed(title="Mailbox", color=discord.Color.dark_gold())
-    embed.description = "A small package of basic supplies arrives every 30min-1hr. Upgrade for better packages."
+    embed.description = "A small package of basic supplies arrives every 15min-30min. Upgrade for better packages."
 
     if mailbox_service.is_ready(mailbox):
         status = "A package is waiting for you!"

@@ -14,8 +14,8 @@ import random
 
 # Every package arrives 30min-1hr after the last one was collected (or
 # after the mailbox was first created), no matter the mailbox's level.
-PACKAGE_MIN_MINUTES = 30
-PACKAGE_MAX_MINUTES = 60
+PACKAGE_MIN_MINUTES = 15
+PACKAGE_MAX_MINUTES = 30
 
 MAX_MAILBOX_LEVEL = 5
 
@@ -38,33 +38,39 @@ MAILBOX_REWARD_TABLE: dict[int, dict[str, tuple[int, int, float]]] = {
         "gold": (20, 50, 1.0),
         "wood": (5, 15, 0.9),
         "stone": (5, 15, 0.9),
+        "shards": (1, 3, 1.0),
     },
     2: {
         "gold": (40, 90, 1.0),
         "wood": (10, 25, 0.95),
         "stone": (10, 25, 0.95),
-        "metal": (0, 5, 0.15),
+        "metal": (1, 5, 0.7),
+        "shards": (2, 4, 1.0),
+    
     },
     3: {
         "gold": (70, 150, 1.0),
         "wood": (15, 35, 1.0),
         "stone": (15, 35, 1.0),
-        "metal": (5, 15, 0.35),
+        "metal": (5, 15, 0.9),
+        "crystal": (1, 5, 0.7),
+        "shards": (3, 5, 1.0),
     },
     4: {
         "gold": (120, 250, 1.0),
         "wood": (20, 45, 1.0),
         "stone": (20, 45, 1.0),
-        "metal": (10, 25, 0.6),
-        "crystal": (0, 5, 0.15),
+        "metal": (10, 25, 1.0),
+        "crystal": (2, 6, 1.0),
+        "shards": (4, 6, 1.0),
     },
     5: {
         "gold": (200, 400, 1.0),
         "wood": (30, 60, 1.0),
         "stone": (30, 60, 1.0),
-        "metal": (15, 35, 0.85),
-        "crystal": (3, 10, 0.35),
-        "shards": (0, 3, 0.1),
+        "metal": (15, 35, 1.0),
+        "crystal": (3, 10, 1.0),
+        "shards": (5, 7, 1.0),
     },
 }
 
