@@ -62,8 +62,9 @@ class CascadeBot(commands.Bot):
             ListPageButton,
             ToListButton,
         )
-        from bot.cogs.economy import HarvesterActionButton, HarvesterCollectAllButton
         from bot.cogs.base import (
+            HarvesterActionButton,
+            HarvesterCollectAllButton,
             HQUpgradeButton,
             MailboxCollectButton,
             MailboxUpgradeButton,
