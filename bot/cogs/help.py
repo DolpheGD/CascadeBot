@@ -101,6 +101,15 @@ class Help(commands.Cog):
             ),
             inline=False,
         )
+        embed.add_field(
+            name="📖 Reference",
+            value=(
+                "`/encyclopedia` -- browse characters, classes, enemies, "
+                "abilities, equipment, and materials. Pure reference info, "
+                "no profile required."
+            ),
+            inline=False,
+        )
         embed.set_footer(text="Gold is common currency; Shards are rarer, used for the character gacha.")
 
         await ctx.response.send_message(embed=embed)
