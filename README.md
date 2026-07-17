@@ -1,8 +1,8 @@
 # CascadeBot
 
-A Discord roguelite: procedurally generated dungeons, turn-based combat,
-Diablo-style loot, an economy (gold/shards, harvesters, gacha, lootboxes),
-all driven by slash commands and buttons.
+A Discord roguelite RPG: procedurally generated dungeons, ATB-based turn combat,
+Diablo-style loot, and a full economy (gold/shards, harvesters, gacha, lootboxes) --
+all played entirely through slash commands and buttons.
 
 ## Setup
 
@@ -45,7 +45,8 @@ all driven by slash commands and buttons.
    ```
 
    On first run this creates all database tables and seeds the starter
-   item/harvester/lootbox catalogs automatically -- no manual migration step.
+   character/item/harvester/lootbox catalogs automatically -- no manual
+   migration step.
 
 ## Playing
 
@@ -59,9 +60,9 @@ all driven by slash commands and buttons.
 - `/inventory` -- browse a compact list of every item and lootbox you own,
   or open one in Detail mode to Equip/Level Up/Reroll/Open it; jump to a
   specific entry by number instead of paging through everything
-- `/daily` -- claim daily reward (gold, streak bonus, lootboxes)
+- `/daily` -- claim daily reward (gold, streak bonus, materials, lootboxes)
 - `/harvesters` -- buy, upgrade, and collect passive income
-- `/pull` -- gacha pull (costs Shards)
+- `/pull` -- gacha pull for characters and gear (costs Shards)
 - `/lootboxes`, `/open <tier>` -- quick-glance and open lootboxes (also
   reachable from `/inventory`)
 - `/admin_testgear` -- (Administrator only) grants a full Legendary kit
@@ -73,10 +74,40 @@ all driven by slash commands and buttons.
 Turn order is speed-based (an ATB gauge), not a fixed rotation -- see the
 🔀 Turn Order line on the battle message. Each turn is Attack (free, builds
 Energy + Mana equal to your Recharge stat), a Skill from an equipped
-weapon/artifact (costs Mana), or your Ultimate from an equipped Scroll
-(usable once Energy reaches 100). There's no defending or fleeing, and no
-dodge/miss chance -- every hit lands, mitigated only by Defense. Switching
-which enemy you're targeting is a free action.
+weapon/artifact (costs Mana), or your Ultimate from your character's own
+kit (usable once Energy reaches 100). There's no defending or fleeing, and
+no dodge/miss chance -- every hit lands, mitigated only by Defense.
+Switching which enemy you're targeting is a free action.
+
+### Characters
+
+Every character has a mechanical identity, not just a different portrait --
+their skills, ultimate, and passive scale off different stats on purpose:
+
+| Character | Class | Identity |
+|---|---|---|
+| FAX | Support DPS | Stacks damage and speed together (pilot fantasy) |
+| Nexus | Amplifier | Buffs the whole team's Recharge |
+| Sader Vorae | Support DPS | Stacks Crit Damage |
+| Nebula | Amplifier | Team-wide Speed ultimate |
+| Bee Jee | Sustain | Team heals that scale off her own Defense |
+| Refender | Sustain | Team heals off Defense, embodying a "balance" philosophy |
+| Lily Lovelace | Sustain | A cook who tends the battlefield like a kitchen |
+| Arkiver | DPS | Straightforward elemental gauntlet damage |
+| Josh | DPS | High-attack scaling, the World Aligners' leader |
+| "You" | DPS (switchable) | The player's own free avatar; can freely change class |
+
+Characters are rated 3★ to 5★ and pulled via `/pull` alongside gear.
+
+### Loot and materials
+
+Equipment rarity runs `Common → Uncommon → Rare → Epic → Legendary → Mythic
+→ Divine`. Every material a piece of gear is crafted from has its own
+rarity band -- crude materials like leather can only ever roll
+Common-Uncommon gear, while exotic materials like void or entropy can roll
+all the way up to Mythic-Divine. Rarity is rolled first, then the game picks
+a template compatible with that rarity, so drop tables stay honest about
+what a given material can actually produce.
 
 ## Architecture notes
 
@@ -93,20 +124,12 @@ which enemy you're targeting is a free action.
 - **Mutating commands lock during combat.** `/pull`, `/harvesters`,
   `/open`, and equip/level-up/reroll/open-lootbox actions inside
   `/inventory` all check `dungeon_service.is_in_combat()` first.
+- **Rarity and templates are decoupled.** Loot generation rolls a rarity
+  first, then filters equipment templates down to ones compatible with that
+  roll -- rather than picking a template and deriving its rarity -- so
+  material tiers, gacha, lootboxes, and dungeon drops all share one
+  consistent rule for "what can this rarity actually be."
 
 See inline docstrings throughout `bot/services/` and `bot/game/` for the
 reasoning behind specific design choices (damage formula, rarity curves,
-turn order, etc).
-
-## Known gaps / next steps
-
-- No shop yet (needs a curated, priced item catalog beyond the starter set).
-- top.gg vote rewards not yet implemented (requires a public webhook
-  endpoint -- a hosting/deployment concern as much as a code one).
-- `Expedition.current_hp` is tracked but not yet synced from/to actual
-  battle HP -- every encounter currently starts at full HP regardless of
-  prior damage taken earlier in the same expedition. Wiring that up (and
-  deciding whether HP regenerates between rooms or only at campfires) is
-  a natural next step.
-- Only ~24 item templates and 6 enemy templates exist -- functional, but
-  thin. Expanding both is pure content work, no architecture changes needed.
+turn order, character kits, etc).
