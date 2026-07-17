@@ -13,8 +13,8 @@ Void-corrupted machinery, and the wastelanders/scavengers Team Cascade
 actually runs into on expeditions. No fantasy creatures.
 
 Roles:
-  * "combat" -- regular room enemies, 1-2 per fight.
-  * "elite"  -- elite rooms, 1 per fight, meaningfully tougher.
+  * "combat" -- regular room enemies, plentiful
+  * "elite"  -- elite rooms, few per fight
   * "boss"   -- standalone boss-room enemies, 1 per fight.
   * "boss_group_member" -- boss-room enemies that only ever appear together
     as part of a BOSS_GROUPS entry (see get_boss_encounter()), never rolled
@@ -421,7 +421,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "passive_abilities": [],
     },
     # ---------------------------------------------------------------
-    # ELITE -- tougher, 1-per-fight encounters
+    # ELITE -- tougher
     # ---------------------------------------------------------------
     {
         # Xender's answer to Team Cascade's better-equipped operatives --

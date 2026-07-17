@@ -45,28 +45,28 @@ REGION_DIFFICULTY: dict[str, dict] = {
         "level_offset": 0, "combat_level_offset": 0, "reward_multiplier": 1.0,
         "max_item_rarity": Rarity.EPIC, "max_lootbox_tier": "rare",
         "combat_squad_weights": {1: 30, 2: 40, 3: 25, 4: 5},
-        "elite_squad_weights": {1: 90, 2: 10},
+        "elite_squad_weights": {1: 80, 2: 20},
     },
     "The Wastelands": {
         "tier": 2, "difficulty_label": "Normal",
         "level_offset": 7, "combat_level_offset": 10, "reward_multiplier": 1.25,
         "max_item_rarity": Rarity.LEGENDARY, "max_lootbox_tier": "epic",
         "combat_squad_weights": {1: 10, 2: 30, 3: 35, 4: 20, 5: 5},
-        "elite_squad_weights": {1: 75, 2: 25},
+        "elite_squad_weights": {1: 70, 2: 30},
     },
     "The Hotlands": {
         "tier": 3, "difficulty_label": "Hard",
         "level_offset": 15, "combat_level_offset": 22, "reward_multiplier": 1.5,
         "max_item_rarity": Rarity.MYTHIC, "max_lootbox_tier": "legendary",
         "combat_squad_weights": {2: 20, 3: 35, 4: 30, 5: 15},
-        "elite_squad_weights": {1: 55, 2: 45},
+        "elite_squad_weights": {1: 50, 2: 40, 3: 10},
     },
     "Voidcrest Desert": {
         "tier": 4, "difficulty_label": "Insane",
         "level_offset": 25, "combat_level_offset": 40, "reward_multiplier": 2.0,
         "max_item_rarity": Rarity.DIVINE, "max_lootbox_tier": "mythic",
         "combat_squad_weights": {2: 10, 3: 25, 4: 35, 5: 30},
-        "elite_squad_weights": {1: 40, 2: 60},
+        "elite_squad_weights": {1: 30, 2: 50, 3: 20},
     },
 }
 

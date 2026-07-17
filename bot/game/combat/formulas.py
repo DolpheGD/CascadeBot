@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import random
 
-MITIGATION_K = 40
+MITIGATION_K = 70
 
 
 def mitigate(raw_damage: float, defense: float) -> float:
