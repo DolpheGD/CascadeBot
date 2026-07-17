@@ -42,6 +42,7 @@ from bot.game.dungeon.region_config import get_region_difficulty
 from bot.game.economy.lootbox_config import tier_for_floor_and_region
 from bot.game.loot.generator import LootGenerator
 from bot.services import character_service, combat_service, item_template_service, lootbox_service, quest_service
+from bot.services import character_service, combat_service, item_template_service, lootbox_service
 from bot.services.currency_service import add_currency, format_currency, spend_currency
 
 # Which material tier drops from treasure/secret rooms at a given floor --
@@ -335,7 +336,16 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
             count = rng.choices(list(squad_weights.keys()), weights=list(squad_weights.values()), k=1)[0]
             chosen = [rng.choice(templates) for _ in range(count)]
 
-        level = node["floor"] + 1 + difficulty["level_offset"]
+        # Combat rework: normal COMBAT-room enemies scale off their own
+        # (higher) combat_level_offset instead of the shared level_offset
+        # that ELITE/BOSS still use -- otherwise normal enemies in the
+        # harder regions lag badly behind how strong a player actually is
+        # by the time they're fighting there.
+        offset = (
+            difficulty["combat_level_offset"] if room_type == RoomType.COMBAT
+            else difficulty["level_offset"]
+        )
+        level = node["floor"] + 1 + offset
         combat_service.start_battle(db, expedition, player, chosen, level=level)
         # Awaiting an explicit "Start Battle" press before any turns are
         # fast-forwarded (see _combat_entry_view_and_embed in
@@ -530,6 +540,10 @@ def resolve_battle_end(db, expedition: Expedition, player, battle) -> dict:
         _ledger_add_xp(expedition, rewards["xp"])
         for item in rewards["items"]:
             _ledger_add_item(expedition, item)
+        if rewards.get("material"):
+            _ledger_add_material(expedition, rewards["material"]["type"], rewards["material"]["amount"])
+        if rewards.get("lootbox"):
+            _ledger_add_lootbox(expedition, rewards["lootbox"]["tier"], rewards["lootbox"]["quantity"])
         _ledger_record_level_ups(expedition, rewards["level_ups"])
         _mark_completed(expedition, expedition.current_node_id)
         combat_service.clear_battle(db, expedition)
