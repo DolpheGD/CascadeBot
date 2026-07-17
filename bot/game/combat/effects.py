@@ -21,7 +21,7 @@ Resource economy: the basic Attack action is the only thing that generates
 energy and mana (by the attacker's Recharge stat) -- see
 Combatant.gain_energy_and_mana(). Skills (weapon/artifact) spend mana.
 The ultimate (from an equipped scroll) spends energy instead, and is only
-usable once energy hits 100.
+usable once energy hits 50.
 
 Team-oriented effect kinds (own-side buffs/heals/resource restores, and
 opposing-side debuffs) apply identically whether the caster is a player or

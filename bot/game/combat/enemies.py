@@ -5,7 +5,7 @@ than a separate enemy-ability vocabulary -- an enemy "knowing Flame Strike"
 and a weapon that grants Flame Strike are mechanically identical to the
 combat engine, so one effect-resolution system covers both. Enemy resource
 costs are irrelevant (they have effectively unlimited mana), but the
-ultimate is still gated by energy reaching 100 so bosses don't nuke turn one.
+ultimate is still gated by energy reaching 50 so bosses don't nuke turn one.
 
 Content pass: full roster grounded in the Cascade setting (see
 docs/WORLD_LORE.md) -- Xender's regime (Acatrya), Eris-wreckage constructs,

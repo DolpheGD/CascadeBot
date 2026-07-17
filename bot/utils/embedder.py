@@ -205,7 +205,7 @@ def _profile_abilities_page(player, character, equipped_items, avatar_url) -> di
     if combatant.ultimate_ability:
         u = combatant.ultimate_ability
         embed.add_field(
-            name="💥 Character Ultimate", value=f"**{u['name']}** (100 Energy): {u['description']}", inline=False
+        name="💥 Character Ultimate", value=f"**{u['name']}** ({combatant.max_energy} Energy): {u['description']}", inline=False
         )
 
     if character_passive:
