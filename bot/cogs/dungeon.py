@@ -394,7 +394,10 @@ async def _handle_start_battle(interaction: discord.Interaction):
             follow_up_text = _battle_end_message(summary)
             if follow_up_text:
                 embed2, view2 = _render_room(db, expedition, player, "resolved", follow_up_text, avatar_url)
-                await interaction.followup.send(embed=embed2, view=view2)
+                if view2 is None:
+                    await interaction.followup.send(embed=embed2)
+                else:
+                    await interaction.followup.send(embed=embed2, view=view2)
             exp_summary = _expedition_summary_kwargs(summary)
             if exp_summary:
                 ledger, won = exp_summary
@@ -483,7 +486,10 @@ async def _handle_move(interaction: discord.Interaction, target_node_id: str):
                 follow_up_text = _battle_end_message(summary)
                 if follow_up_text:
                     embed2, view2 = _render_room(db, expedition, player, "resolved", follow_up_text, avatar_url)
-                    await interaction.followup.send(embed=embed2, view=view2)
+                    if view2 is None:
+                        await interaction.followup.send(embed=embed2)
+                    else:
+                        await interaction.followup.send(embed=embed2, view=view2)
                 exp_summary = _expedition_summary_kwargs(summary)
                 if exp_summary:
                     ledger, won = exp_summary
@@ -580,7 +586,10 @@ async def _handle_combat_action(interaction: discord.Interaction, action: str, a
             follow_up_text = _battle_end_message(summary)
             if follow_up_text:
                 embed, view = _render_room(db, expedition, player, "resolved", follow_up_text, avatar_url)
-                await interaction.followup.send(embed=embed, view=view)
+                if view is None:
+                    await interaction.followup.send(embed=embed)
+                else:
+                    await interaction.followup.send(embed=embed, view=view)
             exp_summary = _expedition_summary_kwargs(summary)
             if exp_summary:
                 ledger, won = exp_summary
@@ -714,7 +723,10 @@ class Dungeon(commands.Cog):
                     player = get_player(db, ctx.user.id)
                     expedition = dungeon_service.get_active_expedition(db, player.id)
                     embed, view = _render_room(db, expedition, player, "resolved", follow_up_text, avatar_url)
-                    await ctx.followup.send(embed=embed, view=view)
+                    if view is None:
+                        await ctx.followup.send(embed=embed)
+                    else:
+                        await ctx.followup.send(embed=embed, view=view)
                 finally:
                     db.close()
 
