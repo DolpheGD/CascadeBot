@@ -15,20 +15,49 @@ from __future__ import annotations
 
 import random
 
+from bot.database.models.enums import MaterialType
 from bot.game.combat.battle import Battle
 from bot.game.combat.factory import build_enemy_combatant, build_party_combatants
 from bot.game.combat.serialization import battle_from_dict, battle_to_dict
+from bot.game.economy.lootbox_config import tier_for_floor_and_region
 from bot.game.loot.generator import LootGenerator
-from bot.services import base_service, character_service, item_template_service
+from bot.services import base_service, character_service, item_template_service, lootbox_service
 from bot.services.currency_service import add_currency
 
 # Chance of an item dropping on victory -- elites and bosses feel worth
 # fighting instead of just being harder versions of a regular encounter.
 ITEM_DROP_CHANCE = {"combat": 0.4, "elite": 0.7, "boss": 1.0}
 
+# Combat rework: materials and a lootbox chance now drop from EVERY combat
+# victory (previously only treasure/secret rooms handed those out, so
+# fighting was a strictly worse source of them than just walking around a
+# fight). Elites guarantee both -- at minimum a Common lootbox, per spec --
+# so they read as clearly worth seeking out rather than just a harder
+# regular fight for a similar payout.
+MATERIAL_DROP_CHANCE = {"combat": 0.55, "elite": 1.0, "boss": 1.0}
+LOOTBOX_DROP_CHANCE = {"combat": 0.2, "elite": 1.0, "boss": 1.0}
+
 # Gold/XP multiplier by room type on top of the base per-floor formula --
-# "Defeating the boss should grant great rewards" from the spec.
-ROOM_TYPE_REWARD_MULTIPLIER = {"combat": 1.0, "elite": 1.5, "boss": 3.0}
+# "Defeating the boss should grant great rewards" from the spec. Elites
+# bumped up further (1.5 -> 1.85) so their increased-reward feel isn't
+# just the guaranteed material/lootbox.
+ROOM_TYPE_REWARD_MULTIPLIER = {"combat": 1.0, "elite": 1.85, "boss": 3.0}
+
+# Mirrors dungeon_service._MATERIAL_TIERS / _material_for_floor -- which
+# material tier drops at a given floor. Duplicated (rather than imported)
+# to avoid a circular import, since dungeon_service already imports this
+# module.
+_MATERIAL_TIERS = [
+    (MaterialType.WOOD, MaterialType.STONE),
+    (MaterialType.METAL, MaterialType.CRYSTAL),
+    (MaterialType.XENDIUM, MaterialType.PERMAFROST_ORE),
+    (MaterialType.VOID, MaterialType.ENTROPY),
+]
+
+
+def _material_for_floor(floor: int, rng: random.Random) -> MaterialType:
+    tier_index = min(floor // 4, len(_MATERIAL_TIERS) - 1)
+    return rng.choice(_MATERIAL_TIERS[tier_index])
 
 
 def start_battle(db, expedition, player, enemy_templates: list[dict], level: int) -> Battle:
@@ -115,10 +144,11 @@ def apply_victory_rewards(
     difficulty = get_region_difficulty(expedition.region)
     multiplier = ROOM_TYPE_REWARD_MULTIPLIER.get(room_type, 1.0) * difficulty["reward_multiplier"]
 
-    # Balancing pass: overall progression should feel slower / more grindy
-    # than the original per-floor payout.
-    gold_reward = round((12 + floor * 6) * multiplier)
-    xp_reward = round((10 + floor * 5) * multiplier)
+    # Combat rework: base gold/xp payout raised across the board so combat
+    # rewards feel worth it on their own, on top of the new material/
+    # lootbox drops below.
+    gold_reward = round((18 + floor * 8) * multiplier)
+    xp_reward = round((14 + floor * 7) * multiplier)
 
     add_currency(db, player, "gold", gold_reward)
     squad = character_service.get_squad(db, player)
@@ -143,4 +173,32 @@ def apply_victory_rewards(
             db.refresh(item)
             items.append(item)
 
-    return {"gold": gold_reward, "xp": xp_reward, "items": items, "level_ups": level_ups}
+    # Combat rework: materials drop from combat victories at scaling odds,
+    # guaranteed for elites/bosses. Amount scales up with room type so
+    # elites/bosses feel like a meaningfully better material source, not
+    # just a better shot at one.
+    material = None
+    if rng.random() < MATERIAL_DROP_CHANCE.get(room_type, 0.5):
+        material_type = _material_for_floor(floor, rng)
+        material_amount = round(rng.randint(2, 6) * difficulty["reward_multiplier"])
+        if room_type == "elite":
+            material_amount = round(material_amount * 1.5)
+        elif room_type == "boss":
+            material_amount = material_amount * 2
+        material_amount = max(1, material_amount)
+        add_currency(db, player, material_type.value, material_amount)
+        material = {"type": material_type.value, "amount": material_amount}
+
+    # Combat rework: lootbox chance on every combat victory -- guaranteed
+    # (at minimum a Common lootbox, since tier_for_floor_and_region never
+    # returns below that) for elites and bosses.
+    lootbox = None
+    if rng.random() < LOOTBOX_DROP_CHANCE.get(room_type, 0.2):
+        tier = tier_for_floor_and_region(floor, difficulty["max_lootbox_tier"])
+        lootbox_service.grant_lootbox(db, player, tier, quantity=1)
+        lootbox = {"tier": tier, "quantity": 1}
+
+    return {
+        "gold": gold_reward, "xp": xp_reward, "items": items, "level_ups": level_ups,
+        "material": material, "lootbox": lootbox,
+    }
