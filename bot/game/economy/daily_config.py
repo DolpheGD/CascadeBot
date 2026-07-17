@@ -13,12 +13,12 @@ DAILY_STREAK_GOLD_CAP_DAYS = 20  # streak bonus stops growing past this many day
 
 # Bonus shards awarded on top of gold every N days of an unbroken streak.
 DAILY_SHARD_MILESTONE_INTERVAL = 7
-DAILY_SHARD_MILESTONE_AMOUNT = 10
+DAILY_SHARD_MILESTONE_AMOUNT = 150
 
 # Reroll tokens on every claim -- a small, reliable source of the equipment
 # reroll/substat currency, separate from dungeon drops. Part of making
 # dailies feel more impactful now that dungeon gold was trimmed down.
-DAILY_REROLL_TOKENS = 3
+DAILY_REROLL_TOKENS = 10
 
 # Lootbox tier for the guaranteed daily box escalates with streak length --
 # starts at "rare" (not "common": /daily should feel worth doing from day
@@ -61,9 +61,9 @@ def compute_daily_reward(streak: int) -> tuple[int, int, int]:
     capped_streak = min(streak, DAILY_STREAK_GOLD_CAP_DAYS)
     gold = DAILY_BASE_GOLD + DAILY_GOLD_PER_STREAK_DAY * (capped_streak - 1)
 
-    shards = 0
+    shards = 50
     if streak % DAILY_SHARD_MILESTONE_INTERVAL == 0:
-        shards = DAILY_SHARD_MILESTONE_AMOUNT
+        shards += DAILY_SHARD_MILESTONE_AMOUNT
 
     return gold, shards, DAILY_REROLL_TOKENS
 
