@@ -38,16 +38,15 @@ MATERIAL_DROP_CHANCE = {"combat": 0.55, "elite": 1.0, "boss": 1.0}
 LOOTBOX_DROP_CHANCE = {"combat": 0.2, "elite": 1.0, "boss": 1.0}
 
 # Gold/XP multiplier by room type on top of the base per-floor formula --
-# "Defeating the boss should grant great rewards" from the spec. Elites
-# bumped up further (1.5 -> 1.85) so their increased-reward feel isn't
+# "Defeating the boss should grant great rewards"
 # just the guaranteed material/lootbox.
-ROOM_TYPE_REWARD_MULTIPLIER = {"combat": 1.0, "elite": 1.85, "boss": 3.0}
+ROOM_TYPE_REWARD_MULTIPLIER = {"combat": 1.0, "elite": 1.4, "boss": 1.8}
 
 # Combat reroll token drop chance and reward sizes. These are a small
 # additional source of reroll tokens to make combat feel directly useful
 # for the item re-roll economy.
 REROLL_DROP_CHANCE = {"combat": 0.15, "elite": 0.35, "boss": 0.6}
-REROLL_DROP_AMOUNTS = {"combat": (1, 1), "elite": (1, 2), "boss": (2, 3)}
+REROLL_DROP_AMOUNTS = {"combat": (1, 1), "elite": (1, 3), "boss": (2, 3)}
 
 # Mirrors dungeon_service._MATERIAL_TIERS / _material_for_floor -- which
 # material tier drops at a given floor. Duplicated (rather than imported)
@@ -62,7 +61,7 @@ _MATERIAL_TIERS = [
 
 
 def _material_for_floor(floor: int, rng: random.Random) -> MaterialType:
-    tier_index = min(floor // 4, len(_MATERIAL_TIERS) - 1)
+    tier_index = min(floor // 9, len(_MATERIAL_TIERS) - 1)
     return rng.choice(_MATERIAL_TIERS[tier_index])
 
 
@@ -153,8 +152,8 @@ def apply_victory_rewards(
     # Combat rework: base gold/xp payout raised across the board so combat
     # rewards feel worth it on their own, on top of the new material/
     # lootbox drops below.
-    gold_reward = round((18 + floor * 8) * multiplier)
-    xp_reward = round((14 + floor * 7) * multiplier)
+    gold_reward = round((18 + (floor // 5) * 8) * multiplier)
+    xp_reward = round((14 + (floor // 5) * 7) * multiplier)
 
     add_currency(db, player, "gold", gold_reward)
     squad = character_service.get_squad(db, player)
