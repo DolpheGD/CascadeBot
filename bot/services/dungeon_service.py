@@ -52,7 +52,7 @@ _MATERIAL_TIERS = [
 
 def _material_for_floor(floor: int, rng: random.Random | None = None) -> MaterialType:
     rng = rng or random
-    tier_index = min(floor // 4, len(_MATERIAL_TIERS) - 1)
+    tier_index = min(floor // 7, len(_MATERIAL_TIERS) - 1)
     return rng.choice(_MATERIAL_TIERS[tier_index])
 
 
