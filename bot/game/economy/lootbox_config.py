@@ -114,15 +114,15 @@ TIER_ORDER = ["common", "uncommon", "rare", "epic", "legendary", "mythic"]
 
 
 def tier_for_floor(floor: int) -> str:
-    if floor < 3:
-        return "common"
-    if floor < 5:
-        return "uncommon"
     if floor < 7:
+        return "common"
+    if floor < 14:
+        return "uncommon"
+    if floor < 21:
         return "rare"
-    if floor < 10:
+    if floor < 28:
         return "epic"
-    if floor < 13:
+    if floor < 35:
         return "legendary"
     return "mythic"
 

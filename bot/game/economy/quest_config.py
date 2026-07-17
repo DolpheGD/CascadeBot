@@ -79,7 +79,7 @@ BEGINNER_QUESTS: list[dict] = [
     },
 ]
 
-BEGINNER_BONUS_REWARD: dict[str, int] = {"shards": 300}
+BEGINNER_BONUS_REWARD: dict[str, int] = {"shards": 450}
 
 
 # ----------------------------------------------------------------------

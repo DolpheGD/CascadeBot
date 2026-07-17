@@ -89,7 +89,7 @@ class Help(commands.Cog):
             name="💰 Economy",
             value=(
                 "`/daily` -- claim your daily reward (gold, reroll tokens, streak bonuses + lootboxes)\n"
-                "`/quests` -- one-time beginner quests (300 Shards for finishing them all) plus a repeating basic quest, rerollable every 5 hours\n"
+                "`/quests` -- one-time beginner quests (450 Shards for finishing them all) plus a repeating basic quest, rerollable every 5 hours\n"
                 "`/harvesters` -- buy, upgrade, and collect passive income, all in one place\n"
                 "`/base hq` -- view and upgrade Cascade HQ\n"
                 "`/base shrines` -- build/upgrade party-wide stat shrines\n"

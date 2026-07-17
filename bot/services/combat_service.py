@@ -26,7 +26,7 @@ from bot.services.currency_service import add_currency
 
 # Chance of an item dropping on victory -- elites and bosses feel worth
 # fighting instead of just being harder versions of a regular encounter.
-ITEM_DROP_CHANCE = {"combat": 0.4, "elite": 0.7, "boss": 1.0}
+ITEM_DROP_CHANCE = {"combat": 0.5, "elite": 0.75, "boss": 1.0}
 
 # Combat rework: materials and a lootbox chance now drop from EVERY combat
 # victory (previously only treasure/secret rooms handed those out, so
@@ -35,7 +35,7 @@ ITEM_DROP_CHANCE = {"combat": 0.4, "elite": 0.7, "boss": 1.0}
 # so they read as clearly worth seeking out rather than just a harder
 # regular fight for a similar payout.
 MATERIAL_DROP_CHANCE = {"combat": 0.55, "elite": 1.0, "boss": 1.0}
-LOOTBOX_DROP_CHANCE = {"combat": 0.2, "elite": 1.0, "boss": 1.0}
+LOOTBOX_DROP_CHANCE = {"combat": 0.35, "elite": 1.0, "boss": 1.0}
 
 # Gold/XP multiplier by room type on top of the base per-floor formula --
 # "Defeating the boss should grant great rewards"
@@ -45,7 +45,7 @@ ROOM_TYPE_REWARD_MULTIPLIER = {"combat": 1.0, "elite": 1.4, "boss": 1.8}
 # Combat reroll token drop chance and reward sizes. These are a small
 # additional source of reroll tokens to make combat feel directly useful
 # for the item re-roll economy.
-REROLL_DROP_CHANCE = {"combat": 0.15, "elite": 0.35, "boss": 0.6}
+REROLL_DROP_CHANCE = {"combat": 0.25, "elite": 0.5, "boss": 1.0}
 REROLL_DROP_AMOUNTS = {"combat": (1, 1), "elite": (1, 3), "boss": (2, 3)}
 
 # Mirrors dungeon_service._MATERIAL_TIERS / _material_for_floor -- which
