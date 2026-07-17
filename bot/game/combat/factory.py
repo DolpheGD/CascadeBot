@@ -38,6 +38,56 @@ from bot.game.combat.skills import (
     get_class_kit,
 )
 
+# ---------------------------------------------------------------------
+# Balance pass -- across-the-board enemy rework (see bot/game/combat/
+# enemies.py's module docstring for the full picture). Applied uniformly
+# here in build_enemy_combatant rather than hand-edited onto every one of
+# the ~40 templates in enemies.py, so the whole roster moves together and
+# stays easy to retune from one place. Three things happen per enemy, all
+# keyed off the template's "role":
+#
+#   1. DEFENSE_MULTIPLIER -- enemies were too easy to punch through even
+#      before the K-value change in formulas.py; every role gets more DEF
+#      than its authored base_stats value, elites most of all so a hit
+#      that shreds a normal enemy doesn't equally shred an elite.
+#   2. ELITE_POWER_MULTIPLIER -- elites were weaker than a standalone boss
+#      AND weaker than a small congregation of normal enemies, which is
+#      backwards for a 1-per-fight "meaningfully tougher" encounter (see
+#      enemies.py's role docstring). ATK/ELE/HP all get a real bump;
+#      normal "combat"-role enemies get a smaller version of the same
+#      bump so a pack of them stays a genuine threat too, without eclipsing
+#      what an elite room now brings.
+#   3. ATTACK_RAMP_PERCENT_PER_TURN_BY_ROLE -- replaces the old innate
+#      per-turn HP regen (a permanent, battle-long HealOverTime every
+#      enemy used to get for free). Regen let a sufficiently tanky enemy
+#      out-sustain a party that couldn't quite burst through it, so a fight
+#      could grind on forever with neither side able to close it out.
+#      Instead, every enemy's own turns now feed a small, PERMANENT
+#      (never expires, never resets) attack/elemental ramp -- see
+#      Combatant.ramp_stacks / effective_stat in combatant.py. It's tuned
+#      to be unnoticeable across a normal-length fight and only becomes a
+#      real factor if a fight runs unusually long, at which point it
+#      gradually forces a conclusion instead of letting either side
+#      stalemate indefinitely. Bosses/elites ramp faster, both because
+#      they're the templates most likely to be in a drawn-out fight and to
+#      keep pace with their own now-higher DEF making them harder to
+#      burst down cleanly.
+# ---------------------------------------------------------------------
+DEFENSE_MULTIPLIER_BY_ROLE = {
+    "combat": 1.25,
+    "elite": 1.5,
+    "boss": 1.4,
+    "boss_group_member": 1.35,
+}
+ELITE_POWER_MULTIPLIER = {"attack": 1.35, "elemental": 1.35, "max_hp": 1.15}
+NORMAL_POWER_MULTIPLIER = {"attack": 1.15, "elemental": 1.15, "max_hp": 1.25}
+ATTACK_RAMP_PERCENT_PER_TURN_BY_ROLE = {
+    "combat": 0.4,
+    "elite": 0.6,
+    "boss": 0.5,
+    "boss_group_member": 0.5,
+}
+
 
 def base_character_stats(player_character) -> dict:
     """Template base stats + linear growth to the character's current
@@ -195,6 +245,29 @@ def build_enemy_combatant(template: dict, level: int = 1) -> Combatant:
     }
     base_stats["max_hp"] = max(1, base_stats["max_hp"])
 
+    role = template.get("role", "combat")
+
+    # Balance pass -- defense rework: see the DEFENSE_MULTIPLIER_BY_ROLE
+    # comment above. Applied after level scaling so it compounds with
+    # level_scale_percent the same way every other stat does.
+    base_stats["defense"] = round(
+        base_stats["defense"] * DEFENSE_MULTIPLIER_BY_ROLE.get(role, 1.35)
+    )
+
+    # Balance pass -- elites (and, to a lesser degree, normal enemies)
+    # were weaker than they should be relative to standalone bosses and
+    # to a group of normal enemies. Boss/boss_group_member templates are
+    # left at their authored numbers -- that roster already went through
+    # its own tuning pass (see enemies.py's module docstring).
+    power_multiplier = (
+        ELITE_POWER_MULTIPLIER if role == "elite"
+        else NORMAL_POWER_MULTIPLIER if role == "combat"
+        else None
+    )
+    if power_multiplier:
+        for stat, mult in power_multiplier.items():
+            base_stats[stat] = round(base_stats[stat] * mult)
+
     ultimate = template.get("ultimate_ability")
     if ultimate:
         ultimate = dict(ultimate)
@@ -202,6 +275,15 @@ def build_enemy_combatant(template: dict, level: int = 1) -> Combatant:
         ultimate.setdefault("resource_type", "energy")
         ultimate.setdefault("resource_cost", 50)
         ultimate.setdefault("cooldown", 0)
+
+    # Balance pass -- attack ramp-up (replaces innate regen): a small,
+    # PERMANENT per-turn attack/elemental bonus that accumulates every one
+    # of this enemy's own turns (see battle.py's _begin_turn and
+    # Combatant.effective_stat). Unlike the old regen, this is an offense
+    # buff, not sustain -- it stacks fine alongside anything a template's
+    # own passives additionally grant (regen_field_generator, etc.), which
+    # are deliberate per-character kit pieces left untouched by this pass.
+    ramp_percent_per_turn = ATTACK_RAMP_PERCENT_PER_TURN_BY_ROLE.get(role, 0.4)
 
     return Combatant(
         name=template["name"],
@@ -220,6 +302,7 @@ def build_enemy_combatant(template: dict, level: int = 1) -> Combatant:
         active_abilities=[dict(a, source="enemy") for a in template.get("active_abilities", [])],
         ultimate_ability=ultimate,
         passive_abilities=list(template.get("passive_abilities", [])),
+        ramp_percent_per_turn=ramp_percent_per_turn,
         # Cycle turn order (see battle.py): defaults to 1 action/cycle like
         # everyone else. Set "actions_per_cycle": 2 (or higher) on an enemy
         # template to make it act that many times every cycle -- e.g. for

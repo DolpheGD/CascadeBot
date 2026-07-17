@@ -77,6 +77,21 @@ class Combatant:
     # "bonus_actions_per_cycle" passive (see actions_per_cycle() below).
     base_actions_per_cycle: int = 1
 
+    # Anti-stalemate attack ramp-up (replaces the old innate HP-regen
+    # system -- see factory.build_enemy_combatant's
+    # ATTACK_RAMP_PERCENT_PER_TURN_BY_ROLE). `ramp_percent_per_turn` is set
+    # once at construction (0 for players -- this is enemy-only); each
+    # turn this combatant takes, battle.py's _begin_turn bumps
+    # `ramp_stacks` by 1, and effective_stat() folds the accumulated
+    # stacks into attack/elemental as a small, PERMANENT (never expires,
+    # never resets) percent bonus. Starts small enough to be
+    # irrelevant in a normal fight and only becomes noticeable in a fight
+    # that's dragged on far longer than intended, gently forcing a
+    # resolution instead of letting two sides that can't quite out-damage
+    # each other stalemate forever.
+    ramp_percent_per_turn: float = 0.0
+    ramp_stacks: int = 0
+
     def is_alive(self) -> bool:
         return self.current_hp > 0
 
@@ -102,6 +117,9 @@ class Combatant:
         needs sub-cent precision on a stat value."""
         base = self.base_stats.get(stat, 0)
         percent_total = sum(m.percent for m in self.modifiers if m.stat == stat)
+
+        if stat in ("attack", "elemental") and self.ramp_percent_per_turn and self.ramp_stacks:
+            percent_total += self.ramp_percent_per_turn * self.ramp_stacks
 
         for ability in self.passive_abilities:
             effect = ability["effect"]

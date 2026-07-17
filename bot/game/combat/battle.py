@@ -196,13 +196,30 @@ class Battle:
         combatant.dots = [d for d in combatant.dots if d.duration > 0]
 
         # Regen (heal-over-time) ticks the same way, on the healed
-        # combatant's own turn.
+        # combatant's own turn. This is for ABILITY-granted heals only now
+        # (e.g. team_regen_over_time) -- enemies no longer get a free
+        # innate regen; see the attack ramp-up block just below instead.
         for regen in list(combatant.heals):
             healed = combatant.heal(combatant.max_hp * regen.percent_max_hp / 100)
             if healed:
                 self.log.append(f"🌿 {combatant.name} regenerates {healed} HP from {regen.source}.")
             regen.duration -= 1
         combatant.heals = [h for h in combatant.heals if h.duration > 0]
+
+        # Anti-stalemate attack ramp-up (replaces the old innate enemy HP
+        # regen) -- ticks on this combatant's own turn, same cadence the
+        # regen used to. Stacks permanently and never resets; see
+        # Combatant.ramp_percent_per_turn / effective_stat and
+        # factory.ATTACK_RAMP_PERCENT_PER_TURN_BY_ROLE. Only logged every
+        # few stacks so a long fight's log doesn't get spammed with a
+        # barely-perceptible bonus every single turn.
+        if combatant.ramp_percent_per_turn:
+            combatant.ramp_stacks += 1
+            if combatant.ramp_stacks % 5 == 0:
+                total_bonus = round(combatant.ramp_percent_per_turn * combatant.ramp_stacks, 1)
+                self.log.append(
+                    f"😤 {combatant.name} grows increasingly aggressive! (+{total_bonus}% ATK/ELE)"
+                )
 
         if not combatant.is_alive():
             self._check_end_conditions()

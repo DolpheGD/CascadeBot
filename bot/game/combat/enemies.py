@@ -31,6 +31,30 @@ slightly above "Glacier 15 Custodian" (that region's elite) rather than
 far above it. The same templates still scale up further in the harder
 regions they also appear in via level_offset, so they stay meaningful
 bosses there.
+"
+Roster-wide balance pass: defense, elite/normal power level, and the
+anti-stalemate attack ramp-up (which replaced innate per-turn HP regen)
+are now handled uniformly for every template in bot/game/combat/factory.py
+(build_enemy_combatant) rather than hand-tuned per entry here -- see that
+file's DEFENSE_MULTIPLIER_BY_ROLE / ELITE_POWER_MULTIPLIER /
+NORMAL_POWER_MULTIPLIER / ATTACK_RAMP_PERCENT_PER_TURN_BY_ROLE comments.
+What IS hand-tuned here, as part of the same pass:
+  * "actions_per_cycle": 2 is no longer XG-23-exclusive -- a growing
+    handful of other fast (high-Speed) templates across all three roles
+    now also act twice a cycle (Voidcrest Skitterer, Dolpo, Wasteland
+    Colosseum Champion and Sir Vengeance among elites; XG-23 Heavy Drone,
+    Corrupted Bli, X-RR, and Rupture among bosses), each with its per-hit
+    damage pulled down ~20% to compensate (see each entry's comment) so
+    "acts twice for X" reads as roughly comparable pressure to "acts once
+    for ~1.6X", not strictly better.
+  * AoE actives/ultimates (damage_all_opponents /
+    damage_all_opponents_and_debuff -- see bot/game/loot/abilities.py's
+    "AoE kit" entries) are now assigned to several templates: slow, tanky
+    ones get the hard-hitting versions (Cleave Smash, Meteor Shower, World
+    Ender), fast/multi-action ones get the lighter versions (Flurry Slash,
+    Arc Lightning, Storm of Blades) -- matching the same
+    "slow = hard-hitting, fast = lighter" tradeoff used for
+    actions_per_cycle above.
 """
 
 from __future__ import annotations
@@ -58,7 +82,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ['Glacier 15', 'The Wastelands'],
         "base_stats": {
             "attack": 10, "defense": 3, "elemental": 1, "speed": 7,
-            "max_hp": 32, "max_mana": 999, "crit_rate": 4, "crit_damage": 140, "recharge": 5,
+            "max_hp": 32, "max_mana": 999, "crit_rate": 4, "crit_damage": 140, "recharge": 6,
         },
         "level_scale_percent": 8,
         "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "quickdraw_slash")],
@@ -72,7 +96,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands'],
         "base_stats": {
             "attack": 12, "defense": 5, "elemental": 3, "speed": 8,
-            "max_hp": 42, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 5,
+            "max_hp": 42, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 6,
         },
         "level_scale_percent": 8,
         "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "shield_bash")],
@@ -86,7 +110,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands'],
         "base_stats": {
             "attack": 15, "defense": 7, "elemental": 5, "speed": 9,
-            "max_hp": 52, "max_mana": 999, "crit_rate": 6, "crit_damage": 155, "recharge": 5,
+            "max_hp": 52, "max_mana": 999, "crit_rate": 6, "crit_damage": 155, "recharge": 7,
         },
         "level_scale_percent": 8,
         "active_abilities": [
@@ -146,17 +170,24 @@ ENEMY_TEMPLATES: list[dict] = [
     {
         # A stray, unstable munition off the Void Crevasse -- small,
         # fast, and prone to unpredictable elemental discharge.
+        # Balance pass: the roster's fastest normal enemy, so it's also
+        # the normal-tier "acts twice a cycle" pick -- attack/elemental
+        # pulled down from their old single-action values to compensate,
+        # and it carries the light AoE artifact skill (Arc Lightning)
+        # instead of a second single-target hit, fitting the "fast =
+        # frequent, lighter, sometimes AoE" side of the tradeoff.
         "name": "Voidcrest Skitterer",
         "role": "combat",
         "regions": ['Voidcrest Desert'],
         "base_stats": {
-            "attack": 17, "defense": 3, "elemental": 12, "speed": 12,
+            "attack": 12, "defense": 3, "elemental": 9, "speed": 12,
             "max_hp": 30, "max_mana": 999, "crit_rate": 8, "crit_damage": 160, "recharge": 6,
         },
         "level_scale_percent": 8,
+        "actions_per_cycle": 2,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "frost_lance"),
-            get_ability_by_id(ARTIFACT_SKILLS, "overcharged_bolt"),
+            get_ability_by_id(ARTIFACT_SKILLS, "arc_lightning"),
         ],
         "passive_abilities": [],
     },
@@ -186,7 +217,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ['The Hotlands'],
         "base_stats": {
             "attack": 14, "defense": 12, "elemental": 12, "speed": 3,
-            "max_hp": 65, "max_mana": 999, "crit_rate": 3, "crit_damage": 150, "recharge": 4,
+            "max_hp": 65, "max_mana": 999, "crit_rate": 3, "crit_damage": 150, "recharge": 10,
         },
         "level_scale_percent": 8,
         "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "flame_strike")],
@@ -209,6 +240,8 @@ ENEMY_TEMPLATES: list[dict] = [
     {
         # A quadrupedal scrapper unit built to hunt down anything that
         # wanders too deep into contested salvage territory.
+        # Balance pass: fast (Speed 11) -- carries Flurry Slash, the light
+        # AoE weapon skill, for combat-tier AoE variety on a quick target.
         "name": "Scrap Buggy",
         "role": "combat",
         "regions": ['The Wastelands', 'Voidcrest Desert'],
@@ -217,7 +250,10 @@ ENEMY_TEMPLATES: list[dict] = [
             "max_hp": 38, "max_mana": 999, "crit_rate": 9, "crit_damage": 165, "recharge": 5,
         },
         "level_scale_percent": 8,
-        "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "riftcutter")],
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "riftcutter"),
+            get_ability_by_id(WEAPON_SKILLS, "flurry_slash"),
+        ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "vampiric_edge")],
     },
     {
@@ -249,7 +285,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands'],
         "base_stats": {
             "attack": 4, "defense": 6, "elemental": 5, "speed": 8,
-            "max_hp": 45, "max_mana": 999, "crit_rate": 4, "crit_damage": 150, "recharge": 5,
+            "max_hp": 65, "max_mana": 999, "crit_rate": 4, "crit_damage": 150, "recharge": 16,
         },
         "level_scale_percent": 8,
         "active_abilities": [
@@ -268,7 +304,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands'],
         "base_stats": {
             "attack": 7, "defense": 7, "elemental": 6, "speed": 7,
-            "max_hp": 50, "max_mana": 999, "crit_rate": 4, "crit_damage": 150, "recharge": 5,
+            "max_hp": 60, "max_mana": 999, "crit_rate": 4, "crit_damage": 150, "recharge": 15,
         },
         "level_scale_percent": 8,
         "active_abilities": [
@@ -321,7 +357,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ['The Hotlands'],
         "base_stats": {
             "attack": 15, "defense": 4, "elemental": 15, "speed": 6,
-            "max_hp": 46, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 5,
+            "max_hp": 76, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 5,
         },
         "level_scale_percent": 8,
         "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "flame_strike")],
@@ -333,8 +369,8 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "combat",
         "regions": ['The Hotlands', 'Voidcrest Desert'],
         "base_stats": {
-            "attack": 8, "defense": 3, "elemental": 24, "speed": 13,
-            "max_hp": 28, "max_mana": 999, "crit_rate": 10, "crit_damage": 165, "recharge": 6,
+            "attack": 8, "defense": 12, "elemental": 24, "speed": 13,
+            "max_hp": 78, "max_mana": 999, "crit_rate": 10, "crit_damage": 165, "recharge": 6,
         },
         "level_scale_percent": 8,
         "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "arcane_burst")],
@@ -365,7 +401,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ['Glacier 15', 'The Hotlands', 'Voidcrest Desert'],
         "base_stats": {
             "attack": 7, "defense": 4, "elemental": 16, "speed": 8,
-            "max_hp": 42, "max_mana": 999, "crit_rate": 6, "crit_damage": 155, "recharge": 6,
+            "max_hp": 42, "max_mana": 999, "crit_rate": 6, "crit_damage": 155, "recharge": 16,
         },
         "level_scale_percent": 8,
         "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "void_grasp")],
@@ -377,17 +413,21 @@ ENEMY_TEMPLATES: list[dict] = [
     {
         # Xender's answer to Team Cascade's better-equipped operatives --
         # slower, but built to shrug off small-arms fire.
+        # Balance pass: low Speed, high DEF/HP -- exactly the "slow,
+        # hard-hitting" profile the AoE kit's heavy option is meant for,
+        # so it carries Cleave Smash alongside its single-target kit.
         "name": "Xender Tank",
         "role": "elite",
         "regions": ['The Wastelands', 'The Hotlands'],
         "base_stats": {
-            "attack": 23, "defense": 18, "elemental": 6, "speed": 7,
-            "max_hp": 140, "max_mana": 999, "crit_rate": 7, "crit_damage": 155, "recharge": 6,
+            "attack": 23, "defense": 28, "elemental": 6, "speed": 7,
+            "max_hp": 140, "max_mana": 999, "crit_rate": 7, "crit_damage": 155, "recharge": 8,
         },
         "level_scale_percent": 10,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "shield_bash"),
             get_ability_by_id(WEAPON_SKILLS, "rending_cleave"),
+            get_ability_by_id(WEAPON_SKILLS, "cleave_smash"),
         ],
         "passive_abilities": [
             get_ability_by_id(ARMOR_PASSIVES, "thornmail"),
@@ -418,14 +458,18 @@ ENEMY_TEMPLATES: list[dict] = [
         # to shake down towns Team Cascade hasn't reached yet -- all
         # showmanship, no substance, but the crowd-hyped tricks land
         # hard enough to hurt.
+        # Balance pass: the roster's single fastest combatant (Speed 20),
+        # so it's the elite-tier "acts twice a cycle" pick -- ATK/ELE
+        # pulled down to compensate for the extra action.
         "name": "Dolpo",
         "role": "elite",
         "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands', 'Voidcrest Desert'],
         "base_stats": {
-            "attack": 10, "defense": 8, "elemental": 12, "speed": 20,
+            "attack": 8, "defense": 8, "elemental": 9, "speed": 20,
             "max_hp": 100, "max_mana": 999, "crit_rate": 15, "crit_damage": 170, "recharge": 7,
         },
         "level_scale_percent": 10,
+        "actions_per_cycle": 3,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
             get_ability_by_id(WEAPON_SKILLS, "berserker_rage"),
@@ -443,7 +487,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ['The Hotlands', 'Voidcrest Desert'],
         "base_stats": {
             "attack": 25, "defense": 12, "elemental": 5, "speed": 10,
-            "max_hp": 120, "max_mana": 999, "crit_rate": 14, "crit_damage": 180, "recharge": 6,
+            "max_hp": 180, "max_mana": 999, "crit_rate": 14, "crit_damage": 180, "recharge": 9,
         },
         "level_scale_percent": 10,
         "active_abilities": [
@@ -462,7 +506,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ['Glacier 15', 'The Hotlands'],
         "base_stats": {
             "attack": 13, "defense": 9, "elemental": 23, "speed": 11,
-            "max_hp": 125, "max_mana": 999, "crit_rate": 9, "crit_damage": 165, "recharge": 7,
+            "max_hp": 135, "max_mana": 999, "crit_rate": 9, "crit_damage": 165, "recharge": 10,
         },
         "level_scale_percent": 10,
         "active_abilities": [
@@ -480,7 +524,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ['The Hotlands', 'Voidcrest Desert'],
         "base_stats": {
             "attack": 16, "defense": 10, "elemental": 20, "speed": 9,
-            "max_hp": 115, "max_mana": 999, "crit_rate": 10, "crit_damage": 165, "recharge": 9,
+            "max_hp": 125, "max_mana": 999, "crit_rate": 10, "crit_damage": 165, "recharge": 9,
         },
         "level_scale_percent": 10,
         "active_abilities": [
@@ -498,9 +542,10 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "elite",
         "regions": ['Glacier 15', 'The Wastelands'],
         "base_stats": {
-            "attack": 10, "defense": 16, "elemental": 25, "speed": 8,
-            "max_hp": 150, "max_mana": 999, "crit_rate": 8, "crit_damage": 160, "recharge": 6,
+            "attack": 7, "defense": 16, "elemental": 16, "speed": 8,
+            "max_hp": 160, "max_mana": 999, "crit_rate": 8, "crit_damage": 160, "recharge": 7,
         },
+        "actions_per_cycle": 2,
         "level_scale_percent": 10,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "shield_bash"),
@@ -520,8 +565,8 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "elite",
         "regions": ['Glacier 15'],
         "base_stats": {
-            "attack": 13, "defense": 20, "elemental": 12, "speed": 6,
-            "max_hp": 145, "max_mana": 999, "crit_rate": 6, "crit_damage": 155, "recharge": 6,
+            "attack": 13, "defense": 23, "elemental": 12, "speed": 6,
+            "max_hp": 175, "max_mana": 999, "crit_rate": 6, "crit_damage": 155, "recharge": 6,
         },
         "level_scale_percent": 10,
         "active_abilities": [
@@ -538,14 +583,22 @@ ENEMY_TEMPLATES: list[dict] = [
         # (Wasteland Striker). This is that resistance's champion: better
         # scavenged gear, real charisma, and the same fighting style
         # scaled up.
+        # Balance pass: was the single hardest-hitting elite in the whole
+        # roster (ATK 30, well clear of the next-highest at 25) despite
+        # already having the second-highest Speed among elites -- an easy
+        # "acts twice a cycle" pick. ATK/ELE pulled down ~20% (matching the
+        # roster's existing multi-action compensation) so 2 actions/cycle
+        # reads as roughly comparable pressure to 1 action at the old
+        # numbers, not strictly better.
         "name": "Wasteland Colosseum Champion",
         "role": "elite",
         "regions": ['The Wastelands'],
         "base_stats": {
-            "attack": 30, "defense": 10, "elemental": 6, "speed": 12,
-            "max_hp": 120, "max_mana": 999, "crit_rate": 12, "crit_damage": 170, "recharge": 6,
+            "attack": 24, "defense": 10, "elemental": 5, "speed": 12,
+            "max_hp": 220, "max_mana": 999, "crit_rate": 12, "crit_damage": 170, "recharge": 7,
         },
         "level_scale_percent": 10,
+        "actions_per_cycle": 2,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "sunder_strike"),
             get_ability_by_id(WEAPON_SKILLS, "berserker_rage"),
@@ -560,17 +613,24 @@ ENEMY_TEMPLATES: list[dict] = [
         # identity at elite tier. A larger, more coherent fragment of
         # Void-matter than the Entropy Wisps, the closest thing Voidcrest
         # has to a native apex predator rather than an invading faction.
+        # Balance pass: high Speed, near-zero DEF -- a fast glass cannon,
+        # so it gets Arc Lightning (the light AoE option) rather than a
+        # heavy one. Also the roster's fastest elite after Dolpo, so it
+        # now joins Dolpo as a "acts twice a cycle" pick -- ATK/ELE pulled
+        # down ~20% to compensate, same ratio used everywhere else.
         "name": "Sir Vengeance",
         "role": "elite",
         "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands', 'Voidcrest Desert'],
         "base_stats": {
-            "attack": 25, "defense": 1, "elemental": 10, "speed": 14,
-            "max_hp": 250, "max_mana": 999, "crit_rate": 10, "crit_damage": 280, "recharge": 8,
+            "attack": 15, "defense": 2, "elemental": 2, "speed": 23,
+            "max_hp": 270, "max_mana": 999, "crit_rate": 10, "crit_damage": 280, "recharge": 10,
         },
         "level_scale_percent": 10,
+        "actions_per_cycle": 3,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "emp_burst"),
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
+            get_ability_by_id(ARTIFACT_SKILLS, "arc_lightning"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "arcane_battery")],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "gale_ascendant"),
@@ -587,6 +647,10 @@ ENEMY_TEMPLATES: list[dict] = [
         # earlier each cycle from its high Speed. Remove/adjust this field
         # (or add it to any other combat/elite/boss template) to tune how
         # often a given enemy acts per cycle; it defaults to 1 if omitted.
+        # Balance pass: no longer the roster's only multi-action enemy (see
+        # module docstring) -- it keeps the archetype but now also carries
+        # Storm of Blades, the lighter AoE ultimate, matching "fast =
+        # frequent + lighter, sometimes AoE" rather than a single big hit.
         "name": "XG-23 Heavy Drone",
         "role": "boss",
         "region_roles": {'Glacier 15': 'regular', 'The Wastelands': 'regular', 'The Hotlands': 'regular'},
@@ -601,21 +665,25 @@ ENEMY_TEMPLATES: list[dict] = [
             get_ability_by_id(ARTIFACT_SKILLS, "kinetic_feedback"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "momentum")],
-        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "cascade_barrage"),
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "storm_of_blades"),
     },
     {
         # regular boss for all areas
+        # Balance pass: slow (Speed 8) and by far the tankiest regular
+        # boss (670 base HP) -- the "slow, hard-hitting" AoE profile, so
+        # it picks up Cleave Smash alongside its support kit.
         "name": "Boss John's Driller Prototype",
         "role": "boss",
         "region_roles": {'Glacier 15': 'regular', 'The Wastelands': 'regular', 'The Hotlands': 'regular', 'Voidcrest Desert': 'regular'},
         "base_stats": {
-            "attack": 18, "defense": 12, "elemental": 6, "speed": 8,
-            "max_hp": 670, "max_mana": 999, "crit_rate": 9, "crit_damage": 190, "recharge": 7,
+            "attack": 29, "defense": 12, "elemental": 12, "speed": 8,
+            "max_hp": 670, "max_mana": 999, "crit_rate": 9, "crit_damage": 190, "recharge": 10,
         },
         "level_scale_percent": 10,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "overclock_repair"),
             get_ability_by_id(ARTIFACT_SKILLS, "rousing_signal"),
+            get_ability_by_id(WEAPON_SKILLS, "cleave_smash"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "undying_will")],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "voidstorm"),
@@ -629,9 +697,10 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss",
         "region_roles": {'The Wastelands': 'regular', 'Voidcrest Desert': 'regular'},
         "base_stats": {
-            "attack": 26, "defense": 8, "elemental": 45, "speed": 10,
+            "attack": 14, "defense": 8, "elemental": 24, "speed": 14,
             "max_hp": 350, "max_mana": 999, "crit_rate": 10, "crit_damage": 165, "recharge": 6,
         },
+        "actions_per_cycle": 2,
         "level_scale_percent": 10,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "starfall"),
@@ -646,8 +715,8 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss",
         "region_roles": {'The Hotlands': 'regular', 'Voidcrest Desert': 'regular'},
         "base_stats": {
-            "attack": 24, "defense": 10, "elemental": 22, "speed": 10,
-            "max_hp": 430, "max_mana": 999, "crit_rate": 13, "crit_damage": 175, "recharge": 7,
+            "attack": 34, "defense": 10, "elemental": 25, "speed": 10,
+            "max_hp": 430, "max_mana": 999, "crit_rate": 13, "crit_damage": 175, "recharge": 10,
         },
         "level_scale_percent": 10,
         "active_abilities": [
@@ -659,14 +728,18 @@ ENEMY_TEMPLATES: list[dict] = [
     },
     {
         # HHyper's Elite Unit -- a corrupted version of the standard Bli design
+        # Balance pass: the fastest non-XG-23 boss (Speed 16) -- the
+        # roster's other multi-action pick, with attack/elemental pulled
+        # down to compensate for the extra action per cycle.
         "name": "Corrupted Bli",
         "role": "boss",
         "region_roles": {'Glacier 15': 'regular', 'Voidcrest Desert': 'regular'},
         "base_stats": {
-            "attack": 12, "defense": 2, "elemental": 15, "speed": 16,
-            "max_hp": 400, "max_mana": 999, "crit_rate": 6, "crit_damage": 220, "recharge": 10,
+            "attack": 7, "defense": 8, "elemental": 11, "speed": 22,
+            "max_hp": 400, "max_mana": 999, "crit_rate": 6, "crit_damage": 180, "recharge": 12,
         },
         "level_scale_percent": 10,
+        "actions_per_cycle": 3,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "riftcutter"),
             get_ability_by_id(WEAPON_SKILLS, "shield_bash"),
@@ -684,9 +757,10 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss",
         "region_roles": {'Glacier 15': 'regular', 'The Wastelands': 'regular', 'The Hotlands': 'regular'},
         "base_stats": {
-            "attack": 24, "defense": 11, "elemental": 10, "speed": 10,
-            "max_hp": 300, "max_mana": 999, "crit_rate": 2, "crit_damage": 500, "recharge": 7,
+            "attack": 18, "defense": 11, "elemental": 10, "speed": 10,
+            "max_hp": 300, "max_mana": 999, "crit_rate": 2, "crit_damage": 500, "recharge": 12,
         },
+        "actions_per_cycle": 2,
         "level_scale_percent": 10,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "flame_strike"),
@@ -700,12 +774,17 @@ ENEMY_TEMPLATES: list[dict] = [
     # ---------------------------------------------------------------
     {
         # Mechanical worm in Glacier 15
+        # Balance pass: Glacier 15's final boss gets the roster's signature
+        # hard-hitting AoE ultimate -- a worm burrowing through and hitting
+        # the whole party at once reads better than a single meteor, and
+        # it gives the region's capstone fight a real "everyone's in
+        # danger" moment.
         "name": "Void Hydra",
         "role": "boss",
         "region_roles": {'Glacier 15': 'final'},
         "base_stats": {
             "attack": 23, "defense": 8, "elemental": 26, "speed": 11,
-            "max_hp": 420, "max_mana": 999, "crit_rate": 16, "crit_damage": 185, "recharge": 7,
+            "max_hp": 420, "max_mana": 999, "crit_rate": 16, "crit_damage": 185, "recharge": 10,
         },
         "level_scale_percent": 10,
         "active_abilities": [
@@ -714,7 +793,7 @@ ENEMY_TEMPLATES: list[dict] = [
             get_ability_by_id(ARTIFACT_SKILLS, "ionic_ward"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "vampiric_edge")],
-        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "meteor_ultimate"),
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "world_ender"),
     },
     {
         # The Negadom (Josh's creation that went wrong)
@@ -723,7 +802,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "region_roles": {'The Wastelands': 'final'},
         "base_stats": {
             "attack": 33, "defense": 14, "elemental": 33, "speed": 9,
-            "max_hp": 540, "max_mana": 999, "crit_rate": 11, "crit_damage": 170, "recharge": 7,
+            "max_hp": 540, "max_mana": 999, "crit_rate": 11, "crit_damage": 170, "recharge": 15,
         },
         "level_scale_percent": 10,
         "active_abilities": [
@@ -737,14 +816,22 @@ ENEMY_TEMPLATES: list[dict] = [
     {
         # A Hotlands war-machine slagged and refused down to its core by
         # a Xendium reactor overload -- still walking, still armed.
+        # Balance pass: had by far the highest ATK of any boss in the
+        # roster (45, next-highest final boss was 33) on top of solid
+        # Speed (13) -- an obvious "acts twice a cycle" pick to make its
+        # capstone fight feel appropriately climactic. ATK/ELE pulled down
+        # ~20% to compensate, same ratio used everywhere else, which also
+        # brings its per-hit numbers back in line with its fellow final
+        # bosses instead of dwarfing them.
         "name": "X-RR",
         "role": "boss",
         "region_roles": {'The Hotlands': 'final'},
         "base_stats": {
-            "attack": 45, "defense": 12, "elemental": 25, "speed": 13,
-            "max_hp": 650, "max_mana": 999, "crit_rate": 12, "crit_damage": 175, "recharge": 7,
+            "attack": 36, "defense": 12, "elemental": 20, "speed": 13,
+            "max_hp": 650, "max_mana": 999, "crit_rate": 12, "crit_damage": 175, "recharge": 14,
         },
         "level_scale_percent": 10,
+        "actions_per_cycle": 2,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "rending_cleave"),
             get_ability_by_id(ARTIFACT_SKILLS, "starfall"),
@@ -785,12 +872,19 @@ ENEMY_TEMPLATES: list[dict] = [
     {
         # The Trio's flier: a three-eyed combat mech bristling with
         # every weapon system that would fit on the frame.
+        # Balance pass: the Trio's fastest member by a wide margin (Speed
+        # 13 vs Borehole's 5 and Gatekeeper's 8) -- fits the "acts twice a
+        # cycle" archetype used elsewhere on the roster's fastest units.
+        # ATK/ELE pulled down ~20% to compensate, same ratio as everywhere
+        # else; Borehole and Gatekeeper are untouched since they're
+        # already the "slow, hard-hitting" side of the Trio's tradeoff.
         "name": "Rupture",
         "role": "boss_group_member",
         "base_stats": {
-            "attack": 25, "defense": 10, "elemental": 34, "speed": 13,
+            "attack": 20, "defense": 10, "elemental": 27, "speed": 13,
             "max_hp": 370, "max_mana": 999, "crit_rate": 14, "crit_damage": 175, "recharge": 7,
         },
+        "actions_per_cycle": 2,
         "level_scale_percent": 10,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "frost_lance"),
@@ -806,6 +900,9 @@ ENEMY_TEMPLATES: list[dict] = [
         # other two. Keeping this one alive keeps Borehole and Rupture
         # both hitting harder and patching themselves back up, which is
         # most of what makes this fight "very difficult."
+        # Balance pass: never leaves the back of the chamber (lowest Speed
+        # in the Trio) and hits hardest -- carries Meteor Shower, the
+        # heavy AoE artifact skill, on top of its support/debuff kit.
         "name": "Gatekeeper",
         "role": "boss_group_member",
         "base_stats": {
@@ -816,6 +913,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "aegis_broadcast"),
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
+            get_ability_by_id(ARTIFACT_SKILLS, "meteor_shower"),
         ],
         "passive_abilities": [
             get_ability_by_id(ARMOR_PASSIVES, "iron_skin"),

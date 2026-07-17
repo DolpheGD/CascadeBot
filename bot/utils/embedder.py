@@ -292,6 +292,22 @@ def _turn_order_line(battle, count: int = 6) -> str:
     return " ➜ ".join(icons) if icons else "--"
 
 
+def _recent_log_lines(battle, count: int = 4, char_limit: int = 900) -> str:
+    """A short, in-battlefield tail of the log (see combat_embed) -- the
+    last few lines only, further trimmed to fit comfortably inside one
+    embed field. This is deliberately much shorter than battle_log_embed's
+    full history; that's still one Log-button tap away for anyone who
+    wants the complete record."""
+    if not battle.log:
+        return "*Nothing has happened yet.*"
+
+    lines = battle.log[-count:]
+    text = "\n".join(lines)
+    if len(text) > char_limit:
+        text = "…" + text[-char_limit:]
+    return text
+
+
 def dungeon_map_graph_embed(expedition) -> discord.Embed:
     """The 🗺️ Map button's view: a floor-by-floor breakdown of every room
     between here and the NEXT boss (not the whole multi-boss run --
@@ -341,8 +357,10 @@ def dungeon_map_graph_embed(expedition) -> discord.Embed:
 
 def combat_embed(battle, avatar_url: str | None = None) -> discord.Embed:
     """Renders the current battle state: HP/resource bars for everyone, the
-    turn order preview, current target marker, and the last few log lines,
-    so a Discord message can be edited in place turn after turn.
+    turn order preview, current target marker, and a short "Recent Actions"
+    tail of the log, so a Discord message can be edited in place turn after
+    turn. That tail is intentionally brief (see _recent_log_lines) -- the
+    full history is still one 📜 Log tap away via battle_log_embed.
 
     Party and enemies are each ONE consolidated field (a line per member)
     rather than one Discord field per combatant -- with a full 4-person
@@ -393,6 +411,8 @@ def combat_embed(battle, avatar_url: str | None = None) -> discord.Embed:
         )
     embed.add_field(name="👹 Enemies", value="\n".join(enemy_lines), inline=False)
 
+    embed.add_field(name="📜 Recent Actions", value=_recent_log_lines(battle), inline=False)
+
     if battle.is_over():
         result_text = {"won": "🏆 Victory!", "lost": "💀 Defeat..."}[battle.result]
         embed.add_field(name="Result", value=result_text, inline=False)
@@ -404,11 +424,10 @@ def combat_embed(battle, avatar_url: str | None = None) -> discord.Embed:
 
 def battle_log_embed(battle) -> discord.Embed:
     """The full battle log, shown via the 📜 Log button -- unlike the main
-    battle message's brief in-line tail (now removed entirely in favor of
-    this button, since the two purposes were fighting for the same
-    limited embed space), this shows everything that's happened so far,
-    trimmed from the oldest end only if it would overflow an embed
-    description (4096 chars)."""
+    battle message's brief "Recent Actions" tail (see combat_embed /
+    _recent_log_lines, just the last handful of lines), this shows
+    everything that's happened so far, trimmed from the oldest end only
+    if it would overflow an embed description (4096 chars)."""
     embed = discord.Embed(title="📜 Battle Log", color=discord.Color.dark_grey())
     if not battle.log:
         embed.description = "*Nothing has happened yet.*"
@@ -440,7 +459,11 @@ def battle_info_embed(battle) -> discord.Embed:
         for d in c.dots:
             lines.append(f"🔥 {d.flat_amount:g} dmg/turn ({d.duration}t) -- {d.source}")
         for h in c.heals:
-            lines.append(f"🌿 {h.percent_max_hp:g}% max HP/turn ({h.duration}t) -- {h.source}")
+            duration_label = "passive" if h.duration >= 999 else f"{h.duration}t"
+            lines.append(f"🌿 {h.percent_max_hp:g}% max HP/turn ({duration_label}) -- {h.source}")
+        if getattr(c, "ramp_percent_per_turn", 0) and c.ramp_stacks:
+            bonus = round(c.ramp_percent_per_turn * c.ramp_stacks, 1)
+            lines.append(f"😤 +{bonus:g}% ATK/ELE (prolonged fight, permanent)")
         if c.stunned_turns > 0:
             lines.append(f"😵 Stunned ({c.stunned_turns}t)")
         for ability_id, remaining in c.cooldowns.items():
