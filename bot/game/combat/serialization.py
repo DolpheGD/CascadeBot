@@ -47,7 +47,7 @@ def combatant_to_dict(c: Combatant) -> dict:
         "dots": [dataclasses.asdict(d) for d in c.dots],
         "heals": [dataclasses.asdict(h) for h in c.heals],
         "stunned_turns": c.stunned_turns,
-        "turn_gauge": c.turn_gauge,
+        "base_actions_per_cycle": c.base_actions_per_cycle,
         "shield": c.shield,
     }
 
@@ -75,7 +75,7 @@ def combatant_from_dict(data: dict) -> Combatant:
         dots=[DamageOverTime(**d) for d in data["dots"]],
         heals=[HealOverTime(**h) for h in data.get("heals", [])],
         stunned_turns=data["stunned_turns"],
-        turn_gauge=data.get("turn_gauge", 0.0),
+        base_actions_per_cycle=data.get("base_actions_per_cycle", 1),
         shield=data.get("shield", 0.0),
     )
 
@@ -89,6 +89,15 @@ def battle_to_dict(battle: Battle) -> dict:
         "log": list(battle.log),
         "result": battle.result,
         "target_index": battle.target_index,
+        "cycle_number": battle.cycle_number,
+        # Remaining queue for the in-progress cycle, stored as indices
+        # into party + enemies (found by identity, same reasoning as
+        # current_actor_index below -- two combatants can be
+        # value-equal without being the same queued slot).
+        "cycle_order_indices": [
+            next(i for i, c in enumerate(all_combatants) if c is queued)
+            for queued in battle.cycle_order
+        ],
         # Index into party + enemies -- found by identity (`is`), not
         # list.index()'s value-equality, since Combatant is a dataclass
         # with default (value-based) __eq__: two combatants in an
@@ -104,9 +113,9 @@ def battle_to_dict(battle: Battle) -> dict:
 
 def battle_from_dict(data: dict, rng: random.Random | None = None) -> Battle:
     """Rebuilds a Battle exactly as it was, including whose turn it is and
-    everyone's turn gauge. Bypasses Battle.__init__ (which would kick off a
-    fresh turn-gauge race from zero) since we're restoring an
-    already-in-progress fight."""
+    the rest of the current cycle's queued turn order. Bypasses
+    Battle.__init__ (which would kick off a fresh cycle from scratch)
+    since we're restoring an already-in-progress fight."""
     party = [combatant_from_dict(p) for p in data["party"]]
     enemies = [combatant_from_dict(e) for e in data["enemies"]]
     all_combatants = party + enemies
@@ -119,5 +128,10 @@ def battle_from_dict(data: dict, rng: random.Random | None = None) -> Battle:
     battle.log = list(data["log"])
     battle.result = data["result"]
     battle.target_index = data.get("target_index", data.get("player_target_index", 0))
+    battle.cycle_number = data.get("cycle_number", 0)
+    # Old saves (pre-cycle-system) won't have this -- an empty queue just
+    # means the next turn will build a fresh cycle from whoever's alive,
+    # which self-heals cleanly.
+    battle.cycle_order = [all_combatants[i] for i in data.get("cycle_order_indices", [])]
     battle._current_actor = all_combatants[data["current_actor_index"]]
     return battle

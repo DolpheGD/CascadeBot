@@ -464,18 +464,24 @@ def battle_info_embed(battle) -> discord.Embed:
     return embed
 
 
-def expedition_summary_embed(ledger: dict, won: bool) -> discord.Embed:
-    """The whole-run tally shown once when an expedition ends -- win or
-    lose -- on top of that final battle's own reward message. Everything
-    here accumulated across every room of the run (combat rewards,
-    treasure/secret/story/shrine rooms, trap/puzzle outcomes, encounter
-    trades/gambles -- including merchant purchases, which are now just
-    "trade"-action encounter choices), not just the last fight; see the
-    `_ledger_*` helpers in bot/services/dungeon_service.py. Nothing is
-    actually taken away on a loss -- gains from earlier in the run are
-    kept -- so "lost" here means gold spent on encounter trades, not gold
-    clawed back on defeat."""
-    title = "🏆 Expedition Complete -- Summary" if won else "💀 Expedition Ended -- Summary"
+def expedition_summary_embed(ledger: dict, won: bool, forfeited: bool = False) -> discord.Embed:
+    """The whole-run tally shown once when an expedition ends -- win,
+    lose, or forfeit -- on top of that final battle's own reward message
+    (or the forfeit confirmation message). Everything here accumulated
+    across every room of the run (combat rewards, treasure/secret/story/
+    shrine rooms, trap/puzzle outcomes, encounter trades/gambles --
+    including merchant purchases, which are now just "trade"-action
+    encounter choices), not just the last fight; see the `_ledger_*`
+    helpers in bot/services/dungeon_service.py. Nothing is actually taken
+    away on a loss or forfeit -- gains from earlier in the run are kept --
+    so "lost"/"spent" here means gold spent on encounter trades, not gold
+    clawed back on defeat or forfeit."""
+    if forfeited:
+        title = "🏳️ Expedition Forfeited -- Summary"
+    elif won:
+        title = "🏆 Expedition Complete -- Summary"
+    else:
+        title = "💀 Expedition Ended -- Summary"
     embed = discord.Embed(
         title=title,
         color=discord.Color.gold() if won else discord.Color.dark_gray(),

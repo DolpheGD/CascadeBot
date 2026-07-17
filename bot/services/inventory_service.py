@@ -152,6 +152,47 @@ def sell_item(db, player, item: InventoryItem) -> tuple[bool, str]:
     return True, f"Sold {name} for {format_currency('gold', value)}."
 
 
+def list_sellable_by_rarity(db, player_id: int, rarity: Rarity) -> list[InventoryItem]:
+    """Every UNEQUIPPED item a player owns at exactly `rarity` -- the
+    candidate set for mass-selling. Equipped items are never swept up in
+    a mass sell, same as single-item sell_item -- unequip first if one of
+    those needs to go too."""
+    return (
+        db.query(InventoryItem)
+        .filter_by(player_id=player_id, rarity=rarity, is_equipped=False)
+        .all()
+    )
+
+
+def preview_sell_by_rarity(db, player_id: int, rarity: Rarity) -> tuple[int, int]:
+    """(item count, total gold) if every unequipped `rarity` item were
+    sold right now -- used to show a confirmation before mass-selling
+    actually happens, since it's not undoable."""
+    items = list_sellable_by_rarity(db, player_id, rarity)
+    return len(items), sum(get_sell_value(i) for i in items)
+
+
+def sell_by_rarity(db, player, rarity: Rarity) -> tuple[bool, str, int, int]:
+    """Sells every unequipped item of exactly `rarity` in one shot (the
+    mass Sell by Rarity flow). Returns (ok, message, count_sold,
+    gold_earned); ok is False (with a count/earned of 0) if there was
+    nothing to sell."""
+    items = list_sellable_by_rarity(db, player.id, rarity)
+    if not items:
+        return False, f"You don't have any unequipped {rarity.value.title()} items to sell.", 0, 0
+
+    count = len(items)
+    total_value = sum(get_sell_value(i) for i in items)
+    for item in items:
+        db.delete(item)
+    add_currency(db, player, "gold", total_value)
+    db.commit()
+
+    plural = "s" if count != 1 else ""
+    message = f"Sold {count} {rarity.value.title()} item{plural} for {format_currency('gold', total_value)}."
+    return True, message, count, total_value
+
+
 def list_combined_entries(db, player_id: int) -> list["InventoryEntry"]:
     """Despite the name (kept to avoid touching every call site), this is
     now ITEMS ONLY -- lootboxes moved to their own general-inventory view

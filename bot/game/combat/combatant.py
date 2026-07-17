@@ -67,15 +67,31 @@ class Combatant:
     # or in part, on every hit; never expires on its own -- it just runs out.
     shield: float = 0.0
 
-    # ATB-style turn gauge: fills each "tick" proportional to speed; a
-    # combatant acts whenever it crosses TURN_THRESHOLD (see battle.py).
-    # A much faster combatant's gauge crosses the threshold repeatedly
-    # while a slower one is still filling toward its first turn, which is
-    # what lets speed grant multiple actions in a row.
-    turn_gauge: float = 0.0
+    # Cycle-based turn order (see battle.py): every living combatant gets
+    # exactly one action per cycle by default, ordered fastest-to-slowest,
+    # with Speed only ever deciding WHEN a combatant goes, never WHETHER it
+    # goes. This is the number of actions this combatant gets in each
+    # cycle before that base ordering repeats -- set on enemy templates
+    # (e.g. "actions_per_cycle": 2 for a boss that should act twice per
+    # cycle) via factory.build_enemy_combatant, and/or granted by a
+    # "bonus_actions_per_cycle" passive (see actions_per_cycle() below).
+    base_actions_per_cycle: int = 1
 
     def is_alive(self) -> bool:
         return self.current_hp > 0
+
+    def actions_per_cycle(self) -> int:
+        """Total actions this combatant takes each cycle: its configured
+        base (usually 1, higher for a "goes twice/three times per cycle"
+        enemy) plus any stacking bonus from "bonus_actions_per_cycle"
+        passives (armor passive, enemy passive, or -- if ever wired onto
+        that gear slot -- a weapon/artifact passive). Always at least 1;
+        everyone acts at least once per cycle."""
+        bonus = sum(
+            passive["effect"].get("count", 1)
+            for passive in self.find_passive("bonus_actions_per_cycle")
+        )
+        return max(1, self.base_actions_per_cycle + bonus)
 
     def effective_stat(self, stat: str) -> float:
         """Base stat, adjusted by every active percent modifier and any

@@ -581,6 +581,12 @@ ENEMY_TEMPLATES: list[dict] = [
     {
         # Acatrya's heavy air-superiority unit -- fast, well-armed, and
         # deployed wherever Xender wants a show of force from above.
+        # Cycle turn order rework: this is the "actions_per_cycle" example
+        # -- as the fastest boss in the roster it now also acts TWICE every
+        # cycle (see bot/game/combat/battle.py), on top of already going
+        # earlier each cycle from its high Speed. Remove/adjust this field
+        # (or add it to any other combat/elite/boss template) to tune how
+        # often a given enemy acts per cycle; it defaults to 1 if omitted.
         "name": "XG-23 Heavy Drone",
         "role": "boss",
         "region_roles": {'Glacier 15': 'regular', 'The Wastelands': 'regular', 'The Hotlands': 'regular'},
@@ -589,6 +595,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "max_hp": 270, "max_mana": 999, "crit_rate": 14, "crit_damage": 170, "recharge": 7,
         },
         "level_scale_percent": 10,
+        "actions_per_cycle": 2,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
             get_ability_by_id(ARTIFACT_SKILLS, "kinetic_feedback"),

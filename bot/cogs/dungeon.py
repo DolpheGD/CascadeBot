@@ -80,6 +80,30 @@ class DungeonView(OwnedView):
     async def map_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await _handle_dungeon_map(interaction)
 
+    @discord.ui.button(label="🏳️ Forfeit", style=discord.ButtonStyle.danger, custom_id="cascade_dungeon_forfeit")
+    async def forfeit_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await _handle_forfeit_prompt(interaction)
+
+
+class ForfeitConfirmView(OwnedView):
+    """Shown in place of the normal DungeonView after tapping Forfeit --
+    an are-you-sure step since ending the run is not undoable. Not a
+    persistent view (like EncounterView): it's a short-lived confirmation
+    step, not a menu that needs to keep working across a bot restart --
+    if the bot restarts while one's on screen, cancel and re-open the
+    adventure menu is exactly the graceful fallback."""
+
+    def __init__(self, owner_id: int | None = None):
+        super().__init__(timeout=120, owner_id=owner_id)
+
+    @discord.ui.button(label="✅ Confirm Forfeit", style=discord.ButtonStyle.danger, custom_id="cascade_forfeit_confirm")
+    async def confirm_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await _handle_forfeit_confirm(interaction)
+
+    @discord.ui.button(label="❌ Cancel", style=discord.ButtonStyle.secondary, custom_id="cascade_forfeit_cancel")
+    async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await _handle_forfeit_cancel(interaction)
+
 
 class AbilitySelect(discord.ui.Select):
     def __init__(self, options: list[discord.SelectOption]):
@@ -515,6 +539,81 @@ async def _handle_dungeon_map(interaction: discord.Interaction):
             return
 
         await interaction.response.send_message(embed=embedder.dungeon_map_graph_embed(expedition), ephemeral=True)
+    finally:
+        db.close()
+
+
+async def _handle_forfeit_prompt(interaction: discord.Interaction):
+    """Are-you-sure step for the Forfeit button -- ending the run early
+    isn't undoable, so it gets a confirmation like any other destructive
+    action rather than firing on the first click."""
+    db = SessionLocal()
+    try:
+        player = get_player(db, interaction.user.id)
+        expedition = dungeon_service.get_active_expedition(db, player.id) if player else None
+        if player is None or expedition is None:
+            await interaction.response.send_message("You don't have an active expedition.", ephemeral=True)
+            return
+        if expedition.combat_state or expedition.pending_interaction:
+            await interaction.response.send_message(
+                "You can't forfeit right now -- finish what you're doing first.", ephemeral=True
+            )
+            return
+
+        embed = discord.Embed(
+            title="🏳️ Forfeit Expedition?",
+            description=(
+                "This ends your run right here and you'll head back empty-handed "
+                "from this point on. Everything you've already earned this run "
+                "is kept, but you'll miss out on whatever's further down the "
+                "path -- including the next boss's rewards.\n\nAre you sure?"
+            ),
+            color=discord.Color.orange(),
+        )
+        await interaction.response.edit_message(embed=embed, view=ForfeitConfirmView(owner_id=expedition.player_id))
+    finally:
+        db.close()
+
+
+async def _handle_forfeit_confirm(interaction: discord.Interaction):
+    db = SessionLocal()
+    try:
+        player = get_player(db, interaction.user.id)
+        expedition = dungeon_service.get_active_expedition(db, player.id) if player else None
+        if player is None or expedition is None:
+            await interaction.response.send_message("You don't have an active expedition.", ephemeral=True)
+            return
+
+        result = dungeon_service.abandon_expedition(db, expedition, player)
+        if not result["ok"]:
+            await interaction.response.send_message(result["message"], ephemeral=True)
+            return
+
+        avatar_url = interaction.user.display_avatar.url
+        embed, view = _render_room(
+            db, expedition, player, "resolved",
+            "🏳️ You forfeit the expedition and make your way back.", avatar_url,
+        )
+        await interaction.response.edit_message(embed=embed, view=view)
+        await interaction.followup.send(
+            embed=embedder.expedition_summary_embed(result["ledger"], won=False, forfeited=True)
+        )
+    finally:
+        db.close()
+
+
+async def _handle_forfeit_cancel(interaction: discord.Interaction):
+    db = SessionLocal()
+    try:
+        player = get_player(db, interaction.user.id)
+        expedition = dungeon_service.get_active_expedition(db, player.id) if player else None
+        if player is None or expedition is None:
+            await interaction.response.send_message("You don't have an active expedition.", ephemeral=True)
+            return
+
+        avatar_url = interaction.user.display_avatar.url
+        embed, view = _render_room(db, expedition, player, "resolved", "Forfeit cancelled.", avatar_url)
+        await interaction.response.edit_message(embed=embed, view=view)
     finally:
         db.close()
 

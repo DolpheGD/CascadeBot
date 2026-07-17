@@ -1,11 +1,22 @@
 """
-Turn-based battle engine using an ATB-style (Active Time Battle) speed
-gauge instead of a fixed once-per-round turn order. Every living combatant
-has a `turn_gauge` (see combatant.py) that fills proportional to their
-speed stat; whoever's gauge crosses TURN_THRESHOLD first gets to act, and
-their gauge drops back by exactly the threshold (any overflow carries into
-their next turn). This is what lets a much faster combatant act several
-times before a much slower one gets even one turn.
+Turn-based battle engine using a CYCLE turn order instead of a pure ATB
+speed race. Every living combatant acts exactly once per cycle -- Speed
+only ever decides the ORDER combatants act in (fastest first), never
+whether a slower combatant gets to act at all. This fixes the old ATB
+gauge's runaway-speed problem, where either the party or the enemies
+having a much higher Speed stat than the other side could let them act
+several times before the other side got even one turn.
+
+A combatant can be configured to act more than once per cycle (see
+Combatant.actions_per_cycle()) -- e.g. an elite or boss enemy template with
+"actions_per_cycle": 2 goes twice every cycle, or a "bonus_actions_per_cycle"
+passive (armor/enemy passive today; wireable onto a weapon/artifact passive
+too) grants extra actions. This is built as waves: wave 1 is everyone (by
+Speed, fastest first), wave 2 is only combatants with 2+ actions_per_cycle
+(again by Speed), wave 3 only those with 3+, and so on -- so a
+multi-action combatant's extra turns land spread through the cycle rather
+than firing back-to-back, while everyone still gets their one guaranteed
+turn in wave 1 regardless of Speed.
 
 Combat Overhaul: a full squad of up to 4 party members (built one per
 PlayerCharacter -- see factory.build_party_combatants) vs 1+ enemies. Every
@@ -35,8 +46,6 @@ import random
 from bot.game.combat import effects
 from bot.game.combat.combatant import Combatant
 
-TURN_THRESHOLD = 100.0
-MIN_SPEED = 0.01  # guards against a division by zero if speed is ever 0
 MAX_PARTY_SIZE = 4
 
 
@@ -59,6 +68,15 @@ class Battle:
         # acting party member is targeting. Selecting a target does not
         # consume a turn.
         self.target_index = 0
+
+        # Cycle turn order state. `cycle_order` is the remaining queue of
+        # actors for the CURRENT cycle (already decided -- see
+        # _build_cycle_order); it's consumed from the front as turns
+        # happen and rebuilt from scratch (bumping cycle_number) whenever
+        # it runs dry. A combatant that dies before its queued slot comes
+        # up simply has that slot skipped.
+        self.cycle_number = 0
+        self.cycle_order: list[Combatant] = []
 
         self._current_actor: Combatant | None = None
         self._begin_next_turn()
@@ -89,90 +107,77 @@ class Battle:
 
     # ------------------------------------------------------------------
     # Turn order preview -- a best-effort projection of the next `count`
-    # actors, purely for UI display (see bot/utils/embedder.py). It reads
-    # current speed/gauges but never mutates real combatant state, and
-    # uses a stable (non-random) tie-break so re-rendering the same state
-    # doesn't visually jitter between calls.
+    # actors, purely for UI display (see bot/utils/embedder.py). Shows
+    # whatever's left of the real, already-decided queue for the current
+    # cycle, then projects further cycles from who's currently alive.
+    # Never mutates real combatant state, and (by building those future
+    # cycles with rng=None) uses a stable, non-random tie-break so
+    # re-rendering the same state doesn't visually jitter between calls.
     # ------------------------------------------------------------------
     def preview_turn_order(self, count: int = 6) -> list[Combatant]:
-        living = [c for c in self.all_combatants() if c.is_alive()]
+        preview = [c for c in self.cycle_order if c.is_alive()]
+
+        guard = 0
+        while len(preview) < count and guard < 25:
+            living = [c for c in self.all_combatants() if c.is_alive()]
+            if not living:
+                break
+            preview.extend(self._build_cycle_order(living, rng=None))
+            guard += 1
+
+        return preview[:count]
+
+    # ------------------------------------------------------------------
+    # Cycle scheduling
+    # ------------------------------------------------------------------
+    def _build_cycle_order(
+        self, living: list[Combatant], rng: random.Random | None
+    ) -> list[Combatant]:
+        """Builds one cycle's worth of turns from `living`: wave 1 is
+        every living combatant once, fastest Speed first; wave 2 is only
+        those with actions_per_cycle() >= 2 (again fastest first); wave 3
+        only those >= 3; and so on. Everyone always gets their wave-1
+        turn regardless of Speed -- Speed only ever moves a combatant
+        earlier or later within a wave, and multi-action combatants'
+        extra turns land in later waves instead of firing back-to-back.
+
+        `rng`, when given, breaks Speed ties randomly (used for the real
+        battle); when omitted, ties are broken by name instead, so the UI
+        preview is side-effect-free and stable across re-renders."""
         if not living:
             return []
 
-        gauges = {id(c): c.turn_gauge for c in living}
+        max_actions = max(c.actions_per_cycle() for c in living)
         order: list[Combatant] = []
-
-        for _ in range(count):
-            # Advance gauges until at least one combatant is ready. Use a
-            # tight loop like _select_next_actor to avoid floating-point
-            # edge-cases where a single advance doesn't produce a ready
-            # combatant. Keep a stable tie-breaker (by name) for UI
-            # determinism.
-            while True:
-                ready = [c for c in living if gauges[id(c)] >= TURN_THRESHOLD]
-                if ready:
-                    break
-
-                # Compute time until the next combatant crosses the
-                # threshold and advance everyone by that amount.
-                deltas = []
-                for c in living:
-                    speed = max(c.effective_stat("speed"), MIN_SPEED)
-                    deltas.append((TURN_THRESHOLD - gauges[id(c)]) / speed)
-
-                if not deltas:
-                    # Defensive: no living combatants (shouldn't happen since
-                    # we checked earlier) — stop producing more preview items.
-                    break
-
-                dt = min(deltas)
-                for c in living:
-                    speed = max(c.effective_stat("speed"), MIN_SPEED)
-                    gauges[id(c)] += speed * dt
-
-            if not ready:
-                # No ready combatants could be produced (defensive); stop early.
-                break
-
-            ready.sort(key=lambda c: (-gauges[id(c)], c.name))
-            actor = ready[0]
-            order.append(actor)
-            gauges[id(actor)] -= TURN_THRESHOLD
-
+        for wave in range(max_actions):
+            eligible = [c for c in living if c.actions_per_cycle() > wave]
+            if rng is not None:
+                eligible.sort(key=lambda c: (c.effective_stat("speed"), rng.random()), reverse=True)
+            else:
+                eligible.sort(key=lambda c: (-c.effective_stat("speed"), c.name))
+            order.extend(eligible)
         return order
 
-    # ------------------------------------------------------------------
-    # Turn gauge scheduling
-    # ------------------------------------------------------------------
-    def _select_next_actor(self) -> Combatant | None:
-        """Advances every living combatant's turn_gauge until someone
-        crosses TURN_THRESHOLD, then returns them. Uses an analytic jump
-        (compute exactly how much time until the soonest combatant is
-        ready, advance everyone by that amount) rather than ticking one
-        unit at a time, so it's exact regardless of how large the speed
-        gap between combatants is."""
-        living = [c for c in self.all_combatants() if c.is_alive()]
-        if not living:
-            return None
-
+    def _pop_next_actor(self) -> Combatant | None:
+        """Pops (and returns) the next actor from the current cycle's
+        queue, rebuilding a fresh cycle whenever the queue runs dry.
+        Skips any queued combatant that's since died -- their slot for
+        this cycle just doesn't happen."""
         while True:
-            ready = [c for c in living if c.turn_gauge >= TURN_THRESHOLD]
-            if ready:
-                ready.sort(key=lambda c: (c.turn_gauge, self.rng.random()), reverse=True)
-                return ready[0]
+            if not self.cycle_order:
+                living = [c for c in self.all_combatants() if c.is_alive()]
+                if not living:
+                    return None
+                self.cycle_order = self._build_cycle_order(living, rng=self.rng)
+                self.cycle_number += 1
+                self.log.append(f"🔄 Cycle {self.cycle_number} begins.")
 
-            deltas = []
-            for c in living:
-                speed = max(c.effective_stat("speed"), MIN_SPEED)
-                deltas.append((TURN_THRESHOLD - c.turn_gauge) / speed)
-            dt = min(deltas)
-
-            for c in living:
-                speed = max(c.effective_stat("speed"), MIN_SPEED)
-                c.turn_gauge += speed * dt
+            actor = self.cycle_order.pop(0)
+            if actor.is_alive():
+                return actor
 
     def _begin_next_turn(self) -> None:
-        actor = self._select_next_actor()
+        actor = self._pop_next_actor()
         if actor is None:
             self._check_end_conditions()
             return
@@ -227,11 +232,6 @@ class Battle:
         for modifier in list(combatant.modifiers):
             modifier.duration -= 1
         combatant.modifiers = [m for m in combatant.modifiers if m.duration > 0]
-
-        # Consume the turn; any overflow above the threshold carries into
-        # the combatant's next cycle rather than being discarded, so a
-        # very fast combatant that jumped well past 100 stays "ahead."
-        combatant.turn_gauge -= TURN_THRESHOLD
 
         # Keep the active target pointing at a still-living enemy.
         living = self.living_enemies()

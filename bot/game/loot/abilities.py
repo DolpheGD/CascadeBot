@@ -690,6 +690,21 @@ ARMOR_PASSIVES: list[dict] = [
         "effect": {"kind": "damage_reduction_scales_with_missing_hp", "base_percent": 5,
                    "bonus_percent_at_zero_hp": 20},
     },
+    {
+        # unique -- Cycle turn order rework: new bonus_actions_per_cycle
+        # kind. Grants an extra action every combat cycle (see
+        # bot/game/combat/battle.py) on top of the wearer's normal one --
+        # generic and reusable the same way enemy templates configure
+        # "actions_per_cycle" for an elite/boss that should act more than
+        # once per cycle. Gated to DIVINE: acting twice as often as
+        # everything else is one of the strongest things a passive can do.
+        "id": "temporal_capacitor",
+        "name": "Temporal Capacitor",
+        "min_rarity": Rarity.DIVINE,
+        "trigger": "always",
+        "description": "Act one additional time every combat cycle.",
+        "effect": {"kind": "bonus_actions_per_cycle", "count": 1},
+    },
 ]
 
 

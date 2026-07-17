@@ -553,6 +553,36 @@ def move_to_node(db, expedition: Expedition, target_node_id: str) -> tuple[bool,
     return True, "Moved."
 
 
+def abandon_expedition(db, expedition: Expedition, player) -> dict:
+    """Voluntarily ends an active expedition early (the Forfeit button on
+    the adventure menu). Blocked mid-battle or mid-encounter -- same
+    guard as move_to_node -- so the run can't be pulled out from under an
+    opponent mid-turn or a pending choice; in practice the Forfeit button
+    is only ever shown when neither is true anyway (see
+    bot.cogs.dungeon._build_dungeon_view), this is just the defensive
+    belt-and-suspenders check.
+
+    Nothing already earned this run is clawed back -- same as a defeat,
+    the ledger just reflects wherever the run happened to stop. Does NOT
+    record "complete_adventures" quest progress the way a real win/loss
+    does: that quest is for runs that reached an actual conclusion in the
+    dungeon, and counting a forfeit toward it would let it be farmed by
+    immediately abandoning a freshly-started expedition.
+
+    Returns {"ok": False, "message": ...} if blocked, else
+    {"ok": True, "ledger": ...} on success.
+    """
+    if expedition.combat_state:
+        return {"ok": False, "message": "You can't forfeit -- you're in the middle of a battle!"}
+    if expedition.pending_interaction:
+        return {"ok": False, "message": "Finish what you're doing here first!"}
+
+    expedition.status = ExpeditionStatus.ABANDONED
+    ledger = _ledger(expedition)
+    db.commit()
+    return {"ok": True, "ledger": ledger}
+
+
 def resolve_battle_end(db, expedition: Expedition, player, battle) -> dict:
     """Call once battle.is_over(). Applies rewards/penalties, clears combat
     state, and returns a summary dict for the cog to render. A run can have

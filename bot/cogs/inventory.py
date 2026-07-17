@@ -6,7 +6,8 @@ from discord import app_commands
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
 from bot.services import character_service, dungeon_service, inventory_service, item_upgrade_service, lootbox_service
-from bot.database.models.enums import ItemType
+from bot.database.models.enums import ItemType, Rarity
+from bot.services.currency_service import format_currency
 from bot.utils import embedder
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils.ui_guard import OwnedView, check_message_owner
@@ -160,6 +161,27 @@ class EquipTargetView(OwnedView):
     def __init__(self, item_id: int, options: list[discord.SelectOption], owner_id: int | None = None):
         super().__init__(timeout=120, owner_id=owner_id)
         self.add_item(EquipTargetSelect(item_id, options))
+
+
+class SellByRarityConfirmView(OwnedView):
+    """Are-you-sure step for /sell_rarity -- mass-selling can clear out
+    many items (including ones with invested level-ups/rerolls) in one
+    shot and isn't undoable, so it gets a confirmation like Forfeit does
+    on the adventure menu rather than firing on the first click. Short-
+    lived (like EquipTargetView) -- this is a one-off confirmation, not a
+    menu that needs to keep working across a bot restart."""
+
+    def __init__(self, rarity: str, owner_id: int | None = None):
+        super().__init__(timeout=60, owner_id=owner_id)
+        self.rarity = rarity
+
+    @discord.ui.button(label="✅ Confirm Sell", style=discord.ButtonStyle.danger, custom_id="cascade_sell_rarity_confirm")
+    async def confirm_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await _handle_sell_rarity_confirm(interaction, self.rarity)
+
+    @discord.ui.button(label="❌ Cancel", style=discord.ButtonStyle.secondary, custom_id="cascade_sell_rarity_cancel")
+    async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.edit_message(content="Mass sell cancelled -- nothing was sold.", embed=None, view=None)
 
 
 class EntryEquipToggleButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade_entry_equip:(?P<item_id>\d+)"):
@@ -590,6 +612,20 @@ async def _handle_sell(interaction: discord.Interaction, item_id: int):
         db.close()
 
 
+async def _handle_sell_rarity_confirm(interaction: discord.Interaction, rarity: str):
+    db = SessionLocal()
+    try:
+        player = get_player(db, interaction.user.id)
+        if player is None:
+            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            return
+
+        ok, message, count, total_value = inventory_service.sell_by_rarity(db, player, Rarity(rarity))
+        await interaction.response.edit_message(content=message, embed=None, view=None)
+    finally:
+        db.close()
+
+
 async def _handle_open_lootbox(interaction: discord.Interaction, tier: str):
     db = SessionLocal()
     try:
@@ -692,6 +728,58 @@ class Inventory(commands.Cog):
             db.close()
 
         await ctx.response.send_message(embed=embed, view=view)
+
+    # COMMAND: /sell_rarity
+    # Mass-sells every UNEQUIPPED item at one rarity in a single action --
+    # a quick way to clear out a pile of Common/Uncommon clutter without
+    # visiting each one through /inventory. Equipped items are always
+    # skipped (unequip first if one of those needs to go too). Confirms
+    # first since it's a bulk action and not undoable.
+    @app_commands.command(name="sell_rarity", description="Mass-sell every unequipped item of a given rarity.")
+    @app_commands.choices(rarity=[
+        app_commands.Choice(name="Common", value="common"),
+        app_commands.Choice(name="Uncommon", value="uncommon"),
+        app_commands.Choice(name="Rare", value="rare"),
+        app_commands.Choice(name="Epic", value="epic"),
+        app_commands.Choice(name="Legendary", value="legendary"),
+        app_commands.Choice(name="Mythic", value="mythic"),
+        app_commands.Choice(name="Divine", value="divine"),
+    ])
+    async def sell_rarity(self, ctx: discord.Interaction, rarity: str):
+        db = SessionLocal()
+        try:
+            player = get_player(db, ctx.user.id)
+            if player is None:
+                await ctx.response.send_message(
+                    "You haven't started your journey yet. Use `/start` first.",
+                    ephemeral=True,
+                )
+                return
+
+            rarity_enum = Rarity(rarity)
+            count, total_value = inventory_service.preview_sell_by_rarity(db, player.id, rarity_enum)
+            if count == 0:
+                await ctx.response.send_message(
+                    f"You don't have any unequipped {rarity_enum.value.title()} items to sell.",
+                    ephemeral=True,
+                )
+                return
+
+            plural = "s" if count != 1 else ""
+            embed = discord.Embed(
+                title=f"💰 Sell all {rarity_enum.value.title()} items?",
+                description=(
+                    f"This sells **{count}** unequipped {rarity_enum.value.title()} item{plural} "
+                    f"for **{format_currency('gold', total_value)}** total.\n\n"
+                    "Equipped items are never included -- unequip anything you want to keep out "
+                    "of this first. This can't be undone."
+                ),
+                color=discord.Color.orange(),
+            )
+            view = SellByRarityConfirmView(rarity, owner_id=player.id)
+            await ctx.response.send_message(embed=embed, view=view, ephemeral=True)
+        finally:
+            db.close()
 
 
 async def setup(bot):

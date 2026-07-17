@@ -220,4 +220,11 @@ def build_enemy_combatant(template: dict, level: int = 1) -> Combatant:
         active_abilities=[dict(a, source="enemy") for a in template.get("active_abilities", [])],
         ultimate_ability=ultimate,
         passive_abilities=list(template.get("passive_abilities", [])),
+        # Cycle turn order (see battle.py): defaults to 1 action/cycle like
+        # everyone else. Set "actions_per_cycle": 2 (or higher) on an enemy
+        # template to make it act that many times every cycle -- e.g. for
+        # an elite or boss meant to feel meaningfully faster/more dangerous
+        # than a normal enemy without breaking the "everyone still gets a
+        # turn" guarantee the cycle system is built around.
+        base_actions_per_cycle=template.get("actions_per_cycle", 1),
     )
