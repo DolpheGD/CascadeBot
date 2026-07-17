@@ -103,17 +103,36 @@ class Battle:
         order: list[Combatant] = []
 
         for _ in range(count):
-            ready = [c for c in living if gauges[id(c)] >= TURN_THRESHOLD]
-            if not ready:
+            # Advance gauges until at least one combatant is ready. Use a
+            # tight loop like _select_next_actor to avoid floating-point
+            # edge-cases where a single advance doesn't produce a ready
+            # combatant. Keep a stable tie-breaker (by name) for UI
+            # determinism.
+            while True:
+                ready = [c for c in living if gauges[id(c)] >= TURN_THRESHOLD]
+                if ready:
+                    break
+
+                # Compute time until the next combatant crosses the
+                # threshold and advance everyone by that amount.
                 deltas = []
                 for c in living:
                     speed = max(c.effective_stat("speed"), MIN_SPEED)
                     deltas.append((TURN_THRESHOLD - gauges[id(c)]) / speed)
+
+                if not deltas:
+                    # Defensive: no living combatants (shouldn't happen since
+                    # we checked earlier) — stop producing more preview items.
+                    break
+
                 dt = min(deltas)
                 for c in living:
                     speed = max(c.effective_stat("speed"), MIN_SPEED)
                     gauges[id(c)] += speed * dt
-                ready = [c for c in living if gauges[id(c)] >= TURN_THRESHOLD]
+
+            if not ready:
+                # No ready combatants could be produced (defensive); stop early.
+                break
 
             ready.sort(key=lambda c: (-gauges[id(c)], c.name))
             actor = ready[0]
