@@ -32,20 +32,10 @@ from bot.game.combat import enemies as enemy_catalog
 from bot.game.dungeon import graph_utils as gu
 from bot.game.dungeon.encounter_config import get_encounter_by_id, get_encounters_for_room_type
 from bot.game.dungeon.generator import DungeonGenerator
-from bot.game.dungeon.interactive_config import (
-    PUZZLE_FAIL_GOLD_MULT,
-    PUZZLE_SUCCESS_GOLD_MULT,
-    PUZZLES,
-    TRAP_CHOICES,
-    TRAP_FAIL_FLAVOR,
-    TRAP_INTRO,
-    TRAP_SUCCESS_FLAVOR,
-)
 from bot.game.dungeon.region_config import get_region_difficulty
 from bot.game.economy.lootbox_config import tier_for_floor_and_region
 from bot.game.loot.generator import LootGenerator
 from bot.services import character_service, combat_service, item_template_service, lootbox_service, quest_service
-from bot.services import character_service, combat_service, item_template_service, lootbox_service
 from bot.services.currency_service import add_currency, format_currency, spend_currency
 
 # Which material tier drops from treasure/secret rooms at a given floor --
@@ -600,101 +590,6 @@ def resolve_battle_end(db, expedition: Expedition, player, battle) -> dict:
 
 
 # ----------------------------------------------------------------------
-# Trap room resolution
-# ----------------------------------------------------------------------
-
-def get_pending_puzzle(expedition: Expedition) -> dict | None:
-    """Reconstructs the active puzzle dict from Expedition.pending_interaction
-    -- used when re-rendering a puzzle room without going through enter_node
-    again (e.g. resuming via /adventure after a restart)."""
-    interaction = expedition.pending_interaction or {}
-    if interaction.get("kind") != "puzzle":
-        return None
-    return next((p for p in PUZZLES if p["id"] == interaction.get("puzzle_id")), None)
-
-
-def get_trap_choices() -> list[dict]:
-    return TRAP_CHOICES
-
-
-def resolve_trap_choice(db, expedition: Expedition, player, choice_id: str, rng: random.Random | None = None) -> dict:
-    rng = rng or random.Random()
-    node = expedition.graph["nodes"][expedition.current_node_id]
-    difficulty = get_region_difficulty(expedition.region)
-    choice = next((c for c in TRAP_CHOICES if c["id"] == choice_id), None)
-    if choice is None:
-        return {"kind": "trap", "message": "Not a valid choice."}
-
-    base_gold = round((10 + node["floor"] * 5) * difficulty["reward_multiplier"])
-    success = rng.random() < choice["success_chance"]
-
-    if success:
-        gold = round(base_gold * choice["success_gold_mult"])
-        add_currency(db, player, "gold", gold)
-        _ledger_add_gold(expedition, gold)
-        message = f"{TRAP_SUCCESS_FLAVOR} (+{format_currency('gold', gold)})"
-    else:
-        gold = round(base_gold * choice["fail_gold_mult"])
-        if gold:
-            add_currency(db, player, "gold", gold)
-            _ledger_add_gold(expedition, gold)
-        message = TRAP_FAIL_FLAVOR
-        if gold:
-            message += f" (+{format_currency('gold', gold)})"
-
-        fail_damage_percent = choice.get("fail_damage_percent")
-        if fail_damage_percent:
-            squad = character_service.get_squad(db, player)
-            if squad:
-                from bot.game.combat.factory import build_character_combatant
-
-                equipped_by_char = character_service.get_equipped_items_by_character(db, [pc.id for pc in squad])
-                victim = rng.choice(squad)
-                combatant = build_character_combatant(victim, equipped_by_char.get(victim.id, []))
-                lost = max(1, round(combatant.max_hp * fail_damage_percent / 100))
-                victim.current_hp = max(1, combatant.current_hp - lost)
-                message += f"\n{victim.template.name} takes {lost} damage from the blast!"
-
-    expedition.pending_interaction = None
-    _mark_completed(expedition, expedition.current_node_id)
-    db.commit()
-    return {"kind": "resolved", "message": message}
-
-
-# ----------------------------------------------------------------------
-# Puzzle room resolution
-# ----------------------------------------------------------------------
-
-def resolve_puzzle_choice(db, expedition: Expedition, player, option_index: int, rng: random.Random | None = None) -> dict:
-    rng = rng or random.Random()
-    node = expedition.graph["nodes"][expedition.current_node_id]
-    difficulty = get_region_difficulty(expedition.region)
-
-    interaction = expedition.pending_interaction or {}
-    puzzle = next((p for p in PUZZLES if p["id"] == interaction.get("puzzle_id")), None)
-    if puzzle is None:
-        return {"kind": "puzzle", "message": "Something's gone wrong with this puzzle."}
-
-    base_gold = round((12 + node["floor"] * 5) * difficulty["reward_multiplier"])
-    correct = option_index == puzzle["correct_index"]
-
-    if correct:
-        gold = round(base_gold * PUZZLE_SUCCESS_GOLD_MULT)
-        message = f"Correct! The terminal unlocks a small cache. (+{format_currency('gold', gold)})"
-    else:
-        gold = round(base_gold * PUZZLE_FAIL_GOLD_MULT)
-        answer = puzzle["options"][puzzle["correct_index"]]
-        message = f"Not quite -- the answer was '{answer}'. You still scavenge a little on your way out. (+{format_currency('gold', gold)})"
-
-    add_currency(db, player, "gold", gold)
-    _ledger_add_gold(expedition, gold)
-    expedition.pending_interaction = None
-    _mark_completed(expedition, expedition.current_node_id)
-    db.commit()
-    return {"kind": "resolved", "message": message}
-
-
-# ----------------------------------------------------------------------
 # Encounter room resolution -- a small generic interpreter for the data
 # in encounter_config.py. See that module's docstring for the full shape
 # of an encounter/choice/outcome; the short version is every choice is
@@ -712,7 +607,7 @@ def get_pending_encounter(expedition: Expedition) -> dict | None:
     """Reconstructs the active encounter dict from
     Expedition.pending_interaction -- used when re-rendering an encounter
     room without going through enter_node again (e.g. resuming via
-    /adventure after a restart), same pattern as get_pending_puzzle."""
+    /adventure after a restart)."""
     interaction = expedition.pending_interaction or {}
     if interaction.get("kind") != "encounter":
         return None

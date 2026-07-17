@@ -4,7 +4,7 @@ Shared "only the person who ran the command can use this menu" guard.
 Two flavors, matching the two component patterns used across the cogs:
 
 - OwnedView: base class for plain (non-DynamicItem) Views -- DungeonView,
-  CombatView, ProfilePageView, TrapView, etc. Stores the inviting user's
+  CombatView, ProfilePageView, etc. Stores the inviting user's
   Discord ID and blocks anyone else via interaction_check, which
   discord.py calls before dispatching to ANY child component, so
   individual buttons/selects don't need their own check. Every one of
