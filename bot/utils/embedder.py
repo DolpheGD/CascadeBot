@@ -249,10 +249,20 @@ def dungeon_map_embed(
         1 for b in boss_nodes if expedition.graph["nodes"].get(b, {}).get("completed")
     )
 
+    # Color the map embed based on expedition state: a completed run is
+    # celebratory gold, a failed run should be muted/dark, otherwise use
+    # the normal dungeon green.
+    if expedition.status.value == "completed":
+        color = discord.Color.gold()
+    elif expedition.status.value == "failed":
+        color = discord.Color.dark_gray()
+    else:
+        color = discord.Color.dark_green()
+
     embed = discord.Embed(
         title=f"{expedition.region} ({difficulty['difficulty_label']}) -- Floor {node['floor']}/{num_floors - 1}",
         description=message or "",
-        color=discord.Color.dark_green(),
+        color=color,
     )
     if avatar_url:
         embed.set_thumbnail(url=avatar_url)
