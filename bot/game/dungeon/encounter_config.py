@@ -301,7 +301,7 @@ ENCOUNTERS: list[dict] = [
                 "style": "primary",
                 "cost": {"gold": 30},
                 "tiers": [
-                    {"chance": 0.03, "text": "No way. NO WAY. You actually won the top-tier prize.", "outcome": {"gain": {"lootbox": "rare"}}},
+                    {"chance": 0.03, "text": "No way. NO WAY. You actually won the top-tier prize.", "outcome": {"gain": {"lootbox": "rare", "reroll_tokens": 1}}},
                     {"chance": 0.22, "text": "A decent haul, surprisingly.", "outcome": {"gain": {"gold": [88, 162]}, "bonus": {"chance": 0.08, "gain": {"lootbox": "common"}}}},
                     {"chance": 0.75, "text": "SUPER scammed. Somehow worse than the regular scam.", "outcome": {}},
                 ],

@@ -483,6 +483,8 @@ def expedition_summary_embed(ledger: dict, won: bool) -> discord.Embed:
         gained_lines.append(f"{format_currency('gold', ledger['gold_gained'])}")
     if ledger["shards_gained"]:
         gained_lines.append(f"{format_currency('shards', ledger['shards_gained'])}")
+    if ledger["reroll_tokens_gained"]:
+        gained_lines.append(f"{format_currency('reroll_tokens', ledger['reroll_tokens_gained'])}")
     if ledger["xp_gained"]:
         gained_lines.append(f"✨ {ledger['xp_gained']} XP")
     for material, qty in ledger["materials"].items():
@@ -496,6 +498,8 @@ def expedition_summary_embed(ledger: dict, won: bool) -> discord.Embed:
     spent_lines = []
     if ledger["gold_spent"]:
         spent_lines.append(f"{format_currency('gold', ledger['gold_spent'])} on trades")
+    if ledger["reroll_tokens_spent"]:
+        spent_lines.append(f"{format_currency('reroll_tokens', ledger['reroll_tokens_spent'])} on trades")
     embed.add_field(
         name="📉 Spent",
         value="\n".join(spent_lines) if spent_lines else "*Nothing.*",

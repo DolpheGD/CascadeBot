@@ -43,6 +43,12 @@ LOOTBOX_DROP_CHANCE = {"combat": 0.2, "elite": 1.0, "boss": 1.0}
 # just the guaranteed material/lootbox.
 ROOM_TYPE_REWARD_MULTIPLIER = {"combat": 1.0, "elite": 1.85, "boss": 3.0}
 
+# Combat reroll token drop chance and reward sizes. These are a small
+# additional source of reroll tokens to make combat feel directly useful
+# for the item re-roll economy.
+REROLL_DROP_CHANCE = {"combat": 0.15, "elite": 0.35, "boss": 0.6}
+REROLL_DROP_AMOUNTS = {"combat": (1, 1), "elite": (1, 2), "boss": (2, 3)}
+
 # Mirrors dungeon_service._MATERIAL_TIERS / _material_for_floor -- which
 # material tier drops at a given floor. Duplicated (rather than imported)
 # to avoid a circular import, since dungeon_service already imports this

@@ -94,6 +94,8 @@ def _new_ledger() -> dict:
         "gold_gained": 0,
         "gold_spent": 0,
         "shards_gained": 0,
+        "reroll_tokens_gained": 0,
+        "reroll_tokens_spent": 0,
         "xp_gained": 0,
         "materials": {},        # material value -> qty gained
         "items_found": [],      # [{"name":, "rarity":}] -- combat/treasure drops
@@ -125,6 +127,15 @@ def _ledger_add_shards(expedition: Expedition, amount: int) -> None:
         return
     ledger = _ledger(expedition)
     ledger["shards_gained"] = ledger["shards_gained"] + amount
+    expedition.loot_ledger = ledger
+
+
+def _ledger_add_reroll_tokens(expedition: Expedition, amount: int, spent: bool = False) -> None:
+    if not amount:
+        return
+    ledger = _ledger(expedition)
+    key = "reroll_tokens_spent" if spent else "reroll_tokens_gained"
+    ledger[key] = ledger[key] + amount
     expedition.loot_ledger = ledger
 
 
@@ -564,6 +575,8 @@ def resolve_battle_end(db, expedition: Expedition, player, battle) -> dict:
             _ledger_add_material(expedition, rewards["material"]["type"], rewards["material"]["amount"])
         if rewards.get("lootbox"):
             _ledger_add_lootbox(expedition, rewards["lootbox"]["tier"], rewards["lootbox"]["quantity"])
+        if rewards.get("reroll_tokens"):
+            _ledger_add_reroll_tokens(expedition, rewards["reroll_tokens"])
         _ledger_record_level_ups(expedition, rewards["level_ups"])
         _mark_completed(expedition, expedition.current_node_id)
         combat_service.clear_battle(db, expedition)
@@ -650,6 +663,8 @@ def _spend_cost(db, player, cost: dict, expedition: Expedition) -> None:
         spend_currency(db, player, currency, amount)
         if currency == "gold":
             _ledger_add_gold(expedition, amount, spent=True)
+        elif currency == "reroll_tokens":
+            _ledger_add_reroll_tokens(expedition, amount, spent=True)
 
 
 def _roll_amount(rng: random.Random, amount) -> int:
@@ -758,6 +773,8 @@ def _apply_gain(
             _ledger_add_gold(expedition, amount)
         elif currency == "shards":
             _ledger_add_shards(expedition, amount)
+        elif currency == "reroll_tokens":
+            _ledger_add_reroll_tokens(expedition, amount)
         elif currency in {m.value for m in MaterialType}:
             _ledger_add_material(expedition, currency, amount)
         lines.append(f"+{format_currency(currency, amount)}")
@@ -788,6 +805,8 @@ def _apply_loss(db, player, rng: random.Random, loss: dict, expedition: Expediti
             spend_currency(db, player, currency, actual)
             if currency == "gold":
                 _ledger_add_gold(expedition, actual, spent=True)
+            elif currency == "reroll_tokens":
+                _ledger_add_reroll_tokens(expedition, actual, spent=True)
             lines.append(f"-{format_currency(currency, actual)}")
 
     return lines

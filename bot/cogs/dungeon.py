@@ -286,6 +286,8 @@ def _reward_extras_text(r: dict) -> str:
     if r.get("lootbox"):
         lb = r["lootbox"]
         extras += f"\n+{lb['quantity']} {lb['tier'].title()} Lootbox!"
+    if r.get("reroll_tokens"):
+        extras += f"\n+{r['reroll_tokens']} 🎲"
     return extras
 
 
