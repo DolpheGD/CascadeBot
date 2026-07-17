@@ -430,20 +430,11 @@ async def _handle_start_battle(interaction: discord.Interaction):
 
 def _render_room(db, expedition, player, kind: str, message: str, avatar_url: str) -> tuple[discord.Embed, discord.ui.View | None]:
     """Builds the (embed, view) pair for whatever room state the expedition
-    is currently in -- encounter/trap/puzzle get their own interactive views;
-    everything else falls back to the normal dungeon map."""
+    is currently in -- an active encounter gets its own interactive view;
+    everything else falls back to the normal dungeon map. Trap and Puzzle
+    rooms no longer have standalone mini-games of their own -- they're
+    Encounter-driven now, same as every other non-combat room type."""
     node = expedition.graph["nodes"][expedition.current_node_id]
-
-    if kind == "trap":
-        choices = dungeon_service.get_trap_choices()
-        return embedder.trap_embed(node, choices, message), TrapView(choices, owner_id=expedition.player_id)
-
-    if kind == "puzzle":
-        puzzle = dungeon_service.get_pending_puzzle(expedition)
-        if puzzle is None:
-            # Interaction state was lost somehow -- fail safe back to the map.
-            return _render_room(db, expedition, player, "resolved", message, avatar_url)
-        return embedder.puzzle_embed(node, puzzle, message), PuzzleView(puzzle, owner_id=expedition.player_id)
 
     if kind == "encounter":
         encounter = dungeon_service.get_pending_encounter(expedition)
@@ -451,7 +442,7 @@ def _render_room(db, expedition, player, kind: str, message: str, avatar_url: st
             # Interaction state was lost somehow -- fail safe back to the map.
             return _render_room(db, expedition, player, "resolved", message, avatar_url)
         return (
-            embedder.encounter_embed(node, encounter, message),
+            embedder.encounter_embed(node, encounter, message, player=player),
             EncounterView(dungeon_service.get_encounter_choices(encounter), owner_id=expedition.player_id),
         )
 
