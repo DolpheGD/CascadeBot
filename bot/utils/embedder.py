@@ -932,7 +932,7 @@ def quest_board_embed(beginner_quests: list, basic_quest, cooldown_remaining, pl
     if not player.beginner_quest_bonus_claimed:
         embed.add_field(
             name="🎁 Completion Bonus",
-            value=f"Finish every beginner quest above for {format_currency('shards', 450)}!",
+            value=f"Finish every beginner quest above for {format_currency('shards', 600)}!",
             inline=False,
         )
 

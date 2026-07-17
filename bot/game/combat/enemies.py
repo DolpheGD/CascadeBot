@@ -120,6 +120,19 @@ ENEMY_TEMPLATES: list[dict] = [
         "passive_abilities": [],
     },
     {
+        # Dangerous but weak
+        "name": "Rohan's Bomb",
+        "role": "combat",
+        "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands', 'Voidcrest Desert'],
+        "base_stats": {
+            "attack": 100, "defense": 1, "elemental": 5, "speed": 1,
+            "max_hp": 1, "max_mana": 999, "crit_rate": 6, "crit_damage": 155, "recharge": 70,
+        },
+        "level_scale_percent": 8,
+        "active_abilities": [],
+        "passive_abilities": [],
+    },
+    {
         # Glacier 15's "rogue security drones that never got the
         # shutdown order" -- still patrolling the ruin decades later.
         "name": "Rogue Security Drone",
@@ -658,7 +671,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 24, "defense": 10, "elemental": 10, "speed": 14,
             "max_hp": 270, "max_mana": 999, "crit_rate": 14, "crit_damage": 170, "recharge": 7,
         },
-        "level_scale_percent": 10,
+        "level_scale_percent": 8,
         "actions_per_cycle": 2,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
@@ -679,7 +692,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 29, "defense": 12, "elemental": 12, "speed": 8,
             "max_hp": 670, "max_mana": 999, "crit_rate": 9, "crit_damage": 190, "recharge": 10,
         },
-        "level_scale_percent": 10,
+        "level_scale_percent": 8,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "overclock_repair"),
             get_ability_by_id(ARTIFACT_SKILLS, "rousing_signal"),
@@ -701,7 +714,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "max_hp": 350, "max_mana": 999, "crit_rate": 10, "crit_damage": 165, "recharge": 6,
         },
         "actions_per_cycle": 2,
-        "level_scale_percent": 10,
+        "level_scale_percent": 8,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "starfall"),
             get_ability_by_id(WEAPON_SKILLS, "rending_cleave"),
@@ -718,7 +731,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 34, "defense": 10, "elemental": 25, "speed": 10,
             "max_hp": 430, "max_mana": 999, "crit_rate": 13, "crit_damage": 175, "recharge": 10,
         },
-        "level_scale_percent": 10,
+        "level_scale_percent": 8,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "guard_splitter"),
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
@@ -738,7 +751,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 7, "defense": 8, "elemental": 11, "speed": 22,
             "max_hp": 400, "max_mana": 999, "crit_rate": 6, "crit_damage": 180, "recharge": 12,
         },
-        "level_scale_percent": 10,
+        "level_scale_percent": 8,
         "actions_per_cycle": 3,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "riftcutter"),
@@ -761,7 +774,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "max_hp": 300, "max_mana": 999, "crit_rate": 2, "crit_damage": 500, "recharge": 12,
         },
         "actions_per_cycle": 2,
-        "level_scale_percent": 10,
+        "level_scale_percent": 8,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "flame_strike"),
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
@@ -786,7 +799,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 23, "defense": 8, "elemental": 26, "speed": 11,
             "max_hp": 420, "max_mana": 999, "crit_rate": 16, "crit_damage": 185, "recharge": 10,
         },
-        "level_scale_percent": 10,
+        "level_scale_percent": 8,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "frost_lance"),
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
@@ -804,7 +817,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 33, "defense": 14, "elemental": 33, "speed": 9,
             "max_hp": 540, "max_mana": 999, "crit_rate": 11, "crit_damage": 170, "recharge": 15,
         },
-        "level_scale_percent": 10,
+        "level_scale_percent": 8,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "rousing_signal"),
             get_ability_by_id(ARTIFACT_SKILLS, "aegis_broadcast"),
@@ -830,7 +843,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 36, "defense": 12, "elemental": 20, "speed": 13,
             "max_hp": 650, "max_mana": 999, "crit_rate": 12, "crit_damage": 175, "recharge": 14,
         },
-        "level_scale_percent": 10,
+        "level_scale_percent": 8,
         "actions_per_cycle": 2,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "rending_cleave"),
@@ -858,7 +871,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 58, "defense": 12, "elemental": 16, "speed": 5,
             "max_hp": 430, "max_mana": 999, "crit_rate": 6, "crit_damage": 150, "recharge": 6,
         },
-        "level_scale_percent": 10,
+        "level_scale_percent": 8,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "shield_bash"),
             get_ability_by_id(WEAPON_SKILLS, "rending_cleave"),
@@ -885,7 +898,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "max_hp": 370, "max_mana": 999, "crit_rate": 14, "crit_damage": 175, "recharge": 7,
         },
         "actions_per_cycle": 2,
-        "level_scale_percent": 10,
+        "level_scale_percent": 8,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "frost_lance"),
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
@@ -909,7 +922,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 23, "defense": 16, "elemental": 30, "speed": 8,
             "max_hp": 580, "max_mana": 999, "crit_rate": 50, "crit_damage": 120, "recharge": 8,
         },
-        "level_scale_percent": 10,
+        "level_scale_percent": 8,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "aegis_broadcast"),
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
