@@ -10,6 +10,7 @@ from bot.database.models import (  # noqa: F401
     expedition_model,
     hq_model,
     player_model,
+    quest_model,
 )
 
 

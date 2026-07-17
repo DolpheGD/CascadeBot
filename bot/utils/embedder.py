@@ -21,6 +21,7 @@ from bot.database.models.character_model import LEVEL_CAP
 from bot.game.combat.combatant import STAT_KEYS
 from bot.game.combat.factory import base_character_stats as _base_character_stats
 from bot.game.combat.factory import build_character_combatant
+from bot.game.economy.quest_config import BASIC_QUEST_POOL, BEGINNER_QUESTS
 from bot.services.currency_service import currency_emoji, format_currency
 
 ROOM_TYPE_EMOJI = {
@@ -862,4 +863,57 @@ def encounter_embed(node: dict, encounter: dict, message: str | None = None) -> 
     image_url = encounter.get("image_url")
     if image_url:
         embed.set_image(url=image_url)
+    return embed
+
+
+def quest_board_embed(beginner_quests: list, basic_quest, cooldown_remaining, player) -> discord.Embed:
+    """`beginner_quests` is the full list of PlayerQuest rows (kind=
+    "beginner") for this player, `basic_quest` is their current active
+    basic PlayerQuest or None, and `cooldown_remaining` is a
+    datetime.timedelta (or None if a new basic quest can be rolled right
+    now) -- see quest_service.get_beginner_quests /
+    get_active_basic_quest / basic_quest_cooldown_remaining."""
+    embed = discord.Embed(title="📋 Quests", color=discord.Color.teal())
+
+    descriptions_by_id = {q["id"]: q["description"] for q in BEGINNER_QUESTS}
+    beginner_lines = []
+    completed_count = 0
+    for quest in beginner_quests:
+        desc = descriptions_by_id.get(quest.quest_id, quest.quest_id)
+        if quest.is_completed:
+            completed_count += 1
+            beginner_lines.append(f"✅ ~~{desc}~~")
+        else:
+            beginner_lines.append(f"⬜ {desc} ({quest.progress}/{quest.goal_count})")
+    beginner_title = f"🌱 Beginner Quests ({completed_count}/{len(beginner_quests)})"
+    if player.beginner_quest_bonus_claimed:
+        beginner_title += " -- bonus claimed!"
+    embed.add_field(name=beginner_title, value="\n".join(beginner_lines), inline=False)
+    if not player.beginner_quest_bonus_claimed:
+        embed.add_field(
+            name="🎁 Completion Bonus",
+            value=f"Finish every beginner quest above for {format_currency('shards', 300)}!",
+            inline=False,
+        )
+
+    if basic_quest is not None:
+        desc = next((q["description"] for q in BASIC_QUEST_POOL if q["id"] == basic_quest.quest_id), basic_quest.quest_id)
+        reward = next((q["reward"] for q in BASIC_QUEST_POOL if q["id"] == basic_quest.quest_id), {})
+        reward_text = ", ".join(format_currency(c, a) for c, a in reward.items())
+        status = "✅ Complete!" if basic_quest.is_completed else f"{basic_quest.progress}/{basic_quest.goal_count}"
+        embed.add_field(
+            name="🎯 Basic Quest",
+            value=f"{desc}\nProgress: {status}\nReward: {reward_text}",
+            inline=False,
+        )
+    else:
+        embed.add_field(name="🎯 Basic Quest", value="*No quest active.*", inline=False)
+
+    if cooldown_remaining is None:
+        embed.set_footer(text="A new basic quest is ready to roll!")
+    else:
+        hours, remainder = divmod(int(cooldown_remaining.total_seconds()), 3600)
+        minutes = remainder // 60
+        embed.set_footer(text=f"Next basic quest reroll available in {hours}h {minutes}m.")
+
     return embed

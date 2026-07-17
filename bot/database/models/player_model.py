@@ -16,7 +16,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import List
 
-from sqlalchemy import BigInteger, DateTime, Integer, String, func
+from sqlalchemy import BigInteger, Boolean, DateTime, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from bot.database.models.base_model import Base
@@ -55,6 +55,17 @@ class Player(Base):
         DateTime(timezone=True), nullable=True
     )
     daily_streak: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Quests -- see bot/database/models/quest_model.py::PlayerQuest and
+    # bot/services/quest_service.py. last_basic_quest_assigned_at gates the
+    # 5-hour "roll a new basic quest" cooldown (same pattern as
+    # last_daily_claimed_at above); beginner_bonus_claimed guards the
+    # one-time 300 shard bonus for finishing every beginner quest so it
+    # can never be granted twice.
+    last_basic_quest_assigned_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    beginner_quest_bonus_claimed: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Base stats -- equipment/artifacts/buffs modify these at combat time,
     # they don't overwrite them here.
@@ -98,6 +109,9 @@ class Player(Base):
         back_populates="player", cascade="all, delete-orphan"
     )
     squad_slots: Mapped[List["SquadSlot"]] = relationship(  # noqa: F821
+        back_populates="player", cascade="all, delete-orphan"
+    )
+    quests: Mapped[List["PlayerQuest"]] = relationship(  # noqa: F821
         back_populates="player", cascade="all, delete-orphan"
     )
 

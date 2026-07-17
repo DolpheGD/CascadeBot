@@ -19,6 +19,7 @@ from bot.game.loot.rarity_config import (
 )
 from bot.game.loot.upgrades import add_substat as _add_substat_math
 from bot.game.loot.upgrades import level_up, reroll_substats
+from bot.services import quest_service
 from bot.services.currency_service import add_currency, format_currency, spend_currency
 
 LEVEL_UP_GOLD_PER_LEVEL = 15
@@ -140,5 +141,6 @@ def level_up_item(db, player, item, levels: int = 1) -> tuple[bool, str]:
 
     level_up(item, cost["levels"])
     db.commit()
+    quest_service.record_progress(db, player, "upgrade_gear")
     note = " (capped)" if cost["at_cap"] else ""
     return True, f"{item.display_name} leveled up to {item.item_level} for {format_currency('gold', cost['gold'])}{note}."

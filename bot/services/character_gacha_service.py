@@ -17,7 +17,7 @@ from bot.game.economy.character_gacha_config import (
     SINGLE_PULL_COST_SHARDS,
     roll_star_rating,
 )
-from bot.services import character_service
+from bot.services import character_service, quest_service
 from bot.services.currency_service import spend_currency
 
 
@@ -58,6 +58,7 @@ def pull_single(db, player, rng: random.Random | None = None) -> tuple[bool, str
     grouped = _grouped_templates(db)
     result = _pull_one(db, player, grouped, rng)
     db.commit()
+    quest_service.record_progress(db, player, "gacha_pulls")
 
     tag = "NEW!" if result["is_new"] else "Duplicate"
     return True, f"Pulled {result['template'].name} ({result['template'].star_rating}★) -- {tag}", [result]
@@ -72,6 +73,7 @@ def pull_multi(db, player, count: int = MULTI_PULL_COUNT, rng: random.Random | N
     grouped = _grouped_templates(db)
     results = [_pull_one(db, player, grouped, rng) for _ in range(count)]
     db.commit()
+    quest_service.record_progress(db, player, "gacha_pulls", amount=count)
 
     new_count = sum(1 for r in results if r["is_new"])
     return True, f"Pulled {len(results)} characters ({new_count} new)!", results

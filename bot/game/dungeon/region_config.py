@@ -23,6 +23,16 @@ dungeon_service.enter_node). Which enemy TEMPLATES can even appear in a
 region at all (and which boss templates count as "final boss" caliber
 there) is a separate axis controlled by each template's own `regions`/
 `region_roles` fields in bot/game/combat/enemies.py.
+
+Combat rework: `level_offset` still drives ELITE/BOSS scaling in a region
+(unchanged). `combat_level_offset` is a new, higher offset used ONLY for
+normal "combat"-room enemy scaling (see dungeon_service.enter_node) --
+normal enemies in the harder regions were badly underscaled relative to
+how strong a player actually is by the time they reach those regions, so
+they now get pushed harder than elites/bosses do in that same region
+rather than just inheriting `level_offset`. `combat_squad_weights` were
+also bumped up across every region for a significantly higher average
+enemy count per normal fight.
 """
 
 from __future__ import annotations
@@ -31,42 +41,36 @@ from bot.database.models.enums import Rarity
 
 REGION_DIFFICULTY: dict[str, dict] = {
     "Glacier 15": {
-        "tier": 1, "difficulty_label": "Easy",
-        "level_offset": 0, "reward_multiplier": 0.85,
+        "tier": 1, "difficulty_label": "Normal",
+        "level_offset": 0, "combat_level_offset": 0, "reward_multiplier": 1.0,
         "max_item_rarity": Rarity.RARE, "max_lootbox_tier": "uncommon",
-        "combat_squad_weights": {1: 70, 2: 25, 3: 5},
+        "combat_squad_weights": {1: 30, 2: 40, 3: 25, 4: 5},
         "elite_squad_weights": {1: 90, 2: 10},
     },
     "The Wastelands": {
-        "tier": 2, "difficulty_label": "Normal",
-        "level_offset": 2, "reward_multiplier": 1.05,
+        "tier": 2, "difficulty_label": "Hard",
+        "level_offset": 3, "combat_level_offset": 4, "reward_multiplier": 1.25,
         "max_item_rarity": Rarity.EPIC, "max_lootbox_tier": "rare",
-        "combat_squad_weights": {1: 40, 2: 35, 3: 20, 4: 5},
+        "combat_squad_weights": {1: 10, 2: 30, 3: 35, 4: 20, 5: 5},
         "elite_squad_weights": {1: 75, 2: 25},
     },
     "The Hotlands": {
         "tier": 3, "difficulty_label": "Hard",
-        "level_offset": 5, "reward_multiplier": 1.3,
+        "level_offset": 6, "combat_level_offset": 9, "reward_multiplier": 1.5,
         "max_item_rarity": Rarity.LEGENDARY, "max_lootbox_tier": "epic",
-        "combat_squad_weights": {1: 25, 2: 30, 3: 30, 4: 15},
+        "combat_squad_weights": {2: 20, 3: 35, 4: 30, 5: 15},
         "elite_squad_weights": {1: 55, 2: 45},
     },
     "Voidcrest Desert": {
         "tier": 4, "difficulty_label": "Nightmare",
-        "level_offset": 9, "reward_multiplier": 1.6,
+        "level_offset": 10, "combat_level_offset": 15, "reward_multiplier": 2.0,
         "max_item_rarity": Rarity.DIVINE, "max_lootbox_tier": "mythic",
-        "combat_squad_weights": {1: 15, 2: 25, 3: 35, 4: 25},
+        "combat_squad_weights": {2: 10, 3: 25, 4: 35, 5: 30},
         "elite_squad_weights": {1: 40, 2: 60},
     },
 }
 
-DEFAULT_DIFFICULTY = {
-    "tier": 1, "difficulty_label": "Easy", "level_offset": 0, "reward_multiplier": 0.85,
-    "max_item_rarity": Rarity.RARE, "max_lootbox_tier": "uncommon",
-    "combat_squad_weights": {1: 70, 2: 25, 3: 5},
-    "elite_squad_weights": {1: 90, 2: 10},
-}
-
+DEFAULT_DIFFICULTY = REGION_DIFFICULTY["Glacier 15"]
 
 def get_region_difficulty(region: str) -> dict:
     return REGION_DIFFICULTY.get(region, DEFAULT_DIFFICULTY)

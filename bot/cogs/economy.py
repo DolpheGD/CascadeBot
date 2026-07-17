@@ -273,6 +273,11 @@ class Economy(commands.Cog):
         boxes_text = ", ".join(f"{count}x {tier.title()} Lootbox" for tier, count in tier_counts.items())
         if boxes_text:
             message += f"\nAlso received: {boxes_text}"
+        materials_text = ", ".join(
+            format_currency(material, amount) for material, amount in result["materials"].items()
+        )
+        if materials_text:
+            message += f"\nMaterials: {materials_text}"
         await ctx.response.send_message(message)
 
     # COMMAND: /harvesters

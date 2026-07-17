@@ -16,7 +16,7 @@ from bot.database.models.equipment_model import ItemTemplate
 from bot.game.economy.lootbox_config import LOOTBOX_RARITY_WEIGHTS, LOOTBOX_TEMPLATES
 from bot.game.loot.generator import LootGenerator
 from bot.services.currency_service import add_currency
-from bot.services import item_template_service
+from bot.services import item_template_service, quest_service
 
 
 def ensure_lootbox_templates_seeded(db) -> None:
@@ -119,6 +119,8 @@ def open_lootboxes(
 
     for item in items:
         db.refresh(item)
+
+    quest_service.record_progress(db, player, "open_lootboxes", amount=count)
 
     rewards = {"gold": total_gold, "shards": total_shards, "items": items}
     return True, f"Opened {count} {template.name}(s)!", rewards

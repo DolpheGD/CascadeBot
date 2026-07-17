@@ -11,6 +11,7 @@ import datetime as dt
 from bot.database.models.economy_model import HarvesterTemplate, PlayerHarvester
 from bot.game.economy.harvester_config import HARVESTER_TEMPLATES
 from bot.game.economy.hq_config import building_level_cap
+from bot.services import quest_service
 from bot.services.currency_service import add_currency, format_currency, spend_currency
 
 
@@ -85,6 +86,7 @@ def buy_harvester(db, player, template_id: int, hq_level: int = 1) -> tuple[bool
     db.add(harvester)
     db.commit()
     db.refresh(harvester)
+    quest_service.record_progress(db, player, "buy_harvester")
     return True, f"Acquired {template.name}!", harvester
 
 
@@ -110,6 +112,7 @@ def collect_harvester(db, harvester: PlayerHarvester) -> int:
 
     if amount > 0:
         add_currency(db, harvester.player, template.currency, amount)
+        quest_service.record_progress(db, harvester.player, "collect_harvester")
 
     return amount
 

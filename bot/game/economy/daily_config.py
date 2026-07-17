@@ -5,6 +5,8 @@ curves can be retuned without touching the claim logic.
 
 from __future__ import annotations
 
+from bot.database.models.enums import MaterialType
+
 DAILY_BASE_GOLD = 100
 DAILY_GOLD_PER_STREAK_DAY = 15   # additional gold per consecutive day, capped below
 DAILY_STREAK_GOLD_CAP_DAYS = 20  # streak bonus stops growing past this many days
@@ -18,14 +20,34 @@ DAILY_SHARD_MILESTONE_AMOUNT = 10
 # dailies feel more impactful now that dungeon gold was trimmed down.
 DAILY_REROLL_TOKENS = 3
 
-# Lootbox tiers granted alongside gold/shards. Every claim grants a Common
-# box; hitting a weekly/monthly streak milestone grants a better one too
-# (in addition to, not instead of, the Common).
-DAILY_LOOTBOX_BASE_TIER = "rare"
+# Lootbox tier for the guaranteed daily box escalates with streak length --
+# starts at "rare" (not "common": /daily should feel worth doing from day
+# one) and gradually climbs the longer the streak holds. Milestone streaks
+# ALSO grant an extra bonus box on top, at its own (usually higher) tier.
+DAILY_LOOTBOX_BASE_PROGRESSION: list[tuple[int, str]] = [
+    (1, "rare"),
+    (7, "epic"),
+    (30, "legendary"),
+]
 DAILY_LOOTBOX_MILESTONES = {
     7: "epic",
     30: "legendary",
 }
+
+# Material reward on every claim -- both materials from a streak-
+# appropriate tier (same tier groupings harvesters/dungeon drops use, see
+# MaterialType.tier), gradually escalating in tier and amount the longer
+# an unbroken streak runs, same spirit as the lootbox progression above.
+DAILY_MATERIAL_TIERS: list[tuple[MaterialType, MaterialType]] = [
+    (MaterialType.WOOD, MaterialType.STONE),
+    (MaterialType.METAL, MaterialType.CRYSTAL),
+    (MaterialType.XENDIUM, MaterialType.PERMAFROST_ORE),
+    (MaterialType.VOID, MaterialType.ENTROPY),
+]
+DAILY_MATERIAL_TIER_STREAK_THRESHOLDS = [1, 7, 14, 30]  # parallel to DAILY_MATERIAL_TIERS
+DAILY_MATERIAL_BASE_AMOUNT = 5
+DAILY_MATERIAL_PER_STREAK_DAY = 1
+DAILY_MATERIAL_STREAK_CAP_DAYS = 20
 
 # A streak survives if the player claims again within this many hours of
 # their last claim (so claiming daily-ish, not exactly every 24h, still
@@ -47,10 +69,31 @@ def compute_daily_reward(streak: int) -> tuple[int, int, int]:
 
 
 def compute_daily_lootboxes(streak: int) -> list[str]:
-    """Every claim grants the base tier; milestone streaks grant an
-    additional, better tier on top."""
-    tiers = [DAILY_LOOTBOX_BASE_TIER]
+    """The guaranteed base-tier box escalates in tier as the streak grows
+    (see DAILY_LOOTBOX_BASE_PROGRESSION); milestone streaks grant an
+    additional, separately-tiered bonus box on top."""
+    base_tier = DAILY_LOOTBOX_BASE_PROGRESSION[0][1]
+    for threshold, tier in DAILY_LOOTBOX_BASE_PROGRESSION:
+        if streak >= threshold:
+            base_tier = tier
+
+    tiers = [base_tier]
     for milestone_days, tier in DAILY_LOOTBOX_MILESTONES.items():
         if streak % milestone_days == 0:
             tiers.append(tier)
     return tiers
+
+
+def compute_daily_materials(streak: int) -> dict[str, int]:
+    """Returns {material_value: amount}, two materials from a streak-
+    appropriate tier, gradually escalating in both tier and amount."""
+    tier_index = 0
+    for i, threshold in enumerate(DAILY_MATERIAL_TIER_STREAK_THRESHOLDS):
+        if streak >= threshold:
+            tier_index = i
+    materials = DAILY_MATERIAL_TIERS[tier_index]
+
+    capped_streak = min(streak, DAILY_MATERIAL_STREAK_CAP_DAYS)
+    amount = DAILY_MATERIAL_BASE_AMOUNT + DAILY_MATERIAL_PER_STREAK_DAY * (capped_streak - 1)
+
+    return {material.value: amount for material in materials}

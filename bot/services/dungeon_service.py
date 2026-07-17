@@ -41,7 +41,7 @@ from bot.game.dungeon.interactive_config import (
 from bot.game.dungeon.region_config import get_region_difficulty
 from bot.game.economy.lootbox_config import tier_for_floor_and_region
 from bot.game.loot.generator import LootGenerator
-from bot.services import character_service, combat_service, item_template_service, lootbox_service
+from bot.services import character_service, combat_service, item_template_service, lootbox_service, quest_service
 from bot.services.currency_service import add_currency, format_currency, spend_currency
 
 # Which material tier drops from treasure/secret rooms at a given floor --
@@ -523,6 +523,9 @@ def resolve_battle_end(db, expedition: Expedition, player, battle) -> dict:
     if battle.result == "won":
         room_type = expedition.graph["nodes"][expedition.current_node_id]["room_type"]
         rewards = combat_service.apply_victory_rewards(db, player, expedition, room_type=room_type)
+        quest_service.record_progress(db, player, "win_battles")
+        if room_type == RoomType.BOSS:
+            quest_service.record_progress(db, player, "defeat_boss")
         _ledger_add_gold(expedition, rewards["gold"])
         _ledger_add_xp(expedition, rewards["xp"])
         for item in rewards["items"]:
@@ -535,6 +538,7 @@ def resolve_battle_end(db, expedition: Expedition, player, battle) -> dict:
         if expedition.current_node_id == final_boss:
             expedition.status = ExpeditionStatus.COMPLETED
             db.commit()
+            quest_service.record_progress(db, player, "complete_adventures")
             return {"kind": "expedition_complete", "rewards": rewards, "ledger": _ledger(expedition)}
 
         db.commit()
@@ -546,6 +550,7 @@ def resolve_battle_end(db, expedition: Expedition, player, battle) -> dict:
         combat_service.clear_battle(db, expedition)
         ledger = _ledger(expedition)
         db.commit()
+        quest_service.record_progress(db, player, "complete_adventures")
         return {"kind": "defeat", "ledger": ledger}
 
     return {"kind": "ongoing"}

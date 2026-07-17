@@ -70,6 +70,7 @@ class CascadeBot(commands.Bot):
             ShopBuyButton,
             ShrineActionButton,
         )
+        from bot.cogs.quests import RollQuestButton
 
         dummy_ability_options = [discord.SelectOption(label="dummy", value="dummy")]
         dummy_target_options = [discord.SelectOption(label="dummy", value="0")]
@@ -90,6 +91,7 @@ class CascadeBot(commands.Bot):
         self.add_dynamic_items(HarvesterActionButton, HarvesterCollectAllButton)
         self.add_dynamic_items(HQUpgradeButton, ShrineActionButton, ShopBuyButton)
         self.add_dynamic_items(MailboxCollectButton, MailboxUpgradeButton)
+        self.add_dynamic_items(RollQuestButton)
 
         if DEV_MODE:
             # clear the guild command tree to avoid duplicates when reloading
