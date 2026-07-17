@@ -139,7 +139,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "josh_campfire",
         "name": "Josh",
-        "image_url": "https://cdn.discordapp.com/attachments/704530416475832342/1275352717501665332/JOSHCAMPFIRE_1.png?ex=66c59446&is=66c442c6&hm=ab921b1d1c60330420fb37749ee9e02ecd2902672ea3cc5b4bdd230706dee121&",
+        "image_url": "https://cdn.discordapp.com/attachments/704530416475832342/1275352717501665332/JOSHCAMPFIRE_1.png?ex=6a5a7f86&is=6a592e06&hm=2bf23a4a77ceaf8db4edcf5f8c2805c8b84478b401cce0c4848cdc31ac9c01ae&",
         "room_types": ["story"],
         "intros": [
             "You find Josh hunched by a dying campfire, counting a stack of chips that clearly aren't his. He hasn't noticed you.",
@@ -203,7 +203,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "dolphe_drifter",
         "name": "Dolphe",
-        "image_url": "https://cdn.discordapp.com/attachments/704530416475832342/1275348918305161216/HOMELESSDOLPHE.png?ex=66c590bc&is=66c43f3c&hm=91d0541edbb46f3b392800d8cc055eb7d62d56367f61c9d964b47f36f2a5292b&",
+        "image_url": "https://cdn.discordapp.com/attachments/704530416475832342/1275348918305161216/HOMELESSDOLPHE.png?ex=6a5a7bfc&is=6a592a7c&hm=b81599e7af4fae9fa48c93d54c0e9cf8f0cca3ccdb975616828884cf70fb3b6b&",
         "room_types": ["story"],
         "intros": [
             "A gaunt man huddled against a collapsed wall calls himself Dolphe -- though he insists he's not THAT Dolphe. He's shivering.",
@@ -272,7 +272,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "xender_lottery",
         "name": "Xender",
-        "image_url": "https://cdn.discordapp.com/attachments/704530416475832342/1275340818382721024/XENDERCRACKPIPE_1.png?ex=66c58931&is=66c437b1&hm=80d6a37f392521c4d15142e9cabe0ee42097f54c98f0469517305a0378d1dabe&",
+        "image_url": "https://cdn.discordapp.com/attachments/704530416475832342/1275340818382721024/XENDERCRACKPIPE_1.png?ex=6a5a7471&is=6a5922f1&hm=f68bb9cae12b4dd1c7ff4f45e191765b7603259ddfeb294d145b108565f5469a&",
         "room_types": ["story"],
         "intros": [
             "Xender has set up a rickety folding table draped in gold cloth: \"STEP RIGHT UP -- COME BIG, WIN BIG!\" A prize pool glitters in front of him.",
@@ -336,7 +336,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "rex_workshop",
         "name": "Rex",
-        "image_url": "https://cdn.discordapp.com/attachments/704530416475832342/1274572311445635173/REXEVENT.png?ex=66c2bd77&is=66c16bf7&hm=51b48f281e43a17933bde33d083b48f70d8ea1dbe63c55d276a0ba0a0af0923e&",
+        "image_url": "https://cdn.discordapp.com/attachments/704530416475832342/1274572311445635173/REXEVENT.png?ex=6a5af477&is=6a59a2f7&hm=ecbf164219a00fa7f020d2899c9c70bc4eaf76f52c162b048d7e13f62e4bdfe1&",
         "room_types": ["story"],
         "intros": [
             "You find Rex's workshop deep in the woods -- one random shop, no neighbors, no explanation. He offers to craft something from your materials.",
@@ -402,7 +402,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "nf89_blacksmith",
         "name": "NF89",
-        "image_url": "https://cdn.discordapp.com/attachments/704530416475832342/1274977215314133023/NFTHEBLACKSMITH.png?ex=66c43690&is=66c2e510&hm=8278fd5ea5fba7b55b544de5ab4a92043c1d68dd830ec432576f34a5510e3593&",
+        "image_url": "https://cdn.discordapp.com/attachments/704530416475832342/1274977215314133023/NFTHEBLACKSMITH.png?ex=6a5a7350&is=6a5921d0&hm=72e2c1f0edc5159b0cc4c9d1d9939828518572c8153797205700b0ebb5179f91&",
         "room_types": ["story"],
         "intros": [
             "NF89 the blacksmith looks up from his forge. \"If you need anything forged, I'll get it done.\"",
@@ -467,7 +467,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "hhyper_dragon",
         "name": "HHyper",
-        "image_url": "https://cdn.discordapp.com/attachments/704530416475832342/1275748057174118400/HHYPER_1.png?ex=66c70477&is=66c5b2f7&hm=c774559b4beadb8ac6070ec43bf28601421434ec7f7c26b465f095d104711b45&",
+        "image_url": "https://cdn.discordapp.com/attachments/704530416475832342/1275748057174118400/HHYPER_1.png?ex=6a5a9e37&is=6a594cb7&hm=f22df69441ad9f3464dcdfc747fb940307e2d860b21c8cdb758b8164187ea42b&",
         "room_types": ["story"],
         "intros": [
             "HHyper, an extra-large presence, looms over the wreckage of a nearby structure. The ground shakes with every step.",
@@ -516,7 +516,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "rohan_vendor",
         "name": "Rohan",
-        "image_url": "https://cdn.discordapp.com/attachments/935416283976048680/1277522580164575284/ROHANfruitvendor.png?ex=66cd791e&is=66cc279e&hm=579a404fdb45f84946d0f0f214bdc0c3ed16f6be0eef1551c2f95bc0ac7cb078&",
+        "image_url": "hhttps://cdn.discordapp.com/attachments/935416283976048680/1277522580164575284/ROHANfruitvendor.png?ex=6a5a7b5e&is=6a5929de&hm=461bd159390e277d43755ac09e2f01d95978bf766834f90f74957d5578697d9e&",
         "room_types": ["story"],
         "intros": [
             "Rohan the fruit vendor mutters, \"If you ever see Josh around, don't talk to him. He can't be trusted...\"",
@@ -577,7 +577,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "frost_vendor",
         "name": "Frost",
-        "image_url": "https://cdn.discordapp.com/attachments/704530416475832342/1282278127363559547/jani_1.png?ex=66dec611&is=66dd7491&hm=a6b23eca0bcb8ade3c9be2c4296c63f9d692b2d58a196a16f27a76f961fc357d&",
+        "image_url": "https://cdn.discordapp.com/attachments/704530416475832342/1282278127363559547/jani_1.png?ex=6a5aa4d1&is=6a595351&hm=23f8e7aa18f39a9e6900f6db26007b9952519d436768452eed0b286deeb6b034&",
         "room_types": ["story"],
         "intros": [
             "Frost, once a janitor at Xender Corp, now runs a scrap stand in the frozen wastes. \"Fired last week,\" he mutters.",
@@ -641,7 +641,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "duko_dealer",
         "name": "Duko",
-        "image_url": "https://cdn.discordapp.com/attachments/704530416475832342/1274616296985723056/DUKOEVENTROCKSD.png?ex=66c2e66e&is=66c194ee&hm=806de9a45039aef475a2eb79f82e05a62d7dedf1973aeff36c52a2d7527f71c0&",
+        "image_url": "https://cdn.discordapp.com/attachments/704530416475832342/1274616296985723056/DUKOEVENTROCKSD.png?ex=6a5a74ae&is=6a59232e&hm=3c96fa4497fa2c09a719bee3a2674943af9af36738a493e7c11986941495a6a5&",
         "room_types": ["treasure"],
         "intros": [
             "Duko, self-proclaimed \"illegal rock dealer,\" waves you over. \"One loot rock, cheap. Don't ask questions.\"",
@@ -709,7 +709,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "triv_assassin",
         "name": "Triv",
-        "image_url": "https://cdn.discordapp.com/attachments/704530416475832342/1274674180419489822/1v1Triv.png?ex=66c31c56&is=66c1cad6&hm=566990eab2e9890a657e0f2c018f84c724f4a9776bd0ea3bb684af8f13b62df6&",
+        "image_url": "https://cdn.discordapp.com/attachments/704530416475832342/1274674180419489822/1v1Triv.png?ex=6a5aaa96&is=6a595916&hm=32e65fa2e436e72dcf0c741cf0f94eecd48b9d5b5b11b1191cb37e43772399d8&",
         "room_types": ["trap"],
         "intros": [
             "Triv the feared assassin steps out of the shadows. \"You and I will fight to the death... for LOONA!!\"",
@@ -764,7 +764,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "daffysamlake_cave",
         "name": "Daffysamlake",
-        "image_url": "https://cdn.discordapp.com/attachments/1135808718492139521/1280078811680997448/Daffysamlake.png?ex=66d6c5cb&is=66d5744b&hm=146e266445515a61fd8feae066021d157ab9e77a960e77baf45162fbcc0128c9&",
+        "image_url": "https://cdn.discordapp.com/attachments/1135808718492139521/1280078811680997448/Daffysamlake.png?ex=6a5a8d8b&is=6a593c0b&hm=dc56d6a15a5155ffd647ccc4a6f340c84bdefa2d4b6ccddac7bac3c57e1a65f1&",
         "room_types": ["treasure"],
         "intros": [
             "Daffysamlake spots a cave in the distance. \"Let's go explore together! Better odds surviving that way...\"",
@@ -817,7 +817,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "thedoggyp_shack",
         "name": "thedoggyp's Shack",
-        "image_url": "https://cdn.discordapp.com/attachments/1135808718492139521/1280078811379011604/FrancisShack.png?ex=66d6c5cb&is=66d5744b&hm=0345e04f90f924040942f2a99fda32cb4c181ab0c12dc1aa12c51a2275371286&",
+        "image_url": "https://cdn.discordapp.com/attachments/1135808718492139521/1280078811379011604/FrancisShack.png?ex=6a5a8d8b&is=6a593c0b&hm=e111dcfb378a14e1b3156c0ec1995c68d9a08d3b6c6871097d49adc77d077dbb&",
         "room_types": ["secret"],
         "intros": [
             "You stumble upon thedoggyp's abandoned shack. There's no life to be seen for miles.",
@@ -880,7 +880,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "subject29_terminal",
         "name": "Subject 29",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527141898588913945/8xiLC9AAAABklEQVQDAIIqAsBtunbaAAAAAElFTkSuQmCC.png?ex=6a5ae6b9&is=6a599539&hm=6c5a43c07c9ef5dac95c4333a5c7f81da21891bdbdab3e9fa0c6b714f098bf59&",
         "room_types": ["puzzle"],
         "intros": [
             "A cracked terminal hums back to life as you approach. A single line blinks: SUBJECT 29 -- STATUS: ACTIVE?",
@@ -942,7 +942,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "humming_shard",
         "name": "The Humming Shard",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527142359094136883/image.png?ex=6a5ae727&is=6a5995a7&hm=953f2e3e88c7d8350fc33c62bf03df32453fb0c6588aa66414ec7fc651aa071d&",
         "room_types": ["shrine"],
         "intros": [
             "A stable shard of Void matter hums quietly in a hollow, casting faint light on the walls around it.",
@@ -1006,7 +1006,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "flux_sighting",
         "name": "Flux",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527164237560942726/1527176290963034253/image.png?ex=6a5b06c1&is=6a59b541&hm=08e60a69015078aa0ad06ed7b0c3309448a6bcbe3841db780184c90363572a66&",
         "room_types": ["secret"],
         "intros": [
             "You catch a flicker of movement -- gone before you can focus on it. Someone left behind a half-eaten meal and a name scratched into the dirt: FLUX.",
@@ -1059,7 +1059,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "tbnr_shop",
         "name": "Tbnr",
-        "image_url": "https://cdn.discordapp.com/attachments/935416283976048680/1275726750420303904/TBNRSHOP.png?ex=66c6f09f&is=66c59f1f&hm=6a5737a94c40cfada4b2feeeb47c2562e4e6c7aeec9903aad0cbb2b46e4f700f&",
+        "image_url": "https://cdn.discordapp.com/attachments/704530416475832342/1275726750420303904/TBNRSHOP.png?ex=6a5a8a5f&is=6a5938df&hm=70b39e7c1de745b68664b7bcb9a0a46634183355c628b4a4490a931a00285e88&",
         "room_types": ["merchant"],
         "intros": [
             "Tbnr, a struggling shopkeeper, looks you over. \"Buying, or just looking?\"",
@@ -1141,7 +1141,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "boss_john_shop",
         "name": "Boss John",
-        "image_url": "https://cdn.discordapp.com/attachments/1135808718492139521/1286202437346000896/BOSSJOHN.png?ex=66ed0cdd&is=66ebbb5d&hm=7a9c6715e6745c06247721448223c901598a6d54f8b69f844b5468eaaa1af736&",
+        "image_url": "https://cdn.discordapp.com/attachments/1135808718492139521/1286202437346000896/BOSSJOHN.png?ex=6a5b13dd&is=6a59c25d&hm=ac8866a4757828278066d7a574154f6a430e762d27f552058bbde19131fa5e52&",
         "room_types": ["merchant"],
         "intros": [
             "Boss John gives you a big smile. \"No matter who COME to my STORE, I make SURE do everything I can to HELP.\"",
@@ -1232,7 +1232,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "broskm_voidlab",
         "name": "Broskm's Voidlab",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527143956654325800/download_2.png?ex=6a5ae8a4&is=6a599724&hm=9e804a29b73bce8957e404c1c1a76852f82016108689f57d0e1192be8e9431dd&",
         "room_types": ["shrine"],
         "intros": [
             "A makeshift lab is bolted into the rock here -- cables snake toward a humming void containment ring. A nameplate reads BROSKM, though the handwriting looks rushed.",
@@ -1295,7 +1295,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "caliper_range",
         "name": "Caliper",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527144237332697220/ii7xLgAAAAZJREFUAwAp0ICWxD4Q0AAAAABJRU5ErkJggg.png?ex=6a5ae8e7&is=6a599767&hm=7b8fdee6b9391ccaffd228b6eaf7ada3695c54522788f758d0d99bdc7ed54073&",
         "room_types": ["trap"],
         "intros": [
             "A trip-wire snaps taut behind you -- and Caliper steps out from cover, rifle already raised. \"Didn't expect company. Let's see what you've got.\"",
@@ -1348,7 +1348,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "xero_minefield",
         "name": "Xero",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527145720015098017/3yoEloAAAAGSURBVAMAdWp6JqgeYbcAAAAASUVORK5CYII.png?ex=6a5aea48&is=6a5998c8&hm=8b494edb67f068806a03e4b9b9909e2951a41a008c9b45d6cd666a27513e6229&",
         "room_types": ["trap"],
         "intros": [
             "The ground ahead is studded with half-buried charges. Xero crouches nearby, utterly unbothered. \"Wrong path,\" he says flatly.",
@@ -1402,7 +1402,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "slikrz_cube",
         "name": "Slikrz",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527145961866924032/0VqQMAAAAGSURBVAMAxNJvo2z6dlsAAAAASUVORK5CYII.png?ex=6a5aea82&is=6a599902&hm=ae5496ec86fe696e051e839f24390edc53cc1eb44eeade4199c3e40f0558adf2&",
         "room_types": ["secret"],
         "intros": [
             "A cube-shaped figure sits perfectly still in the dark, humming an incantation under its breath. It doesn't seem to notice you -- or does it?",
@@ -1454,7 +1454,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "mr_r_terminal",
         "name": "Mr. R",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527148271141785680/New_Piskel_1.png?ex=6a5aeca8&is=6a599b28&hm=5f2d4f1e987d4959192da66178de22fef2f23040678f82f02e86ce4e7e9f0bb1&",
         "room_types": ["puzzle"],
         "intros": [
             "A terminal blinks with a message that definitely wasn't there a second ago: \"hi. -Mr. R\"",
@@ -1515,7 +1515,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "nyrvite_duel",
         "name": "Nyrvite",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527148474720583870/2wpUVcAAAAGSURBVAMAl9UFHHTB7aIAAAAASUVORK5CYII.png?ex=6a5aecd9&is=6a599b59&hm=e06432cfa7ccd9e059e7ee364407c0ee3cb1239d81987f9e4ffe34b2ca6b1c61&",
         "room_types": ["story"],
         "intros": [
             "Nyrvite drops down from somewhere above, twin energy machetes already drawn. \"You're either backup or a problem. Let's find out which.\"",
@@ -1566,7 +1566,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "antivoid_recruiter",
         "name": "The Anti-Void Recruiter",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527148702932668496/image.png?ex=6a5aed0f&is=6a599b8f&hm=4d4ed43d90ebb0d0fda7be057cd711175c1e55f948891e39d2fbbec2d5109f76&",
         "room_types": ["story"],
         "intros": [
             "A masked figure presses a pamphlet into your hands before you can object. \"VOID IS A CORRUPTION -- JOIN THE ALLEGIANCE.\"",
@@ -1616,7 +1616,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "dolpo_standoff",
         "name": "Dolpo",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527148818842517646/image.png?ex=6a5aed2b&is=6a599bab&hm=4ca50b39e829f15841520af725ce49170e2437242cc759a8514ca2583e500cfb&",
         "room_types": ["story"],
         "intros": [
             "A lone gunner watches you from atop a collapsed wall, rifle already tracking your movement. \"Cascade,\" he mutters, like the word itself is an insult.",
@@ -1669,7 +1669,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "xg_scamera",
         "name": "XG-SCamera",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527148979249348648/PCpy8gAAAAZJREFUAwDeVBEL31fZMAAAAABJRU5ErkJggg.png?ex=6a5aed51&is=6a599bd1&hm=04bc79abf340856d6dbfba4d2fef4eab1c42f6de4767c0e44f78f73f97fba7c9&",
         "room_types": ["story"],
         "intros": [
             "A surveillance camera watches from a rusted mount overhead, its red light blinking steadily. Xender's network never really stopped watching.",
@@ -1720,7 +1720,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "dorve_sighting",
         "name": "Dorve",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527150632904167535/image.png?ex=6a5aeedb&is=6a599d5b&hm=6e4b8599eba3aec51ac0425097c525623b6fd2422c5cf5583efc0757dd23d35e&",
         "room_types": ["story"],
         "intros": [
             "You catch a glimpse of Dorve, Xender's elite assistant, reviewing something on a tablet from a passing convoy. He doesn't so much as glance your way.",
@@ -1759,7 +1759,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "h_henchmen_patrol",
         "name": "H-Henchmen",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527151081203830925/lrpAAAABklEQVQDADdKIxQC4AB8AAAAAElFTkSuQmCC.png?ex=6a5aef46&is=6a599dc6&hm=dff119e44543e5903ad395dcf2751e71dcb0945cacba8f91f31aa79f12733a67&",
         "room_types": ["trap"],
         "intros": [
             "A pair of H-Henchmen are arguing about whose turn it is to patrol. Neither one has noticed you yet.",
@@ -1804,7 +1804,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "stubby_sighting",
         "name": "Stubby",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527151252876693534/TydX9AkAdIAAAAASUVORK5CYII.png?ex=6a5aef6f&is=6a599def&hm=979e544cb2040d36274ed33f840086ffb9ac4877ac1a4dbf9c15456002cebd75&",
         "room_types": ["shrine"],
         "intros": [
             "A figure watches you from an impossible distance, features never quite resolving no matter how you look. You get the distinct feeling you are being studied, not seen.",
@@ -1841,7 +1841,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "corrupted_bli",
         "name": "Corrupted Bli",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527151489405947986/AAAAAZJREFUAwDGeSgtpuZ7tAAAAABJRU5ErkJggg.png?ex=6a5aefa8&is=6a599e28&hm=c2d6cc2fba9d6e1a1bca206bc1e2a511a802c8f797a437649256bc0364d26ddc&",
         "room_types": ["trap"],
         "intros": [
             "The temperature drops sharply. Something with too many mismatched parts is standing perfectly still at the end of the corridor -- until it isn't.",
@@ -1882,7 +1882,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "eris_relic",
         "name": "Eris Relic Fragment",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527151657241280583/image.png?ex=6a5aefd0&is=6a599e50&hm=097d3edee45099af57053af299f5d22d7f0d623a9002de50b38676976c957a66&",
         "room_types": ["treasure"],
         "intros": [
             "A fragment of something ancient juts out of the rock -- crystalline, faintly warm, humming at a frequency that makes your teeth ache. Eris tech, unmistakably.",
@@ -1934,7 +1934,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "xg23_patrol",
         "name": "XG-23 Patrol Drone",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527151859578572860/8DPgdLAAAABklEQVQDABtlzdiJOkHeAAAAAElFTkSuQmCC.png?ex=6a5af000&is=6a599e80&hm=ce354889b70e5f31025d0ac7aa18225305eacb81810074db73c824d2ca4fe24e&",
         "room_types": ["puzzle"],
         "intros": [
             "An XG-23 patrol drone hums past overhead, scanning in slow, methodical sweeps. Its optical sensor hasn't locked onto you. Yet.",
@@ -1983,7 +1983,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "jofrog_meeting",
         "name": "Jofrog",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527152048192098325/hSioQAAAAZJREFUAwB0bhXeRqijSAAAAABJRU5ErkJggg.png?ex=6a5af02d&is=6a599ead&hm=6efb58adaadbaf8cce73ae77c61ac1977953ffee3794ec71b9eddd0a82d71f26&",
         "room_types": ["story"],
         "intros": [
             "A boxy robot with a hand-painted smile waves at you. \"Oh! A traveler! I'm Jofrog. I used to be somebody's bodyguard. Now I'm just... me, I guess.\"",
@@ -2032,7 +2032,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "blueflame_encounter",
         "name": "Blueflame",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527152594256924672/image.png?ex=6a5af0af&is=6a599f2f&hm=b29961c26b878024f12dddf5736844f86aa0ca946f96be874a7e462a919fcdcb&",
         "room_types": ["story"],
         "intros": [
             "A figure wreathed in flickering blue flame sits alone, staring at nothing. The flame gutters low, then flares, tracking something you can't see.",
@@ -2082,7 +2082,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "refender_speech",
         "name": "Refender",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527152707675230319/download.png?ex=6a5af0ca&is=6a599f4a&hm=f0c587a69be793d68dd26aac3167701259943139561e8640c118723a5d0b5b49&",
         "room_types": ["story"],
         "intros": [
             "A weathered man stands on a crate, mid-speech, to an audience of exactly no one. \"REFENSE!\" he shouts. \"The balance of offense and defense!\"",
@@ -2134,7 +2134,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "lily_kitchen",
         "name": "Lily Lovelace",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527152932091330560/7PEccAAAAGSURBVAMAdpCHdVGIpEAAAAASUVORK5CYII.png?ex=6a5af100&is=6a599f80&hm=83524efd382f8985cdaae2ca7cfeb4d28401a69849afdfe954c67f574ec715e8&",
         "room_types": ["story"],
         "intros": [
             "Lily Lovelace has set up a small travelling kitchen here, humming to herself as something simmers. \"Oh! A new face. Sit, sit -- you look like you need a good meal.\"",
@@ -2197,7 +2197,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "evz_checkup",
         "name": "Evz",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527153166028898395/6xhfqAAAAAGSURBVAMA8cJi1MzmR2oAAAAASUVORK5CYII.png?ex=6a5af137&is=6a599fb7&hm=e1ba652ba86ccc4855d4b298124695dbc983ac19d6e8ebf206e3e410f6bc4001&",
         "room_types": ["story"],
         "intros": [
             "Evz has set up a field aid station here, more out of habit than necessity. \"Old doctor instincts,\" he explains, waving you over.",
@@ -2247,7 +2247,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "vegtam_carrots",
         "name": "Vegetable Tam",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527153345234473070/2gAAAAZJREFUAwB3TUpsdlpnJAAAAABJRU5ErkJggg.png?ex=6a5af162&is=6a599fe2&hm=91487bf51b659471f17568b53f645c2c17af5066dfc34853cf38d1d55919c3ae&",
         "room_types": ["story"],
         "intros": [
             "Vegetable Tam is tending a small patch of carrots that absolutely should not be growing here. \"They like the attention,\" he explains, unprompted.",
@@ -2299,7 +2299,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "void_hydra_echo",
         "name": "Void Hydra",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527153478130991144/image.png?ex=6a5af182&is=6a59a002&hm=4440ce7e8d5ac1fcef431a39032584914398732f48cee93c2cf09ffaf9fedeb0&",
         "room_types": ["trap"],
         "intros": [
             "The ground splits. Something enormous and half-buried stirs beneath the ice -- the Void Hydra, or what's left of it, waking up because you got too close.",
@@ -2340,7 +2340,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "ravaged_convoy",
         "name": "The Ravaged Convoy",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527153654061203586/image.png?ex=6a5af1ac&is=6a59a02c&hm=74f0c14eebeb0ed28b70e67487f1dd3e888f9039baca9ae64d23c83f0101105d&",
         "room_types": ["trap"],
         "intros": [
             "A supply convoy lies overturned and burning. Whatever hit it might still be nearby.",
@@ -2381,7 +2381,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "ocellios_breach",
         "name": "The Ocellios Breach",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527153846130839632/image.png?ex=6a5af1da&is=6a59a05a&hm=303024a697de0cea720676ecbf40d25eeaad37924032b5b5eb7d57f8db9b1cf8&",
         "room_types": ["secret"],
         "intros": [
             "A containment breach hisses quietly in the dark -- old Ocellios tech, still venting something that glows faintly wrong.",
@@ -2417,7 +2417,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "andy_engine",
         "name": "Andy",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527154496956793003/ZgjwaAAAAAZJREFUAwCyMLBQqtz3owAAAABJRU5ErkJggg.png?ex=6a5af275&is=6a59a0f5&hm=fa2d59992423aad68a0ba7a5e7a3f2ee336e6510078553d267c04e269757f1c5&",
         "room_types": ["story"],
         "intros": [
             "Andy is elbow-deep in an airship engine, muttering calculations under his breath. \"Almost -- there. Oh! Didn't see you there.\"",
@@ -2467,7 +2467,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "gostley_calculations",
         "name": "Gostley",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527155714940731462/New_Piskel_2.png?ex=6a5af397&is=6a59a217&hm=cb999115397651478104b7b91fac74842f12251b12adc299575d700b2a9c1412&",
         "room_types": ["puzzle"],
         "intros": [
             "Gostley is staring at a wall of numbers only visible through his visor, muttering calculations to himself.",
@@ -2516,7 +2516,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "bee_jee_shop",
         "name": "Bee Jee",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527156995898081370/avsvsvs_1.png?ex=6a5af4c9&is=6a59a349&hm=1d24a7f40f70f947f1ad099fcf1adb62d67d988f54b19bd331e06aeeacddba9f&",
         "room_types": ["merchant"],
         "intros": [
             "Bee Jee has her goggles flipped down, examining a rifle scope with more attention than the rifle probably deserves. \"Oh -- customer. What do you need?\"",
@@ -2568,7 +2568,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "nexus_grind",
         "name": "Nexus",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527157222193369088/81QmKcAAAAGSURBVAMAIPr6UVw8WgMAAAAASUVORK5CYII.png?ex=6a5af4fe&is=6a59a37e&hm=3d59c6b69758fdf2f7031d9b3064575c0ac34843fd448f9466db5c18a67dd3f3&",
         "room_types": ["treasure"],
         "intros": [
             "Nexus is standing in the exact same spot doing the exact same low-effort task he was doing the last time anyone saw him. \"Building experience,\" he explains, unconvincingly.",
@@ -2625,7 +2625,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "high_roller_shop",
         "name": "The Colosseum Bookie",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527157780522205294/image.png?ex=6a5af584&is=6a59a404&hm=f57993b443aba0573e1bfb6035edd41e39ad5ea08850d1cddaf9bb9a2cf30b87&",
         "room_types": ["merchant"],
         "intros": [
             "A figure in an expensive coat has set up shop here, flanked by two very large, very quiet men. \"Word is you've got coin to burn,\" they say. \"I deal in the good stuff. For the right price.\"",
@@ -2719,7 +2719,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "jungle_treasure_chest",
         "name": "Jungle Treasure Chest",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527175021695598682/image.png?ex=6a5b0592&is=6a59b412&hm=dbc007ea6ec0053d7741efddf19c96667ef392881f314bad9ad579fce26ba04a&",
         "room_types": ["treasure"],
         "intros": [
             "Half-buried in vines and jungle rot, a wooden chest sits wedged between two roots.",
@@ -2760,7 +2760,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "voidlands_plains_chest",
         "name": "Voidlands Plains Chest",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527175045808394320/image.png?ex=6a5b0598&is=6a59b418&hm=eb86c4958a7e5cbea8c6edd5cca5285eb43c1025ea5ff903ad1bffa8b1a21ff9&",
         "room_types": ["treasure"],
         "intros": [
             "A reinforced chest sits alone on the cracked, glassy plains, humming faintly with residual Void energy.",
@@ -2802,7 +2802,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "hu_tao_painting",
         "name": "Tbnr & Josh",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527175107485765702/image.png?ex=6a5b05a7&is=6a59b427&hm=ade565a4e98db251fdd6d8260cbc97b2f8fc18c795871089397ed6ccc9ade912&",
         "room_types": ["secret"],
         "intros": [
             "You find Tbnr and Josh crouched over an abandoned easel and a half-empty paint set. \"We're painting Hu Tao,\" Tbnr says, like that explains everything.",
@@ -2859,7 +2859,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "josh_betting_table",
         "name": "Josh",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527175408674406471/image.png?ex=6a5b05ee&is=6a59b46e&hm=d673ddaae779700882211f08b1082c33d769663d96e0ed536bb031c8f4e3fdc7&",
         "room_types": ["merchant"],
         "intros": [
             "Josh has set up a rickety table with a hand-painted sign: \"DOUBLE OR NOTHING, 50/50, TOTALLY FAIR.\"",
@@ -2943,7 +2943,7 @@ ENCOUNTERS: list[dict] = [
     {
         "id": "void_reactor_remnants",
         "name": "Void Reactor Remnants",
-        "image_url": None,
+        "image_url": "https://cdn.discordapp.com/attachments/1527136925348135023/1527175504287760384/image.png?ex=6a5b0605&is=6a59b485&hm=36886d4e46469b84a9cb714152924dcf88bfb4ce07794080df062042e05be2ef&",
         "room_types": ["story"],
         "intros": [
             "The crater is unmistakable: a Void reactor went critical here, and recently. A sickly haze still clings to the wreckage.",
