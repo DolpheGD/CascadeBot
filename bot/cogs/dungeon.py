@@ -294,6 +294,20 @@ def _expedition_summary_kwargs(summary: dict | None) -> tuple[dict, bool] | None
     return None
 
 
+def _reward_extras_text(r: dict) -> str:
+    """Combat rework: material/lootbox drops now come back on every combat
+    victory (see combat_service.apply_victory_rewards) -- render them the
+    same way regardless of which battle-end message is showing them."""
+    extras = ""
+    if r.get("material"):
+        m = r["material"]
+        extras += f"\n+{m['amount']} {m['type'].replace('_', ' ').title()}"
+    if r.get("lootbox"):
+        lb = r["lootbox"]
+        extras += f"\n+{lb['quantity']} {lb['tier'].title()} Lootbox!"
+    return extras
+
+
 def _battle_end_message(summary: dict) -> str | None:
     kind = summary["kind"]
     if kind == "victory":
@@ -302,6 +316,7 @@ def _battle_end_message(summary: dict) -> str | None:
         if r["items"]:
             names = ", ".join(f"**{i.display_name}** ({i.rarity.value})" for i in r["items"])
             text += f"\nYou also found: {names}!"
+        text += _reward_extras_text(r)
         if r.get("level_ups"):
             level_text = ", ".join(f"{lu['name']} → Lv.{lu['to']}" for lu in r["level_ups"])
             text += f"\n📈 Level up! {level_text}"
@@ -312,6 +327,7 @@ def _battle_end_message(summary: dict) -> str | None:
         if r["items"]:
             names = ", ".join(f"**{i.display_name}** ({i.rarity.value})" for i in r["items"])
             text += f"\nBoss drop: {names}!"
+        text += _reward_extras_text(r)
         if r.get("level_ups"):
             level_text = ", ".join(f"{lu['name']} → Lv.{lu['to']}" for lu in r["level_ups"])
             text += f"\n📈 Level up! {level_text}"
@@ -322,6 +338,7 @@ def _battle_end_message(summary: dict) -> str | None:
         if r["items"]:
             names = ", ".join(f"**{i.display_name}** ({i.rarity.value})" for i in r["items"])
             text += f"\nBoss drop: {names}!"
+        text += _reward_extras_text(r)
         if r.get("level_ups"):
             level_text = ", ".join(f"{lu['name']} → Lv.{lu['to']}" for lu in r["level_ups"])
             text += f"\n📈 Level up! {level_text}"
