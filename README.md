@@ -75,7 +75,7 @@ Turn order is speed-based (an ATB gauge), not a fixed rotation -- see the
 🔀 Turn Order line on the battle message. Each turn is Attack (free, builds
 Energy + Mana equal to your Recharge stat), a Skill from an equipped
 weapon/artifact (costs Mana), or your Ultimate from your character's own
-kit (usable once Energy reaches 100). There's no defending or fleeing, and
+kit (usable once Energy reaches 50). There's no defending or fleeing, and
 no dodge/miss chance -- every hit lands, mitigated only by Defense.
 Switching which enemy you're targeting is a free action.
 

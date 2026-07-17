@@ -58,7 +58,7 @@ class Help(commands.Cog):
                 "🌀 **Character Skill** -- fixed to that character (or your class, "
                 "for your own avatar), costs SP.\n"
                 "💥 **Character Ultimate** -- also fixed to the character/class, "
-                "usable once Energy reaches 100.\n"
+                "usable once Energy reaches 50.\n"
                 "⚔️🔮 **Weapon/Artifact Skill** -- from equipped gear, if any, costs SP.\n"
                 "🎯 Use the target dropdown to switch which enemy you're aiming at -- "
                 "switching targets is free and doesn't use your turn.\n\n"

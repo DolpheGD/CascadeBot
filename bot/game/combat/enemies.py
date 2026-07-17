@@ -5,7 +5,7 @@ than a separate enemy-ability vocabulary -- an enemy "knowing Flame Strike"
 and a weapon that grants Flame Strike are mechanically identical to the
 combat engine, so one effect-resolution system covers both. Enemy resource
 costs are irrelevant (they have effectively unlimited mana), but the
-ultimate is still gated by energy reaching 100 so bosses don't nuke turn one.
+ultimate is still gated by energy reaching 50 so bosses don't nuke turn one.
 
 Content pass: full roster grounded in the Cascade setting (see
 docs/WORLD_LORE.md) -- Xender's regime (Acatrya), Eris-wreckage constructs,
@@ -548,10 +548,10 @@ ENEMY_TEMPLATES: list[dict] = [
         # has to a native apex predator rather than an invading faction.
         "name": "Sir Vengeance",
         "role": "elite",
-        "regions": ['Voidcrest Desert'],
+        "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands', 'Voidcrest Desert'],
         "base_stats": {
-            "attack": 11, "defense": 9, "elemental": 30, "speed": 14,
-            "max_hp": 300, "max_mana": 999, "crit_rate": 15, "crit_damage": 180, "recharge": 8,
+            "attack": 11, "defense": 1, "elemental": 30, "speed": 14,
+            "max_hp": 250, "max_mana": 999, "crit_rate": 15, "crit_damage": 180, "recharge": 8,
         },
         "level_scale_percent": 10,
         "active_abilities": [
@@ -572,7 +572,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "region_roles": {'Glacier 15': 'regular', 'The Wastelands': 'regular', 'The Hotlands': 'regular'},
         "base_stats": {
             "attack": 12, "defense": 14, "elemental": 10, "speed": 14,
-            "max_hp": 300, "max_mana": 999, "crit_rate": 14, "crit_damage": 170, "recharge": 7,
+            "max_hp": 270, "max_mana": 999, "crit_rate": 14, "crit_damage": 170, "recharge": 7,
         },
         "level_scale_percent": 10,
         "active_abilities": [
@@ -642,8 +642,8 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss",
         "region_roles": {'Glacier 15': 'regular', 'Voidcrest Desert': 'regular'},
         "base_stats": {
-            "attack": 12, "defense": 14, "elemental": 12, "speed": 15,
-            "max_hp": 330, "max_mana": 999, "crit_rate": 10, "crit_damage": 155, "recharge": 7,
+            "attack": 9, "defense": 10, "elemental": 10, "speed": 15,
+            "max_hp": 300, "max_mana": 999, "crit_rate": 10, "crit_damage": 145, "recharge": 10,
         },
         "level_scale_percent": 10,
         "active_abilities": [

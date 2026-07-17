@@ -19,6 +19,7 @@ every room type.
 
 from __future__ import annotations
 
+import math
 import random
 
 from bot.database.models.enums import (
@@ -337,7 +338,7 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
             difficulty["combat_level_offset"] if room_type == RoomType.COMBAT
             else difficulty["level_offset"]
         )
-        level = node["floor"] + 1 + offset
+        level = node["floor"] // 10 + 1 + offset
         combat_service.start_battle(db, expedition, player, chosen, level=level)
         # Awaiting an explicit "Start Battle" press before any turns are
         # fast-forwarded (see _combat_entry_view_and_embed in

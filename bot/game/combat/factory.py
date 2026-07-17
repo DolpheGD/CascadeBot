@@ -168,7 +168,7 @@ def build_character_combatant(player_character, equipped_items: list) -> Combata
         mana=max_mana,
         max_mana=max_mana,
         energy=0,
-        max_energy=100,
+        max_energy=50,
         active_abilities=active_abilities,
         ultimate_ability=ultimate_ability,
         passive_abilities=passive_abilities,
@@ -200,7 +200,7 @@ def build_enemy_combatant(template: dict, level: int = 1) -> Combatant:
         ultimate = dict(ultimate)
         ultimate["is_ultimate"] = True
         ultimate.setdefault("resource_type", "energy")
-        ultimate.setdefault("resource_cost", 100)
+        ultimate.setdefault("resource_cost", 50)
         ultimate.setdefault("cooldown", 0)
 
     return Combatant(
@@ -211,12 +211,12 @@ def build_enemy_combatant(template: dict, level: int = 1) -> Combatant:
         max_hp=base_stats["max_hp"],
         # Enemies aren't resource-constrained the way players are for mana
         # -- their "budget" is which abilities they're given, not a scarce
-        # pool. Energy is still capped at 100 so an enemy ultimate feels
+        # pool. Energy is still capped at 50 so an enemy ultimate feels
         # earned rather than spammed turn one.
         mana=9999,
         max_mana=9999,
         energy=0,
-        max_energy=100,
+        max_energy=50,
         active_abilities=[dict(a, source="enemy") for a in template.get("active_abilities", [])],
         ultimate_ability=ultimate,
         passive_abilities=list(template.get("passive_abilities", [])),

@@ -4,7 +4,7 @@ for the old scroll-granted ultimate. Every combatant now gets these
 straight from their kit rather than gear:
 
   * `character_skill`    -- one active ability, costs MANA, always available.
-  * `character_ultimate` -- one active ability, costs 100 ENERGY.
+  * `character_ultimate` -- one active ability, costs 50 ENERGY.
   * `character_passive`  -- one always-on passive, no resource cost, that
     reinforces the character's class role (DPS hits harder as the fight
     goes on, Amplifier/Sustain trickle resources/healing to the WHOLE team
@@ -55,7 +55,7 @@ CLASS_KIT_MAP: dict[CharacterClass, dict[str, dict]] = {
         },
         "ultimate": {
             "id": "avatar_dps_ultimate", "name": "Devastation",
-            "resource_type": "energy", "resource_cost": 100, "cooldown": 0, "is_ultimate": True,
+            "resource_type": "energy", "resource_cost": 50, "cooldown": 0, "is_ultimate": True,
             "description": "Strike the target 4 times for 75% ATK damage each.",
             "effect": {"kind": "multi_hit", "hits": 4, "damage_percent_per_hit": 75, "damage_stat": "attack"},
         },
@@ -75,7 +75,7 @@ CLASS_KIT_MAP: dict[CharacterClass, dict[str, dict]] = {
         },
         "ultimate": {
             "id": "avatar_support_dps_ultimate", "name": "Coordinated Barrage",
-            "resource_type": "energy", "resource_cost": 100, "cooldown": 0, "is_ultimate": True,
+            "resource_type": "energy", "resource_cost": 50, "cooldown": 0, "is_ultimate": True,
             "description": "Strike the target 3 times for 95% ATK damage each.",
             "effect": {"kind": "multi_hit", "hits": 3, "damage_percent_per_hit": 95, "damage_stat": "attack"},
         },
@@ -94,7 +94,7 @@ CLASS_KIT_MAP: dict[CharacterClass, dict[str, dict]] = {
         },
         "ultimate": {
             "id": "avatar_amplifier_ultimate", "name": "Overdrive",
-            "resource_type": "energy", "resource_cost": 100, "cooldown": 0, "is_ultimate": True,
+            "resource_type": "energy", "resource_cost": 50, "cooldown": 0, "is_ultimate": True,
             "description": "Boost the whole team's ATK by 45% for 3 turns.",
             "effect": {"kind": "team_buff", "buff_stat": "attack", "buff_percent": 45, "duration": 3},
         },
@@ -113,7 +113,7 @@ CLASS_KIT_MAP: dict[CharacterClass, dict[str, dict]] = {
         },
         "ultimate": {
             "id": "avatar_sustain_ultimate", "name": "Sanctuary",
-            "resource_type": "energy", "resource_cost": 100, "cooldown": 0, "is_ultimate": True,
+            "resource_type": "energy", "resource_cost": 50, "cooldown": 0, "is_ultimate": True,
             "description": "Heal the whole team for 40% of each member's max HP.",
             "effect": {"kind": "team_heal_percent_max_hp", "percent": 40},
         },
@@ -132,7 +132,7 @@ def _skill(cid, name, cost, cd, desc, effect):
 
 
 def _ultimate(cid, name, desc, effect):
-    return {"id": cid, "name": name, "resource_type": "energy", "resource_cost": 100,
+    return {"id": cid, "name": name, "resource_type": "energy", "resource_cost": 50,
             "cooldown": 0, "is_ultimate": True, "description": desc, "effect": effect}
 
 

@@ -78,7 +78,7 @@ class Player(Base):
     crit_rate: Mapped[int] = mapped_column(Integer, default=5)     # percent
     crit_damage: Mapped[int] = mapped_column(Integer, default=150)  # percent
     recharge: Mapped[int] = mapped_column(Integer, default=5)     # energy AND mana gained per basic attack
-    max_energy: Mapped[int] = mapped_column(Integer, default=100)  # ultimates trigger at 100 energy
+    max_energy: Mapped[int] = mapped_column(Integer, default=50)  # ultimates trigger at 50 energy
 
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

@@ -93,11 +93,24 @@ def open_lootboxes(
     items = []
     generator = LootGenerator(rng=rng)
 
+    # Material pools per lootbox tier: (materials, weights, (min_amt, max_amt))
+    MATERIAL_POOLS = {
+        "common": (["wood", "stone"], [70, 30], (1, 3)),
+        "uncommon": (["wood", "stone", "metal"], [40, 30, 30], (2, 5)),
+        "rare": (["metal", "crystal"], [60, 40], (3, 7)),
+        "epic": (["crystal", "xendium"], [60, 40], (4, 10)),
+        "legendary": (["xendium", "permafrost_ore"], [60, 40], (6, 14)),
+        "mythic": (["void", "entropy"], [60, 40], (8, 20)),
+    }
+
+    material_totals: dict[str, int] = {}
+
     for _ in range(count):
         total_gold += rng.randint(template.min_gold, template.max_gold)
         if template.max_shards > 0:
             total_shards += rng.randint(template.min_shards, template.max_shards)
 
+        # Items
         for _ in range(template.item_count):
             rarity = _roll_rarity(tier, rng)
             item_template = item_template_service.pick_random_template(db, rng=rng, rarity=rarity)
@@ -109,6 +122,14 @@ def open_lootboxes(
             db.add(item)
             items.append(item)
 
+        # Materials: pick one material per box from the tier's pool and award a
+        # small randomized quantity. Higher-tier boxes have higher-tier materials
+        # and larger quantities.
+        pool, weights, (min_amt, max_amt) = MATERIAL_POOLS.get(tier, (['wood'], [1], (1, 2)))
+        chosen = rng.choices(pool, weights=weights, k=1)[0]
+        amt = rng.randint(min_amt, max_amt)
+        material_totals[chosen] = material_totals.get(chosen, 0) + amt
+
     owned.quantity -= count
     db.commit()
 
@@ -117,10 +138,14 @@ def open_lootboxes(
     if total_shards:
         add_currency(db, player, "shards", total_shards)
 
+    # Award materials to player balances
+    for mat, amt in material_totals.items():
+        add_currency(db, player, mat, amt)
+
     for item in items:
         db.refresh(item)
 
     quest_service.record_progress(db, player, "open_lootboxes", amount=count)
 
-    rewards = {"gold": total_gold, "shards": total_shards, "items": items}
+    rewards = {"gold": total_gold, "shards": total_shards, "items": items, "materials": material_totals}
     return True, f"Opened {count} {template.name}(s)!", rewards

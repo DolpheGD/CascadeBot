@@ -10,7 +10,7 @@ times before a much slower one gets even one turn.
 Combat Overhaul: a full squad of up to 4 party members (built one per
 PlayerCharacter -- see factory.build_party_combatants) vs 1+ enemies. Every
 party member's turn can be Attack, their Character Skill (mana), Character
-Ultimate (100 energy), a Weapon Skill (mana, if a weapon's equipped), or an
+Ultimate (50 energy), a Weapon Skill (mana, if a weapon's equipped), or an
 Artifact Skill (mana, if an artifact's equipped) -- see
 bot/game/combat/skills.py and factory.py for how those are resolved onto
 each Combatant. There is no fleeing and no defending.
@@ -235,7 +235,7 @@ class Battle:
     # ------------------------------------------------------------------
     # Party actions -- Attack (builds energy+mana), Ability (character
     # skill, weapon skill, or artifact skill -- costs mana), or Ultimate
-    # (character ultimate, costs 100 energy). No defend, no flee. Always
+    # (character ultimate, costs 50 energy). No defend, no flee. Always
     # acts as whichever party member `current_actor()` currently is.
     # ------------------------------------------------------------------
     def take_party_action(self, action: str, ability_id: str | None = None, target_index: int | None = None) -> None:

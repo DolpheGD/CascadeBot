@@ -37,7 +37,7 @@ class Combatant:
     mana: int = 0
     max_mana: int = 0
     energy: int = 0
-    max_energy: int = 100
+    max_energy: int = 50
 
     # Skills granted by equipped weapons + artifacts (player), or a fixed
     # moveset (enemy). Each costs mana (resource_type == "mana"). Ability
@@ -45,8 +45,8 @@ class Combatant:
     # UI flavor.
     active_abilities: list = field(default_factory=list)
     # The single ultimate ability granted by an equipped scroll (player) or
-    # a boss's signature move (enemy, optional). Gated by energy == 100
-    # (resource_type == "energy", resource_cost == 100) rather than mana.
+    # a boss's signature move (enemy, optional). Gated by energy == 50
+    # (resource_type == "energy", resource_cost == 50) rather than mana.
     ultimate_ability: dict | None = None
     # Passive abilities, granted only by armor (player) or innate (enemy).
     passive_abilities: list = field(default_factory=list)
