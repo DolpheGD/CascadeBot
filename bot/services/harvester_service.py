@@ -91,7 +91,7 @@ def buy_harvester(db, player, template_id: int, hq_level: int = 1) -> tuple[bool
 
 
 def collect_harvester(db, harvester: PlayerHarvester) -> int:
-    """Adds accrued production to the owner's balance, resets the clock.
+    """Adds accrued production to the owner's balance (or grants XP), resets the clock.
     Returns the amount collected (0 if nothing had accrued)."""
     template = harvester.template
     now = dt.datetime.now(dt.timezone.utc)
@@ -111,7 +111,17 @@ def collect_harvester(db, harvester: PlayerHarvester) -> int:
     db.commit()
 
     if amount > 0:
-        add_currency(db, harvester.player, template.currency, amount)
+        # Special-case XP: harvesters that produce "xp" should grant XP to
+        # the player's squad rather than treating it as a player-held
+        # currency. This keeps the existing currency system untouched.
+        if template.currency == "xp":
+            from bot.services import character_service, combat_service
+
+            squad = character_service.get_squad(db, harvester.player)
+            combat_service.apply_character_xp(db, squad, amount)
+        else:
+            add_currency(db, harvester.player, template.currency, amount)
+
         quest_service.record_progress(db, harvester.player, "collect_harvester")
 
     return amount

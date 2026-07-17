@@ -12,8 +12,20 @@ from discord import app_commands
 
 from bot.database.session import SessionLocal
 from bot.database.models.hq_model import ShrineTemplate
+from bot.database.models.economy_model import HarvesterTemplate
 from bot.services.player_service import get_player
 from bot.services import base_service, dungeon_service, mailbox_service
+from bot.services.harvester_service import (
+    ensure_harvester_templates_seeded,
+    list_templates,
+    list_player_harvesters,
+    buy_harvester,
+    collect_harvester,
+    upgrade_harvester,
+    get_upgrade_cost,
+    get_production_rate,
+    effective_max_level,
+)
 from bot.game.economy.hq_config import is_max_hq_level, upgrade_requirements
 from bot.services.currency_service import format_currency
 from bot.utils.guild_decorator import guild_decorator
@@ -236,6 +248,199 @@ def _build_shrine_view(db, player) -> ShrineView:
                 style=discord.ButtonStyle.primary,
             ))
     return ShrineView(buttons, owner_id=player.id)
+
+
+# ----------------------------------------------------------------------
+# Unified harvester view: buy, upgrade, and collect all live here instead
+# of as separate commands. Each harvester's action button is a DynamicItem
+# (persists across restarts, carries the template id in its custom_id) --
+# what the button actually *does* (buy vs. upgrade vs. nothing, since it's
+# maxed) is decided fresh from the database every click, never baked into
+# the button itself.
+# ----------------------------------------------------------------------
+
+class HarvesterActionButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade_harvester_action:(?P<template_id>\d+)"):
+    def __init__(self, template_id: int, label: str = "...", style: discord.ButtonStyle = discord.ButtonStyle.primary, disabled: bool = False):
+        super().__init__(discord.ui.Button(
+            label=label[:80], style=style,
+            custom_id=f"cascade_harvester_action:{template_id}",
+            disabled=disabled,
+        ))
+        self.template_id = template_id
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match):
+        return cls(int(match["template_id"]))
+
+    async def callback(self, interaction: discord.Interaction):
+        if not await check_message_owner(interaction):
+            return
+        await _handle_harvester_action(interaction, self.template_id)
+
+
+class HarvesterCollectAllButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade_harvester_collect_all"):
+    def __init__(self):
+        super().__init__(discord.ui.Button(
+            label="Collect All", style=discord.ButtonStyle.success,
+            custom_id="cascade_harvester_collect_all",
+        ))
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match):
+        return cls()
+
+    async def callback(self, interaction: discord.Interaction):
+        if not await check_message_owner(interaction):
+            return
+        await _handle_harvester_collect_all(interaction)
+
+
+class HarvesterView(OwnedView):
+    def __init__(self, action_buttons: list[HarvesterActionButton], owner_id: int | None = None):
+        super().__init__(timeout=None, owner_id=owner_id)
+        for button in action_buttons:
+            self.add_item(button)
+        self.add_item(HarvesterCollectAllButton())
+
+
+def _build_harvester_embed(db, player) -> discord.Embed:
+    templates = list_templates(db)
+    owned = {h.template_id: h for h in list_player_harvesters(db, player.id)}
+    hq_level = base_service.get_hq_level(db, player)
+
+    embed = discord.Embed(title="Harvesters", color=discord.Color.gold())
+    locked_lines = []
+    for template in templates:
+        if hq_level < template.unlock_hq_level:
+            locked_lines.append(f"{template.name} -- requires Cascade HQ level {template.unlock_hq_level}")
+            continue
+        owned_harvester = owned.get(template.id)
+        cap = effective_max_level(template, hq_level)
+        if owned_harvester:
+            rate = get_production_rate(template, owned_harvester.level)
+            value = (
+                f"Owned - Level {owned_harvester.level}/{template.max_level} (cap {cap})\n"
+                f"Producing {format_currency(template.currency, round(rate * 10) / 10)}/hr"
+            )
+        else:
+            cost = "Free" if template.unlock_cost == 0 else format_currency(template.unlock_currency, template.unlock_cost)
+            value = f"Not owned - Unlock: {cost}"
+        embed.add_field(name=template.name, value=value, inline=False)
+    if locked_lines:
+        embed.add_field(name="🔒 Locked", value="\n".join(locked_lines), inline=False)
+    return embed
+
+
+def _build_harvester_view(db, player) -> HarvesterView:
+    templates = list_templates(db)
+    owned = {h.template_id: h for h in list_player_harvesters(db, player.id)}
+    hq_level = base_service.get_hq_level(db, player)
+
+    buttons = []
+    for template in templates:
+        if hq_level < template.unlock_hq_level:
+            continue
+        owned_harvester = owned.get(template.id)
+        cap = effective_max_level(template, hq_level)
+        if owned_harvester is None:
+            cost_text = "Free" if template.unlock_cost == 0 else format_currency(template.unlock_currency, template.unlock_cost)
+            buttons.append(HarvesterActionButton(
+                template.id, label=f"Buy {template.name} ({cost_text})",
+                style=discord.ButtonStyle.success,
+            ))
+        elif owned_harvester.level >= template.max_level:
+            buttons.append(HarvesterActionButton(
+                template.id, label=f"{template.name} (MAX)",
+                style=discord.ButtonStyle.secondary, disabled=True,
+            ))
+        elif owned_harvester.level >= cap:
+            buttons.append(HarvesterActionButton(
+                template.id, label=f"{template.name} (HQ cap {cap})",
+                style=discord.ButtonStyle.secondary, disabled=True,
+            ))
+        else:
+            cost = get_upgrade_cost(template, owned_harvester.level)
+            buttons.append(HarvesterActionButton(
+                template.id,
+                label=f"Upgrade {template.name} (Lv{owned_harvester.level}->{owned_harvester.level + 1}, {format_currency('gold', cost)})",
+                style=discord.ButtonStyle.primary,
+            ))
+    return HarvesterView(buttons, owner_id=player.id)
+
+
+async def _handle_harvester_action(interaction: discord.Interaction, template_id: int):
+    db = SessionLocal()
+    try:
+        player = get_player(db, interaction.user.id)
+        if player is None:
+            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            return
+
+        expedition = dungeon_service.get_active_expedition(db, player.id)
+        if dungeon_service.is_in_combat(expedition):
+            await interaction.response.send_message(
+                "You can't manage harvesters mid-battle -- finish the fight first!",
+                ephemeral=True,
+            )
+            return
+
+        hq_level = base_service.get_hq_level(db, player)
+        owned = next(
+            (h for h in list_player_harvesters(db, player.id) if h.template_id == template_id),
+            None,
+        )
+        if owned is None:
+            ok, message, _ = buy_harvester(db, player, template_id, hq_level=hq_level)
+        else:
+            template = db.get(HarvesterTemplate, template_id)
+            if owned.level >= template.max_level:
+                ok, message = False, f"{template.name} is already at max level."
+            else:
+                ok, message = upgrade_harvester(db, player, owned, hq_level=hq_level)
+
+        embed = _build_harvester_embed(db, player)
+        view = _build_harvester_view(db, player)
+        await interaction.response.edit_message(content=message, embed=embed, view=view)
+    finally:
+        db.close()
+
+
+async def _handle_harvester_collect_all(interaction: discord.Interaction):
+    db = SessionLocal()
+    try:
+        player = get_player(db, interaction.user.id)
+        if player is None:
+            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            return
+
+        expedition = dungeon_service.get_active_expedition(db, player.id)
+        if dungeon_service.is_in_combat(expedition):
+            await interaction.response.send_message(
+                "You can't manage harvesters mid-battle -- finish the fight first!",
+                ephemeral=True,
+            )
+            return
+
+        owned = list_player_harvesters(db, player.id)
+        totals: dict[str, int] = {}
+        for harvester in owned:
+            currency = harvester.template.currency
+            amount = collect_harvester(db, harvester)
+            totals[currency] = totals.get(currency, 0) + amount
+
+        if not owned:
+            message = "You don't own any harvesters yet -- buy one below!"
+        elif not any(totals.values()):
+            message = "Nothing to collect yet - check back later!"
+        else:
+            parts = [format_currency(currency, amount) for currency, amount in totals.items() if amount]
+            message = f"Collected: {', '.join(parts)}"
+
+        embed = _build_harvester_embed(db, player)
+        view = _build_harvester_view(db, player)
+        await interaction.response.edit_message(content=message, embed=embed, view=view)
+    finally:
+        db.close()
 
 
 # ----------------------------------------------------------------------
@@ -482,6 +687,7 @@ class Base(commands.GroupCog, name="base", description="Cascade HQ base-building
         db = SessionLocal()
         try:
             base_service.ensure_base_catalog_seeded(db)
+            ensure_harvester_templates_seeded(db)
         finally:
             db.close()
 
@@ -517,6 +723,25 @@ class Base(commands.GroupCog, name="base", description="Cascade HQ base-building
             view = _build_shrine_view(db, player)
         finally:
             db.close()
+        await ctx.response.send_message(embed=embed, view=view)
+
+    @app_commands.command(name="harvesters", description="View, buy, upgrade, and collect your harvesters.")
+    async def harvesters_cmd(self, ctx: discord.Interaction):
+        db = SessionLocal()
+        try:
+            player = get_player(db, ctx.user.id)
+            if player is None:
+                await ctx.response.send_message(
+                    "You haven't started your journey yet. Use `/start` first.",
+                    ephemeral=True,
+                )
+                return
+
+            embed = _build_harvester_embed(db, player)
+            view = _build_harvester_view(db, player)
+        finally:
+            db.close()
+
         await ctx.response.send_message(embed=embed, view=view)
 
     @app_commands.command(name="shop", description="Browse the local shop.")

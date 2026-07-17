@@ -82,4 +82,17 @@ HARVESTER_TEMPLATES: list[dict] = [
         "base_upgrade_cost": 200,
         "upgrade_cost_growth": 1.55,
     },
+    {
+        "name": "Experience Well",
+        "description": "A mystical spring that feeds experience to your champions.",
+        "currency": "xp",
+        "unlock_cost": 200,
+        "unlock_currency": "gold",
+        "base_rate_per_hour": 5.0,
+        "level_scaling_exponent": 1.0,
+        "max_level": 10,
+        "max_accumulation_hours": 8.0,
+        "base_upgrade_cost": 150,
+        "upgrade_cost_growth": 1.5,
+    },
 ]
