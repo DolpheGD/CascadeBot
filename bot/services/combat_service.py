@@ -112,7 +112,10 @@ def sync_party_hp_to_characters(db, battle: Battle) -> None:
     for combatant in battle.party:
         pc = rows.get(combatant.character_id)
         if pc is not None:
-            pc.current_hp = combatant.current_hp
+            # Preserve the full-HP sentinel when a combatant ends a battle at max HP.
+            # This keeps characters at true full health when future max HP changes
+            # from leveling, shrine bonuses, or other effects are applied.
+            pc.current_hp = None if combatant.current_hp >= combatant.max_hp else combatant.current_hp
     db.commit()
 
 

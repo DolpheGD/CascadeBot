@@ -279,16 +279,20 @@ def apply_shrine_bonuses(db, player, combatants: list) -> None:
             continue
         # max_hp and max_mana are expected to be integers.
         if "max_hp" in combatant.base_stats:
+            old_max_hp = combatant.max_hp
             new_max_hp = round(combatant.base_stats.get("max_hp", combatant.max_hp))
             combatant.max_hp = max(1, new_max_hp)
-            # If the persisted character had current_hp == None, that means
-            # they were intended to be at full HP; set them to the new
-            # shrine-adjusted max. Otherwise clamp to avoid overflow.
+            # If the persisted character had current_hp == None, or was at the
+            # old max HP before shrine bonuses were applied, preserve that full
+            # health state by moving them to the new shrine-adjusted maximum.
             try:
                 pc = db.get(PlayerCharacter, combatant.character_id) if combatant.character_id is not None else None
             except Exception:
                 pc = None
-            if pc is not None and getattr(pc, "current_hp", None) is None:
+            if pc is not None and (
+                getattr(pc, "current_hp", None) is None
+                or combatant.current_hp == old_max_hp
+            ):
                 combatant.current_hp = combatant.max_hp
             else:
                 combatant.current_hp = min(combatant.current_hp, combatant.max_hp)
