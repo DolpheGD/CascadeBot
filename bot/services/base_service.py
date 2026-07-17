@@ -232,7 +232,11 @@ def apply_shrine_bonuses(db, player, combatants: list) -> None:
     shrine's bonus on top of that combatant's own (character + gear)
     stats. Percent shrines are computed against each combatant's own
     current value of the stat -- consistent with how gear percent
-    substats never compound with each other."""
+    substats never compound with each other.
+
+    Also keep combatant.max_hp/max_mana in sync with any shrine-driven
+    changes to the corresponding base_stats so bonuses actually apply
+    during fights instead of only showing on profile UI."""
     shrines = list_player_shrines(db, player.id)
     if not shrines:
         return
@@ -253,6 +257,24 @@ def apply_shrine_bonuses(db, player, combatants: list) -> None:
                 combatant.base_stats[template.stat] = (
                     combatant.base_stats.get(template.stat, 0) + bonus
                 )
+
+    # After all shrine bonuses are applied to base_stats, update any
+    # separate attributes on the Combatant that are expected to reflect
+    # max_hp / max_mana (these are stored separately on the Combatant
+    # object and must be kept in sync with base_stats to take effect).
+    for combatant in combatants:
+        if not combatant.is_player:
+            continue
+        # max_hp and max_mana are expected to be integers.
+        if "max_hp" in combatant.base_stats:
+            new_max_hp = round(combatant.base_stats.get("max_hp", combatant.max_hp))
+            combatant.max_hp = max(1, new_max_hp)
+            # Clamp current HP to the new max so there's no overflow.
+            combatant.current_hp = min(combatant.current_hp, combatant.max_hp)
+        if "max_mana" in combatant.base_stats:
+            new_max_mana = round(combatant.base_stats.get("max_mana", combatant.max_mana))
+            combatant.max_mana = max(0, new_max_mana)
+            combatant.mana = min(combatant.mana, combatant.max_mana)
 
 
 # ----------------------------------------------------------------------
