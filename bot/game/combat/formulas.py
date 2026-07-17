@@ -3,19 +3,14 @@ Core combat math, kept separate from the battle loop so it's easy to test
 and retune in isolation.
 
 Percentage mitigation: defense reduces damage by defense / (defense + K).
-This gives diminishing returns rather than a hard cap -- 100 defense halves
-damage, 300 defense cuts it to a quarter, but defense can never fully
-negate an attack. Chosen over flat subtraction so gear scales meaningfully
-at high item levels instead of stats becoming irrelevant past a threshold.
-Applies uniformly to physical (attack-based) and elemental damage alike --
-there is no separate elemental resistance stat.
+This gives diminishing returns rather than a hard cap 
 """
 
 from __future__ import annotations
 
 import random
 
-MITIGATION_K = 100
+MITIGATION_K = 40
 
 
 def mitigate(raw_damage: float, defense: float) -> float:
