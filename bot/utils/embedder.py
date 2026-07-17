@@ -844,22 +844,26 @@ def puzzle_embed(node: dict, puzzle: dict, message: str | None = None) -> discor
     return embed
 
 
-def encounter_embed(node: dict, encounter: dict, message: str | None = None) -> discord.Embed:
-    """Story/Treasure/Trap/Shrine/Puzzle/Secret/Merchant-room NPC
-    Encounters (bot/game/dungeon/encounter_config.py) -- unlike
-    trap/puzzle, these carry their own flavor art (ported from the old
-    JS bot's explore.js `imageUrl` fields), rendered full-size via
-    set_image rather than as the usual avatar set_thumbnail. This is
-    also what a Merchant room renders now -- merchant rooms no longer
-    have a bespoke shop embed of their own (see shop offers/goods laid
-    out as "trade" choices below instead)."""
+def encounter_embed(node: dict, encounter: dict, message: str | None = None, player=None) -> discord.Embed:
+    """Story-room NPC encounters (bot/game/dungeon/encounter_config.py) --
+    unlike a plain fallback room, these carry their own flavor art (ported
+    from the old JS bot's explore.js `imageUrl` fields), rendered full-size
+    via set_image rather than as the usual avatar set_thumbnail.
+
+    `player` is optional (only needed to show "you have" holdings) so
+    this still works anywhere it's called without one on hand."""
     embed = discord.Embed(
         title=f"📜 {encounter['name']} -- Floor {node['floor']}",
         description=message or "",
         color=discord.Color.dark_purple(),
     )
     for choice in encounter["choices"]:
-        embed.add_field(name=choice["label"], value=choice["description"] or "\u200b", inline=False)
+        value = choice["description"] or "\u200b"
+        cost = choice.get("cost")
+        if player is not None and cost:
+            holdings = ", ".join(format_currency(currency, getattr(player, currency, 0)) for currency in cost)
+            value = f"{value}\nYou have: {holdings}" if value != "\u200b" else f"You have: {holdings}"
+        embed.add_field(name=choice["label"], value=value, inline=False)
     image_url = encounter.get("image_url")
     if image_url:
         embed.set_image(url=image_url)
