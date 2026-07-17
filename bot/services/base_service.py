@@ -236,7 +236,13 @@ def apply_shrine_bonuses(db, player, combatants: list) -> None:
 
     Also keep combatant.max_hp/max_mana in sync with any shrine-driven
     changes to the corresponding base_stats so bonuses actually apply
-    during fights instead of only showing on profile UI."""
+    during fights instead of only showing on profile UI.
+
+    Additionally, if a PlayerCharacter had persisted current_hp == None
+    (the "full heal" sentinel used by campfires/start-of-expedition),
+    ensure that combatants built for that character are healed to the
+    shrine-adjusted max HP rather than the pre-shrine max.
+    """
     shrines = list_player_shrines(db, player.id)
     if not shrines:
         return
@@ -262,6 +268,12 @@ def apply_shrine_bonuses(db, player, combatants: list) -> None:
     # separate attributes on the Combatant that are expected to reflect
     # max_hp / max_mana (these are stored separately on the Combatant
     # object and must be kept in sync with base_stats to take effect).
+    # If the underlying PlayerCharacter had current_hp == None (meaning
+    # "healed to full" in persistent storage), make sure their combatant's
+    # current_hp becomes the post-shrine max (so campfire heals honor
+    # shrine-driven max_hp increases).
+    from bot.database.models.character_model import PlayerCharacter
+
     for combatant in combatants:
         if not combatant.is_player:
             continue
@@ -269,8 +281,17 @@ def apply_shrine_bonuses(db, player, combatants: list) -> None:
         if "max_hp" in combatant.base_stats:
             new_max_hp = round(combatant.base_stats.get("max_hp", combatant.max_hp))
             combatant.max_hp = max(1, new_max_hp)
-            # Clamp current HP to the new max so there's no overflow.
-            combatant.current_hp = min(combatant.current_hp, combatant.max_hp)
+            # If the persisted character had current_hp == None, that means
+            # they were intended to be at full HP; set them to the new
+            # shrine-adjusted max. Otherwise clamp to avoid overflow.
+            try:
+                pc = db.get(PlayerCharacter, combatant.character_id) if combatant.character_id is not None else None
+            except Exception:
+                pc = None
+            if pc is not None and getattr(pc, "current_hp", None) is None:
+                combatant.current_hp = combatant.max_hp
+            else:
+                combatant.current_hp = min(combatant.current_hp, combatant.max_hp)
         if "max_mana" in combatant.base_stats:
             new_max_mana = round(combatant.base_stats.get("max_mana", combatant.max_mana))
             combatant.max_mana = max(0, new_max_mana)
