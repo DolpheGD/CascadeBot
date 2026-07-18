@@ -857,7 +857,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "region_roles": {'Glacier 15': 'regular', 'Voidcrest Desert': 'regular'},
         "base_stats": {
             "attack": 7, "defense": 8, "elemental": 11, "speed": 22,
-            "max_hp": 400, "max_mana": 999, "crit_rate": 6, "crit_damage": 180, "recharge": 12,
+            "max_hp": 320, "max_mana": 999, "crit_rate": 6, "crit_damage": 180, "recharge": 12,
         },
         "level_scale_percent": 8,
         "actions_per_cycle": 3,
@@ -932,7 +932,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "region_roles": {'Glacier 15': 'final'},
         "base_stats": {
             "attack": 23, "defense": 8, "elemental": 26, "speed": 11,
-            "max_hp": 420, "max_mana": 999, "crit_rate": 16, "crit_damage": 185, "recharge": 10,
+            "max_hp": 450, "max_mana": 999, "crit_rate": 16, "crit_damage": 185, "recharge": 10,
         },
         "level_scale_percent": 8,
         "active_abilities": [
