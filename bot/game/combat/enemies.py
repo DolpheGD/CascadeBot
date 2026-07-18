@@ -515,6 +515,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
             get_ability_by_id(WEAPON_SKILLS, "berserker_rage"),
+            get_ability_by_id(WEAPON_SKILLS, "twin_fracture_strike"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "momentum")],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "phoenix_rebirth"),
@@ -664,14 +665,14 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "elite",
         "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands', 'Voidcrest Desert'],
         "base_stats": {
-            "attack": 15, "defense": 2, "elemental": 2, "speed": 23,
+            "attack": 17, "defense": 2, "elemental": 6, "speed": 23,
             "max_hp": 270, "max_mana": 999, "crit_rate": 10, "crit_damage": 280, "recharge": 10,
         },
         "level_scale_percent": 10,
         "actions_per_cycle": 3,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "emp_burst"),
-            get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
+            get_ability_by_id(WEAPON_SKILLS, "twin_fracture_strike"),
             get_ability_by_id(ARTIFACT_SKILLS, "arc_lightning"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "arcane_battery")],
@@ -710,6 +711,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
             get_ability_by_id(ARTIFACT_SKILLS, "kinetic_feedback"),
+            get_ability_by_id(WEAPON_SKILLS, "crossfire_salvo"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "momentum")],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "storm_of_blades"),
@@ -751,14 +753,15 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss",
         "region_roles": {'Glacier 15': 'regular', 'The Wastelands': 'regular', 'The Hotlands': 'regular', 'Voidcrest Desert': 'regular'},
         "base_stats": {
-            "attack": 29, "defense": 12, "elemental": 12, "speed": 8,
-            "max_hp": 670, "max_mana": 999, "crit_rate": 9, "crit_damage": 190, "recharge": 10,
+            "attack": 29, "defense": 12, "elemental": 14, "speed": 4,
+            "max_hp": 500, "max_mana": 999, "crit_rate": 9, "crit_damage": 190, "recharge": 10,
         },
         "level_scale_percent": 8,
         "active_abilities": [
-            get_ability_by_id(ARTIFACT_SKILLS, "overclock_repair"),
+            get_ability_by_id(ARTIFACT_SKILLS, "fracture_field"),
             get_ability_by_id(ARTIFACT_SKILLS, "rousing_signal"),
             get_ability_by_id(WEAPON_SKILLS, "cleave_smash"),
+            get_ability_by_id(WEAPON_SKILLS, "sweeping_volley"),   
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "undying_will")],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "voidstorm"),
@@ -780,6 +783,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "starfall"),
             get_ability_by_id(WEAPON_SKILLS, "rending_cleave"),
+            get_ability_by_id(WEAPON_SKILLS, "sweeping_volley"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "iron_skin")],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "null_strike"),
@@ -801,6 +805,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "level_scale_percent": 8,
         "escorts": ["Dolpo", "Xero"],
         "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "crossfire_salvo"),
             get_ability_by_id(WEAPON_SKILLS, "guard_splitter"),
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
         ],
@@ -857,6 +862,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "level_scale_percent": 8,
         "actions_per_cycle": 3,
         "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "flurry_slash"),
             get_ability_by_id(WEAPON_SKILLS, "riftcutter"),
             get_ability_by_id(WEAPON_SKILLS, "shield_bash"),
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
@@ -877,15 +883,17 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss",
         "region_roles": {'Glacier 15': 'regular', 'The Wastelands': 'regular', 'The Hotlands': 'regular'},
         "base_stats": {
-            "attack": 16, "defense": 11, "elemental": 9, "speed": 10,
+            "attack": 19, "defense": 11, "elemental": 9, "speed": 10,
             "max_hp": 260, "max_mana": 999, "crit_rate": 2, "crit_damage": 500, "recharge": 12,
         },
         "actions_per_cycle": 2,
         "level_scale_percent": 8,
         "escorts": ["THE BILLIAN"],
         "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "flurry_slash"),
             get_ability_by_id(WEAPON_SKILLS, "flame_strike"),
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
+            get_ability_by_id(ARTIFACT_SKILLS, "arc_lightning"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "soul_harvest")],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "executioners_reckoning"),
@@ -897,11 +905,12 @@ ENEMY_TEMPLATES: list[dict] = [
         "name": "THE BILLIAN",
         "role": "boss_group_member",
         "base_stats": {
-            "attack": 3, "defense": 30, "elemental": 3, "speed": 3,
-            "max_hp": 380, "max_mana": 999, "crit_rate": 2, "crit_damage": 120, "recharge": 14,
+            "attack": 12, "defense": 20, "elemental": 3, "speed": 3,
+            "max_hp": 280, "max_mana": 999, "crit_rate": 2, "crit_damage": 500, "recharge": 10,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "sunder_strike"),
             get_ability_by_id(ARTIFACT_SKILLS, "wellspring_surge"),
             get_ability_by_id(ARTIFACT_SKILLS, "aegis_broadcast"),
         ],
@@ -927,6 +936,7 @@ ENEMY_TEMPLATES: list[dict] = [
         },
         "level_scale_percent": 8,
         "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "crossfire_salvo"),
             get_ability_by_id(WEAPON_SKILLS, "frost_lance"),
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
             get_ability_by_id(ARTIFACT_SKILLS, "ionic_ward"),
@@ -1042,6 +1052,7 @@ ENEMY_TEMPLATES: list[dict] = [
             get_ability_by_id(WEAPON_SKILLS, "rending_cleave"),
             get_ability_by_id(ARTIFACT_SKILLS, "starfall"),
             get_ability_by_id(WEAPON_SKILLS, "flame_strike"),
+            get_ability_by_id(WEAPON_SKILLS, "twin_fracture_strike"),
         ],
         "passive_abilities": [
             get_ability_by_id(ARMOR_PASSIVES, "iron_skin"),
