@@ -53,7 +53,9 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from bot.database.models.base_model import Base
+from bot.database.models.character_model import PlayerCharacter
 from bot.database.models.enums import EquipmentSlot, ItemType, Rarity
+from bot.database.models.player_model import Player
 
 
 class ItemTemplate(Base):

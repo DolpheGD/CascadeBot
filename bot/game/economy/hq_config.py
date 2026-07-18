@@ -32,6 +32,10 @@ HQ_LEVEL_CONFIG: dict[int, dict] = {
         "building_level_cap": 10,
         "upgrade_cost": {"gold": 8000, "metal": 400, "crystal": 100},
     },
+    4: {
+        "building_level_cap": 14,
+        "upgrade_cost": {"gold": 18000, "metal": 700, "crystal": 250},
+    },
 }
 
 
@@ -145,8 +149,15 @@ SHRINE_TEMPLATES: list[dict] = [
 # ----------------------------------------------------------------------
 # Shop: no ownership/leveling, just a purchasable catalog. "exchange"
 # listings convert one currency into another (material exchanges);
-# "item" listings roll a single low-level InventoryItem from an existing
-# ItemTemplate (see bot/game/loot/item_seed_data.py for valid names).
+# "item" listings roll a single InventoryItem from an existing ItemTemplate
+# (see bot/game/loot/item_seed_data.py for valid names) -- reserved for
+# genuinely mid/high-tier gear now; guaranteed-basic-gear trades (Common-
+# rarity, item_level 1) were pulled since adventuring outpaces them almost
+# immediately, making them a dead purchase; "lootbox" listings grant
+# lootboxes of a given tier (see bot/game/economy/lootbox_config.py) --
+# each successive tier unlocks at a higher HQ level and costs more, so a
+# fatter HQ investment keeps paying off in better crates, not just bigger
+# building caps.
 # ----------------------------------------------------------------------
 
 SHOP_LISTINGS: list[dict] = [
@@ -195,28 +206,6 @@ SHOP_LISTINGS: list[dict] = [
         "daily_limit": 0,
     },
     {
-        "name": "Rusty Sword Bundle",
-        "description": "A crate of starter weapons.",
-        "kind": "item",
-        "unlock_hq_level": 1,
-        "cost_currency": "gold",
-        "cost_amount": 150,
-        "item_template_name": "Iron Sword",
-        "item_level": 1,
-        "daily_limit": 3,
-    },
-    {
-        "name": "Traveler's Vest Bundle",
-        "description": "Basic protection for the road ahead.",
-        "kind": "item",
-        "unlock_hq_level": 1,
-        "cost_currency": "gold",
-        "cost_amount": 150,
-        "item_template_name": "Leather Vest",
-        "item_level": 1,
-        "daily_limit": 3,
-    },
-    {
         "name": "Metal Refinery",
         "description": "The quarry's forge can refine stone into metal, slowly.",
         "kind": "exchange",
@@ -226,6 +215,17 @@ SHOP_LISTINGS: list[dict] = [
         "reward_currency": "metal",
         "reward_amount": 15,
         "daily_limit": 5,
+    },
+    {
+        "name": "Metal Shipment",
+        "description": "Pricier than refining it yourself, but instant.",
+        "kind": "exchange",
+        "unlock_hq_level": 2,
+        "cost_currency": "gold",
+        "cost_amount": 300,
+        "reward_currency": "metal",
+        "reward_amount": 15,
+        "daily_limit": 0,
     },
     {
         "name": "Shard Trader",
@@ -263,6 +263,28 @@ SHOP_LISTINGS: list[dict] = [
         "item_template_name": "Runic Robe",
         "item_level": 8,
         "daily_limit": 2,
+    },
+    {
+        "name": "Crystal Refinery",
+        "description": "A finer forge, pushed further -- refines metal into crystal.",
+        "kind": "exchange",
+        "unlock_hq_level": 3,
+        "cost_currency": "metal",
+        "cost_amount": 50,
+        "reward_currency": "crystal",
+        "reward_amount": 10,
+        "daily_limit": 5,
+    },
+    {
+        "name": "Crystal Shipment",
+        "description": "Pricier than refining it yourself, but instant.",
+        "kind": "exchange",
+        "unlock_hq_level": 3,
+        "cost_currency": "gold",
+        "cost_amount": 500,
+        "reward_currency": "crystal",
+        "reward_amount": 15,
+        "daily_limit": 0,
     },
     {
         "name": "Uncommon Lootbox Crate",
@@ -306,6 +328,17 @@ SHOP_LISTINGS: list[dict] = [
         "cost_amount": 3500,
         "item_template_name": "Charged Plating",
         "item_level": 22,
+        "daily_limit": 2,
+    },
+    {
+        "name": "Epic Lootbox Crate",
+        "description": "An ornate Cascade coffer, humming with power. Reserved for well-established HQs.",
+        "kind": "lootbox",
+        "unlock_hq_level": 5,
+        "cost_currency": "gold",
+        "cost_amount": 4500,
+        "lootbox_tier": "epic",
+        "lootbox_quantity": 1,
         "daily_limit": 2,
     },
 ]

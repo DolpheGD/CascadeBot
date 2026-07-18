@@ -49,8 +49,11 @@ DAILY_LIMIT_WINDOW = dt.timedelta(hours=24)
 # ----------------------------------------------------------------------
 
 def ensure_base_catalog_seeded(db) -> None:
-    """Upserts ShrineTemplate + ShopListing rows from hq_config. Safe to
-    call every startup, same pattern as the harvester/item/lootbox seeders."""
+    """Upserts ShrineTemplate + ShopListing rows from hq_config, and retires
+    any ShopListing whose name is no longer present in SHOP_LISTINGS. Safe
+    to call every startup, same pattern as the harvester/item/lootbox
+    seeders (which don't need the retire step since nothing's ever pulled
+    from their catalogs)."""
     for data in SHRINE_TEMPLATES:
         existing = db.query(ShrineTemplate).filter_by(name=data["name"]).first()
         if existing is None:
@@ -59,6 +62,7 @@ def ensure_base_catalog_seeded(db) -> None:
             for key, value in data.items():
                 setattr(existing, key, value)
 
+    current_shop_names = {data["name"] for data in SHOP_LISTINGS}
     for data in SHOP_LISTINGS:
         existing = db.query(ShopListing).filter_by(name=data["name"]).first()
         if existing is None:
@@ -66,6 +70,19 @@ def ensure_base_catalog_seeded(db) -> None:
         else:
             for key, value in data.items():
                 setattr(existing, key, value)
+
+    # Retire any shop listings pulled from the catalog above (e.g. a trade
+    # got removed/replaced) so they actually stop showing up in-game --
+    # unlike the other seeders here, the shop needs to reflect removals,
+    # not just additions/edits. Clear out daily-purchase-limit tracking
+    # rows for the listing first so the FK on PlayerShopPurchase never
+    # blocks the delete.
+    stale_listings = (
+        db.query(ShopListing).filter(~ShopListing.name.in_(current_shop_names)).all()
+    )
+    for listing in stale_listings:
+        db.query(PlayerShopPurchase).filter_by(listing_id=listing.id).delete()
+        db.delete(listing)
 
     db.commit()
 
