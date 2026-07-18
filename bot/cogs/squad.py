@@ -1,9 +1,10 @@
 """
 /squad -- view your roster and choose which characters ride along on
 expeditions. Slot 0 is always your own avatar (locked, can't be changed
-here -- it's who you are); slots 1-3 are any of your other owned
-characters, picked one dropdown per slot so re-rendering doesn't require
-juggling more than 3 selects on one message.
+here -- it's who you are, though its name can be changed with /rename);
+slots 1-3 are any of your other owned characters, picked one dropdown per
+slot so re-rendering doesn't require juggling more than 3 selects on one
+message.
 """
 
 import discord
@@ -23,7 +24,7 @@ SLOT_LABELS = ["Slot 1 (Avatar -- locked)", "Slot 2", "Slot 3", "Slot 4"]
 def _character_label(pc) -> str:
     stars = "★" * pc.template.star_rating
     class_label = pc.template.character_class.value.replace("_", " ").title()
-    return f"{pc.template.name} {stars} Lv{pc.level} ({class_label})"[:100]
+    return f"{pc.display_name} {stars} Lv{pc.level} ({class_label})"[:100]
 
 
 def _build_squad_embed(db, player) -> discord.Embed:

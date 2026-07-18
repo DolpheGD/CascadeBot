@@ -121,7 +121,7 @@ def _profile_overview_page(player, character, equipped_items, avatar_url, db=Non
         base_service.apply_shrine_bonuses(db, player, [combatant])
 
     embed = discord.Embed(
-        title=f"{player.username}'s Profile -- {character.template.name}",
+        title=f"{player.username}'s Profile -- {character.display_name}",
         description=f"Page 1/{PROFILE_PAGE_COUNT} -- {PROFILE_PAGE_TITLES[0]}",
         color=discord.Color.blurple(),
     )
@@ -152,7 +152,7 @@ def _profile_equipment_page(player, character, equipped_items, avatar_url) -> di
         slot_items.sort(key=lambda it: it.id)
 
     embed = discord.Embed(
-        title=f"{character.template.name}'s Equipment",
+        title=f"{character.display_name}'s Equipment",
         description=f"Page 2/{PROFILE_PAGE_COUNT} -- {PROFILE_PAGE_TITLES[1]}",
         color=discord.Color.dark_teal(),
     )
@@ -181,7 +181,7 @@ def _profile_abilities_page(player, character, equipped_items, avatar_url) -> di
     combatant = build_character_combatant(character, equipped_items)
 
     embed = discord.Embed(
-        title=f"{character.template.name}'s Abilities",
+        title=f"{character.display_name}'s Abilities",
         description=f"Page 3/{PROFILE_PAGE_COUNT} -- {PROFILE_PAGE_TITLES[2]}",
         color=discord.Color.dark_purple(),
     )
@@ -293,27 +293,11 @@ def dungeon_map_embed(
 # ----------------------------------------------------------------------
 
 def _turn_order_line(battle, count: int = 6) -> str:
-    """Renders the upcoming turn order, with a bold '‖ Cycle N ‖' label
-    inserted wherever the preview crosses into a new cycle (including at
-    the very start) -- see Battle.preview_turn_order_with_cycle_offsets.
-    Without this, a full squad + multi-action enemies produces a run of
-    names with no visual indication of where one cycle's actions end and
-    the next begins, which reads like a single ATB queue rather than the
-    cycle system it actually is."""
-    entries = battle.preview_turn_order_with_cycle_offsets(count)
-    if not entries:
-        return "--"
-
-    tokens = []
-    last_offset = None
-    for combatant, offset in entries:
-        if offset != last_offset:
-            tokens.append(f"**‖Cycle {battle.cycle_number + offset}‖**")
-            last_offset = offset
-        icon = "🧑" if combatant.is_player else "👹"
-        tokens.append(f"{icon}{combatant.name}")
-
-    return " ➜ ".join(tokens)
+    icons = []
+    for c in battle.preview_turn_order(count):
+        icon = "🧑" if c.is_player else "👹"
+        icons.append(f"{icon} {c.name}")
+    return " ➜ ".join(icons) if icons else "--"
 
 
 def _recent_log_lines(battle, count: int = 4, char_limit: int = 900) -> str:
@@ -397,12 +381,12 @@ def combat_embed(battle, avatar_url: str | None = None) -> discord.Embed:
     elif battle.result == "lost":
         color = discord.Color.dark_gray()
 
-    embed = discord.Embed(title=f"⚔️ Battle! -- Cycle {battle.cycle_number}", color=color)
+    embed = discord.Embed(title="⚔️ Battle!", color=color)
     if avatar_url:
         embed.set_thumbnail(url=avatar_url)
 
     if not battle.is_over():
-        embed.add_field(name="🔀 Turn Order (this cycle ➜ next)", value=_turn_order_line(battle), inline=False)
+        embed.add_field(name="🔀 Turn Order", value=_turn_order_line(battle), inline=False)
 
     party_lines = []
     for member in battle.party:
@@ -441,83 +425,30 @@ def combat_embed(battle, avatar_url: str | None = None) -> discord.Embed:
         result_text = {"won": "🏆 Victory!", "lost": "💀 Defeat..."}[battle.result]
         embed.add_field(name="Result", value=result_text, inline=False)
     else:
-        embed.set_footer(text="Tap ℹ️ Info for status effects/cooldowns, 📜 Log for the full battle log (paged by cycle).")
+        embed.set_footer(text="Tap ℹ️ Info for status effects/cooldowns, 📜 Log for the full battle log.")
 
     return embed
 
 
-def _split_log_by_cycle(log: list[str]) -> list[tuple[int, list[str]]]:
-    """Splits the flat battle log into (cycle_number, lines) chunks, using
-    the '🔄 Cycle N begins.' markers Battle._pop_next_actor inserts at the
-    start of every cycle. This is what makes battle_log_embed pageable
-    ONE CYCLE AT A TIME instead of as a single undifferentiated wall of
-    text -- each page corresponds exactly to a cycle a player already
-    sees called out in the Turn Order preview, so paging the log lines
-    up with the cycle concept rather than an arbitrary line count.
-    Anything logged before the first marker (shouldn't normally happen --
-    cycle 1's marker is added immediately when the battle starts) is kept
-    under cycle 0 so no line is ever silently dropped."""
-    chunks: list[tuple[int, list[str]]] = []
-    current_cycle = 0
-    current_lines: list[str] = []
-
-    for line in log:
-        if line.startswith("🔄 Cycle "):
-            if current_lines:
-                chunks.append((current_cycle, current_lines))
-            try:
-                current_cycle = int(line[len("🔄 Cycle "):].split(" ", 1)[0])
-            except ValueError:
-                current_cycle += 1
-            current_lines = [line]
-        else:
-            current_lines.append(line)
-
-    if current_lines:
-        chunks.append((current_cycle, current_lines))
-
-    return chunks
-
-
-def battle_log_embed(battle, page: int | None = None) -> tuple[discord.Embed, int, int]:
-    """The paged 📜 Log view -- one Discord page per combat CYCLE (see
-    battle.py's cycle turn order system and _split_log_by_cycle above)
-    rather than one single message with the entire history crammed in,
-    so it's always obvious which cycle a run of log lines belongs to.
-
-    `page` is 0-indexed; leave it None to open on the LAST (most recent)
-    cycle, since that's almost always what someone tapping Log mid-fight
-    wants to see first -- Prev is there to page back through earlier
-    cycles from there.
-
-    Returns (embed, page, total_pages) so the caller can build a pager
-    view with correctly disabled Prev/Next buttons at the ends."""
-    chunks = _split_log_by_cycle(battle.log)
-    total = max(len(chunks), 1)
-
-    if page is None:
-        page = total - 1
-    page = max(0, min(page, total - 1))
-
+def battle_log_embed(battle) -> discord.Embed:
+    """The full battle log, shown via the 📜 Log button -- unlike the main
+    battle message's brief "Recent Actions" tail (see combat_embed /
+    _recent_log_lines, just the last handful of lines), this shows
+    everything that's happened so far, trimmed from the oldest end only
+    if it would overflow an embed description (4096 chars)."""
     embed = discord.Embed(title="📜 Battle Log", color=discord.Color.dark_grey())
-
-    if not chunks:
+    if not battle.log:
         embed.description = "*Nothing has happened yet.*"
-        embed.set_footer(text="Cycle 1 · Page 1/1")
-        return embed, 0, 1
+        return embed
 
-    cycle_number, lines = chunks[page]
+    lines = list(battle.log)
     text = "\n".join(lines)
     if len(text) > 4000:
-        # A single cycle's worth of lines is normally nowhere near this
-        # long, but a heavily multi-action cycle (several actions_per_cycle
-        # enemies/passives layered together) could in principle get close
-        # to the embed description limit -- trim from the end rather than
-        # let the embed fail to send.
-        text = text[:3990] + "\n*(cycle truncated)*"
+        while lines and len("\n".join(lines)) > 3900:
+            lines.pop(0)
+        text = "*(earlier entries truncated)*\n" + "\n".join(lines)
     embed.description = text
-    embed.set_footer(text=f"Cycle {cycle_number} · Page {page + 1}/{total}")
-    return embed, page, total
+    return embed
 
 
 def battle_info_embed(battle) -> discord.Embed:
@@ -560,7 +491,7 @@ def battle_info_embed(battle) -> discord.Embed:
     for enemy in battle.living_enemies():
         embed.add_field(name=f"👹 **{enemy.name}**", value=_status_lines(enemy), inline=True)
 
-    embed.add_field(name="Turn", value=f"{battle.turn_count} (Cycle {battle.cycle_number})", inline=False)
+    embed.add_field(name="Turn", value=str(battle.turn_count), inline=False)
     return embed
 
 
@@ -685,7 +616,7 @@ def item_detail_embed(item, position: int | None = None, total: int | None = Non
         embed.add_field(name=f"🛡️ Passive: {p['name']}", value=f"{p['description']}\n{trigger_text}", inline=False)
 
     if item.is_equipped and item.character is not None:
-        status_value = f"✅ Equipped on {item.character.template.name}"
+        status_value = f"✅ Equipped on {item.character.display_name}"
     elif item.is_equipped:
         status_value = "✅ Equipped"
     else:
@@ -796,7 +727,7 @@ def inventory_list_embed(entries: list, page: int, player_name: str) -> discord.
         rarity_emoji = RARITY_EMOJI.get(item.rarity.value, "⚪")
         type_icon = SLOT_EMOJI[item.slot]
         if item.is_equipped and item.character is not None:
-            equipped_tag = f" ✅ *{item.character.template.name}*"
+            equipped_tag = f" ✅ *{item.character.display_name}*"
         elif item.is_equipped:
             equipped_tag = " ✅"
         else:

@@ -110,7 +110,7 @@ def equip_item(db, character, item: InventoryItem) -> tuple[bool, str]:
     if item.player_id != character.player_id:
         return False, "You don't own that item."
     if item.is_equipped and item.character_id == character.id:
-        return False, f"{item.display_name} is already equipped on {character.template.name}."
+        return False, f"{item.display_name} is already equipped on {character.display_name}."
 
     current_in_slot = (
         db.query(InventoryItem)
@@ -131,7 +131,7 @@ def equip_item(db, character, item: InventoryItem) -> tuple[bool, str]:
     db.commit()
 
     swap_note = f" (swapped out {swapped_out.display_name})" if swapped_out is not None else ""
-    return True, f"Equipped {item.display_name} on {character.template.name}{swap_note}."
+    return True, f"Equipped {item.display_name} on {character.display_name}{swap_note}."
 
 
 def unequip_item(db, item: InventoryItem) -> tuple[bool, str]:

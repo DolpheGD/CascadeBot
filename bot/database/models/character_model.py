@@ -108,6 +108,13 @@ class PlayerCharacter(Base):
     level: Mapped[int] = mapped_column(Integer, default=1)
     xp: Mapped[int] = mapped_column(Integer, default=0)
 
+    # Player-chosen display name, currently only ever set on the player's
+    # own avatar character (template.is_player_avatar) -- see
+    # character_service.rename_avatar / the /rename command. NULL means
+    # "no custom name set yet", i.e. still shows the template's own name
+    # ("You" for the avatar) -- see the display_name property below.
+    custom_name: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
     # Persisted between battles -- NULL means "full HP" (nothing to clamp
     # yet, e.g. a freshly pulled or leveled character). Combat reads this
     # in via factory.build_character_combatant and writes it back out via
@@ -141,6 +148,15 @@ class PlayerCharacter(Base):
         if self.current_class is not None:
             return self.current_class
         return self.template.character_class
+
+    @property
+    def display_name(self) -> str:
+        """The name to show for this character everywhere -- profile
+        embeds, squad list, and in combat (see
+        bot/game/combat/factory.py::build_character_combatant). Falls back
+        to the template's own name (e.g. "You" for the avatar) unless the
+        player has set a custom_name for this specific PlayerCharacter."""
+        return self.custom_name or self.template.name
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<PlayerCharacter id={self.id} template_id={self.template_id} lvl={self.level}>"

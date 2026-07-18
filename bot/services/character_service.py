@@ -10,6 +10,8 @@ call into once a character template has been chosen to grant.
 
 from __future__ import annotations
 
+import re
+
 from bot.database.models.character_model import PlayerCharacter, SquadSlot
 from bot.database.models.equipment_model import InventoryItem
 from bot.services.character_template_service import get_avatar_template
@@ -23,6 +25,13 @@ DUPE_REWARDS_BY_STAR: dict[int, dict[str, int]] = {
     4: {"gold": 500, "reroll_tokens": 12},
     5: {"gold": 1200, "reroll_tokens": 25},
 }
+
+# Rename validation -- matches PlayerCharacter.custom_name's column width
+# (String(32)). Deliberately conservative on allowed characters: letters,
+# digits, spaces, and a small set of punctuation. No backtick/asterisk/
+# underscore/tilde/pipe (Discord markdown), no @ (pings), no newlines.
+CUSTOM_NAME_MAX_LENGTH = 32
+CUSTOM_NAME_PATTERN = re.compile(r"^[A-Za-z0-9 '\-.]+$")
 
 
 def ensure_avatar_character(db, player) -> PlayerCharacter:
@@ -168,3 +177,30 @@ def grant_character(db, player, template) -> tuple[PlayerCharacter, bool, dict[s
     db.commit()
     db.refresh(pc)
     return pc, True, None
+
+
+def rename_avatar(db, player, new_name: str | None) -> tuple[bool, str]:
+    """Sets (or, if `new_name` is None/blank, clears) the custom_name on
+    the player's own avatar PlayerCharacter -- lets them go by something
+    other than the "You" template name everywhere it's shown (profile,
+    squad, combat logs). Returns (success, message); on success `message`
+    is a friendly confirmation, on failure it's why the name was rejected.
+
+    Only the avatar can be renamed this way for now -- slot 0 is "who you
+    are" (see squad.py), pulled characters keep their own identity."""
+    avatar = ensure_avatar_character(db, player)
+
+    if new_name is None or not new_name.strip():
+        avatar.custom_name = None
+        db.commit()
+        return True, f"Reset your name back to **{avatar.template.name}**."
+
+    cleaned = " ".join(new_name.split())  # collapse/strip whitespace
+    if len(cleaned) > CUSTOM_NAME_MAX_LENGTH:
+        return False, f"Names can be at most {CUSTOM_NAME_MAX_LENGTH} characters."
+    if not CUSTOM_NAME_PATTERN.match(cleaned):
+        return False, "Names can only contain letters, numbers, spaces, and `' - .`"
+
+    avatar.custom_name = cleaned
+    db.commit()
+    return True, f"You're now known as **{cleaned}**."

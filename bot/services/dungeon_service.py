@@ -736,7 +736,7 @@ def _apply_hp_damage(db, player, rng: random.Random, percent: int) -> str | None
     combatant = build_character_combatant(victim, equipped_by_char.get(victim.id, []))
     lost = max(1, round(combatant.max_hp * percent / 100))
     victim.current_hp = max(1, combatant.current_hp - lost)
-    return f"{victim.template.name} takes {lost} damage!"
+    return f"{victim.display_name} takes {lost} damage!"
 
 
 def _apply_gain(

@@ -34,7 +34,7 @@ def _squad_hp_lines(db, player) -> list[str]:
 
     lines = []
     for pc, combatant in zip(squad, combatants):
-        lines.append(f"{pc.template.name}: {combatant.current_hp}/{combatant.max_hp}")
+        lines.append(f"{pc.display_name}: {combatant.current_hp}/{combatant.max_hp}")
     return lines
 
 
@@ -177,32 +177,6 @@ class CombatView(OwnedView):
     @discord.ui.button(label="📜 Log", style=discord.ButtonStyle.secondary, custom_id="cascade_combat_log", row=4)
     async def log_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await _handle_combat_log(interaction)
-
-
-class BattleLogView(OwnedView):
-    """The ephemeral pager shown by the 📜 Log button -- one page per
-    combat cycle (see embedder.battle_log_embed). Short-lived like
-    EncounterView/ForfeitConfirmView rather than a persistent DynamicItem
-    view: this is an ephemeral, read-only lookup, not a menu that commits
-    the player to anything, so it doesn't need to survive a bot restart --
-    if the bot restarts while one's on screen, the worst case is the
-    Prev/Next buttons stop responding on that already-ephemeral message,
-    same as any other short-lived menu in this codebase."""
-
-    def __init__(self, page: int, total_pages: int, owner_id: int | None = None):
-        super().__init__(timeout=300, owner_id=owner_id)
-        self.page = page
-        self.total_pages = total_pages
-        self.prev_button.disabled = page <= 0
-        self.next_button.disabled = page >= total_pages - 1
-
-    @discord.ui.button(label="◀ Prev Cycle", style=discord.ButtonStyle.secondary, custom_id="cascade_log_prev")
-    async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await _handle_combat_log(interaction, page=self.page - 1, edit=True)
-
-    @discord.ui.button(label="Next Cycle ▶", style=discord.ButtonStyle.secondary, custom_id="cascade_log_next")
-    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await _handle_combat_log(interaction, page=self.page + 1, edit=True)
 
 
 class StartBattleView(OwnedView):
@@ -663,17 +637,10 @@ async def _handle_combat_info(interaction: discord.Interaction):
         db.close()
 
 
-async def _handle_combat_log(interaction: discord.Interaction, page: int | None = None, edit: bool = False):
-    """Free, non-turn-consuming: shows the battle log one cycle at a time
-    (not just the short tail on the main battle message), ephemerally,
-    without touching the shared battle message. `page` is None on the
-    initial 📜 Log tap (opens on the most recent cycle) and an explicit
-    page index when called from BattleLogView's Prev/Next buttons; `edit`
-    distinguishes those two cases -- Prev/Next edit the existing ephemeral
-    message in place instead of spamming a new one per click, which a
-    plain interaction.response.is_done() can't tell apart, since every
-    button press is its OWN fresh Interaction object regardless of which
-    already-sent message it's attached to."""
+async def _handle_combat_log(interaction: discord.Interaction):
+    """Free, non-turn-consuming: shows the full battle log (not just the
+    short tail on the main battle message), ephemerally, without touching
+    the shared battle message."""
     db = SessionLocal()
     try:
         player = get_player(db, interaction.user.id)
@@ -683,13 +650,7 @@ async def _handle_combat_log(interaction: discord.Interaction, page: int | None 
             return
 
         battle = combat_service.load_battle(expedition)
-        embed, page, total_pages = embedder.battle_log_embed(battle, page=page)
-        view = BattleLogView(page, total_pages, owner_id=interaction.user.id) if total_pages > 1 else None
-
-        if edit:
-            await interaction.response.edit_message(embed=embed, view=view)
-        else:
-            await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        await interaction.response.send_message(embed=embedder.battle_log_embed(battle), ephemeral=True)
     finally:
         db.close()
 

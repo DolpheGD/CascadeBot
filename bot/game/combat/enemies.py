@@ -16,9 +16,11 @@ Roles:
   * "combat" -- regular room enemies, plentiful
   * "elite"  -- elite rooms, few per fight
   * "boss"   -- standalone boss-room enemies, 1 per fight.
-  * "boss_group_member" -- boss-room enemies that only ever appear together
-    as part of a BOSS_GROUPS entry (see get_boss_encounter()), never rolled
-    individually via get_templates_by_role("boss").
+  * "boss_group_member" -- boss-room enemies that only ever appear
+    alongside another boss template, either as part of a BOSS_GROUPS entry
+    or as another boss's "escorts" (see get_boss_encounter() /
+    _with_escorts()) -- never rolled individually via
+    get_templates_by_role("boss").
 
 Combat rework -- solo boss rebalance: bosses were hitting far too hard for
 how quickly fights ended, most noticeably in Glacier 15 (the easiest
@@ -55,6 +57,25 @@ What IS hand-tuned here, as part of the same pass:
     Arc Lightning, Storm of Blades) -- matching the same
     "slow = hard-hitting, fast = lighter" tradeoff used for
     actions_per_cycle above.
+
+Multi-enemy bosses -- "escorts" pass: some standalone "boss"-role
+templates now always bring fixed companions into the fight, distinct from
+the rare, randomly-rolled BOSS_GROUPS (Eruptor Trio) below. A boss
+template with an "escorts" list (e.g. XG-23 Heavy Drone -> ["XG-23A",
+"XG-23B"]) is still rolled through the normal solo-boss odds/region_roles
+exactly as before, but get_boss_encounter() automatically appends its
+escorts by name every time it's chosen -- so the fight is guaranteed
+multi-enemy whenever that boss shows up, not just 1-in-5 like a
+BOSS_GROUPS pull. Escort templates use role="boss_group_member" (same as
+Eruptor Trio members) so they're never independently rolled as a solo
+boss/elite/combat enemy -- they only ever appear via another template's
+"escorts" field. Converted this pass: XG-23 Heavy Drone (+XG-23A/XG-23B),
+Aerion Mk1 (+Dolpo/Xero), Thedoggyp (+THE BILLIAN), and The Wastelands'
+final boss, replaced outright by the Ocellios Transport Crew (NF
++Ocellios Train/Broskm/Duko). Each escorted boss's own base_stats were
+pulled down somewhat from their old solo-fight numbers to compensate for
+the extra bodies now fighting alongside them, same spirit as the
+actions_per_cycle compensation above.
 """
 
 from __future__ import annotations
@@ -481,14 +502,8 @@ ENEMY_TEMPLATES: list[dict] = [
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "last_stand"),
     },
     {
-        # A grifter who's built a whole act around impersonating Dolphe
-        # to shake down towns Team Cascade hasn't reached yet -- all
-        # showmanship, no substance, but the crowd-hyped tricks land
-        # hard enough to hurt.
-        # Balance pass: the roster's single fastest combatant (Speed 20),
-        # so it's the elite-tier "acts twice a cycle" pick -- ATK/ELE
-        # pulled down to compensate for the extra action.
-        "name": "Dolpo",
+        # A grifter who's built a whole act around impersonating Rex
+        "name": "Illusion of Rex",
         "role": "elite",
         "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands', 'Voidcrest Desert'],
         "base_stats": {
@@ -678,21 +693,54 @@ ENEMY_TEMPLATES: list[dict] = [
         # module docstring) -- it keeps the archetype but now also carries
         # Storm of Blades, the lighter AoE ultimate, matching "fast =
         # frequent + lighter, sometimes AoE" rather than a single big hit.
+        # Escorts pass: now permanently flies escort with two weak support
+        # drones (XG-23A/XG-23B, below) -- its own ATK/ELE/HP were pulled
+        # down from the old solo-fight numbers (28/12/310) to compensate
+        # for the extra bodies and extra buffs/shields those drones bring.
         "name": "XG-23 Heavy Drone",
         "role": "boss",
         "region_roles": {'Glacier 15': 'regular', 'The Wastelands': 'regular', 'The Hotlands': 'regular'},
         "base_stats": {
-            "attack": 24, "defense": 10, "elemental": 10, "speed": 14,
-            "max_hp": 270, "max_mana": 999, "crit_rate": 14, "crit_damage": 170, "recharge": 7,
+            "attack": 20, "defense": 10, "elemental": 9, "speed": 14,
+            "max_hp": 230, "max_mana": 999, "crit_rate": 14, "crit_damage": 170, "recharge": 7,
         },
         "level_scale_percent": 8,
         "actions_per_cycle": 2,
+        "escorts": ["XG-23A", "XG-23B"],
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
             get_ability_by_id(ARTIFACT_SKILLS, "kinetic_feedback"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "momentum")],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "storm_of_blades"),
+    },
+    {
+        # XG-23's escort -- a stripped-down support drone, cheap enough
+        # that Xender fields two of them per Heavy Drone. Barely fights;
+        # its job is keeping the Heavy Drone's ATK topped up.
+        "name": "XG-23A",
+        "role": "boss_group_member",
+        "base_stats": {
+            "attack": 6, "defense": 5, "elemental": 4, "speed": 9,
+            "max_hp": 90, "max_mana": 999, "crit_rate": 4, "crit_damage": 140, "recharge": 8,
+        },
+        "level_scale_percent": 8,
+        "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "rousing_signal")],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "support_matrix")],
+    },
+    {
+        # XG-23's other escort -- same stripped-down chassis as XG-23A,
+        # fielded with a defensive kit instead so the pair covers both
+        # offense and survivability support.
+        "name": "XG-23B",
+        "role": "boss_group_member",
+        "base_stats": {
+            "attack": 6, "defense": 5, "elemental": 4, "speed": 8,
+            "max_hp": 90, "max_mana": 999, "crit_rate": 4, "crit_damage": 140, "recharge": 8,
+        },
+        "level_scale_percent": 8,
+        "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "aegis_broadcast")],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "capacitor_shell")],
     },
     {
         # regular boss for all areas
@@ -738,20 +786,61 @@ ENEMY_TEMPLATES: list[dict] = [
     },
     {
         # HHyper ship, the first of its kind deployed to the region
+        # Escorts pass: now always flies with two of its crew fighting
+        # alongside it -- Dolpo (fast, hybrid support/striker) and Xero
+        # (steadier, ally-buffing) -- both "medium" in weight class, well
+        # above XG-23's throwaway drones. Own ATK/ELE/HP pulled down from
+        # the old solo-fight numbers (34/25/430) to compensate.
         "name": "Aerion Mk1",
         "role": "boss",
         "region_roles": {'The Hotlands': 'regular', 'Voidcrest Desert': 'regular'},
         "base_stats": {
-            "attack": 34, "defense": 10, "elemental": 25, "speed": 10,
-            "max_hp": 430, "max_mana": 999, "crit_rate": 13, "crit_damage": 175, "recharge": 10,
+            "attack": 28, "defense": 10, "elemental": 21, "speed": 10,
+            "max_hp": 360, "max_mana": 999, "crit_rate": 13, "crit_damage": 175, "recharge": 10,
         },
         "level_scale_percent": 8,
+        "escorts": ["Dolpo", "Xero"],
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "guard_splitter"),
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "executioner")],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "ascension"),
+    },
+    {
+        # Aerion Mk1's fastest crewman -- the real Dolpo the Voidcrest
+        # grifter "Dolpo Impersonator" (see elite roster) built his whole
+        # act copying. Splits time between energy/mana support for the
+        # ship and quick speed-scaled strikes of his own.
+        "name": "Dolpo",
+        "role": "boss_group_member",
+        "base_stats": {
+            "attack": 14, "defense": 9, "elemental": 10, "speed": 15,
+            "max_hp": 160, "max_mana": 999, "crit_rate": 10, "crit_damage": 165, "recharge": 8,
+        },
+        "level_scale_percent": 8,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "tempest_edge"),
+            get_ability_by_id(ARTIFACT_SKILLS, "power_transfer"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "momentum")],
+    },
+    {
+        # Aerion Mk1's other crewman -- steadier than Dolpo, keeps the
+        # ship's weakest-off ally topped up on offense while it holds
+        # the line itself.
+        "name": "Xero",
+        "role": "boss_group_member",
+        "base_stats": {
+            "attack": 13, "defense": 11, "elemental": 12, "speed": 11,
+            "max_hp": 170, "max_mana": 999, "crit_rate": 8, "crit_damage": 150, "recharge": 9,
+        },
+        "level_scale_percent": 8,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "frost_lance"),
+            get_ability_by_id(ARTIFACT_SKILLS, "focused_support_beam"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "iron_skin")],
     },
     {
         # HHyper's Elite Unit -- a corrupted version of the standard Bli design
@@ -780,21 +869,44 @@ ENEMY_TEMPLATES: list[dict] = [
         # final boss there. Ocellios Labs' ultimate failed experiment,
         # escalated far past the Test Subject elite and the Failed
         # Prototype grunts, offered as a second final-tier option.
+        # Escorts pass: now always fights alongside THE BILLIAN, a tanky,
+        # slow, pure-support unit that soaks hits and keeps Thedoggyp
+        # topped up instead of attacking. Own ATK/ELE/HP pulled down from
+        # the old solo-fight numbers (18/10/300) to compensate.
         "name": "Thedoggyp",
         "role": "boss",
         "region_roles": {'Glacier 15': 'regular', 'The Wastelands': 'regular', 'The Hotlands': 'regular'},
         "base_stats": {
-            "attack": 18, "defense": 11, "elemental": 10, "speed": 10,
-            "max_hp": 300, "max_mana": 999, "crit_rate": 2, "crit_damage": 500, "recharge": 12,
+            "attack": 16, "defense": 11, "elemental": 9, "speed": 10,
+            "max_hp": 260, "max_mana": 999, "crit_rate": 2, "crit_damage": 500, "recharge": 12,
         },
         "actions_per_cycle": 2,
         "level_scale_percent": 8,
+        "escorts": ["THE BILLIAN"],
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "flame_strike"),
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "soul_harvest")],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "executioners_reckoning"),
+    },
+    {
+        # Thedoggyp's escort -- huge, slow, and built to do one thing:
+        # stand there absorbing hits and keeping Thedoggyp topped up and
+        # shielded. Carries zero offensive abilities by design.
+        "name": "THE BILLIAN",
+        "role": "boss_group_member",
+        "base_stats": {
+            "attack": 3, "defense": 30, "elemental": 3, "speed": 3,
+            "max_hp": 380, "max_mana": 999, "crit_rate": 2, "crit_damage": 120, "recharge": 14,
+        },
+        "level_scale_percent": 8,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "wellspring_surge"),
+            get_ability_by_id(ARTIFACT_SKILLS, "aegis_broadcast"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "adaptive_plating")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "aegis_protocol"),
     },
     # ---------------------------------------------------------------
     # FINAL BOSSES
@@ -823,22 +935,89 @@ ENEMY_TEMPLATES: list[dict] = [
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "world_ender"),
     },
     {
-        # The Negadom (Josh's creation that went wrong)
-        "name": "The Negadom",
+        # The Wastelands' final boss -- replacing the old solo Negadom.
+        # The Ocellios Transport Crew is a hijacked Ocellios Labs supply
+        # train and its three riders, escaped Wastelands way and now
+        # running its own racket. NF is the crew's face and its most
+        # well-rounded fighter -- carries the group's signature AoE
+        # ultimate -- while the Train (pure tank/buff), Broskm (healer),
+        # and Duko (glass-cannon striker) round the fight out. Total
+        # party power is comparable to the old solo Negadom's, just
+        # spread across four bodies instead of concentrated in one.
+        "name": "NF",
         "role": "boss",
         "region_roles": {'The Wastelands': 'final'},
         "base_stats": {
-            "attack": 33, "defense": 14, "elemental": 33, "speed": 9,
-            "max_hp": 540, "max_mana": 999, "crit_rate": 11, "crit_damage": 170, "recharge": 15,
+            "attack": 26, "defense": 16, "elemental": 26, "speed": 11,
+            "max_hp": 420, "max_mana": 999, "crit_rate": 12, "crit_damage": 170, "recharge": 13,
+        },
+        "level_scale_percent": 8,
+        "escorts": ["Ocellios Train", "Broskm", "Duko"],
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "guard_splitter"),
+            get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
+            get_ability_by_id(WEAPON_SKILLS, "sunder_strike"),
+        ],
+        "passive_abilities": [
+            get_ability_by_id(ARMOR_PASSIVES, "iron_skin"),
+            get_ability_by_id(ARMOR_PASSIVES, "momentum"),
+        ],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "world_ender"),
+    },
+    {
+        # The crew's ride and heaviest member -- absurdly tanky, and
+        # doesn't do much besides keep the other three buffed and
+        # shielded. By far the highest DEF/HP in the fight, but nearly
+        # harmless if it's somehow the last one standing.
+        "name": "Ocellios Train",
+        "role": "boss_group_member",
+        "base_stats": {
+            "attack": 10, "defense": 40, "elemental": 8, "speed": 4,
+            "max_hp": 620, "max_mana": 999, "crit_rate": 3, "crit_damage": 120, "recharge": 16,
         },
         "level_scale_percent": 8,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "rousing_signal"),
-            get_ability_by_id(ARTIFACT_SKILLS, "aegis_broadcast"),
-            get_ability_by_id(ARTIFACT_SKILLS, "starfall"),
+            get_ability_by_id(ARTIFACT_SKILLS, "focused_support_beam"),
         ],
-        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "arcane_battery")],
-        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "ascension"),
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "adaptive_plating")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "aegis_protocol"),
+    },
+    {
+        # One of the train's riders -- support and healing-oriented,
+        # keeps the crew's HP up passively every turn on top of its
+        # active heals.
+        "name": "Broskm",
+        "role": "boss_group_member",
+        "base_stats": {
+            "attack": 8, "defense": 14, "elemental": 16, "speed": 9,
+            "max_hp": 260, "max_mana": 999, "crit_rate": 6, "crit_damage": 140, "recharge": 10,
+        },
+        "level_scale_percent": 8,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "combat_medic"),
+            get_ability_by_id(ARTIFACT_SKILLS, "purge_beacon"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "regen_field_generator")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "phoenix_rebirth"),
+    },
+    {
+        # The train's other rider -- a glass cannon. Hits far harder
+        # than anyone else in the crew, including NF, but has the
+        # lowest DEF/HP of the four by a wide margin.
+        "name": "Duko",
+        "role": "boss_group_member",
+        "base_stats": {
+            "attack": 12, "defense": 5, "elemental": 42, "speed": 14,
+            "max_hp": 180, "max_mana": 999, "crit_rate": 20, "crit_damage": 200, "recharge": 9,
+        },
+        "level_scale_percent": 8,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "starfall"),
+            get_ability_by_id(WEAPON_SKILLS, "riftcutter"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "executioner")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "cataclysm"),
     },
     {
         # A Hotlands war-machine slagged and refused down to its core by
@@ -996,6 +1175,19 @@ def get_template_by_name(name: str) -> dict:
     raise KeyError(f"No enemy template named {name!r}")
 
 
+def _with_escorts(template: dict) -> list[dict]:
+    """Some solo "boss"-role templates always fight alongside fixed
+    companion enemies (that template's "escorts" field, a list of names --
+    see the module docstring's "Multi-enemy bosses" section). Escorts are
+    boss_group_member-role templates that are never independently rolled;
+    they're looked up by name here and appended so the boss room fields
+    every one of them alongside the named boss, every time it's chosen."""
+    encounter = [template]
+    for escort_name in template.get("escorts", []):
+        encounter.append(get_template_by_name(escort_name))
+    return encounter
+
+
 def get_boss_encounter(
     rng: random.Random | None = None, region: str | None = None, final: bool = False
 ) -> list[dict]:
@@ -1040,8 +1232,15 @@ def get_boss_encounter(
         solo_candidates = _solo_candidates(strict=False) or get_templates_by_role("boss")
         group_candidates = _group_candidates(strict=False)
 
-    if group_candidates and rng.random() < BOSS_GROUP_CHANCE:
+    # Bugfix (surfaced by the escorts pass, but pre-existing): a
+    # region+role combination can have group candidates and NO solo
+    # candidates at all (e.g. Voidcrest Desert's final boss used to be
+    # solo-less, group-only via the Eruptor Trio). In that case a group
+    # MUST be used -- falling through to rng.choice(solo_candidates) below
+    # would crash on an empty list roughly (1 - BOSS_GROUP_CHANCE) of the
+    # time.
+    if group_candidates and (not solo_candidates or rng.random() < BOSS_GROUP_CHANCE):
         group_name = rng.choice(group_candidates)
         return [get_template_by_name(n) for n in BOSS_GROUPS[group_name]]
 
-    return [rng.choice(solo_candidates)]
+    return _with_escorts(rng.choice(solo_candidates))

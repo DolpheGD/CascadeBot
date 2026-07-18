@@ -30,7 +30,7 @@ class CharacterProfileSelect(discord.ui.Select):
     def __init__(self, page: int, current_character_id: int, owned: list):
         options = [
             discord.SelectOption(
-                label=f"{pc.template.name} (Lv{pc.level}, {pc.template.star_rating}★)"[:100],
+                label=f"{pc.display_name} (Lv{pc.level}, {pc.template.star_rating}★)"[:100],
                 value=str(pc.id),
                 default=(pc.id == current_character_id),
             )
@@ -125,6 +125,32 @@ class Profile(commands.Cog):
             f"Your journey begins at level 1 with 🪙 {STARTING_GOLD} gold and 💎 {STARTING_SHARDS} shards to get started. "
             "Use `/profile` any time to check your stats, gear, and abilities."
         )
+
+    # COMMAND: /rename
+    # Lets the player rename their own avatar character -- it shows up as
+    # "You" everywhere (profile, squad, combat logs) until they set a
+    # custom name. Runs with no argument to reset back to "You".
+    @app_commands.command(
+        name="rename",
+        description="Rename your avatar character (leave blank to reset to \"You\")."
+    )
+    @app_commands.describe(name="Your new name (letters, numbers, spaces, ' - . -- max 32 characters)")
+    async def rename(self, ctx: discord.Interaction, name: str | None = None):
+        db = SessionLocal()
+        try:
+            player = get_player(db, ctx.user.id)
+            if player is None:
+                await ctx.response.send_message(
+                    "You haven't started your journey yet. Use `/start` first.",
+                    ephemeral=True,
+                )
+                return
+
+            ok, message = character_service.rename_avatar(db, player, name)
+        finally:
+            db.close()
+
+        await ctx.response.send_message(message, ephemeral=not ok)
 
     # COMMAND: /profile
     # Displays the caller's CascadeBot profile across 3 pages: Overview,

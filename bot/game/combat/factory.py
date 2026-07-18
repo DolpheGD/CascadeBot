@@ -212,7 +212,7 @@ def build_character_combatant(player_character, equipped_items: list) -> Combata
     starting_hp = max_hp if starting_hp is None else max(1, min(starting_hp, max_hp))
 
     return Combatant(
-        name=template.name,
+        name=player_character.display_name,
         is_player=True,
         base_stats=final_stats,
         current_hp=starting_hp,

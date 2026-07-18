@@ -153,7 +153,7 @@ def apply_character_xp(db, squad: list, xp_reward: int) -> list[dict]:
         if pc.level >= LEVEL_CAP:
             pc.xp = 0
         if pc.level != leveled_from:
-            summaries.append({"name": pc.template.name, "from": leveled_from, "to": pc.level})
+            summaries.append({"name": pc.display_name, "from": leveled_from, "to": pc.level})
     db.commit()
     return summaries
 

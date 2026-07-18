@@ -527,7 +527,7 @@ async def _handle_equip_toggle(interaction: discord.Interaction, item_id: int):
         squad_ids = {pc.id for pc in character_service.get_squad(db, player)}
         options = [
             discord.SelectOption(
-                label=f"{pc.template.name} (Lv{pc.level}, {pc.template.character_class.value.replace('_', ' ').title()})"[:100],
+                label=f"{pc.display_name} (Lv{pc.level}, {pc.template.character_class.value.replace('_', ' ').title()})"[:100],
                 description="In your active squad" if pc.id in squad_ids else "Not in your squad",
                 value=str(pc.id),
             )
