@@ -4,10 +4,11 @@ lootboxes, and combat drops have nothing to roll -- this is what makes the
 economy/loot systems actually produce items rather than erroring out with
 "no item templates exist yet."
 
-Combat Overhaul slots (one item each, per character): WEAPON, ARTIFACT,
-ARMOR, ACCESSORY. The old HEAD/CHEST/LEGGINGS/BOOTS split has been merged
-into a single ARMOR slot, and SCROLL is gone entirely (ultimates now come
-from character kits -- see bot/game/characters/character_seed_data.py).
+Combat Overhaul slots, per character: WEAPON (x1), ARTIFACT (x1), ARMOR
+(x2), ACCESSORY (x2) -- see enums.SLOT_CAPACITY. The old HEAD/CHEST/
+LEGGINGS/BOOTS split has been merged into a single ARMOR slot, and SCROLL
+is gone entirely (ultimates now come from character kits -- see
+bot/game/characters/character_seed_data.py).
 
 The back half of this catalog is the item SET system: Wood, Iron, Sigma
 Wolf, Crystal, Xendium, Permafrost, Hi-Tech, Error Code, Voidwalker,

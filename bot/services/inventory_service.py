@@ -1,20 +1,20 @@
 """
 Equip/unequip logic and inventory listing.
 
-Combat Overhaul: every slot (WEAPON, ARTIFACT, ARMOR, ACCESSORY) holds
-exactly one item now -- the old two-per-slot primary/secondary pairing
-(InventoryItem.equip_slot_index) is gone. Equipment also now attaches to a
-specific PlayerCharacter (InventoryItem.character_id) rather than the
-player directly, since each of your up-to-4 squad members has their own
-loadout. Unequipped items still live in one shared, player-wide inventory
-pool -- only equipping assigns an item to a character.
+Combat Overhaul: WEAPON and ARTIFACT hold exactly one item per character;
+ARMOR and ACCESSORY each hold up to two (see enums.SLOT_CAPACITY) -- so a
+full loadout is 1 weapon + 1 artifact + 2 armor + 2 accessories. Equipment
+attaches to a specific PlayerCharacter (InventoryItem.character_id) rather
+than the player directly, since each of your up-to-4 squad members has
+their own loadout. Unequipped items still live in one shared, player-wide
+inventory pool -- only equipping assigns an item to a character.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from bot.database.models.enums import EquipmentSlot, Rarity
+from bot.database.models.enums import SLOT_CAPACITY, EquipmentSlot, Rarity
 from bot.database.models.equipment_model import InventoryItem
 from bot.services.currency_service import add_currency, format_currency
 
@@ -63,13 +63,17 @@ def list_equipped(db, character_id: int) -> list[InventoryItem]:
     )
 
 
-def get_equipped_by_slot(db, character_id: int) -> dict[EquipmentSlot, InventoryItem | None]:
-    """One item (or None) per slot for the given character -- handy for a
-    profile/loadout view that needs to show every slot, empty or not."""
+def get_equipped_by_slot(db, character_id: int) -> dict[EquipmentSlot, list[InventoryItem]]:
+    """Every equipped item for the given character, grouped by slot --
+    handy for a profile/loadout view that needs to show every slot, empty
+    or not. WEAPON/ARTIFACT lists will have at most 1 entry; ARMOR/
+    ACCESSORY lists will have at most SLOT_CAPACITY[slot] entries (2)."""
     equipped = list_equipped(db, character_id)
-    by_slot: dict[EquipmentSlot, InventoryItem | None] = {slot: None for slot in EquipmentSlot}
+    by_slot: dict[EquipmentSlot, list[InventoryItem]] = {slot: [] for slot in EquipmentSlot}
     for item in equipped:
-        by_slot[item.slot] = item
+        by_slot[item.slot].append(item)
+    for items in by_slot.values():
+        items.sort(key=lambda it: it.id)
     return by_slot
 
 
@@ -98,28 +102,35 @@ def get_neighbor_item_id(db, player_id: int, current_item_id: int, direction: st
 
 
 def equip_item(db, character, item: InventoryItem) -> tuple[bool, str]:
-    """Equips `item` onto `character` (a PlayerCharacter). Every slot holds
-    one item, so equipping into an already-occupied slot auto-swaps the
-    previous occupant back to the shared, unequipped pool."""
+    """Equips `item` onto `character` (a PlayerCharacter). WEAPON/ARTIFACT
+    hold 1 item; ARMOR/ACCESSORY hold up to SLOT_CAPACITY[slot] (2) --
+    see bot.database.models.enums.SLOT_CAPACITY. If the slot is already
+    full, the oldest-equipped item in that slot is auto-swapped back to
+    the shared, unequipped pool to make room."""
     if item.player_id != character.player_id:
         return False, "You don't own that item."
     if item.is_equipped and item.character_id == character.id:
         return False, f"{item.display_name} is already equipped on {character.template.name}."
 
-    current = (
+    current_in_slot = (
         db.query(InventoryItem)
         .filter_by(character_id=character.id, slot=item.slot, is_equipped=True)
-        .first()
+        .order_by(InventoryItem.id)
+        .all()
     )
-    if current is not None:
-        current.is_equipped = False
-        current.character_id = None
+
+    swapped_out = None
+    capacity = SLOT_CAPACITY[item.slot]
+    if len(current_in_slot) >= capacity:
+        swapped_out = current_in_slot[0]
+        swapped_out.is_equipped = False
+        swapped_out.character_id = None
 
     item.character_id = character.id
     item.is_equipped = True
     db.commit()
 
-    swap_note = f" (swapped out {current.display_name})" if current is not None else ""
+    swap_note = f" (swapped out {swapped_out.display_name})" if swapped_out is not None else ""
     return True, f"Equipped {item.display_name} on {character.template.name}{swap_note}."
 
 

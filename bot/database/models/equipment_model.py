@@ -3,10 +3,11 @@ Equipment: the static catalog (ItemTemplate) and rolled, owned drops
 (InventoryItem) that make up the "equipment progression" loop.
 
 Combat Overhaul changes:
-  * Only four slots exist now (WEAPON, ARTIFACT, ARMOR, ACCESSORY), one item
-    each -- see bot/database/models/enums.py::EquipmentSlot. The old
-    primary/secondary weapon-and-artifact pairing and the SCROLL slot are
-    gone; ultimates come from the character's kit instead of gear.
+  * Only four slot TYPES exist now (WEAPON, ARTIFACT, ARMOR, ACCESSORY) --
+    see bot/database/models/enums.py::EquipmentSlot and SLOT_CAPACITY.
+    WEAPON and ARTIFACT hold one item; ARMOR and ACCESSORY each hold two.
+    The old primary/secondary weapon-and-artifact pairing and the SCROLL
+    slot are gone; ultimates come from the character's kit instead of gear.
   * Equipment is now equipped PER CHARACTER (InventoryItem.character_id),
     not per player -- each of your 4 squad members has their own loadout.
   * Items start with 0-2 substats instead of 0-4. Growing beyond that (up
@@ -127,8 +128,9 @@ class InventoryItem(Base):
 
     # Which owned character (if any) has this equipped. NULL = sitting
     # unequipped in the player's shared inventory. A character can hold at
-    # most one item per EquipmentSlot -- enforced in inventory_service, not
-    # at the DB layer, so we can give clean error messages.
+    # most SLOT_CAPACITY[slot] items per EquipmentSlot (1 for WEAPON/
+    # ARTIFACT, 2 for ARMOR/ACCESSORY) -- enforced in inventory_service,
+    # not at the DB layer, so we can give clean error messages.
     character_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("player_characters.id", ondelete="SET NULL"), nullable=True
     )

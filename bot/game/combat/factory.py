@@ -136,7 +136,11 @@ def _resolve_gear_stats(base_stats: dict, equipped_items: list) -> dict:
 
 def _gear_abilities(equipped_items: list) -> tuple[dict | None, dict | None, list]:
     """Returns (weapon_skill, artifact_skill, passive_abilities) from
-    whatever's equipped -- each slot holds at most one item now."""
+    whatever's equipped. WEAPON/ARTIFACT hold at most one item each, so at
+    most one weapon_skill/artifact_skill wins (last one iterated, though in
+    practice there's only ever one). ARMOR/ACCESSORY hold up to two items
+    each (see enums.SLOT_CAPACITY), and every one of them contributes its
+    passive_ability -- so a character can have up to 4 passives from gear."""
     weapon_skill = None
     artifact_skill = None
     passive_abilities: list = []

@@ -12,6 +12,7 @@ from bot.database.models.enums import (
     CLASS_EMOJI,
     MATERIAL_DISPLAY_NAME,
     MATERIAL_EMOJI,
+    SLOT_CAPACITY,
     SLOT_DISPLAY_NAME,
     SLOT_EMOJI,
     EquipmentSlot,
@@ -144,9 +145,11 @@ def _profile_overview_page(player, character, equipped_items, avatar_url, db=Non
 
 
 def _profile_equipment_page(player, character, equipped_items, avatar_url) -> discord.Embed:
-    by_slot: dict[EquipmentSlot, object] = {slot: None for slot in EquipmentSlot}
+    by_slot: dict[EquipmentSlot, list] = {slot: [] for slot in EquipmentSlot}
     for item in equipped_items:
-        by_slot[item.slot] = item
+        by_slot[item.slot].append(item)
+    for slot_items in by_slot.values():
+        slot_items.sort(key=lambda it: it.id)
 
     embed = discord.Embed(
         title=f"{character.template.name}'s Equipment",
@@ -157,15 +160,20 @@ def _profile_equipment_page(player, character, equipped_items, avatar_url) -> di
         embed.set_thumbnail(url=avatar_url)
 
     for slot in EquipmentSlot:
-        match = by_slot[slot]
-        if match:
-            rarity_emoji = RARITY_EMOJI.get(match.rarity.value, "⚪")
-            value = f"{rarity_emoji} {match.display_name}"
-        else:
-            value = "*Empty*"
-        embed.add_field(name=f"{SLOT_EMOJI[slot]} {SLOT_DISPLAY_NAME[slot]}", value=value, inline=True)
+        capacity = SLOT_CAPACITY[slot]
+        items = by_slot[slot]
+        lines = []
+        for i in range(capacity):
+            if i < len(items):
+                match = items[i]
+                rarity_emoji = RARITY_EMOJI.get(match.rarity.value, "⚪")
+                lines.append(f"{rarity_emoji} {match.display_name}")
+            else:
+                lines.append("*Empty*")
+        name = f"{SLOT_EMOJI[slot]} {SLOT_DISPLAY_NAME[slot]}" + (f" ({len(items)}/{capacity})" if capacity > 1 else "")
+        embed.add_field(name=name, value="\n".join(lines), inline=True)
 
-    embed.set_footer(text="Equip gear with /inventory. Each slot holds one item.")
+    embed.set_footer(text="Equip gear with /inventory. Weapon/Artifact hold 1 item; Armor/Accessory hold 2 each.")
     return embed
 
 
@@ -607,9 +615,13 @@ def item_detail_embed(item, position: int | None = None, total: int | None = Non
         )
         embed.add_field(name=f"🛡️ Passive: {p['name']}", value=f"{p['description']}\n{trigger_text}", inline=False)
 
-    embed.add_field(
-        name="Status", value="✅ Equipped" if item.is_equipped else "⬜ Not equipped", inline=True
-    )
+    if item.is_equipped and item.character is not None:
+        status_value = f"✅ Equipped on {item.character.template.name}"
+    elif item.is_equipped:
+        status_value = "✅ Equipped"
+    else:
+        status_value = "⬜ Not equipped"
+    embed.add_field(name="Status", value=status_value, inline=True)
 
     from bot.game.loot.rarity_config import (
         add_substat_cost, reroll_cost, upgrade_level_cap, MAX_SUBSTATS,
@@ -714,7 +726,12 @@ def inventory_list_embed(entries: list, page: int, player_name: str) -> discord.
         item = entry.obj
         rarity_emoji = RARITY_EMOJI.get(item.rarity.value, "⚪")
         type_icon = SLOT_EMOJI[item.slot]
-        equipped_tag = " ✅" if item.is_equipped else ""
+        if item.is_equipped and item.character is not None:
+            equipped_tag = f" ✅ *{item.character.template.name}*"
+        elif item.is_equipped:
+            equipped_tag = " ✅"
+        else:
+            equipped_tag = ""
         lines.append(f"`{i:>3}.` {rarity_emoji} {type_icon} {item.display_name} (Lv{item.item_level}){equipped_tag}")
 
     embed.add_field(name="Items", value="\n".join(lines), inline=False)

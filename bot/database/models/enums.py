@@ -26,13 +26,16 @@ class Rarity(str, enum.Enum):
 
 class EquipmentSlot(str, enum.Enum):
     """
-    Combat Overhaul simplified gear to FOUR slots per character, one item each:
+    Combat Overhaul simplified gear to FOUR slot TYPES per character:
       - WEAPON: grants a weapon skill (active) if the equipped weapon rolled one.
+        One weapon per character.
       - ARTIFACT: grants an artifact skill (active) if the equipped artifact
         rolled one. Artifacts may main-stat into HP or DEF now, not just
-        offense/utility stats.
+        offense/utility stats. One artifact per character.
       - ARMOR: main defensive piece (defense/hp/speed/recharge/mana), passive-only.
-      - ACCESSORY: secondary defensive/utility piece, passive-only.
+        Two armor pieces per character -- see SLOT_CAPACITY.
+      - ACCESSORY: secondary defensive/utility piece, passive-only. Two
+        accessories per character -- see SLOT_CAPACITY.
     Ultimates are no longer tied to gear at all -- they come from the
     character's kit (see character_model.py), so the old SCROLL slot is gone.
     """
@@ -42,12 +45,14 @@ class EquipmentSlot(str, enum.Enum):
     ACCESSORY = "accessory"
 
 
-# Every slot holds exactly one item now (no more primary/secondary pairs).
+# How many items a single character may have equipped in each slot at once.
+# Weapon/Artifact stay singular; Armor/Accessory each hold two pieces, so a
+# full loadout is 1 weapon + 1 artifact + 2 armor + 2 accessories = 6 items.
 SLOT_CAPACITY: dict[EquipmentSlot, int] = {
     EquipmentSlot.WEAPON: 1,
     EquipmentSlot.ARTIFACT: 1,
-    EquipmentSlot.ARMOR: 1,
-    EquipmentSlot.ACCESSORY: 1,
+    EquipmentSlot.ARMOR: 2,
+    EquipmentSlot.ACCESSORY: 2,
 }
 
 # Slots that only ever grant passives (weapon/artifact grant actives instead).
@@ -69,9 +74,14 @@ SLOT_EMOJI: dict[EquipmentSlot, str] = {
 
 
 def slot_index_label(slot: EquipmentSlot, index: int = 0) -> str:
-    """Kept for backwards compatibility with older display code -- every
-    slot is single-capacity now, so this is always just the slot name."""
-    return SLOT_DISPLAY_NAME[slot]
+    """Display label for the `index`-th (0-based) item in a slot. Slots
+    with capacity 1 (Weapon, Artifact) are always just the slot name;
+    multi-capacity slots (Armor, Accessory) get a " 1"/" 2" suffix so the
+    two pieces can be told apart in a loadout view."""
+    base = SLOT_DISPLAY_NAME[slot]
+    if SLOT_CAPACITY[slot] <= 1:
+        return base
+    return f"{base} {index + 1}"
 
 
 class ItemType(str, enum.Enum):
