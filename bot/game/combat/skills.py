@@ -421,6 +421,28 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         "Drain 30 energy and 35 SP from every enemy at once.",
         {"kind": "team_resource_drain", "energy_amount": 30, "mana_amount": 35},
     ),
+    "virtual_skill": _skill(
+        "virtual_skill", "Drone Resupply", 24, 2,
+        "Instantly restore 16 energy and 20 SP to the whole team.",
+        {"kind": "team_resource_restore", "energy_amount": 16, "mana_amount": 20},
+    ),
+    "virtual_ultimate": _ultimate(
+        "virtual_ultimate", "Full Swarm Protocol",
+        "Boost the whole team's ATK by 48% for 3 turns.",
+        {"kind": "team_buff", "buff_stat": "attack", "buff_percent": 48, "duration": 3},
+    ),
+    "blueflame_skill": _skill(
+        "blueflame_skill", "Kindling Spray", 20, 1,
+        "Deal 75% ATK damage to all enemies, with a 45% chance to set each hit target ablaze for 12% ATK per turn over 3 turns.",
+        {"kind": "aoe_damage_chance_dot", "damage_percent": 75, "damage_stat": "attack",
+         "dot_chance_percent": 45, "dot_stat": "attack", "dot_percent": 12, "duration": 3},
+    ),
+    "blueflame_ultimate": _ultimate(
+        "blueflame_ultimate", "Wildfire Purge",
+        "Deal 105% ATK damage to all enemies and set each of them ablaze for 15% ATK per turn over 3 turns.",
+        {"kind": "aoe_damage_chance_dot", "damage_percent": 105, "damage_stat": "attack",
+         "dot_chance_percent": 100, "dot_stat": "attack", "dot_percent": 15, "duration": 3},
+    ),
 }
 
 
@@ -529,6 +551,15 @@ CHARACTER_PASSIVE_MAP: dict[str, dict] = {
         "nyrvite_passive", "Ghost Protocol",
         "Gains 4% Crit Rate per turn (max 5 stacks) -- unseen and unheard, she lines up the perfect shot.",
         percent_per_stack=4,
+    ),
+    "virtual_passive": _amplifier_passive(
+        "virtual_passive", "Engineering Corps",
+        "At the start of every turn, a fleet of support drones keeps the whole team's systems topped up: 6 energy and 8 SP each.",
+        energy_amount=6, mana_amount=8,
+    ),
+    "blueflame_passive": _support_dps_passive(
+        "blueflame_passive", "Slow Burn",
+        "Gains 3% Crit Rate per turn (max 5 stacks) -- every fire he sets burns a little hotter once he stops thinking about anyone else's rules.",
     ),
 }
 

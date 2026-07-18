@@ -132,6 +132,9 @@ CHARACTER_TEMPLATES: list[dict] = [
           "A former field medic who radiates pure aura. Holds a gun in the face of danger but prefers to heal allies.",
           "aura_skill", "aura_ultimate",
           base_hp=110, base_defense=11, growth_hp=3.0),
+    _char("Blueflame", 4, CharacterClass.SUPPORT_DPS,
+          "Part of the World Aligners, Blueflame lets everything around him burn slow and steady -- he's not fighting for the cause so much as for the day he doesn't have to answer to anyone's cause at all.",
+          "blueflame_skill", "blueflame_ultimate"),
 
     # -----------------------------------------------------------------
     # 5-star
@@ -153,4 +156,7 @@ CHARACTER_TEMPLATES: list[dict] = [
     _char("Nyrvite", 5, CharacterClass.SUPPORT_DPS,
           "A shadow-ops specialist self-proclaimed “ninja” who operates in the darkness, striking from the shadows and leaving no trace.",
           "nyrvite_skill", "nyrvite_ultimate"),
+    _char("Virtual", 5, CharacterClass.AMPLIFIER,
+          "Team Cascade's director of all engineering operations. Happiest elbow-deep in a chassis, Virtual is always tinkering on a new drone -- especially the support models that keep everyone else's gear running.",
+          "virtual_skill", "virtual_ultimate"),
 ]

@@ -124,8 +124,9 @@ class LootGenerator:
     ) -> tuple[dict | None, dict | None]:
         """Returns (active_ability, passive_ability); exactly one may be
         populated, both may be None. `force=True` skips the rarity's
-        ability chance roll entirely (used by /admin_testgear so test items
-        always come with an ability to try out). `linked_ability_id`, if
+        ability chance roll entirely (guarantees an ability on the
+        generated item -- handy for admin/dev tooling or anywhere else a
+        guaranteed-ability item is needed). `linked_ability_id`, if
         given (see ItemTemplate.linked_ability_id), always uses that
         specific ability instead of a random one from the pool -- still
         subject to the rarity's ability-chance roll unless force is also

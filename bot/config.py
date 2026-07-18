@@ -15,7 +15,7 @@ DEBUG = os.getenv("DEBUG") == "1"
 DEV_MODE = os.getenv("DEV_MODE") == "True"
 SERVER_ID = int(os.getenv("SERVER_ID")) if os.getenv("SERVER_ID") else None
 
-# Discord user IDs (comma-separated) allowed to use /admin_testgear
+# Discord user IDs (comma-separated) allowed to use /admin_boosterkit
 # regardless of server permissions -- e.g. "111111111111111111,222222222222222222".
 # A user with the "Administrator" permission in the server they're using the
 # command in is always allowed too, so this is mainly for bot owners/devs

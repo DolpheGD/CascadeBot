@@ -1,9 +1,8 @@
 """
-Admin/dev tooling. Currently just one command: /admin_testgear, which
-outfits the caller with a full set of high-rarity, guaranteed-ability gear
-(2 weapons, 4 armor pieces, 2 artifacts, 1 scroll) plus a pile of currency
-and lootboxes, so a developer can immediately test combat, profile display,
-and inventory management without grinding for drops first.
+Admin/dev tooling. Currently just one command: /admin_boosterkit, which
+grants a specified user a pile of currency and starter lootboxes -- meant
+for onboarding/compensation use, not full gear-testing setup, so it works
+on anyone regardless of whether they've run /start yet.
 """
 
 from __future__ import annotations
@@ -14,20 +13,16 @@ from discord.ext import commands
 from discord import app_commands
 
 from bot.config import ADMIN_USER_IDS
-from bot.database.models.enums import EquipmentSlot, ItemType, Rarity
-from bot.database.models.equipment_model import ItemTemplate
 from bot.database.session import SessionLocal
-from bot.game.loot.generator import LootGenerator
-from bot.services import character_service, inventory_service, lootbox_service
+from bot.services import lootbox_service
 from bot.services.currency_service import add_currency
 from bot.services.player_service import get_or_create_player
 from bot.utils.guild_decorator import guild_decorator
 
-TEST_GOLD = 1000
-TEST_SHARDS = 150
-TEST_LOOTBOXES_PER_TIER = 1
-TEST_RARITY = Rarity.RARE
-TEST_ITEM_LEVEL = 15
+BOOSTER_GOLD = 10000
+BOOSTER_SHARDS = 1000
+BOOSTER_LOOTBOXES_PER_TIER = 5
+BOOSTER_LOOTBOX_TIERS = ("common", "uncommon", "rare", "epic")
 
 
 def _is_admin(interaction: discord.Interaction) -> bool:
@@ -37,27 +32,24 @@ def _is_admin(interaction: discord.Interaction) -> bool:
     return isinstance(member, discord.Member) and member.guild_permissions.administrator
 
 
-def _templates_for_slot(db, slot: EquipmentSlot) -> list[ItemTemplate]:
-    return db.query(ItemTemplate).filter_by(slot=slot).all()
-
-
 @guild_decorator
 class Admin(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    # COMMAND: /admin_testgear
-    # Grants the caller a large pile of gold/shards/lootboxes and a full,
-    # already-equipped kit of Legendary gear (2 weapons, helmet/necklace,
-    # chest, leggings, boots, 2 artifacts, 1 scroll) each guaranteed to
-    # carry an ability, so combat/profile/inventory can all be tested
-    # immediately. Restricted to server Administrators or IDs listed in
-    # the ADMIN_USER_IDS env var.
+    # COMMAND: /admin_boosterkit
+    # Grants the target user a flat pile of currency and starter lootboxes
+    # (1000 shards, 10000 gold, 5x each of Common/Uncommon/Rare/Epic
+    # lootbox). Uses get_or_create_player rather than requiring the target
+    # to have run /start first, so it also works as a way to pre-stock a
+    # brand-new player's account. Restricted to server Administrators or
+    # IDs listed in the ADMIN_USER_IDS env var.
     @app_commands.command(
-        name="admin_testgear",
-        description="[Admin] Give yourself test gold, shards, lootboxes, and a full kit of gear.",
+        name="admin_boosterkit",
+        description="[Admin] Grant a specified user a booster kit of currency and lootboxes.",
     )
-    async def admin_testgear(self, ctx: discord.Interaction):
+    @app_commands.describe(user="The user to grant the booster kit to.")
+    async def admin_boosterkit(self, ctx: discord.Interaction, user: discord.Member):
         if not _is_admin(ctx):
             await ctx.response.send_message(
                 "You need Administrator permission (or be a configured bot admin) to use this.",
@@ -69,56 +61,23 @@ class Admin(commands.Cog):
 
         db = SessionLocal()
         try:
-            player = get_or_create_player(db, ctx.user.id, ctx.user.display_name)
+            player = get_or_create_player(db, user.id, user.display_name)
 
-            add_currency(db, player, "gold", TEST_GOLD)
-            add_currency(db, player, "shards", TEST_SHARDS)
+            add_currency(db, player, "gold", BOOSTER_GOLD)
+            add_currency(db, player, "shards", BOOSTER_SHARDS)
 
-            for tier in ("common", "rare", "epic", "legendary"):
-                lootbox_service.grant_lootbox(db, player, tier, TEST_LOOTBOXES_PER_TIER)
-
-            generator = LootGenerator()
-            granted_names: list[str] = []
-
-            slot_counts = {
-                EquipmentSlot.WEAPON: 1,
-                EquipmentSlot.ARMOR: 1,
-                EquipmentSlot.ACCESSORY: 1,
-                EquipmentSlot.ARTIFACT: 1,
-            }
-
-            for slot, count in slot_counts.items():
-                templates = _templates_for_slot(db, slot)
-                if not templates:
-                    continue
-                chosen = (templates * count)[:count] if len(templates) < count else generator.rng.sample(templates, count)
-
-                character = character_service.ensure_avatar_character(db, player)
-                for template in chosen:
-                    item = generator.generate_item(
-                        template,
-                        player_id=player.id,
-                        item_level=TEST_ITEM_LEVEL,
-                        rarity_override=TEST_RARITY,
-                        force_ability=True,
-                    )
-                    db.add(item)
-                    db.commit()
-                    db.refresh(item)
-
-                    ok, message = inventory_service.equip_item(db, character, item)
-                    granted_names.append(f"{'✅' if ok else '⚠️'} {item.display_name}")
+            for tier in BOOSTER_LOOTBOX_TIERS:
+                lootbox_service.grant_lootbox(db, player, tier, BOOSTER_LOOTBOXES_PER_TIER)
 
             db.commit()
         finally:
             db.close()
 
         summary = (
-            f"🛠️ **Test kit granted!**\n"
-            f"🪙 +{TEST_GOLD:,} gold | 💎 +{TEST_SHARDS:,} shards | "
-            f"📦 +{TEST_LOOTBOXES_PER_TIER} of every lootbox tier\n\n"
-            f"**Equipped:**\n" + "\n".join(granted_names) +
-            "\n\nRun `/profile` to see your new stats and abilities."
+            f"🎁 **Booster kit granted to {user.mention}!**\n"
+            f"🪙 +{BOOSTER_GOLD:,} gold | 💎 +{BOOSTER_SHARDS:,} shards\n"
+            f"📦 +{BOOSTER_LOOTBOXES_PER_TIER} of each: "
+            + ", ".join(tier.title() for tier in BOOSTER_LOOTBOX_TIERS) + " lootbox"
         )
         await ctx.followup.send(summary, ephemeral=True)
 

@@ -72,6 +72,8 @@ per-target coin flip, which is the "sometimes applies debuffs" part of
 the shift. aoe_damage_chance_resource_drain is the same shape with an
 energy/mana drain instead of a stat debuff (Nyrvite's signal-jamming
 flavor on the same AOE-plus-sometimes-more kit piece).
+aoe_damage_chance_dot is the same shape again, but with a burn
+(DamageOverTime) instead of a stat debuff -- Blueflame's kit piece.
 """
 
 from __future__ import annotations
@@ -492,6 +494,23 @@ def resolve_active_ability(
                 target.mana -= mana_drained
                 if energy_drained or mana_drained:
                     log.append(f"🔌 {target.name} loses {energy_drained} energy and {mana_drained} SP!")
+
+    elif kind == "aoe_damage_chance_dot":
+        # DoT sibling of aoe_damage_chance_debuff -- hits every living
+        # enemy at once, and each hit target independently rolls
+        # dot_chance_percent odds of catching a burn instead of a stat
+        # debuff. Introduced for Blueflame, whose Support DPS kit leans
+        # on damage-over-time rather than shredding a stat.
+        for target in [o for o in opponents if o.is_alive()]:
+            hit = _resolve_hit(attacker, target, effect["damage_percent"],
+                                effect.get("damage_stat", "attack"), rng, log)
+            if hit and target.is_alive() and formulas.roll_percent(effect["dot_chance_percent"], rng):
+                flat_amount = attacker.effective_stat(effect["dot_stat"]) * effect["dot_percent"] / 100
+                target.dots.append(DamageOverTime(
+                    flat_amount=flat_amount, duration=effect["duration"],
+                    source=ability["name"], stat_source=effect["dot_stat"],
+                ))
+                log.append(f"{target.name} is burning!")
 
     else:
         log.append(f"({ability['name']} has no combat effect implemented yet)")
