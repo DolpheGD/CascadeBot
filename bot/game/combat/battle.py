@@ -127,6 +127,32 @@ class Battle:
 
         return preview[:count]
 
+    def preview_turn_order_with_cycle_offsets(self, count: int = 6) -> list[tuple[Combatant, int]]:
+        """Same projection as preview_turn_order, but each actor is paired
+        with how many cycles from NOW it belongs to: 0 for the rest of the
+        current (already in-progress) cycle, 1 for the next full cycle
+        projected after that, 2 for the one after that, and so on. Add
+        this to battle.cycle_number to get the real cycle number an entry
+        belongs to -- see embedder._turn_order_line, which uses this to
+        show WHERE one cycle's turns end and the next begins, instead of
+        a flat, undifferentiated list of names that reads like one long
+        turn order rather than the cycle system it actually is."""
+        preview: list[tuple[Combatant, int]] = [
+            (c, 0) for c in self.cycle_order if c.is_alive()
+        ]
+
+        guard = 0
+        offset = 0
+        while len(preview) < count and guard < 25:
+            living = [c for c in self.all_combatants() if c.is_alive()]
+            if not living:
+                break
+            offset += 1
+            preview.extend((c, offset) for c in self._build_cycle_order(living, rng=None))
+            guard += 1
+
+        return preview[:count]
+
     # ------------------------------------------------------------------
     # Cycle scheduling
     # ------------------------------------------------------------------
@@ -184,7 +210,7 @@ class Battle:
 
         self._current_actor = actor
         self.turn_count += 1
-        self.log.append(f"--- Turn {self.turn_count}: {actor.name} ---")
+        self.log.append(f"--- Cycle {self.cycle_number}, Turn {self.turn_count}: {actor.name} ---")
         self._begin_turn(actor)
 
     def _begin_turn(self, combatant: Combatant) -> None:

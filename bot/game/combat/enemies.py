@@ -133,6 +133,20 @@ ENEMY_TEMPLATES: list[dict] = [
         "passive_abilities": [],
     },
     {
+        # Dangerous but weak
+        "name": "Thedoggyp's gem",
+        "role": "combat",
+        "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands', 'Voidcrest Desert'],
+        "base_stats": {
+            "attack": 1, "defense": 1, "elemental": 1, "speed": 100,
+            "max_hp": 50, "max_mana": 999, "crit_rate": 1, "crit_damage": 500, "recharge": 70,
+        },
+        "level_scale_percent": 8,
+        "actions_per_cycle": 5,
+        "active_abilities": [],
+        "passive_abilities": [],
+    },
+    {
         # Glacier 15's "rogue security drones that never got the
         # shutdown order" -- still patrolling the ruin decades later.
         "name": "Rogue Security Drone",
