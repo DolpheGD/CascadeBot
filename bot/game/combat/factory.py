@@ -75,9 +75,9 @@ from bot.game.combat.skills import (
 # ---------------------------------------------------------------------
 DEFENSE_MULTIPLIER_BY_ROLE = {
     "combat": 1.25,
-    "elite": 1.5,
-    "boss": 1.4,
-    "boss_group_member": 1.35,
+    "elite": 1.4,
+    "boss": 1.3,
+    "boss_group_member": 1.25,
 }
 ELITE_POWER_MULTIPLIER = {"attack": 1.35, "elemental": 1.35, "max_hp": 1.15}
 NORMAL_POWER_MULTIPLIER = {"attack": 1.15, "elemental": 1.15, "max_hp": 1.25}

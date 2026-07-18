@@ -347,8 +347,8 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
         # by the time they're fighting there.
         elite_offset = difficulty["level_offset"]
         combat_offset = difficulty["combat_level_offset"]
-        elite_level = node["floor"] // 8 + 1 + elite_offset
-        combat_level = node["floor"] // 8 + 1 + combat_offset
+        elite_level = node["floor"] // 10 + 1 + elite_offset
+        combat_level = node["floor"] // 10 + 1 + combat_offset
 
         # Allow 0-2 regular (combat-role) enemies to appear during an elite
         # encounter. 0 is common, 1 is uncommon, 2 is rare.

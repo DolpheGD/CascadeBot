@@ -40,7 +40,7 @@ LOOTBOX_DROP_CHANCE = {"combat": 0.35, "elite": 1.0, "boss": 1.0}
 # Gold/XP multiplier by room type on top of the base per-floor formula --
 # "Defeating the boss should grant great rewards"
 # just the guaranteed material/lootbox.
-ROOM_TYPE_REWARD_MULTIPLIER = {"combat": 1.0, "elite": 1.4, "boss": 1.8}
+ROOM_TYPE_REWARD_MULTIPLIER = {"combat": 1.0, "elite": 1.5, "boss": 2.0}
 
 # Combat reroll token drop chance and reward sizes. These are a small
 # additional source of reroll tokens to make combat feel directly useful
@@ -171,8 +171,8 @@ def apply_victory_rewards(
     # Combat rework: base gold/xp payout raised across the board so combat
     # rewards feel worth it on their own, on top of the new material/
     # lootbox drops below.
-    gold_reward = round((18 + (floor // 5) * 8) * multiplier)
-    xp_reward = round((14 + (floor // 5) * 7) * multiplier)
+    gold_reward = round((20 + (floor // 5) * 8) * multiplier)
+    xp_reward = round((15 + (floor // 5) * 7) * multiplier)
 
     add_currency(db, player, "gold", gold_reward)
     squad = character_service.get_squad(db, player)
