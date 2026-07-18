@@ -998,7 +998,29 @@ def encyclopedia_list_embed(category: str, entries: list, page: int) -> discord.
         return embed
 
     lines = [f"`{i:>3}.` **{e.name}** -- {e.summary}" for i, e in enumerate(page_entries, start=start + 1)]
-    embed.add_field(name="Entries", value="\n".join(lines), inline=False)
+    # Discord caps a single embed field's value at 1024 chars. A page of
+    # 12 entries normally fits comfortably, but categories with longer
+    # per-entry summaries (e.g. enemies -- boss-group members get a
+    # "fought alongside X, Y, Z" suffix) can push the joined text over
+    # that limit and make the whole message fail to send. Chunk lines
+    # across as many fields as needed instead of assuming one field is
+    # always enough, so this holds for any category/page combination.
+    DISCORD_FIELD_VALUE_LIMIT = 1024
+    chunks: list[str] = []
+    current = ""
+    for line in lines:
+        candidate = f"{current}\n{line}" if current else line
+        if len(candidate) > DISCORD_FIELD_VALUE_LIMIT:
+            if current:
+                chunks.append(current)
+            current = line
+        else:
+            current = candidate
+    if current:
+        chunks.append(current)
+
+    for i, chunk in enumerate(chunks):
+        embed.add_field(name="Entries" if i == 0 else "\u200b", value=chunk, inline=False)
     embed.set_footer(text="Pick an entry from the dropdown below to see full details.")
     return embed
 

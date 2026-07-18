@@ -323,6 +323,37 @@ ITEM_TEMPLATES: list[dict] = [
      "flavor_text": "Hums faintly between hits, rebuilding whatever it just lost.",
      "min_rarity": Rarity.EPIC, "max_rarity": Rarity.LEGENDARY},
 
+    # Vantage -- Support DPS role-shift showcase set: both pieces use the
+    # new AOE-plus-sometimes-a-debuff kit pieces (see
+    # bot/game/combat/effects.py's aoe_damage_chance_debuff /
+    # aoe_damage_chance_resource_drain) introduced when the class moved
+    # away from single-target burst.
+    {"name": "Longrifle", "item_type": ItemType.WEAPON, "slot": EquipmentSlot.WEAPON,
+     "main_stat": "attack", "base_main_stat_value": 10,
+     "set_name": "Vantage Set", "set_prefix": "Vantage", "linked_ability_id": "crossfire_salvo",
+     "flavor_text": "Built for one shooter to hold a whole line under fire at once.",
+     "min_rarity": Rarity.EPIC, "max_rarity": Rarity.LEGENDARY},
+    {"name": "Scatterlink Core", "item_type": ItemType.ARTIFACT, "slot": EquipmentSlot.ARTIFACT,
+     "main_stat": "elemental", "base_main_stat_value": 9,
+     "set_name": "Vantage Set", "set_prefix": "Vantage", "linked_ability_id": "jamming_array",
+     "flavor_text": "Splits its signal across every hostile frequency it can find.",
+     "min_rarity": Rarity.EPIC, "max_rarity": Rarity.LEGENDARY},
+
+    # Fieldwork -- ally-support showcase set: both pieces cover kit pieces
+    # that used to exist only on character ultimates/passives (Sustain's
+    # team_heal_percent_max_hp, Kotori's aura_team_regen_self_sacrifice),
+    # now obtainable as gear.
+    {"name": "Reservoir Core", "item_type": ItemType.ARTIFACT, "slot": EquipmentSlot.ARTIFACT,
+     "main_stat": "max_hp", "base_main_stat_value": 32,
+     "set_name": "Fieldwork Set", "set_prefix": "Fieldwork", "linked_ability_id": "wellspring_surge",
+     "flavor_text": "Holds more than it needs, just in case someone else runs dry first.",
+     "min_rarity": Rarity.LEGENDARY, "max_rarity": Rarity.MYTHIC},
+    {"name": "Tourniquet Charm", "item_type": ItemType.ARMOR, "slot": EquipmentSlot.ACCESSORY,
+     "main_stat": "max_hp", "base_main_stat_value": 28,
+     "set_name": "Fieldwork Set", "set_prefix": "Fieldwork", "linked_ability_id": "bloodwell_charm",
+     "flavor_text": "Every turn it takes a little, so someone else can keep a little more.",
+     "min_rarity": Rarity.LEGENDARY, "max_rarity": Rarity.MYTHIC},
+
     # "500 Billian Gem Giveaway" -- ultra rare joke set. The misspelling of
     # "Billion" is intentional; the creator, a silly man named Thedoggyp,
     # would not have it any other way.

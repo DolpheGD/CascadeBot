@@ -66,18 +66,24 @@ CLASS_KIT_MAP: dict[CharacterClass, dict[str, dict]] = {
         },
     },
     CharacterClass.SUPPORT_DPS: {
+        # Combat Overhaul role shift: Support DPS moved from single-target
+        # burst+guaranteed-debuff toward AOE damage that only SOMETIMES
+        # also debuffs (see aoe_damage_chance_debuff in
+        # bot/game/combat/effects.py) -- suppressing an entire enemy line
+        # rather than picking one target apart.
         "skill": {
-            "id": "avatar_support_dps_skill", "name": "Marked Shot",
-            "resource_type": "mana", "resource_cost": 18, "cooldown": 1,
-            "description": "Deal 130% ATK damage and reduce the target's DEF by 20% for 2 turns.",
-            "effect": {"kind": "damage_and_debuff", "damage_percent": 130, "damage_stat": "attack",
-                       "debuff_stat": "defense", "debuff_percent": -20, "duration": 2},
+            "id": "avatar_support_dps_skill", "name": "Suppressing Fire",
+            "resource_type": "mana", "resource_cost": 20, "cooldown": 1,
+            "description": "Deal 90% ATK damage to all enemies, with a 50% chance to reduce each hit target's DEF by 15% for 2 turns.",
+            "effect": {"kind": "aoe_damage_chance_debuff", "damage_percent": 90, "damage_stat": "attack",
+                       "debuff_chance_percent": 50, "debuff_stat": "defense", "debuff_percent": -15, "duration": 2},
         },
         "ultimate": {
             "id": "avatar_support_dps_ultimate", "name": "Coordinated Barrage",
             "resource_type": "energy", "resource_cost": 50, "cooldown": 0, "is_ultimate": True,
-            "description": "Strike the target 3 times for 95% ATK damage each.",
-            "effect": {"kind": "multi_hit", "hits": 3, "damage_percent_per_hit": 95, "damage_stat": "attack"},
+            "description": "Deal 140% ATK damage to all enemies and reduce each of their DEF by 20% for 2 turns.",
+            "effect": {"kind": "aoe_damage_chance_debuff", "damage_percent": 140, "damage_stat": "attack",
+                       "debuff_chance_percent": 100, "debuff_stat": "defense", "debuff_percent": -20, "duration": 2},
         },
         "passive": {
             "id": "avatar_support_dps_passive", "name": "Steady Aim", "trigger": "on_turn_start",
@@ -193,15 +199,16 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         {"kind": "team_buff", "buff_stat": "attack", "buff_percent": 35, "duration": 3},
     ),
     "fax_skill": _skill(
-        "fax_skill", "Strafing Run", 18, 1,
-        "Deal 130% ATK damage and reduce the target's DEF by 15% for 2 turns.",
-        {"kind": "damage_and_debuff", "damage_percent": 130, "damage_stat": "attack",
-         "debuff_stat": "defense", "debuff_percent": -15, "duration": 2},
+        "fax_skill", "Wide Strafing Run", 18, 1,
+        "Deal 70% ATK damage to all enemies, with a 40% chance to reduce each hit target's DEF by 15% for 2 turns.",
+        {"kind": "aoe_damage_chance_debuff", "damage_percent": 70, "damage_stat": "attack",
+         "debuff_chance_percent": 40, "debuff_stat": "defense", "debuff_percent": -15, "duration": 2},
     ),
     "fax_ultimate": _ultimate(
         "fax_ultimate", "Cargo Bomb Run",
-        "Strike the target 3 times for 100% ATK damage each.",
-        {"kind": "multi_hit", "hits": 3, "damage_percent_per_hit": 100, "damage_stat": "attack"},
+        "Deal 100% ATK damage to all enemies and reduce each of their DEF by 15% for 2 turns.",
+        {"kind": "aoe_damage_chance_debuff", "damage_percent": 100, "damage_stat": "attack",
+         "debuff_chance_percent": 100, "debuff_stat": "defense", "debuff_percent": -15, "duration": 2},
     ),
     "arkiver_skill": _skill(
         "arkiver_skill", "Twin Fang Strike", 18, 1,
@@ -215,14 +222,15 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     ),
     "slikrz_skill": _skill(
         "slikrz_skill", "Blank Stare", 18, 1,
-        "Deal 130% ATK damage and reduce the target's DEF by 15% for 2 turns.",
-        {"kind": "damage_and_debuff", "damage_percent": 130, "damage_stat": "attack",
-         "debuff_stat": "defense", "debuff_percent": -15, "duration": 2},
+        "Deal 70% ATK damage to all enemies, with a 40% chance to reduce each hit target's DEF by 15% for 2 turns.",
+        {"kind": "aoe_damage_chance_debuff", "damage_percent": 70, "damage_stat": "attack",
+         "debuff_chance_percent": 40, "debuff_stat": "defense", "debuff_percent": -15, "duration": 2},
     ),
     "slikrz_ultimate": _ultimate(
         "slikrz_ultimate", "Flatline Frenzy",
-        "Strike the target 3 times for 95% ATK damage each.",
-        {"kind": "multi_hit", "hits": 3, "damage_percent_per_hit": 95, "damage_stat": "attack"},
+        "Deal 100% ATK damage to all enemies and reduce each of their DEF by 15% for 2 turns.",
+        {"kind": "aoe_damage_chance_debuff", "damage_percent": 100, "damage_stat": "attack",
+         "debuff_chance_percent": 100, "debuff_stat": "defense", "debuff_percent": -15, "duration": 2},
     ),
     "evz_skill": _skill(
         "evz_skill", "Bedside Manner", 18, 1,
@@ -258,14 +266,16 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
          "bonus_damage_percent_at_zero_hp": 170, "damage_stat": "attack"},
     ),
     "ih_skill": _skill(
-        "ih_skill", "Overcharge Support", 18, 2,
-        "Boost the ally who needs it most ATK by 25% for 2 turns.",
-        {"kind": "ally_buff", "buff_stat": "attack", "buff_percent": 25, "duration": 2},
+        "ih_skill", "Loadout Sweep", 18, 1,
+        "Deal 70% ATK damage to all enemies, with a 40% chance to reduce each hit target's ATK by 15% for 2 turns.",
+        {"kind": "aoe_damage_chance_debuff", "damage_percent": 70, "damage_stat": "attack",
+         "debuff_chance_percent": 40, "debuff_stat": "attack", "debuff_percent": -15, "duration": 2},
     ),
     "ih_ultimate": _ultimate(
-        "ih_ultimate", "Triple Tap",
-        "Strike the target 3 times for 100% ATK damage each.",
-        {"kind": "multi_hit", "hits": 3, "damage_percent_per_hit": 100, "damage_stat": "attack"},
+        "ih_ultimate", "Full Auto",
+        "Deal 100% ATK damage to all enemies and reduce each of their ATK by 15% for 2 turns.",
+        {"kind": "aoe_damage_chance_debuff", "damage_percent": 100, "damage_stat": "attack",
+         "debuff_chance_percent": 100, "debuff_stat": "attack", "debuff_percent": -15, "duration": 2},
     ),
 
     # --- 4-star ---
@@ -280,15 +290,16 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         {"kind": "team_heal_percent_max_hp", "percent": 45},
     ),
     "sader_vorae_skill": _skill(
-        "sader_vorae_skill", "Strafing Pass", 20, 1,
-        "Deal 135% ATK damage and reduce the target's SPD by 18% for 2 turns.",
-        {"kind": "damage_and_debuff", "damage_percent": 135, "damage_stat": "attack",
-         "debuff_stat": "speed", "debuff_percent": -18, "duration": 2},
+        "sader_vorae_skill", "Wide Strafing Pass", 20, 1,
+        "Deal 75% ATK damage to all enemies, with a 45% chance to reduce each hit target's SPD by 18% for 2 turns.",
+        {"kind": "aoe_damage_chance_debuff", "damage_percent": 75, "damage_stat": "attack",
+         "debuff_chance_percent": 45, "debuff_stat": "speed", "debuff_percent": -18, "duration": 2},
     ),
     "sader_vorae_ultimate": _ultimate(
         "sader_vorae_ultimate", "Glacier 15 Reckoning",
-        "Strike the target 3 times for 110% ATK damage each.",
-        {"kind": "multi_hit", "hits": 3, "damage_percent_per_hit": 110, "damage_stat": "attack"},
+        "Deal 110% ATK damage to all enemies and reduce each of their SPD by 18% for 2 turns.",
+        {"kind": "aoe_damage_chance_debuff", "damage_percent": 110, "damage_stat": "attack",
+         "debuff_chance_percent": 100, "debuff_stat": "speed", "debuff_percent": -18, "duration": 2},
     ),
     "nebula_skill": _skill(
         "nebula_skill", "Tactical Ground", 20, 2,
@@ -301,15 +312,16 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         {"kind": "team_buff", "buff_stat": "attack", "buff_percent": 40, "duration": 3},
     ),
     "andy_skill": _skill(
-        "andy_skill", "Command Strafe", 20, 1,
-        "Deal 135% ATK damage and reduce the target's DEF by 18% for 2 turns.",
-        {"kind": "damage_and_debuff", "damage_percent": 135, "damage_stat": "attack",
-         "debuff_stat": "defense", "debuff_percent": -18, "duration": 2},
+        "andy_skill", "Wide Command Strafe", 20, 1,
+        "Deal 75% ATK damage to all enemies, with a 45% chance to reduce each hit target's DEF by 18% for 2 turns.",
+        {"kind": "aoe_damage_chance_debuff", "damage_percent": 75, "damage_stat": "attack",
+         "debuff_chance_percent": 45, "debuff_stat": "defense", "debuff_percent": -18, "duration": 2},
     ),
     "andy_ultimate": _ultimate(
         "andy_ultimate", "Squadron Bombardment",
-        "Strike the target 3 times for 110% ATK damage each.",
-        {"kind": "multi_hit", "hits": 3, "damage_percent_per_hit": 110, "damage_stat": "attack"},
+        "Deal 110% ATK damage to all enemies and reduce each of their DEF by 18% for 2 turns.",
+        {"kind": "aoe_damage_chance_debuff", "damage_percent": 110, "damage_stat": "attack",
+         "debuff_chance_percent": 100, "debuff_stat": "defense", "debuff_percent": -18, "duration": 2},
     ),
     "star_skill": _skill(
         "star_skill", "Lazy Haymaker", 20, 1,
@@ -387,21 +399,22 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         {"kind": "team_buff", "buff_stat": "attack", "buff_percent": 50, "duration": 3},
     ),
     "caliper_skill": _skill(
-        "caliper_skill", "Twin Trigger", 22, 1,
-        "Deal 145% ATK damage and reduce the target's DEF by 20% for 2 turns.",
-        {"kind": "damage_and_debuff", "damage_percent": 145, "damage_stat": "attack",
-         "debuff_stat": "defense", "debuff_percent": -20, "duration": 2},
+        "caliper_skill", "Twin Trigger Sweep", 22, 1,
+        "Deal 80% ATK damage to all enemies, with a 50% chance to reduce each hit target's DEF by 20% for 2 turns.",
+        {"kind": "aoe_damage_chance_debuff", "damage_percent": 80, "damage_stat": "attack",
+         "debuff_chance_percent": 50, "debuff_stat": "defense", "debuff_percent": -20, "duration": 2},
     ),
     "caliper_ultimate": _ultimate(
-        "caliper_ultimate", "Point-Blank Barrage",
-        "Strike the target 4 times for 95% ATK damage each.",
-        {"kind": "multi_hit", "hits": 4, "damage_percent_per_hit": 95, "damage_stat": "attack"},
+        "caliper_ultimate", "Full Auto Barrage",
+        "Deal 130% ATK damage to all enemies and reduce each of their DEF by 20% for 2 turns.",
+        {"kind": "aoe_damage_chance_debuff", "damage_percent": 130, "damage_stat": "attack",
+         "debuff_chance_percent": 100, "debuff_stat": "defense", "debuff_percent": -20, "duration": 2},
     ),
     "nyrvite_skill": _skill(
         "nyrvite_skill", "Signal Jam", 20, 1,
-        "Deal 130% ATK damage and drain 15 energy and 15 SP from the target.",
-        {"kind": "damage_and_resource_drain", "damage_percent": 130, "damage_stat": "attack",
-         "energy_drain": 15, "mana_drain": 15},
+        "Deal 80% ATK damage to all enemies, with a 50% chance to drain 12 energy and 12 SP from each hit target.",
+        {"kind": "aoe_damage_chance_resource_drain", "damage_percent": 80, "damage_stat": "attack",
+         "drain_chance_percent": 50, "energy_drain": 12, "mana_drain": 12},
     ),
     "nyrvite_ultimate": _ultimate(
         "nyrvite_ultimate", "Blackout Protocol",

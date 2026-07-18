@@ -61,6 +61,17 @@ swing a second time. damage_reduction_scales_with_missing_hp is the
 passive counterpart of "gets sturdier while hurt" -- unlike the flat
 damage_reduction passive (Iron Skin), its mitigation grows the lower the
 wearer's own HP% is, evaluated fresh on every hit in _resolve_hit.
+
+Support DPS role shift: the class moved from single-target burst+debuff
+toward AOE damage that only SOMETIMES also debuffs. aoe_damage hits every
+living opponent for the same damage_percent with no side effect.
+aoe_damage_chance_debuff hits every living opponent, and each hit target
+independently rolls debuff_chance_percent odds of picking up a stat
+debuff -- unlike damage_and_debuff (guaranteed), the debuff here is a
+per-target coin flip, which is the "sometimes applies debuffs" part of
+the shift. aoe_damage_chance_resource_drain is the same shape with an
+energy/mana drain instead of a stat debuff (Nyrvite's signal-jamming
+flavor on the same AOE-plus-sometimes-more kit piece).
 """
 
 from __future__ import annotations
@@ -440,6 +451,47 @@ def resolve_active_ability(
             _resolve_hit(attacker, defender, effect["damage_percent"],
                          effect.get("damage_stat", "attack"), rng, log, suppress_kill_log=True)
         _trigger_on_kill_if_dead(attacker, defender, log)
+
+    elif kind == "aoe_damage":
+        # Support DPS AOE kind (Combat Overhaul role shift) -- hits every
+        # living enemy at once for the same damage_percent, instead of
+        # dumping it all into one target the way the class used to.
+        for target in [o for o in opponents if o.is_alive()]:
+            _resolve_hit(attacker, target, effect["damage_percent"],
+                         effect.get("damage_stat", "attack"), rng, log)
+        log.append(f"💥 {attacker.name}'s {ability['name']} sweeps the whole enemy side!")
+
+    elif kind == "aoe_damage_chance_debuff":
+        # Support DPS AOE-plus-debuff kind -- hits every living enemy at
+        # once, and each hit target independently has debuff_chance_percent
+        # odds of also picking up a stat debuff. "Sometimes applies
+        # debuffs" is the point: unlike damage_and_debuff, it's not
+        # guaranteed on every cast.
+        for target in [o for o in opponents if o.is_alive()]:
+            hit = _resolve_hit(attacker, target, effect["damage_percent"],
+                                effect.get("damage_stat", "attack"), rng, log)
+            if hit and target.is_alive() and formulas.roll_percent(effect["debuff_chance_percent"], rng):
+                target.modifiers.append(StatModifier(
+                    stat=effect["debuff_stat"], percent=effect["debuff_percent"],
+                    duration=effect["duration"], source=ability["name"],
+                ))
+                log.append(f"{target.name}'s {effect['debuff_stat']} is reduced!")
+
+    elif kind == "aoe_damage_chance_resource_drain":
+        # Nyrvite's take on the AOE-plus-debuff shape -- same "hits
+        # everyone, sometimes does more" idea as aoe_damage_chance_debuff,
+        # but the "more" is a resource drain (energy/mana) instead of a
+        # stat debuff, rolled independently per target.
+        for target in [o for o in opponents if o.is_alive()]:
+            hit = _resolve_hit(attacker, target, effect["damage_percent"],
+                                effect.get("damage_stat", "attack"), rng, log)
+            if hit and target.is_alive() and formulas.roll_percent(effect["drain_chance_percent"], rng):
+                energy_drained = min(target.energy, effect.get("energy_drain", 0))
+                mana_drained = min(target.mana, effect.get("mana_drain", 0))
+                target.energy -= energy_drained
+                target.mana -= mana_drained
+                if energy_drained or mana_drained:
+                    log.append(f"🔌 {target.name} loses {energy_drained} energy and {mana_drained} SP!")
 
     else:
         log.append(f"({ability['name']} has no combat effect implemented yet)")

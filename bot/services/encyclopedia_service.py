@@ -70,7 +70,7 @@ MATERIAL_BLURB: dict[MaterialType, str] = {
 
 CLASS_BLURB: dict[CharacterClass, str] = {
     CharacterClass.DPS: "Snowballs its own Attack the longer a fight runs -- a self-contained damage engine.",
-    CharacterClass.SUPPORT_DPS: "Trades raw damage for precision, stacking Crit Rate while wearing down enemy Defense.",
+    CharacterClass.SUPPORT_DPS: "Sweeps the whole enemy line at once, sometimes shredding a stat on whoever it hits.",
     CharacterClass.AMPLIFIER: "Keeps the whole team's resources flowing, trickling Energy and SP to every ally each turn.",
     CharacterClass.SUSTAIN: "Keeps the whole team alive, regenerating HP for every ally each turn on top of direct heals.",
 }

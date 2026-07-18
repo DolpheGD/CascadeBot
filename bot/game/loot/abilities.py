@@ -181,6 +181,49 @@ WEAPON_SKILLS: list[dict] = [
                    "bonus_damage_percent": 90, "damage_stat": "attack"},
     },
     {
+        # unique -- new aoe_damage kind (Support DPS role shift, see
+        # bot/game/combat/effects.py): the first weapon skill to hit every
+        # living enemy at once instead of a single target.
+        "id": "sweeping_volley",
+        "name": "Sweeping Volley",
+        "min_rarity": Rarity.RARE,
+        "resource_cost": 26,
+        "resource_type": "mana",
+        "cooldown": 2,
+        "description": "Deal 90% ATK damage to all enemies.",
+        "effect": {"kind": "aoe_damage", "damage_percent": 90, "damage_stat": "attack"},
+    },
+    {
+        # unique -- new aoe_damage_chance_debuff kind: hits every enemy,
+        # with each hit target independently rolling a chance to also be
+        # debuffed -- the gear-side counterpart to the Support DPS kit
+        # rework.
+        "id": "crossfire_salvo",
+        "name": "Crossfire Salvo",
+        "min_rarity": Rarity.EPIC,
+        "resource_cost": 32,
+        "resource_type": "mana",
+        "cooldown": 3,
+        "description": "Deal 85% ATK damage to all enemies, with a 40% chance to reduce each hit target's DEF by 15% for 2 turns.",
+        "effect": {"kind": "aoe_damage_chance_debuff", "damage_percent": 85, "damage_stat": "attack",
+                   "debuff_chance_percent": 40, "debuff_stat": "defense", "debuff_percent": -15, "duration": 2},
+    },
+    {
+        # unique -- new damage_and_double_debuff kind on the weapon side
+        # (Axel's character kit introduced it; this is the first gear
+        # item to carry it): one hit, two stat debuffs at once.
+        "id": "twin_fracture_strike",
+        "name": "Twin Fracture Strike",
+        "min_rarity": Rarity.EPIC,
+        "resource_cost": 28,
+        "resource_type": "mana",
+        "cooldown": 2,
+        "description": "Deal 120% ATK damage and reduce the target's ATK and DEF by 15% each for 2 turns.",
+        "effect": {"kind": "damage_and_double_debuff", "damage_percent": 120, "damage_stat": "attack",
+                   "debuff_stat_1": "attack", "debuff_percent_1": -15,
+                   "debuff_stat_2": "defense", "debuff_percent_2": -15, "duration": 2},
+    },
+    {
         # unique -- new chance_double_hit kind: every swing has a flat
         # chance to immediately swing again for the same damage.
         "id": "riftcutter",
@@ -192,6 +235,33 @@ WEAPON_SKILLS: list[dict] = [
         "description": "Deal 130% ATK damage. 35% chance to strike again for another 130% ATK damage.",
         "effect": {"kind": "chance_double_hit", "damage_percent": 130,
                    "chance_percent": 35, "damage_stat": "attack"},
+    },
+    {
+        # unique -- reuses aoe_damage (Support DPS role-shift kind, see
+        # bot/game/combat/effects.py): the "light AoE weapon skill" a
+        # couple of fast normal-tier enemies carry (bot/game/combat/
+        # enemies.py's Scrap Buggy) instead of a second single-target hit.
+        "id": "flurry_slash",
+        "name": "Flurry Slash",
+        "min_rarity": Rarity.RARE,
+        "resource_cost": 20,
+        "resource_type": "mana",
+        "cooldown": 2,
+        "description": "Deal 65% ATK damage to all enemies.",
+        "effect": {"kind": "aoe_damage", "damage_percent": 65, "damage_stat": "attack"},
+    },
+    {
+        # unique -- the heavier aoe_damage tier: the "slow, hard-hitting"
+        # AoE weapon skill carried by tankier elites/bosses (bot/game/
+        # combat/enemies.py's Xender Tank, Boss John's Driller Prototype).
+        "id": "cleave_smash",
+        "name": "Cleave Smash",
+        "min_rarity": Rarity.EPIC,
+        "resource_cost": 34,
+        "resource_type": "mana",
+        "cooldown": 3,
+        "description": "Deal 120% ATK damage to all enemies.",
+        "effect": {"kind": "aoe_damage", "damage_percent": 120, "damage_stat": "attack"},
     },
 ]
 
@@ -404,6 +474,151 @@ ARTIFACT_SKILLS: list[dict] = [
         "description": "Shield your whole side, each member absorbing damage equal to 25% of their own max HP.",
         "effect": {"kind": "team_shield_percent_max_hp", "percent": 25},
     },
+    {
+        # unique -- the artifact-side aoe_damage_chance_debuff (Support
+        # DPS role shift), at ELE instead of ATK for caster builds.
+        "id": "fracture_field",
+        "name": "Fracture Field",
+        "min_rarity": Rarity.EPIC,
+        "resource_cost": 30,
+        "resource_type": "mana",
+        "cooldown": 3,
+        "description": "Deal 80% ELE damage to all enemies, with a 40% chance to reduce each hit target's SPD by 18% for 2 turns.",
+        "effect": {"kind": "aoe_damage_chance_debuff", "damage_percent": 80, "damage_stat": "elemental",
+                   "debuff_chance_percent": 40, "debuff_stat": "speed", "debuff_percent": -18, "duration": 2},
+    },
+    {
+        # unique -- new aoe_damage_chance_resource_drain kind: Nyrvite's
+        # signal-jamming take on the AOE-plus-sometimes-more shape, now
+        # available as a rollable artifact skill.
+        "id": "jamming_array",
+        "name": "Jamming Array",
+        "min_rarity": Rarity.LEGENDARY,
+        "resource_cost": 34,
+        "resource_type": "mana",
+        "cooldown": 4,
+        "description": "Deal 75% ELE damage to all enemies, with a 45% chance to drain 12 energy and 12 SP from each hit target.",
+        "effect": {"kind": "aoe_damage_chance_resource_drain", "damage_percent": 75, "damage_stat": "elemental",
+                   "drain_chance_percent": 45, "energy_drain": 12, "mana_drain": 12},
+    },
+    {
+        # unique -- new team_heal_percent_max_hp kind on gear (previously
+        # only on Sustain character ultimates): a burst heal for the
+        # whole side from an artifact skill instead of a 50-energy ult.
+        "id": "wellspring_surge",
+        "name": "Wellspring Surge",
+        "min_rarity": Rarity.LEGENDARY,
+        "resource_cost": 40,
+        "resource_type": "mana",
+        "cooldown": 5,
+        "description": "Heal your whole side for 30% of each member's own max HP.",
+        "effect": {"kind": "team_heal_percent_max_hp", "percent": 30},
+    },
+    {
+        # unique -- new ally_buff kind on gear: buffs whichever ally needs
+        # it most (never the caster), instead of the whole side at once
+        # like Rousing Signal.
+        "id": "focused_support_beam",
+        "name": "Focused Support Beam",
+        "min_rarity": Rarity.RARE,
+        "resource_cost": 22,
+        "resource_type": "mana",
+        "cooldown": 2,
+        "description": "Boost whichever ally needs it most ATK by 25% for 2 turns.",
+        "effect": {"kind": "ally_buff", "buff_stat": "attack", "buff_percent": 25, "duration": 2},
+    },
+    {
+        # unique -- new restore_resource_to_lowest_ally kind on gear: tops
+        # off whichever ally is running lowest on energy/mana, instead of
+        # the whole side at once like Power Transfer.
+        "id": "emergency_relay",
+        "name": "Emergency Relay",
+        "min_rarity": Rarity.RARE,
+        "resource_cost": 20,
+        "resource_type": "mana",
+        "cooldown": 2,
+        "description": "Instantly restore 18 energy and 22 SP to whichever ally needs it most.",
+        "effect": {"kind": "restore_resource_to_lowest_ally", "energy_amount": 18, "mana_amount": 22},
+    },
+    {
+        # unique -- new cleanse_ally_and_heal kind on gear: the ally-
+        # facing counterpart to Overclock Repair's self-cleanse-and-heal.
+        "id": "purge_beacon",
+        "name": "Purge Beacon",
+        "min_rarity": Rarity.EPIC,
+        "resource_cost": 26,
+        "resource_type": "mana",
+        "cooldown": 3,
+        "description": "Cleanse all negative effects from whichever ally is lowest on HP% and heal them for 25% of their max HP.",
+        "effect": {"kind": "cleanse_ally_and_heal", "heal_percent": 25},
+    },
+    {
+        # unique -- new team_resource_drain kind on gear: the opposing-
+        # side counterpart to Power Transfer, draining flat energy/mana
+        # from every living enemy at once.
+        "id": "null_field_projector",
+        "name": "Null Field Projector",
+        "min_rarity": Rarity.EPIC,
+        "resource_cost": 28,
+        "resource_type": "mana",
+        "cooldown": 3,
+        "description": "Drain 20 energy and 20 SP from every enemy at once.",
+        "effect": {"kind": "team_resource_drain", "energy_amount": 20, "mana_amount": 20},
+    },
+    {
+        # unique -- new sacrifice_hp_heal_lowest_ally_percent_max_hp kind
+        # on gear (Blood-Sustain kit piece, previously only on Kotori's
+        # character skill): pays with the caster's own HP instead of extra
+        # mana to mend whichever ally needs it most.
+        "id": "vitality_offering",
+        "name": "Vitality Offering",
+        "min_rarity": Rarity.RARE,
+        "resource_cost": 20,
+        "resource_type": "mana",
+        "cooldown": 1,
+        "description": "Sacrifice 10% of your own max HP to heal whichever ally needs it most for 25% of their max HP.",
+        "effect": {"kind": "sacrifice_hp_heal_lowest_ally_percent_max_hp", "self_cost_percent": 10, "heal_percent": 25},
+    },
+    {
+        # unique -- new sacrifice_hp_heal_team_percent_max_hp kind on gear
+        # (previously only Kotori's ultimate): a repeatable, mana-gated
+        # version of the same Blood-Sustain team heal at smaller numbers.
+        "id": "sacrificial_aegis",
+        "name": "Sacrificial Aegis",
+        "min_rarity": Rarity.LEGENDARY,
+        "resource_cost": 30,
+        "resource_type": "mana",
+        "cooldown": 4,
+        "description": "Sacrifice 15% of your own max HP to heal your whole side for 20% of each member's max HP.",
+        "effect": {"kind": "sacrifice_hp_heal_team_percent_max_hp", "self_cost_percent": 15, "heal_percent": 20},
+    },
+    {
+        # unique -- reuses aoe_damage (Support DPS role-shift kind): the
+        # "light AoE artifact skill" a fast normal-tier enemy carries
+        # (bot/game/combat/enemies.py's Voidcrest Skitterer) instead of a
+        # second single-target hit.
+        "id": "arc_lightning",
+        "name": "Arc Lightning",
+        "min_rarity": Rarity.RARE,
+        "resource_cost": 22,
+        "resource_type": "mana",
+        "cooldown": 2,
+        "description": "Deal 65% ELE damage to all enemies.",
+        "effect": {"kind": "aoe_damage", "damage_percent": 65, "damage_stat": "elemental"},
+    },
+    {
+        # unique -- the heavier aoe_damage tier on the artifact side: the
+        # "heavy AoE artifact skill" carried by endgame bosses (bot/game/
+        # combat/enemies.py's Gatekeeper).
+        "id": "meteor_shower",
+        "name": "Meteor Shower",
+        "min_rarity": Rarity.LEGENDARY,
+        "resource_cost": 36,
+        "resource_type": "mana",
+        "cooldown": 4,
+        "description": "Deal 110% ELE damage to all enemies.",
+        "effect": {"kind": "aoe_damage", "damage_percent": 110, "damage_stat": "elemental"},
+    },
 ]
 
 ULTIMATE_ABILITIES: list[dict] = [
@@ -534,6 +749,33 @@ ULTIMATE_ABILITIES: list[dict] = [
         "cooldown": 0,
         "description": "Shield your whole side, each member absorbing damage equal to 45% of their own max HP.",
         "effect": {"kind": "team_shield_percent_max_hp", "percent": 45},
+    },
+    {
+        # unique -- ultimate-scale aoe_damage: the "lighter AoE ultimate"
+        # paired with a fast, multi-action boss (bot/game/combat/
+        # enemies.py's XG-23 Heavy Drone) -- hits everyone, but for less
+        # than World Ender below, matching "fast = frequent + lighter."
+        "id": "storm_of_blades",
+        "name": "Storm of Blades",
+        "min_rarity": Rarity.RARE,
+        "resource_cost": 50,
+        "resource_type": "energy",
+        "cooldown": 0,
+        "description": "Deal 220% ATK damage to all enemies.",
+        "effect": {"kind": "aoe_damage", "damage_percent": 220, "damage_stat": "attack"},
+    },
+    {
+        # unique -- the roster's signature hard-hitting AoE ultimate,
+        # reserved for final bosses (bot/game/combat/enemies.py's Void
+        # Hydra) -- an "everyone's in danger" capstone hit.
+        "id": "world_ender",
+        "name": "World Ender",
+        "min_rarity": Rarity.MYTHIC,
+        "resource_cost": 50,
+        "resource_type": "energy",
+        "cooldown": 0,
+        "description": "Deal 300% ELE damage to all enemies.",
+        "effect": {"kind": "aoe_damage", "damage_percent": 300, "damage_stat": "elemental"},
     },
 ]
 
@@ -704,6 +946,18 @@ ARMOR_PASSIVES: list[dict] = [
         "trigger": "always",
         "description": "Act one additional time every combat cycle.",
         "effect": {"kind": "bonus_actions_per_cycle", "count": 1},
+    },
+    {
+        # unique -- new aura_team_regen_self_sacrifice kind on gear
+        # (previously only Kotori's character passive): every turn, pays
+        # for the team-wide regen with a slice of the wearer's own max HP
+        # instead of it being free like Regen Field Generator.
+        "id": "bloodwell_charm",
+        "name": "Bloodwell Charm",
+        "min_rarity": Rarity.LEGENDARY,
+        "trigger": "on_turn_start",
+        "description": "At the start of every turn, sacrifices 2% of your own max HP to heal the rest of your side for 3% of their own max HP each.",
+        "effect": {"kind": "aura_team_regen_self_sacrifice", "self_cost_percent": 2, "percent": 3},
     },
 ]
 
