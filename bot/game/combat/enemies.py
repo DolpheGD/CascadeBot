@@ -529,7 +529,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ['The Wastelands', 'The Hotlands'],
         "base_stats": {
             "attack": 23, "defense": 28, "elemental": 6, "speed": 7,
-            "max_hp": 140, "max_mana": 999, "crit_rate": 7, "crit_damage": 155, "recharge": 22,
+            "max_hp": 170, "max_mana": 999, "crit_rate": 7, "crit_damage": 155, "recharge": 22,
         },
         "level_scale_percent": 10,
         "active_abilities": [
@@ -629,7 +629,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ['The Hotlands', 'Voidcrest Desert'],
         "base_stats": {
             "attack": 16, "defense": 10, "elemental": 20, "speed": 9,
-            "max_hp": 125, "max_mana": 999, "crit_rate": 10, "crit_damage": 165, "recharge": 19,
+            "max_hp": 145, "max_mana": 999, "crit_rate": 10, "crit_damage": 165, "recharge": 19,
         },
         "level_scale_percent": 10,
         "active_abilities": [
@@ -648,7 +648,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ['Glacier 15', 'The Wastelands'],
         "base_stats": {
             "attack": 7, "defense": 16, "elemental": 16, "speed": 8,
-            "max_hp": 160, "max_mana": 999, "crit_rate": 8, "crit_damage": 160, "recharge": 17,
+            "max_hp": 180, "max_mana": 999, "crit_rate": 8, "crit_damage": 160, "recharge": 17,
         },
         "actions_per_cycle": 2,
         "level_scale_percent": 10,
@@ -672,7 +672,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ['Glacier 15'],
         "base_stats": {
             "attack": 13, "defense": 24, "elemental": 12, "speed": 6,
-            "max_hp": 155, "max_mana": 999, "crit_rate": 6, "crit_damage": 155, "recharge": 26,
+            "max_hp": 205, "max_mana": 999, "crit_rate": 6, "crit_damage": 155, "recharge": 26,
         },
         "level_scale_percent": 10,
         "active_abilities": [
@@ -739,7 +739,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands', 'Voidcrest Desert'],
         "base_stats": {
             "attack": 4, "defense": 1, "elemental": 4, "speed": 23,
-            "max_hp": 500, "max_mana": 999, "crit_rate": 10, "crit_damage": 280, "recharge": 40,
+            "max_hp": 300, "max_mana": 999, "crit_rate": 10, "crit_damage": 280, "recharge": 40,
         },
         "level_scale_percent": 10,
         "active_abilities": [
@@ -773,7 +773,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "region_roles": {'Glacier 15': 'regular', 'The Wastelands': 'regular', 'The Hotlands': 'regular'},
         "base_stats": {
             "attack": 20, "defense": 10, "elemental": 9, "speed": 14,
-            "max_hp": 200, "max_mana": 999, "crit_rate": 14, "crit_damage": 170, "recharge": 20,
+            "max_hp": 300, "max_mana": 999, "crit_rate": 14, "crit_damage": 170, "recharge": 20,
         },
         "level_scale_percent": 8,
         "actions_per_cycle": 2,
@@ -795,7 +795,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss_group_member",
         "base_stats": {
             "attack": 9, "defense": 5, "elemental": 4, "speed": 9,
-            "max_hp": 95, "max_mana": 999, "crit_rate": 4, "crit_damage": 140, "recharge": 18,
+            "max_hp": 105, "max_mana": 999, "crit_rate": 4, "crit_damage": 140, "recharge": 18,
         },
         "level_scale_percent": 8,
         "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "rousing_signal")],
@@ -818,14 +818,14 @@ ENEMY_TEMPLATES: list[dict] = [
     {
         # regular boss for all areas
         # Balance pass: slow (Speed 8) and by far the tankiest regular
-        # boss (490 base HP) -- the "slow, hard-hitting" AoE profile, so
+        # boss (520 base HP) -- the "slow, hard-hitting" AoE profile, so
         # it picks up Cleave Smash alongside its support kit.
         "name": "Boss John's Driller Prototype",
         "role": "boss",
         "region_roles": {'Glacier 15': 'regular', 'The Wastelands': 'regular', 'The Hotlands': 'regular', 'Voidcrest Desert': 'regular'},
         "base_stats": {
             "attack": 29, "defense": 12, "elemental": 14, "speed": 4,
-            "max_hp": 470, "max_mana": 999, "crit_rate": 9, "crit_damage": 190, "recharge": 30,
+            "max_hp": 520, "max_mana": 999, "crit_rate": 9, "crit_damage": 190, "recharge": 30,
         },
         "level_scale_percent": 8,
         "active_abilities": [
@@ -847,7 +847,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "region_roles": {'The Wastelands': 'regular', 'Voidcrest Desert': 'regular'},
         "base_stats": {
             "attack": 14, "defense": 8, "elemental": 24, "speed": 14,
-            "max_hp": 330, "max_mana": 999, "crit_rate": 10, "crit_damage": 165, "recharge": 26,
+            "max_hp": 410, "max_mana": 999, "crit_rate": 10, "crit_damage": 165, "recharge": 26,
         },
         "actions_per_cycle": 2,
         "level_scale_percent": 8,
@@ -949,7 +949,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "region_roles": {'Glacier 15': 'regular', 'The Wastelands': 'regular', 'The Hotlands': 'regular'},
         "base_stats": {
             "attack": 19, "defense": 11, "elemental": 9, "speed": 10,
-            "max_hp": 260, "max_mana": 999, "crit_rate": 2, "crit_damage": 500, "recharge": 22,
+            "max_hp": 280, "max_mana": 999, "crit_rate": 2, "crit_damage": 500, "recharge": 22,
         },
         "actions_per_cycle": 2,
         "level_scale_percent": 8,
@@ -989,7 +989,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "region_roles": {'Glacier 15': 'regular', 'The Hotlands': 'regular'},
         "base_stats": {
             "attack": 17, "defense": 6, "elemental": 11, "speed": 10,
-            "max_hp": 220, "max_mana": 999, "crit_rate": 6, "crit_damage": 150, "recharge": 18,
+            "max_hp": 270, "max_mana": 999, "crit_rate": 6, "crit_damage": 150, "recharge": 18,
         },
         "level_scale_percent": 8,
         "actions_per_cycle": 2,
@@ -1038,7 +1038,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "region_roles": {'Glacier 15': 'final'},
         "base_stats": {
             "attack": 27, "defense": 8, "elemental": 19, "speed": 11,
-            "max_hp": 650, "max_mana": 999, "crit_rate": 16, "crit_damage": 185, "recharge": 20,
+            "max_hp": 700, "max_mana": 999, "crit_rate": 16, "crit_damage": 185, "recharge": 20,
         },
         "level_scale_percent": 8,
         "active_abilities": [
@@ -1150,7 +1150,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "region_roles": {'The Hotlands': 'final'},
         "base_stats": {
             "attack": 36, "defense": 12, "elemental": 20, "speed": 18,
-            "max_hp": 850, "max_mana": 999, "crit_rate": 12, "crit_damage": 175, "recharge": 24,
+            "max_hp": 950, "max_mana": 999, "crit_rate": 12, "crit_damage": 175, "recharge": 24,
         },
         "level_scale_percent": 8,
         "actions_per_cycle": 2,
@@ -1179,17 +1179,20 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss_group_member",
         "base_stats": {
             "attack": 58, "defense": 12, "elemental": 16, "speed": 5,
-            "max_hp": 430, "max_mana": 999, "crit_rate": 6, "crit_damage": 150, "recharge": 6,
+            "max_hp": 530, "max_mana": 999, "crit_rate": 6, "crit_damage": 150, "recharge": 26,
         },
         "level_scale_percent": 8,
         "active_abilities": [
-            get_ability_by_id(WEAPON_SKILLS, "shield_bash"),
-            get_ability_by_id(WEAPON_SKILLS, "rending_cleave"),
+            get_ability_by_id(WEAPON_SKILLS, "twin_fracture_strike"),
+            get_ability_by_id(WEAPON_SKILLS, "riftcutter"),
+            get_ability_by_id(ARTIFACT_SKILLS, "arc_lightning"),
         ],
         "passive_abilities": [
             get_ability_by_id(ARMOR_PASSIVES, "thornmail"),
             get_ability_by_id(ARMOR_PASSIVES, "retaliation_plating"),
         ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "adaptive_plating"),
+                              get_ability_by_id(ARMOR_PASSIVES, "capacitor_shell"),],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "executioners_reckoning"),
     },
     {
@@ -1205,13 +1208,14 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss_group_member",
         "base_stats": {
             "attack": 20, "defense": 10, "elemental": 27, "speed": 13,
-            "max_hp": 370, "max_mana": 999, "crit_rate": 14, "crit_damage": 175, "recharge": 7,
+            "max_hp": 420, "max_mana": 999, "crit_rate": 14, "crit_damage": 175, "recharge": 27,
         },
         "actions_per_cycle": 2,
         "level_scale_percent": 8,
         "active_abilities": [
-            get_ability_by_id(WEAPON_SKILLS, "frost_lance"),
-            get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
+            get_ability_by_id(WEAPON_SKILLS, "guard_splitter"),
+            get_ability_by_id(WEAPON_SKILLS, "opportunistic_strike"),
+            get_ability_by_id(ARTIFACT_SKILLS, "arc_lightning"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "momentum")],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "gale_ascendant"),
@@ -1230,13 +1234,14 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss_group_member",
         "base_stats": {
             "attack": 23, "defense": 16, "elemental": 30, "speed": 8,
-            "max_hp": 580, "max_mana": 999, "crit_rate": 50, "crit_damage": 120, "recharge": 8,
+            "max_hp": 680, "max_mana": 999, "crit_rate": 50, "crit_damage": 120, "recharge": 28,
         },
         "level_scale_percent": 8,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "aegis_broadcast"),
-            get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
-            get_ability_by_id(ARTIFACT_SKILLS, "meteor_shower"),
+            get_ability_by_id(ARTIFACT_SKILLS, "emergency_relay"),
+            get_ability_by_id(ARTIFACT_SKILLS, "jamming_array"),
+            get_ability_by_id(WEAPON_SKILLS, "sweeping_volley"),
         ],
         "passive_abilities": [
             get_ability_by_id(ARMOR_PASSIVES, "iron_skin"),
