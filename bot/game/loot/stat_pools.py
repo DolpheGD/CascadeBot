@@ -68,7 +68,14 @@ MAIN_STAT_GROWTH_PER_LEVEL: dict[str, float] = {
 
 # {stat: (per_level_min, per_level_max)} for a FLAT roll -- roll = level *
 # uniform(min, max), then multiplied by the rarity's stat multiplier.
-FLAT_SUBSTAT_POOL: dict[str, tuple[float, float]] = {
+# Base ranges below are the original balancing-pass numbers (kept as
+# documentation of that pass); SUBSTAT_VALUE_MULTIPLIER is applied on top
+# per a later request to scale substats back up. Deliberately does NOT
+# touch MAIN_STAT_GROWTH_PER_LEVEL or RARITY_STAT_MULTIPLIER above -- main
+# stat scaling is explicitly out of scope for this pass, only substats.
+SUBSTAT_VALUE_MULTIPLIER = 2.5  # +150%, i.e. roughly midway through the requested +100% to +200% range
+
+_FLAT_SUBSTAT_POOL_BASE: dict[str, tuple[float, float]] = {
     "attack": (0.08, 0.18),
     "defense": (0.08, 0.18),
     "elemental": (0.08, 0.18),
@@ -83,13 +90,22 @@ FLAT_SUBSTAT_POOL: dict[str, tuple[float, float]] = {
 # {stat: (per_level_min, per_level_max)} for a PERCENT roll, in percentage
 # points of the player's base stat. Deliberately small per level so a
 # fully-percent-rolled build stays comparable to a flat-rolled one instead
-# of dominating it.
-PERCENT_SUBSTAT_POOL: dict[str, tuple[float, float]] = {
+# of dominating it. See SUBSTAT_VALUE_MULTIPLIER above.
+_PERCENT_SUBSTAT_POOL_BASE: dict[str, tuple[float, float]] = {
     "attack": (0.04, 0.10),
     "defense": (0.04, 0.10),
     "elemental": (0.04, 0.10),
     "max_hp": (0.05, 0.12),
     "max_mana": (0.05, 0.12),
+}
+
+FLAT_SUBSTAT_POOL: dict[str, tuple[float, float]] = {
+    stat: (lo * SUBSTAT_VALUE_MULTIPLIER, hi * SUBSTAT_VALUE_MULTIPLIER)
+    for stat, (lo, hi) in _FLAT_SUBSTAT_POOL_BASE.items()
+}
+PERCENT_SUBSTAT_POOL: dict[str, tuple[float, float]] = {
+    stat: (lo * SUBSTAT_VALUE_MULTIPLIER, hi * SUBSTAT_VALUE_MULTIPLIER)
+    for stat, (lo, hi) in _PERCENT_SUBSTAT_POOL_BASE.items()
 }
 
 

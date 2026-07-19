@@ -26,7 +26,14 @@ from bot.database.models.enums import CharacterClass
 # ---------------------------------------------------------------------
 # Baseline stat blocks per star rating. Individual characters nudge off
 # these based on class (e.g. Sustain gets more HP/DEF, DPS gets more ATK).
+# growth_* values below are the original balancing-pass numbers (kept as
+# documentation of that pass -- see the module docstring); the loop right
+# after this dict applies LEVELING_GROWTH_MULTIPLIER on top, per a later
+# request to scale per-level growth back up. base_* (level-1 stats) are
+# untouched -- only how much characters gain per level going up.
 # ---------------------------------------------------------------------
+LEVELING_GROWTH_MULTIPLIER = 2.5  # +150%, i.e. roughly midway through the requested +100% to +200% range
+
 _BASELINE_BY_STAR = {
     3: dict(base_hp=85, base_attack=8, base_defense=8, base_mana=42,
             base_elemental=6, base_speed=9, base_crit_rate=5, base_crit_damage=145, base_recharge=10,
@@ -41,6 +48,12 @@ _BASELINE_BY_STAR = {
             growth_hp=2.9, growth_attack=0.29, growth_defense=0.18,
             growth_mana=1.00, growth_elemental=0.16, growth_speed=0.12),
 }
+
+_GROWTH_KEYS = ("growth_hp", "growth_attack", "growth_defense", "growth_mana", "growth_elemental", "growth_speed")
+for _baseline in _BASELINE_BY_STAR.values():
+    for _key in _GROWTH_KEYS:
+        _baseline[_key] = round(_baseline[_key] * LEVELING_GROWTH_MULTIPLIER, 4)
+del _baseline, _key
 
 
 def _char(name, star, cls, bio, skill_id, ultimate_id, **overrides):
