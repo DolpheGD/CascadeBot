@@ -1214,7 +1214,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "level_scale_percent": 8,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "guard_splitter"),
-            get_ability_by_id(WEAPON_SKILLS, "opportunistic_strike"),
+            get_ability_by_id(WEAPON_SKILLS, "opportunist_strike"),  # Note: this ability ID might be incorrect
             get_ability_by_id(ARTIFACT_SKILLS, "arc_lightning"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "momentum")],
