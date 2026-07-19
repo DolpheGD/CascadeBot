@@ -3,10 +3,11 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
+from bot.database.models.enums import CLASS_EMOJI, CharacterClass
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_or_create_player, get_player
 from bot.services.currency_service import add_currency
-from bot.services import character_service, inventory_service
+from bot.services import character_service, dungeon_service, inventory_service
 from bot.utils.ui_guard import OwnedView
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils import embedder
@@ -147,6 +148,51 @@ class Profile(commands.Cog):
                 return
 
             ok, message = character_service.rename_avatar(db, player, name)
+        finally:
+            db.close()
+
+        await ctx.response.send_message(message, ephemeral=not ok)
+
+    # COMMAND: /class
+    # Lets the player freely switch their own avatar between the 4 roles
+    # (DPS, Support DPS, Amplifier, Sustain) -- see /encyclopedia's Classes
+    # category for what each role's kit does. Locked during an active
+    # expedition, same restriction /squad already applies to squad changes:
+    # role should be settled before a run starts, not swapped mid-fight.
+    @app_commands.command(
+        name="class",
+        description="Switch your avatar's role: DPS, Support DPS, Amplifier, or Sustain."
+    )
+    @app_commands.describe(role="The role to switch to")
+    @app_commands.choices(role=[
+        app_commands.Choice(name="DPS", value=CharacterClass.DPS.value),
+        app_commands.Choice(name="Support DPS", value=CharacterClass.SUPPORT_DPS.value),
+        app_commands.Choice(name="Amplifier", value=CharacterClass.AMPLIFIER.value),
+        app_commands.Choice(name="Sustain", value=CharacterClass.SUSTAIN.value),
+    ])
+    async def class_(self, ctx: discord.Interaction, role: app_commands.Choice[str]):
+        db = SessionLocal()
+        try:
+            player = get_player(db, ctx.user.id)
+            if player is None:
+                await ctx.response.send_message(
+                    "You haven't started your journey yet. Use `/start` first.",
+                    ephemeral=True,
+                )
+                return
+
+            expedition = dungeon_service.get_active_expedition(db, player.id)
+            if expedition is not None:
+                await ctx.response.send_message(
+                    "You can't switch roles during an active run -- finish or abandon your expedition first.",
+                    ephemeral=True,
+                )
+                return
+
+            ok, message = character_service.set_avatar_class(db, player, CharacterClass(role.value))
+            if ok:
+                emoji = CLASS_EMOJI.get(CharacterClass(role.value), "")
+                message = f"{emoji} {message}"
         finally:
             db.close()
 

@@ -49,6 +49,10 @@ def combatant_to_dict(c: Combatant) -> dict:
         "stunned_turns": c.stunned_turns,
         "base_actions_per_cycle": c.base_actions_per_cycle,
         "shield": c.shield,
+        "ramp_percent_per_turn": c.ramp_percent_per_turn,
+        "ramp_stacks": c.ramp_stacks,
+        "enemy_heal_stacks": c.enemy_heal_stacks,
+        "enemy_shield_stacks": c.enemy_shield_stacks,
     }
 
 
@@ -77,6 +81,10 @@ def combatant_from_dict(data: dict) -> Combatant:
         stunned_turns=data["stunned_turns"],
         base_actions_per_cycle=data.get("base_actions_per_cycle", 1),
         shield=data.get("shield", 0.0),
+        ramp_percent_per_turn=data.get("ramp_percent_per_turn", 0.0),
+        ramp_stacks=data.get("ramp_stacks", 0),
+        enemy_heal_stacks=data.get("enemy_heal_stacks", 0),
+        enemy_shield_stacks=data.get("enemy_shield_stacks", 0),
     )
 
 

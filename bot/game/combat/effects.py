@@ -417,8 +417,8 @@ def resolve_active_ability(
         # HP-equivalent pool (Combatant.shield) that absorbs incoming
         # damage before current_hp does (see _resolve_hit). Adds onto any
         # shield already up rather than overwriting it.
-        gained = attacker.max_hp * effect["percent"] / 100
-        attacker.shield += gained
+        requested = attacker.max_hp * effect["percent"] / 100
+        gained = attacker.gain_shield(requested)
         log.append(f"🔷 {attacker.name} raises a shield worth {round(gained)} HP.")
 
     elif kind == "team_shield_percent_max_hp":
@@ -426,8 +426,8 @@ def resolve_active_ability(
         # self_shield_percent_max_hp but for the caster's whole side at
         # once, each member shielded off their OWN max HP.
         for member in [attacker] + [a for a in allies if a.is_alive()]:
-            gained = member.max_hp * effect["percent"] / 100
-            member.shield += gained
+            requested = member.max_hp * effect["percent"] / 100
+            member.gain_shield(requested)
         log.append(f"🔷 {attacker.name}'s {ability['name']} shields the whole team!")
 
     elif kind == "damage_bonus_if_debuffed":
@@ -642,9 +642,9 @@ def trigger_on_turn_start(combatant: Combatant, log: list, allies: list[Combatan
             # HP) so it can't be stacked into an unbreakable wall turn
             # after turn.
             cap = combatant.max_hp * effect.get("cap_percent", 50) / 100
-            gained = min(cap - combatant.shield, combatant.max_hp * effect["percent"] / 100)
-            gained = max(0.0, gained)
-            combatant.shield += gained
+            requested = min(cap - combatant.shield, combatant.max_hp * effect["percent"] / 100)
+            requested = max(0.0, requested)
+            gained = combatant.gain_shield(requested)
             if gained:
                 log.append(f"🔷 {combatant.name}'s {passive['name']} reinforces their shield (+{round(gained)}).")
 

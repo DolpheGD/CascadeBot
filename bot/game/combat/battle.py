@@ -369,13 +369,13 @@ class Battle:
         allies = [e for e in self.enemies if e is not enemy and e.is_alive()]
         opponents = self.living_party()
 
-        if enemy.ultimate_ready() and self.rng.random() < 0.5:
+        if enemy.ultimate_ready() and self.rng.random() < 0.3:
             effects.resolve_active_ability(enemy, target, enemy.ultimate_ability, self.rng, self.log, allies=allies, opponents=opponents)
             self._end_turn(enemy)
             return
 
         usable = [a for a in enemy.active_abilities if enemy.ability_ready(a)]
-        if usable and self.rng.random() < 0.5:
+        if usable and self.rng.random() < 0.95:
             ability = self.rng.choice(usable)
             effects.resolve_active_ability(enemy, target, ability, self.rng, self.log, allies=allies, opponents=opponents)
         else:

@@ -92,6 +92,41 @@ class Combatant:
     ramp_percent_per_turn: float = 0.0
     ramp_stacks: int = 0
 
+    # Anti-softlock diminishing returns on enemy self-healing (sibling
+    # mechanism to the attack ramp above, same philosophy applied to heals
+    # instead of damage). Enemy weapon/artifact/innate healing kits are
+    # built from the exact same effect catalog the player's gear uses
+    # (heal_percent_max_hp, team_heal_percent_max_hp, HealOverTime regen,
+    # etc.), so we can't nerf a "kind" of heal without nerfing the
+    # player's copy of the same ability. Instead this counts every
+    # *effective* (non-zero) heal a given enemy Combatant receives over
+    # the course of the battle and makes each successive one weaker -- see
+    # ENEMY_HEAL_DECAY_PER_STACK / ENEMY_HEAL_MIN_MULTIPLIER in heal()
+    # below. Stays at 0 (no effect) for players. Never resets mid-battle,
+    # same as ramp_stacks, so stalling doesn't reset the clock.
+    enemy_heal_stacks: int = 0
+
+    # Tuning for the diminishing-returns curve above. Each stack multiplies
+    # heal effectiveness by roughly 1 / (1 + DECAY * stacks): stack 0 is
+    # full strength, stack ~5 is around half strength, stack ~20+ is down
+    # near the floor. The floor keeps a healer enemy "a healer" (it still
+    # does something) without letting it stonewall a fight forever.
+    ENEMY_HEAL_DECAY_PER_STACK = 0.3
+    ENEMY_HEAL_MIN_MULTIPLIER = 0.2
+
+    # Same idea, applied to shield generation instead of healing (see
+    # gain_shield() below) -- self_shield_percent_max_hp,
+    # team_shield_percent_max_hp, and the shield_regen passive all funnel
+    # through it. Deliberately STEEPER than the heal curve above: a shield
+    # never costs the caster anything to grant (no HP is spent the way a
+    # heal implies) and fully no-sells whatever damage it soaks, so an
+    # enemy leaning on shields is a harder stall than one leaning on heals
+    # and gets reined in harder for it -- half the decay tolerance and a
+    # lower floor.
+    enemy_shield_stacks: int = 0
+    ENEMY_SHIELD_DECAY_PER_STACK = 0.4
+    ENEMY_SHIELD_MIN_MULTIPLIER = 0.15
+
     def is_alive(self) -> bool:
         return self.current_hp > 0
 
@@ -137,10 +172,54 @@ class Combatant:
         return actual
 
     def heal(self, amount: float) -> int:
+        """Applies healing, in HP. This is the single choke point every
+        heal effect in the game routes through (heal_percent_max_hp,
+        team heals, HealOverTime regen ticks, lifesteal, etc. -- see
+        bot/game/combat/effects.py and battle.py), which is what lets us
+        temper enemy healing here, once, without touching any individual
+        ability definition or the player's copy of the same ability."""
+        if not self.is_player and amount > 0:
+            multiplier = max(
+                self.ENEMY_HEAL_MIN_MULTIPLIER,
+                1.0 / (1.0 + self.ENEMY_HEAL_DECAY_PER_STACK * self.enemy_heal_stacks),
+            )
+            amount *= multiplier
+
         amount = max(0, int(round(amount)))
         healed = min(self.max_hp - self.current_hp, amount)
         self.current_hp += healed
+
+        # Only ramp on heals that actually did something -- an enemy
+        # topped off on HP casting a heal anyway shouldn't "spend" a stack
+        # for free, since nothing was gained toward stalling the fight.
+        if not self.is_player and healed > 0:
+            self.enemy_heal_stacks += 1
+
         return healed
+
+    def gain_shield(self, amount: float) -> float:
+        """Adds to this combatant's shield pool. Sibling choke point to
+        heal() above -- every shield effect in the game
+        (self_shield_percent_max_hp, team_shield_percent_max_hp, and the
+        shield_regen passive; see bot/game/combat/effects.py) routes
+        through here, so enemy shielding can be tempered in one place
+        without touching any ability definition or the player's copy of
+        the same ability. Returns the actual amount added (post-
+        diminishing-returns for enemies), so callers can log the real
+        number rather than the requested one."""
+        if not self.is_player and amount > 0:
+            multiplier = max(
+                self.ENEMY_SHIELD_MIN_MULTIPLIER,
+                1.0 / (1.0 + self.ENEMY_SHIELD_DECAY_PER_STACK * self.enemy_shield_stacks),
+            )
+            amount *= multiplier
+
+        amount = max(0.0, amount)
+        if not self.is_player and amount > 0:
+            self.enemy_shield_stacks += 1
+
+        self.shield += amount
+        return amount
 
     def gain_energy_and_mana(self, percent: float | None = None) -> tuple[int, int]:
         """Called after a basic attack: the default attack builds both

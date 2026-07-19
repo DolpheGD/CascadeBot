@@ -13,6 +13,7 @@ from __future__ import annotations
 import re
 
 from bot.database.models.character_model import PlayerCharacter, SquadSlot
+from bot.database.models.enums import CLASS_DISPLAY_NAME, CharacterClass
 from bot.database.models.equipment_model import InventoryItem
 from bot.services.character_template_service import get_avatar_template
 from bot.services.currency_service import add_currency
@@ -179,7 +180,32 @@ def grant_character(db, player, template) -> tuple[PlayerCharacter, bool, dict[s
     return pc, True, None
 
 
-def rename_avatar(db, player, new_name: str | None) -> tuple[bool, str]:
+def set_avatar_class(db, player, new_class) -> tuple[bool, str]:
+    """Switches the player's own avatar between the 4 roles (DPS, Support
+    DPS, Amplifier, Sustain) -- the free-form class-switching the avatar
+    template is built for (CharacterTemplate.is_player_avatar +
+    PlayerCharacter.current_class; see character_model.py's module
+    docstring). This only ever touches the avatar's *kit* (character
+    skill/ultimate/passive, resolved per-class by
+    bot/game/combat/skills.py's CLASS_KIT_MAP and picked up automatically
+    next battle by factory.build_character_combatant) -- base stats, level,
+    equipment, and current_hp are untouched, so there's nothing to
+    reconcile on switch. Callers are expected to have already blocked this
+    during an active expedition (see /class in bot/cogs/profile.py), the
+    same restriction /squad already applies to squad changes -- role
+    should be settled before a run starts, not swapped mid-fight.
+    Returns (success, message); on success `message` is a friendly
+    confirmation, on failure it's why the switch was rejected."""
+    if not isinstance(new_class, CharacterClass):
+        return False, "That's not a valid role."
+
+    avatar = ensure_avatar_character(db, player)
+    if avatar.effective_class() == new_class:
+        return False, f"You're already playing **{CLASS_DISPLAY_NAME[new_class]}**."
+
+    avatar.current_class = new_class
+    db.commit()
+    return True, f"Switched your role to **{CLASS_DISPLAY_NAME[new_class]}**. This takes effect next battle."
     """Sets (or, if `new_name` is None/blank, clears) the custom_name on
     the player's own avatar PlayerCharacter -- lets them go by something
     other than the "You" template name everywhere it's shown (profile,
