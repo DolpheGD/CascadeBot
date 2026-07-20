@@ -19,12 +19,20 @@ times" quest, if both happen to be active. Call sites:
 
 - item_upgrade_service.level_up_item -> "upgrade_gear"
 - dungeon_service.resolve_battle_end -> "complete_adventures" (run ends,
-  win or lose), "win_battles" (any combat win), "defeat_boss" (boss win)
+  win or lose), "win_battles" (any combat win), "defeat_elite" (elite-room
+  win), "defeat_boss" (boss-room win) -- an elite-room or boss-room win
+  fires "win_battles" too, so a generic "win N battles" quest still
+  advances no matter what kind of fight it was
 - daily_service.claim_daily -> "claim_daily"
 - gacha_service.pull_single/pull_multi -> "gacha_pulls"
 - harvester_service.buy_harvester -> "buy_harvester"
 - harvester_service.collect_harvester -> "collect_harvester"
 - lootbox_service.open_lootboxes -> "open_lootboxes"
+
+roll_basic_quest draws from BASIC_QUEST_POOL weighted by each entry's
+optional "weight" key (default 10 if absent) rather than uniformly, so
+quick/cheap quests surface more often than big multi-kill grinds -- see
+quest_config.py's module docstring for the full weight convention.
 """
 
 from __future__ import annotations
@@ -122,7 +130,11 @@ def roll_basic_quest(db, player, rng: random.Random | None = None) -> PlayerQues
 
     db.query(PlayerQuest).filter_by(player_id=player.id, kind="basic", is_completed=False).delete()
 
-    quest_data = rng.choice(BASIC_QUEST_POOL)
+    quest_data = rng.choices(
+        BASIC_QUEST_POOL,
+        weights=[q.get("weight", 10) for q in BASIC_QUEST_POOL],
+        k=1,
+    )[0]
     quest = PlayerQuest(
         player_id=player.id,
         quest_id=quest_data["id"],

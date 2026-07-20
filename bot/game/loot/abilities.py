@@ -34,6 +34,18 @@ without needing new combat code. Each new entry below is tagged "filler"
 (cheap, simple, broadly reusable -- mostly existing kinds at new numbers)
 or "unique" (a new effect kind, or an existing one used in a genuinely new
 way) in its comment.
+
+Content pass (Mythic/Divine gear gap-fill): WEAPON_SKILLS and
+ARTIFACT_SKILLS previously topped out at Legendary `min_rarity`, meaning
+every Mythic or Divine weapon/artifact (Rarity.MYTHIC/DIVINE both exist
+and are reachable -- see region_config.py's max_item_rarity for The
+Hotlands/Voidcrest Desert) was rolling from the exact same pool as a
+Legendary one, with no exclusive top-end payoff for the rarest gear in the
+game. Added 2 Mythic + 2 Divine entries to each of those two pools (4 new
+abilities per pool), all reusing existing effect kinds from
+bot/game/combat/effects.py at a higher power tier -- no combat-resolution
+changes needed. ARMOR_PASSIVES already had Mythic/Divine coverage and was
+left alone.
 """
 
 from __future__ import annotations
@@ -262,6 +274,63 @@ WEAPON_SKILLS: list[dict] = [
         "cooldown": 3,
         "description": "Deal 120% ATK damage to all enemies.",
         "effect": {"kind": "aoe_damage", "damage_percent": 120, "damage_stat": "attack"},
+    },
+    {
+        # unique -- first Mythic-tier WEAPON_SKILLS entry (the pool
+        # previously topped out at Legendary's Phoenix Dive, so every
+        # Mythic/Divine weapon was rolling from the same options as a
+        # Legendary one). Riftcutter's chance_double_hit shape, pushed
+        # harder on both the damage and the proc chance.
+        "id": "ruin_breaker",
+        "name": "Ruin Breaker",
+        "min_rarity": Rarity.MYTHIC,
+        "resource_cost": 44,
+        "resource_type": "mana",
+        "cooldown": 3,
+        "description": "Deal 170% ATK damage. 45% chance to strike again for another 170% ATK damage.",
+        "effect": {"kind": "chance_double_hit", "damage_percent": 170,
+                   "chance_percent": 45, "damage_stat": "attack"},
+    },
+    {
+        # unique -- second Mythic weapon skill: Sunder Strike's
+        # threshold-execute shape at a much harder-hitting scale.
+        "id": "voidpiercer",
+        "name": "Voidpiercer",
+        "min_rarity": Rarity.MYTHIC,
+        "resource_cost": 40,
+        "resource_type": "mana",
+        "cooldown": 3,
+        "description": "Deal 150% ATK damage; if the target is below 35% HP, deal 260% ATK damage instead.",
+        "effect": {"kind": "execute_below_threshold", "damage_percent": 150,
+                   "execute_damage_percent": 260, "damage_stat": "attack",
+                   "hp_threshold_percent": 35},
+    },
+    {
+        # unique -- first Divine-tier WEAPON_SKILLS entry: Phoenix Dive's
+        # execute-then-heal shape at the top of the power curve.
+        "id": "apex_predator",
+        "name": "Apex Predator",
+        "min_rarity": Rarity.DIVINE,
+        "resource_cost": 48,
+        "resource_type": "mana",
+        "cooldown": 4,
+        "description": "Deal 240% ATK damage; if this kills the target, restore 35% max HP.",
+        "effect": {"kind": "damage_execute_heal", "damage_percent": 240, "damage_stat": "attack",
+                   "heal_percent_on_kill": 35},
+    },
+    {
+        # unique -- brings damage_scales_with_missing_hp (previously only
+        # on the Cataclysm ultimate) to the weapon-skill pool: a ramping
+        # finisher that hits hardest against a target already on the ropes.
+        "id": "cataclysms_edge",
+        "name": "Cataclysm's Edge",
+        "min_rarity": Rarity.DIVINE,
+        "resource_cost": 46,
+        "resource_type": "mana",
+        "cooldown": 4,
+        "description": "Deal 170% ATK damage, increased by up to 200% more the lower the target's HP is.",
+        "effect": {"kind": "damage_scales_with_missing_hp", "base_damage_percent": 170,
+                   "bonus_damage_percent_at_zero_hp": 200, "damage_stat": "attack"},
     },
 ]
 
@@ -618,6 +687,60 @@ ARTIFACT_SKILLS: list[dict] = [
         "cooldown": 4,
         "description": "Deal 110% ELE damage to all enemies.",
         "effect": {"kind": "aoe_damage", "damage_percent": 110, "damage_stat": "elemental"},
+    },
+    {
+        # unique -- first Mythic-tier ARTIFACT_SKILLS entry (same gap as
+        # WEAPON_SKILLS: the pool topped out at Legendary before this).
+        # Brings aoe_damage_chance_dot (previously only on Blueflame's
+        # character kit, see bot/game/combat/skills.py) to gear.
+        "id": "astral_cascade",
+        "name": "Astral Cascade",
+        "min_rarity": Rarity.MYTHIC,
+        "resource_cost": 36,
+        "resource_type": "mana",
+        "cooldown": 4,
+        "description": "Deal 95% ELE damage to all enemies, with a 50% chance to burn each hit target for 3 turns.",
+        "effect": {"kind": "aoe_damage_chance_dot", "damage_percent": 95, "damage_stat": "elemental",
+                   "dot_chance_percent": 50, "dot_stat": "elemental", "dot_percent": 12, "duration": 3},
+    },
+    {
+        # unique -- second Mythic artifact skill: Rousing Signal's
+        # team_buff shape, reskinned onto ELE at a bigger number for a
+        # caster-team version of the same signature-buff niche.
+        "id": "overmind_surge",
+        "name": "Overmind Surge",
+        "min_rarity": Rarity.MYTHIC,
+        "resource_cost": 38,
+        "resource_type": "mana",
+        "cooldown": 4,
+        "description": "Grant your whole side 35% ELE for 3 turns.",
+        "effect": {"kind": "team_buff", "buff_stat": "elemental", "buff_percent": 35, "duration": 3},
+    },
+    {
+        # unique -- first Divine-tier ARTIFACT_SKILLS entry: System
+        # Purge's true-damage shape (ignores DEF entirely) at a much
+        # bigger percent, for the very top of the gear power curve.
+        "id": "absolute_zero",
+        "name": "Absolute Zero",
+        "min_rarity": Rarity.DIVINE,
+        "resource_cost": 42,
+        "resource_type": "mana",
+        "cooldown": 5,
+        "description": "Deal true damage equal to 20% of the target's max HP, ignoring defense.",
+        "effect": {"kind": "true_damage_percent_max_hp", "percent": 20},
+    },
+    {
+        # unique -- second Divine artifact skill: Wellspring Surge's
+        # team_heal_percent_max_hp shape pushed to the top of the curve,
+        # the biggest single-cast team heal available on gear.
+        "id": "genesis_wellspring",
+        "name": "Genesis Wellspring",
+        "min_rarity": Rarity.DIVINE,
+        "resource_cost": 46,
+        "resource_type": "mana",
+        "cooldown": 5,
+        "description": "Heal your whole side for 45% of each member's own max HP.",
+        "effect": {"kind": "team_heal_percent_max_hp", "percent": 45},
     },
 ]
 

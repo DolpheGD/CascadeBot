@@ -606,7 +606,9 @@ def resolve_battle_end(db, expedition: Expedition, player, battle) -> dict:
     state, and returns a summary dict for the cog to render. A run can have
     3-5 bosses (see the generator) -- only defeating the FINAL one in
     graph['boss_nodes'] completes the expedition; earlier ones are big,
-    rewarding checkpoints that let the run continue."""
+    rewarding checkpoints that let the run continue. Every win records
+    "win_battles" quest progress, plus "defeat_boss" or "defeat_elite" on
+    top of that if the room was a BOSS or ELITE encounter respectively."""
     combat_service.sync_party_hp_to_characters(db, battle)
 
     if battle.result == "won":
@@ -615,6 +617,8 @@ def resolve_battle_end(db, expedition: Expedition, player, battle) -> dict:
         quest_service.record_progress(db, player, "win_battles")
         if room_type == RoomType.BOSS:
             quest_service.record_progress(db, player, "defeat_boss")
+        elif room_type == RoomType.ELITE:
+            quest_service.record_progress(db, player, "defeat_elite")
         _ledger_add_gold(expedition, rewards["gold"])
         _ledger_add_xp(expedition, rewards["xp"])
         for item in rewards["items"]:
