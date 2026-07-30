@@ -68,9 +68,51 @@ REGION_DIFFICULTY: dict[str, dict] = {
         "combat_squad_weights": {2: 10, 3: 25, 4: 35, 5: 30},
         "elite_squad_weights": {1: 30, 2: 50, 3: 20},
     },
+    "Abyssnia": {
+        # The glittering capital of Acatrya itself (see docs/WORLD_LORE.md)
+        # -- named in the world doc from the start but never actually
+        # built as a playable region until now. The true endgame tier:
+        # Rarity.DIVINE and lootbox tier "mythic" are already the hard
+        # ceiling of what either system can produce (touching either
+        # further would mean a new Rarity value, which needs a DB schema
+        # change -- off the table), so this region escalates entirely
+        # through harder fights and bigger payouts instead of a higher
+        # loot ceiling: a genuine "hardest content in the game" tier
+        # rather than a "strictly better loot" tier.
+        "tier": 5, "difficulty_label": "Nightmare",
+        "level_offset": 35, "combat_level_offset": 48, "reward_multiplier": 6.5,
+        "max_item_rarity": Rarity.DIVINE, "max_lootbox_tier": "mythic",
+        "combat_squad_weights": {3: 10, 4: 35, 5: 55},
+        "elite_squad_weights": {1: 10, 2: 35, 3: 55},
+    },
 }
 
 DEFAULT_DIFFICULTY = REGION_DIFFICULTY["Glacier 15"]
 
 def get_region_difficulty(region: str) -> dict:
     return REGION_DIFFICULTY.get(region, DEFAULT_DIFFICULTY)
+
+
+# ----------------------------------------------------------------------
+# Region progression gating: regions unlock in `tier` order. The lowest
+# tier (Glacier 15) is always available; every other region requires the
+# player to have COMPLETED (see ExpeditionStatus.COMPLETED --
+# bot/services/dungeon_service.py's resolve_battle_end, set only when the
+# FINAL boss of a run is defeated) an expedition in the region immediately
+# below it in tier. Derived from REGION_DIFFICULTY's own `tier` values
+# rather than a hardcoded chain, so adding a new region here is enough to
+# slot it into the unlock order without touching the gating logic itself.
+# ----------------------------------------------------------------------
+
+def ordered_regions() -> list[str]:
+    """Every region name, sorted easiest (lowest tier) to hardest."""
+    return sorted(REGION_DIFFICULTY, key=lambda name: REGION_DIFFICULTY[name]["tier"])
+
+
+def region_unlock_requirement(region: str) -> str | None:
+    """The region that must be COMPLETED before `region` unlocks, or None
+    if `region` is the lowest tier (always unlocked)."""
+    order = ordered_regions()
+    if region not in order or order.index(region) == 0:
+        return None
+    return order[order.index(region) - 1]

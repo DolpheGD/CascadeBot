@@ -51,6 +51,7 @@ class CascadeBot(commands.Bot):
         # here to guarantee its custom_id is actually registered.
         from bot.cogs.dungeon import CombatView, DungeonView, StartBattleView
         from bot.cogs.inventory import (
+            EntryAddSubstatButton,
             EntryEquipToggleButton,
             EntryLevelUpButton,
             EntryNavButton,
@@ -87,7 +88,8 @@ class CascadeBot(commands.Bot):
         self.add_view(InventoryListView(InventorySelectEntry(), []))
         self.add_dynamic_items(
             EntryNavButton, ToListButton, EntryEquipToggleButton,
-            EntryLevelUpButton, EntryRerollButton, EntrySellButton, EntryOpenLootboxButton, ListPageButton,
+            EntryLevelUpButton, EntryRerollButton, EntryAddSubstatButton, EntrySellButton,
+            EntryOpenLootboxButton, ListPageButton,
         )
         self.add_dynamic_items(HarvesterActionButton, HarvesterCollectAllButton)
         self.add_dynamic_items(HQUpgradeButton, ShrineActionButton, ShopBuyButton)

@@ -38,3 +38,23 @@ class HealOverTime:
     percent_max_hp: float
     duration: int
     source: str = ""
+
+
+@dataclass
+class Vulnerability:
+    """A STACKING debuff that increases damage the owner TAKES from one
+    specific damage_stat (e.g. "elemental"), as a flat percent per stack --
+    distinct from a StatModifier debuff on the owner's own defense, which
+    reduces mitigation uniformly across every kind of hit. Repeated
+    applications from the SAME source (matched by `source`) add another
+    stack onto this one instance (capped at max_stacks) rather than
+    stacking as separate independent entries the way StatModifier does;
+    unmatched sources each track their own instance. Persists for the rest
+    of the battle once applied -- no automatic per-turn decay -- same
+    battle-long-once-earned convention as Combatant.stacks (stacking_buff)
+    and ramp_stacks, rather than StatModifier's turn-based duration."""
+    damage_stat: str
+    percent_per_stack: float
+    stacks: int
+    max_stacks: int
+    source: str = ""

@@ -74,6 +74,44 @@ energy/mana drain instead of a stat debuff (Nyrvite's signal-jamming
 flavor on the same AOE-plus-sometimes-more kit piece).
 aoe_damage_chance_dot is the same shape again, but with a burn
 (DamageOverTime) instead of a stat debuff -- Blueflame's kit piece.
+
+New-mechanics pass (roster diversity, round 2): four genuinely new pieces
+of combat plumbing, not just new data on existing kinds.
+
+1. Reactive team buff (`on_hit_team_buff`, always-on passive): the
+   defender's WHOLE side (not just the defender) gets buffed the instant
+   the defender takes a hit -- "sacrificial support," where tanking a hit
+   for the team is itself the team-buff trigger. Needed `defender_allies`
+   threaded into _resolve_hit (every OTHER living combatant on the
+   DEFENDER's side, computed from `opponents` in resolve_active_ability,
+   or passed straight into resolve_basic_attack by battle.py) alongside
+   the existing `allies`/`opponents`.
+
+2. Vulnerability stacking (`apply_vulnerability_stack` active kind +
+   status.Vulnerability): a debuff that increases damage the TARGET takes
+   from one specific damage_stat (e.g. elemental), stacking further with
+   repeat hits from the same source instead of just refreshing a flat
+   percent -- "the more you hit it, the more everyone's follow-up hits of
+   that type hurt." Persists for the rest of the battle once applied
+   (same convention as Combatant.stacks/ramp_stacks), so repeated casts
+   from the same source build toward max_stacks instead of resetting.
+
+3. Extra turn on kill (`extra_turn_on_kill`, always-on passive): landing
+   a killing blow immediately re-queues the killer for another turn this
+   same cycle (battle.py's take_party_action/take_enemy_turn diff the
+   opposing side's living count around the action) instead of just
+   restoring a resource like on_kill_restore does -- an unstoppable
+   "clears one target, doesn't slow down" identity.
+
+4. DoT amplification (`dot_amplifier`, always-on passive): every
+   DamageOverTime the wearer applies (damage_and_dot, aoe_damage_chance_dot)
+   is scaled up by a flat percent at the moment it's created, same
+   frozen-at-application convention as the DOT's own flat_amount.
+
+5. Sacrificial team buffing (`sacrifice_hp_team_buff` active kind): the
+   Blood-Sustain family's sacrifice_hp_heal_* kinds, but for a team BUFF
+   instead of a team heal -- pays with the caster's own HP via
+   take_raw_hp_loss, then buffs the whole side (caster included).
 """
 
 from __future__ import annotations
@@ -82,11 +120,19 @@ import random
 
 from bot.game.combat import formulas
 from bot.game.combat.combatant import Combatant
-from bot.game.combat.status import DamageOverTime, HealOverTime, StatModifier
+from bot.game.combat.status import DamageOverTime, HealOverTime, StatModifier, Vulnerability
 
 
-def resolve_basic_attack(attacker: Combatant, defender: Combatant, rng: random.Random, log: list) -> None:
-    _resolve_hit(attacker, defender, damage_percent=100, damage_stat="attack", rng=rng, log=log)
+def resolve_basic_attack(
+    attacker: Combatant, defender: Combatant, rng: random.Random, log: list,
+    defender_allies: list[Combatant] | None = None,
+) -> None:
+    """`defender_allies` is every OTHER living combatant on defender's own
+    side -- only used by defender-reactive team-oriented passives (e.g.
+    on_hit_team_buff, see _resolve_hit). Safe to omit; those passives
+    simply won't have anyone else to buff if it's left out."""
+    defender_allies = defender_allies or []
+    _resolve_hit(attacker, defender, damage_percent=100, damage_stat="attack", rng=rng, log=log, defender_allies=defender_allies)
     energy_gained, mana_gained = attacker.gain_energy_and_mana()
     if energy_gained or mana_gained:
         log.append(f"{attacker.name} gains {energy_gained} energy and {mana_gained} SP.")
@@ -102,11 +148,15 @@ def resolve_active_ability(
     team_resource_restore, team_regen_over_time), introduced for the Combat
     Overhaul's Sustain/Amplifier/Support DPS character kits
     (bot/game/combat/skills.py). `opponents` is every living combatant on
-    the OTHER side (including defender) -- only used by team_debuff. Every
-    other effect kind ignores both, so they're safe to omit for simple
-    1v1-style abilities."""
+    the OTHER side (including defender) -- used by team_debuff, AND as the
+    source for `defender_allies`/`target_allies` below (every OTHER living
+    member of whichever side is on the receiving end of a given hit) --
+    used by defender-reactive team passives like on_hit_team_buff. Every
+    other effect kind ignores all of this, so they're safe to omit for
+    simple 1v1-style abilities."""
     allies = allies or []
     opponents = opponents if opponents is not None else [defender]
+    defender_allies = [o for o in opponents if o is not defender and o.is_alive()]
     attacker.spend_resource(ability)
     icon = "💥" if ability.get("is_ultimate") else "✨"
     log.append(f"{icon} {attacker.name} uses {ability['name']}!")
@@ -116,13 +166,15 @@ def resolve_active_ability(
 
     if kind == "damage_multiplier":
         _resolve_hit(attacker, defender, effect["damage_percent"],
-                     effect.get("damage_stat", "attack"), rng, log)
+                     effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
 
     elif kind == "damage_and_dot":
         hit = _resolve_hit(attacker, defender, effect["damage_percent"],
-                            effect.get("damage_stat", "attack"), rng, log)
+                            effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         if hit and defender.is_alive():
             flat_amount = attacker.effective_stat(effect["dot_stat"]) * effect["dot_percent"] / 100
+            for passive in attacker.find_passive("dot_amplifier"):
+                flat_amount *= 1 + passive["effect"]["percent"] / 100
             defender.dots.append(DamageOverTime(
                 flat_amount=flat_amount, duration=effect["duration"],
                 source=ability["name"], stat_source=effect["dot_stat"],
@@ -131,7 +183,7 @@ def resolve_active_ability(
 
     elif kind == "damage_and_debuff":
         hit = _resolve_hit(attacker, defender, effect["damage_percent"],
-                            effect.get("damage_stat", "attack"), rng, log)
+                            effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         if hit and defender.is_alive():
             defender.modifiers.append(StatModifier(
                 stat=effect["debuff_stat"], percent=effect["debuff_percent"],
@@ -139,13 +191,43 @@ def resolve_active_ability(
             ))
             log.append(f"{defender.name}'s {effect['debuff_stat']} is reduced!")
 
+    elif kind == "apply_vulnerability_stack":
+        # Marks a single target with a stacking Vulnerability instead of a
+        # StatModifier debuff -- see status.Vulnerability. Repeat casts
+        # (matched by this ability's name as the `source`) add another
+        # stack onto the SAME instance rather than creating a new one.
+        hit = _resolve_hit(attacker, defender, effect["damage_percent"],
+                            effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
+        if hit and defender.is_alive():
+            existing = next(
+                (v for v in defender.vulnerabilities
+                 if v.damage_stat == effect["vulnerable_damage_stat"] and v.source == ability["name"]),
+                None,
+            )
+            if existing is not None:
+                existing.stacks = min(existing.max_stacks, existing.stacks + 1)
+            else:
+                defender.vulnerabilities.append(Vulnerability(
+                    damage_stat=effect["vulnerable_damage_stat"],
+                    percent_per_stack=effect["percent_per_stack"],
+                    stacks=1, max_stacks=effect["max_stacks"], source=ability["name"],
+                ))
+            stacks_now = next(
+                v.stacks for v in defender.vulnerabilities
+                if v.damage_stat == effect["vulnerable_damage_stat"] and v.source == ability["name"]
+            )
+            log.append(
+                f"🎯 {defender.name} is marked ({stacks_now}x) -- "
+                f"takes increased {effect['vulnerable_damage_stat']} damage!"
+            )
+
     elif kind == "heal_percent_max_hp":
         healed = attacker.heal(attacker.max_hp * effect["percent"] / 100)
         log.append(f"💚 {attacker.name} heals {healed} HP.")
 
     elif kind == "damage_and_stun":
         hit = _resolve_hit(attacker, defender, effect["damage_percent"],
-                            effect.get("damage_stat", "attack"), rng, log)
+                            effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         if hit and defender.is_alive():
             defender.stunned_turns += effect["duration"]
             log.append(f"😵 {defender.name} is stunned!")
@@ -161,7 +243,7 @@ def resolve_active_ability(
 
     elif kind == "damage_execute_heal":
         hit = _resolve_hit(attacker, defender, effect["damage_percent"],
-                            effect.get("damage_stat", "attack"), rng, log)
+                            effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         if hit and not defender.is_alive():
             healed = attacker.heal(attacker.max_hp * effect["heal_percent_on_kill"] / 100)
             log.append(f"🔥 {attacker.name} is reinvigorated, healing {healed} HP!")
@@ -172,12 +254,12 @@ def resolve_active_ability(
             if not defender.is_alive():
                 break
             _resolve_hit(attacker, defender, effect["damage_percent_per_hit"],
-                         effect.get("damage_stat", "attack"), rng, log, suppress_kill_log=True)
+                         effect.get("damage_stat", "attack"), rng, log, suppress_kill_log=True, defender_allies=defender_allies)
         _trigger_on_kill_if_dead(attacker, defender, log)
 
     elif kind == "damage_and_heal_self":
         hit = _resolve_hit(attacker, defender, effect["damage_percent"],
-                            effect.get("damage_stat", "attack"), rng, log)
+                            effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         if hit:
             healed = attacker.heal(attacker.effective_stat(effect.get("heal_stat", "attack")) * effect["heal_percent"] / 100)
             if healed:
@@ -194,7 +276,7 @@ def resolve_active_ability(
         # Used sparingly (big ultimates): hits current target hard and
         # trades a temporary defense drop for the burst.
         hit = _resolve_hit(attacker, defender, effect["damage_percent"],
-                            effect.get("damage_stat", "attack"), rng, log)
+                            effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         attacker.modifiers.append(StatModifier(
             effect["debuff_stat"], effect["debuff_percent"], effect["duration"], ability["name"]
         ))
@@ -227,7 +309,7 @@ def resolve_active_ability(
         # already below the given HP% -- a finisher move.
         is_execute = defender.current_hp <= defender.max_hp * effect["hp_threshold_percent"] / 100
         percent = effect["execute_damage_percent"] if is_execute else effect["damage_percent"]
-        _resolve_hit(attacker, defender, percent, effect.get("damage_stat", "attack"), rng, log)
+        _resolve_hit(attacker, defender, percent, effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         if is_execute:
             log.append(f"⚔️ {attacker.name} finishes with a decisive blow!")
 
@@ -246,7 +328,7 @@ def resolve_active_ability(
         # Deals damage and strips energy/mana from the target -- an EMP-
         # style effect that can delay an ultimate or starve out a skill.
         hit = _resolve_hit(attacker, defender, effect["damage_percent"],
-                            effect.get("damage_stat", "attack"), rng, log)
+                            effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         if hit and defender.is_alive():
             energy_drained = min(defender.energy, effect.get("energy_drain", 0))
             mana_drained = min(defender.mana, effect.get("mana_drain", 0))
@@ -270,7 +352,7 @@ def resolve_active_ability(
         # (theoretical) 0 HP.
         missing_fraction = 1 - (defender.current_hp / max(1, defender.max_hp))
         total_percent = effect["base_damage_percent"] + effect["bonus_damage_percent_at_zero_hp"] * missing_fraction
-        _resolve_hit(attacker, defender, total_percent, effect.get("damage_stat", "elemental"), rng, log)
+        _resolve_hit(attacker, defender, total_percent, effect.get("damage_stat", "elemental"), rng, log, defender_allies=defender_allies)
 
     elif kind == "team_debuff":
         # Applies a stat debuff to every living combatant on the OTHER
@@ -311,13 +393,30 @@ def resolve_active_ability(
                 log.append(f"💚 {member.name} is healed for {healed} HP by {ability['name']}.")
         _trigger_on_low_hp(attacker, log)
 
+    elif kind == "sacrifice_hp_team_buff":
+        # Blood-Sustain's buff sibling -- same self-cost-via-take_raw_hp_loss
+        # payment as the sacrifice_hp_heal_* kinds above, but empowers the
+        # whole side (caster INCLUDED, unlike the heal versions -- this one
+        # is "give everyone, including yourself, an edge," not "give away
+        # your own vitality") with a StatModifier instead of healing them.
+        self_cost = attacker.max_hp * effect["self_cost_percent"] / 100
+        paid = attacker.take_raw_hp_loss(self_cost)
+        if paid:
+            log.append(f"🩸 {attacker.name} sacrifices {paid} HP to fuel {ability['name']}.")
+        for member in [attacker] + [a for a in allies if a.is_alive()]:
+            member.modifiers.append(StatModifier(
+                effect["buff_stat"], effect["buff_percent"], effect["duration"], ability["name"]
+            ))
+        log.append(f"📡 {attacker.name}'s {ability['name']} empowers the whole team!")
+        _trigger_on_low_hp(attacker, log)
+
     elif kind == "damage_and_double_debuff":
         # Debuff-specialist kit piece (Axel) -- like damage_and_debuff but
         # strips down TWO stats on the target at once (e.g. ATK and DEF),
         # for characters built around dismantling a target rather than
         # just chipping DEF for a follow-up hit.
         hit = _resolve_hit(attacker, defender, effect["damage_percent"],
-                            effect.get("damage_stat", "attack"), rng, log)
+                            effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         if hit and defender.is_alive():
             defender.modifiers.append(StatModifier(
                 stat=effect["debuff_stat_1"], percent=effect["debuff_percent_1"],
@@ -437,7 +536,7 @@ def resolve_active_ability(
         # matter which), rewarding follow-up damage after a debuff lands.
         has_debuff = any(m.percent < 0 for m in defender.modifiers)
         percent = effect["damage_percent"] + (effect["bonus_damage_percent"] if has_debuff else 0)
-        _resolve_hit(attacker, defender, percent, effect.get("damage_stat", "attack"), rng, log)
+        _resolve_hit(attacker, defender, percent, effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         if has_debuff:
             log.append(f"🎯 {attacker.name} exploits {defender.name}'s weakened state!")
 
@@ -447,11 +546,11 @@ def resolve_active_ability(
         # gated behind chance_percent and skipped if the first hit already
         # finished the target.
         _resolve_hit(attacker, defender, effect["damage_percent"],
-                     effect.get("damage_stat", "attack"), rng, log, suppress_kill_log=True)
+                     effect.get("damage_stat", "attack"), rng, log, suppress_kill_log=True, defender_allies=defender_allies)
         if defender.is_alive() and formulas.roll_percent(effect["chance_percent"], rng):
             log.append(f"⚡ {attacker.name}'s {ability['name']} strikes again!")
             _resolve_hit(attacker, defender, effect["damage_percent"],
-                         effect.get("damage_stat", "attack"), rng, log, suppress_kill_log=True)
+                         effect.get("damage_stat", "attack"), rng, log, suppress_kill_log=True, defender_allies=defender_allies)
         _trigger_on_kill_if_dead(attacker, defender, log)
 
     elif kind == "aoe_damage":
@@ -459,8 +558,9 @@ def resolve_active_ability(
         # living enemy at once for the same damage_percent, instead of
         # dumping it all into one target the way the class used to.
         for target in [o for o in opponents if o.is_alive()]:
+            target_allies = [o for o in opponents if o is not target and o.is_alive()]
             _resolve_hit(attacker, target, effect["damage_percent"],
-                         effect.get("damage_stat", "attack"), rng, log)
+                         effect.get("damage_stat", "attack"), rng, log, defender_allies=target_allies)
         log.append(f"💥 {attacker.name}'s {ability['name']} sweeps the whole enemy side!")
 
     elif kind == "aoe_damage_chance_debuff":
@@ -470,8 +570,9 @@ def resolve_active_ability(
         # debuffs" is the point: unlike damage_and_debuff, it's not
         # guaranteed on every cast.
         for target in [o for o in opponents if o.is_alive()]:
+            target_allies = [o for o in opponents if o is not target and o.is_alive()]
             hit = _resolve_hit(attacker, target, effect["damage_percent"],
-                                effect.get("damage_stat", "attack"), rng, log)
+                                effect.get("damage_stat", "attack"), rng, log, defender_allies=target_allies)
             if hit and target.is_alive() and formulas.roll_percent(effect["debuff_chance_percent"], rng):
                 target.modifiers.append(StatModifier(
                     stat=effect["debuff_stat"], percent=effect["debuff_percent"],
@@ -485,8 +586,9 @@ def resolve_active_ability(
         # but the "more" is a resource drain (energy/mana) instead of a
         # stat debuff, rolled independently per target.
         for target in [o for o in opponents if o.is_alive()]:
+            target_allies = [o for o in opponents if o is not target and o.is_alive()]
             hit = _resolve_hit(attacker, target, effect["damage_percent"],
-                                effect.get("damage_stat", "attack"), rng, log)
+                                effect.get("damage_stat", "attack"), rng, log, defender_allies=target_allies)
             if hit and target.is_alive() and formulas.roll_percent(effect["drain_chance_percent"], rng):
                 energy_drained = min(target.energy, effect.get("energy_drain", 0))
                 mana_drained = min(target.mana, effect.get("mana_drain", 0))
@@ -502,10 +604,13 @@ def resolve_active_ability(
         # debuff. Introduced for Blueflame, whose Support DPS kit leans
         # on damage-over-time rather than shredding a stat.
         for target in [o for o in opponents if o.is_alive()]:
+            target_allies = [o for o in opponents if o is not target and o.is_alive()]
             hit = _resolve_hit(attacker, target, effect["damage_percent"],
-                                effect.get("damage_stat", "attack"), rng, log)
+                                effect.get("damage_stat", "attack"), rng, log, defender_allies=target_allies)
             if hit and target.is_alive() and formulas.roll_percent(effect["dot_chance_percent"], rng):
                 flat_amount = attacker.effective_stat(effect["dot_stat"]) * effect["dot_percent"] / 100
+                for passive in attacker.find_passive("dot_amplifier"):
+                    flat_amount *= 1 + passive["effect"]["percent"] / 100
                 target.dots.append(DamageOverTime(
                     flat_amount=flat_amount, duration=effect["duration"],
                     source=ability["name"], stat_source=effect["dot_stat"],
@@ -518,10 +623,16 @@ def resolve_active_ability(
 
 def _resolve_hit(attacker: Combatant, defender: Combatant, damage_percent: float,
                   damage_stat: str, rng: random.Random, log: list,
-                  suppress_kill_log: bool = False) -> bool:
+                  suppress_kill_log: bool = False,
+                  defender_allies: list[Combatant] | None = None) -> bool:
     """Resolves one hit. Always lands -- there is no dodge/miss chance in
     this game. Returns True (kept as a return value so callers that guard
-    follow-up effects on "did it hit" still read naturally)."""
+    follow-up effects on "did it hit" still read naturally).
+
+    `defender_allies` (every OTHER living combatant on defender's own
+    side) is only used by defender-reactive team passives (on_hit_team_buff
+    below); every other caller path is unaffected by leaving it out."""
+    defender_allies = defender_allies or []
     raw = attacker.effective_stat(damage_stat) * damage_percent / 100
 
     is_crit = formulas.roll_percent(attacker.effective_stat("crit_rate"), rng)
@@ -531,6 +642,10 @@ def _resolve_hit(attacker: Combatant, defender: Combatant, damage_percent: float
             raw *= 1 + passive["effect"]["percent"] / 100
 
     damage = formulas.mitigate(raw, defender.effective_stat("defense"))
+
+    vulnerability_percent = defender.total_vulnerability_percent(damage_stat)
+    if vulnerability_percent:
+        damage *= 1 + vulnerability_percent / 100
 
     for passive in defender.find_passive("damage_reduction"):
         damage *= 1 - passive["effect"]["percent"] / 100
@@ -566,6 +681,12 @@ def _resolve_hit(attacker: Combatant, defender: Combatant, damage_percent: float
         if formulas.roll_percent(passive["effect"]["percent"], rng):
             attacker.stunned_turns += passive["effect"]["duration"]
             log.append(f"⚡ {defender.name}'s {passive['name']} stuns {attacker.name}!")
+
+    for passive in defender.find_passive("on_hit_team_buff"):
+        eff = passive["effect"]
+        for member in [defender] + list(defender_allies):
+            member.modifiers.append(StatModifier(eff["buff_stat"], eff["buff_percent"], eff["duration"], passive["name"]))
+        log.append(f"📯 {defender.name}'s {passive['name']} rallies the whole team!")
 
     _trigger_on_low_hp(defender, log)
 

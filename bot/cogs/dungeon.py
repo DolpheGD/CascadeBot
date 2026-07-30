@@ -750,7 +750,8 @@ class Dungeon(commands.Cog):
         app_commands.Choice(name="Glacier 15 (Easy)", value="Glacier 15"),
         app_commands.Choice(name="The Wastelands (Normal)", value="The Wastelands"),
         app_commands.Choice(name="The Hotlands (Hard)", value="The Hotlands"),
-        app_commands.Choice(name="Voidcrest Desert (Nightmare)", value="Voidcrest Desert"),
+        app_commands.Choice(name="Voidcrest Desert (Insane)", value="Voidcrest Desert"),
+        app_commands.Choice(name="Abyssnia (Nightmare)", value="Abyssnia"),
     ])
     async def adventure(self, ctx: discord.Interaction, region: str = "Glacier 15"):
         db = SessionLocal()
@@ -765,6 +766,14 @@ class Dungeon(commands.Cog):
 
             resume_region_note = None
             if expedition is None:
+                unlocked, required_region = dungeon_service.is_region_unlocked(db, player.id, region)
+                if not unlocked:
+                    await ctx.response.send_message(
+                        f"**{region}** is locked -- fully clear an expedition in "
+                        f"**{required_region}** (defeat its final boss) to unlock it.",
+                        ephemeral=True,
+                    )
+                    return
                 expedition = dungeon_service.start_expedition(db, player, region)
                 result = dungeon_service.enter_node(db, expedition, player)
                 message = result["message"]

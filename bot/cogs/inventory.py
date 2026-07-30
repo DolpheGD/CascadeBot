@@ -235,6 +235,23 @@ class EntryRerollButton(discord.ui.DynamicItem[discord.ui.Button], template=r"ca
         await _handle_reroll(interaction, self.item_id)
 
 
+class EntryAddSubstatButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade_entry_addsubstat:(?P<item_id>\d+)"):
+    def __init__(self, item_id: int, label: str = "➕ Add Substat"):
+        super().__init__(discord.ui.Button(
+            label=label, style=discord.ButtonStyle.primary, custom_id=f"cascade_entry_addsubstat:{item_id}",
+        ))
+        self.item_id = item_id
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match):
+        return cls(int(match["item_id"]))
+
+    async def callback(self, interaction: discord.Interaction):
+        if not await check_message_owner(interaction):
+            return
+        await _handle_add_substat(interaction, self.item_id)
+
+
 class EntrySellButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade_entry_sell:(?P<item_id>\d+)"):
     def __init__(self, item_id: int, label: str = "💰 Sell"):
         super().__init__(discord.ui.Button(
@@ -458,6 +475,8 @@ async def _render_detail_page(db, player, entry_id: str):
     ))
     buttons.append(EntryLevelUpButton(item.id))
     buttons.append(EntryRerollButton(item.id))
+    if item_upgrade_service.get_add_substat_cost(item) is not None:
+        buttons.append(EntryAddSubstatButton(item.id))
     if not item.is_equipped:
         buttons.append(EntrySellButton(item.id))
 
@@ -581,6 +600,28 @@ async def _handle_reroll(interaction: discord.Interaction, item_id: int):
             return
 
         ok, message = item_upgrade_service.reroll_item(db, player, item)
+        db.refresh(item)
+
+        embed, view = await _render_detail_page(db, player, f"item:{item.id}")
+        await interaction.response.edit_message(content=message, embed=embed, view=view)
+    finally:
+        db.close()
+
+
+async def _handle_add_substat(interaction: discord.Interaction, item_id: int):
+    db = SessionLocal()
+    try:
+        player = get_player(db, interaction.user.id)
+        if player is None:
+            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            return
+
+        item = inventory_service.get_item(db, item_id, player.id)
+        if item is None:
+            await interaction.response.send_message("Item not found.", ephemeral=True)
+            return
+
+        ok, message = item_upgrade_service.add_substat_to_item(db, player, item)
         db.refresh(item)
 
         embed, view = await _render_detail_page(db, player, f"item:{item.id}")

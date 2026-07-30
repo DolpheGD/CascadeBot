@@ -58,6 +58,8 @@ class Combatant:
     modifiers: list = field(default_factory=list)  # list[StatModifier]
     dots: list = field(default_factory=list)        # list[DamageOverTime]
     heals: list = field(default_factory=list)       # list[HealOverTime]
+    vulnerabilities: list = field(default_factory=list)  # list[Vulnerability]
+    pending_intent: dict | None = None  # {"ability": dict|None, "target": Combatant} -- see Battle._decide_enemy_intent
 
     stunned_turns: int = 0
 
@@ -243,6 +245,17 @@ class Combatant:
 
     def find_passive(self, effect_kind: str) -> list:
         return [a for a in self.passive_abilities if a["effect"]["kind"] == effect_kind]
+
+    def total_vulnerability_percent(self, damage_stat: str) -> float:
+        """Sum of every stacked Vulnerability's (percent_per_stack * stacks)
+        matching `damage_stat` -- see status.Vulnerability. Multiple
+        independent sources (different abilities) stack additively with
+        each other; only repeat applications from the SAME source stack
+        onto one instance (handled where Vulnerability instances are
+        created/refreshed, in effects.py)."""
+        return sum(
+            v.percent_per_stack * v.stacks for v in self.vulnerabilities if v.damage_stat == damage_stat
+        )
 
     def ability_ready(self, ability: dict) -> bool:
         if self.cooldowns.get(ability["id"], 0) > 0:

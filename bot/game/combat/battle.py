@@ -26,6 +26,23 @@ Artifact Skill (mana, if an artifact's equipped) -- see
 bot/game/combat/skills.py and factory.py for how those are resolved onto
 each Combatant. There is no fleeing and no defending.
 
+extra_turn_on_kill (a passive checked here, not in effects.py -- see
+_maybe_grant_extra_turn): if an action drops the opposing side's living
+count, the killer is re-queued at the FRONT of cycle_order for an
+immediate bonus turn, ahead of whoever was up next, instead of just
+handing play onward. Checked by diffing the opposing side's living count
+before/after the action rather than a return value from effects.py, so it
+fires correctly regardless of which effect kind (single-target, AOE,
+multi-hit) landed the killing blow, and at most once per action even if
+an AOE finishes off several targets at once.
+
+Enemy intent telegraphing (see peek_upcoming_enemy_intents /
+Combatant.pending_intent): an enemy's target + move for its turn is
+decided ahead of the turn actually happening, and then REUSED (not
+re-rolled) once that turn arrives, so whatever the UI showed the player
+beforehand is guaranteed to be exactly what happens -- see
+bot/utils/embedder.py's _enemy_intent_lines for where that gets rendered.
+
 Usage:
 
     battle = Battle(party_combatants, enemy_combatants)
@@ -310,9 +327,11 @@ class Battle:
         target = self._pick_enemy_target(self.target_index)
         allies = [c for c in self.party if c is not actor and c.is_alive()]
         opponents = self.living_enemies()
+        living_opponents_before = len(opponents)
 
         if action == "attack":
-            effects.resolve_basic_attack(actor, target, self.rng, self.log)
+            defender_allies = [o for o in opponents if o is not target and o.is_alive()]
+            effects.resolve_basic_attack(actor, target, self.rng, self.log, defender_allies=defender_allies)
         elif action == "ability":
             ability = self._find_active_ability(actor, ability_id)
             if ability is None or not actor.ability_ready(ability):
@@ -328,6 +347,17 @@ class Battle:
         else:
             self.log.append(f"Unknown action: {action}")
             return
+
+        # Extra turn on kill (see status.Vulnerability's sibling mechanic,
+        # the extra_turn_on_kill passive) -- if this action dropped the
+        # opposing side's living count, re-queue the actor at the front of
+        # the current cycle for an immediate bonus turn instead of handing
+        # play to whoever's next. Checked by count rather than a return
+        # value from effects.py, so it works no matter which effect kind
+        # (single-target, AOE, multi-hit) landed the killing blow, and
+        # fires at most once per action even if several targets died at
+        # once (e.g. a wide AOE finishing multiple weakened enemies).
+        self._maybe_grant_extra_turn(actor, living_opponents_before)
 
         self._end_turn(actor)
 
@@ -353,10 +383,70 @@ class Battle:
         return None
 
     # ------------------------------------------------------------------
-    # Enemy turn: prefers the ultimate when ready, then an off-cooldown
-    # affordable skill about half the time, otherwise a basic attack.
-    # Targets a random living party member.
+    # Enemy turn / intent telegraphing: an enemy's action for its turn is
+    # DECIDED (target + ability, no execution) as soon as it's knowable,
+    # and REUSED at execution time rather than re-rolled -- so whatever
+    # peek_upcoming_enemy_intents() showed the player is guaranteed to be
+    # exactly what happens. See Combatant.pending_intent.
     # ------------------------------------------------------------------
+    def _decide_enemy_intent(self, enemy: Combatant) -> dict:
+        """Pure decision, no execution: prefers the ultimate when ready
+        (30% of the time), then an off-cooldown affordable ability about
+        95% of the time, otherwise a basic attack. Targets a random living
+        party member. Returns {"ability": dict|None, "target": Combatant}
+        -- None ability means a basic attack."""
+        target = self._pick_party_target()
+        if enemy.ultimate_ready() and self.rng.random() < 0.3:
+            return {"ability": enemy.ultimate_ability, "target": target}
+        usable = [a for a in enemy.active_abilities if enemy.ability_ready(a)]
+        if usable and self.rng.random() < 0.95:
+            return {"ability": self.rng.choice(usable), "target": target}
+        return {"ability": None, "target": target}
+
+    def peek_upcoming_enemy_intents(self) -> list[tuple[Combatant, dict | None]]:
+        """(enemy, intent) for every enemy queued to act before the NEXT
+        party member's turn -- exactly the batch that will resolve the
+        instant the current party member's action is submitted (see
+        _advance_to_player_or_end in bot/cogs/dungeon.py, which burns
+        through consecutive enemy turns with no rendering pause in
+        between -- this is what lets the player see them coming first).
+
+        Also covers the one case where the very NEXT actor is itself an
+        enemy that hasn't acted yet: right when a battle starts, if an
+        enemy out-speeds the whole party, current_actor() is already that
+        enemy (popped off cycle_order into _current_actor) before
+        anything has happened -- see _combat_entry_view_and_embed's
+        pre-battle preview, which renders before any advance-to-player-turn
+        loop runs. Without checking current_actor() too, that enemy's
+        opening move wouldn't show up here at all.
+
+        intent is None for a currently-stunned enemy, since _begin_turn
+        skips their action entirely when their turn arrives -- showing a
+        decided move for them would be misleading. For every other queued
+        enemy, this DECIDES AND LOCKS IN (via pending_intent) a fresh
+        intent if one isn't already stored, rather than just previewing
+        one -- take_enemy_turn reuses whatever's already been decided
+        instead of re-rolling, so this is intentionally not side-effect
+        free the way preview_turn_order is."""
+        candidates: list[Combatant] = []
+        if self._current_actor is not None and self._current_actor in self.enemies and self._current_actor.is_alive():
+            candidates.append(self._current_actor)
+        candidates.extend(self.cycle_order)
+
+        result: list[tuple[Combatant, dict | None]] = []
+        for c in candidates:
+            if not c.is_alive():
+                continue
+            if c in self.party:
+                break
+            if c.stunned_turns > 0:
+                result.append((c, None))
+                continue
+            if c.pending_intent is None:
+                c.pending_intent = self._decide_enemy_intent(c)
+            result.append((c, c.pending_intent))
+        return result
+
     def take_enemy_turn(self) -> None:
         if self.is_over():
             return
@@ -365,20 +455,37 @@ class Battle:
         if enemy not in self.enemies or not enemy.is_alive():
             return
 
-        target = self._pick_party_target()
+        intent = enemy.pending_intent or self._decide_enemy_intent(enemy)
+        enemy.pending_intent = None
+
+        target = intent["target"]
+        if not target.is_alive():
+            # Died since the intent was decided/shown (e.g. a teammate's
+            # extra_turn_on_kill finished them off first) -- re-pick.
+            target = self._pick_party_target()
+        ability = intent["ability"]
+
         allies = [e for e in self.enemies if e is not enemy and e.is_alive()]
         opponents = self.living_party()
+        living_opponents_before = len(opponents)
 
-        if enemy.ultimate_ready() and self.rng.random() < 0.3:
-            effects.resolve_active_ability(enemy, target, enemy.ultimate_ability, self.rng, self.log, allies=allies, opponents=opponents)
-            self._end_turn(enemy)
-            return
-
-        usable = [a for a in enemy.active_abilities if enemy.ability_ready(a)]
-        if usable and self.rng.random() < 0.95:
-            ability = self.rng.choice(usable)
+        if ability is not None and enemy.ability_ready(ability):
             effects.resolve_active_ability(enemy, target, ability, self.rng, self.log, allies=allies, opponents=opponents)
         else:
-            effects.resolve_basic_attack(enemy, target, self.rng, self.log)
+            # Basic attack -- either that was the decided intent, or the
+            # decided ability/ultimate is no longer usable (resource spent
+            # or cooldown started some other way since it was decided).
+            defender_allies = [o for o in opponents if o is not target and o.is_alive()]
+            effects.resolve_basic_attack(enemy, target, self.rng, self.log, defender_allies=defender_allies)
 
+        self._maybe_grant_extra_turn(enemy, living_opponents_before)
         self._end_turn(enemy)
+
+    def _maybe_grant_extra_turn(self, actor: Combatant, living_opponents_before: int) -> None:
+        """Shared by take_party_action/take_enemy_turn -- see
+        extra_turn_on_kill's docstring note in take_party_action."""
+        opponents_now = self.living_enemies() if actor in self.party else self.living_party()
+        if len(opponents_now) < living_opponents_before and actor.is_alive() \
+                and actor.find_passive("extra_turn_on_kill"):
+            self.log.append(f"⚡ {actor.name} doesn't stop moving -- another turn, right now!")
+            self.cycle_order.insert(0, actor)
