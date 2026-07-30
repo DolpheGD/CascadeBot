@@ -44,10 +44,18 @@ async def require_player(interaction: discord.Interaction, player) -> bool:
 
     This was an 18-times-copy-pasted `if player is None: await
     ctx.response.send_message(...)` block across seven cogs before, which
-    is exactly how the wording drifts out of sync between commands."""
+    is exactly how the wording drifts out of sync between commands.
+
+    Works either side of a defer(): a command that had to defer first
+    (because it makes a slow call before it can answer -- /vote hits
+    top.gg) has already used up its initial response, so replying there
+    has to go through followup instead."""
     if player is not None:
         return True
-    await interaction.response.send_message(NOT_STARTED, ephemeral=True)
+    if interaction.response.is_done():
+        await interaction.followup.send(NOT_STARTED, ephemeral=True)
+    else:
+        await interaction.response.send_message(NOT_STARTED, ephemeral=True)
     return False
 
 

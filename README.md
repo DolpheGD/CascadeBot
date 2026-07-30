@@ -38,7 +38,29 @@ all played entirely through slash commands and buttons.
      `DEV_MODE=False` (and remove `SERVER_ID`) once you're ready for the
      bot to run in multiple servers.
 
-4. **Run**
+4. **Enable top.gg voting** *(optional)*
+
+   Powers `/vote`. Skip this and everything else still works -- `/vote`
+   just tells players voting isn't set up.
+
+   - List your bot on [top.gg](https://top.gg) and wait for the listing to
+     be approved. Players can't vote for an unlisted bot, and the API
+     returns 404 for one.
+   - On your bot's listing page, open **Integrations & API** (older
+     listings label this tab **Webhooks**) and copy the API token.
+   - Put it in `.env` as `TOPGG_TOKEN=...`. Treat it like `DISCORD_TOKEN`
+     and keep it out of source control.
+   - `TOPGG_BOT_ID` is optional; leave it unset and the bot uses its own
+     application ID, which is correct for a normal listing.
+
+   No webhook URL, public hosting, or port forwarding is needed. The bot
+   asks top.gg "has this user voted in the last 12h?" when a player runs
+   `/vote`, rather than receiving pushed vote notifications. The trade-off
+   is that claiming takes a second `/vote` after voting in the browser --
+   top.gg's push webhooks would make it instant, but they require a
+   publicly reachable HTTPS endpoint.
+
+5. **Run**
 
    ```bash
    python start_bot.py
@@ -67,6 +89,9 @@ all played entirely through slash commands and buttons.
   specific entry by number instead of paging through everything
 - `/sell_rarity` -- bulk-sell every unequipped item of a given rarity
 - `/stash` -- gold, shards, reroll tokens, materials, and lootboxes
+- `/vote` -- vote on top.gg every 12h for the game's largest Shard payout,
+  plus gold, materials and lootboxes scaling on your vote streak
+  (requires `TOPGG_TOKEN`, see Setup step 4)
 - `/daily` -- claim daily reward (gold, streak bonus, materials, lootboxes)
 - `/quests` -- one-time beginner quests plus a rerollable repeating quest
 - `/harvesters`, `/hq`, `/shrines`, `/shop`, `/mailbox` -- the base-building layer

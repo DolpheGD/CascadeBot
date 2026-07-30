@@ -37,6 +37,9 @@ times" quest, if both happen to be active. Call sites:
 - harvester_service.buy_harvester -> "buy_harvester"
 - harvester_service.collect_harvester -> "collect_harvester"
 - lootbox_service.open_lootboxes -> "open_lootboxes"
+- vote_service.claim_vote -> "vote" (only fires on an instance with
+  top.gg voting configured -- see quest_config's module docstring for why
+  "vote" quests belong in the basic pool and never in BEGINNER_QUESTS)
 
 roll_basic_quest draws from BASIC_QUEST_POOL weighted by each entry's
 optional "weight" key (default 10 if absent) rather than uniformly, so

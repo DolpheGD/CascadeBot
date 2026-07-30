@@ -67,6 +67,19 @@ class Player(Base):
     )
     daily_streak: Mapped[int] = mapped_column(Integer, default=0)
 
+    # Top.gg voting (bot/services/vote_service.py, bot/game/economy/
+    # vote_config.py). Top.gg's API can only answer "has this user voted
+    # in the last 12 hours?" -- it can't tell us whether we've already
+    # paid out for THAT vote, so last_vote_claimed_at is what actually
+    # prevents double-claiming inside one 12h window. vote_streak works
+    # like daily_streak but per vote rather than per day (top.gg allows a
+    # vote every 12h, so a player can advance it twice a day).
+    last_vote_claimed_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    vote_streak: Mapped[int] = mapped_column(Integer, default=0)
+    total_votes: Mapped[int] = mapped_column(Integer, default=0)
+
     # Quests -- see bot/database/models/quest_model.py::PlayerQuest and
     # bot/services/quest_service.py. beginner_quest_bonus_claimed guards
     # the one-time 300 shard bonus for finishing every beginner quest so

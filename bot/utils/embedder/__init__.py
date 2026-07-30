@@ -16,6 +16,7 @@ scrolling past the encyclopedia renderers to find it:
     encounters.py    interactive dungeon NPC encounters
     quests.py        /quests board
     domains.py       /domains
+    vote.py          /vote (top.gg voting)
     encyclopedia.py  /encyclopedia
 
 Everything is re-exported here, so existing `from bot.utils import embedder`
@@ -83,6 +84,11 @@ from bot.utils.embedder.domains import (
     domain_result_embed,
     domain_tier_embed,
 )
+from bot.utils.embedder.vote import (
+    vote_claimed_embed,
+    vote_prompt_embed,
+    vote_unconfigured_embed,
+)
 from bot.utils.embedder.encyclopedia import (
     ENCYCLOPEDIA_ENTRIES_PER_PAGE,
     _encyclopedia_ability_embed,
@@ -146,4 +152,7 @@ __all__ = [
     "lootbox_detail_embed",
     "profile_embed",
     "quest_board_embed",
+    "vote_claimed_embed",
+    "vote_prompt_embed",
+    "vote_unconfigured_embed",
 ]

@@ -94,6 +94,7 @@ class Help(commands.Cog):
         embed.add_field(
             name="💰 Economy",
             value=(
+                "`/vote` -- vote on top.gg every 12h for the biggest Shard payout in the game, plus gold, materials and lootboxes that grow with your vote streak\n"
                 "`/daily` -- claim your daily reward (gold, reroll tokens, streak bonuses + lootboxes)\n"
                 "`/quests` -- one-time beginner quests (600 Shards for finishing them all) plus a repeating basic quest, rerollable every 5 hours\n"
                 "`/harvesters` -- buy, upgrade, and collect passive income, all in one place\n"

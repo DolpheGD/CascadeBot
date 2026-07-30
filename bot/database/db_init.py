@@ -24,13 +24,26 @@ def _ensure_columns(conn):
     from sqlalchemy import inspect, text
 
     inspector = inspect(conn)
-    if "player_characters" in inspector.get_table_names():
-        existing_columns = {col["name"] for col in inspector.get_columns("player_characters")}
-        if "custom_name" not in existing_columns:
-            # custom_name -- lets a player rename their avatar (was
-            # hardcoded to the "You" template name everywhere) via
-            # character_service.rename_avatar / the /rename command.
-            conn.execute(text("ALTER TABLE player_characters ADD COLUMN custom_name VARCHAR(32)"))
+    tables = set(inspector.get_table_names())
+
+    def add_column(table: str, column: str, ddl_type: str) -> None:
+        if table not in tables:
+            return  # create_all will build it fresh, with the column already on it
+        if column in {col["name"] for col in inspector.get_columns(table)}:
+            return
+        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}"))
+
+    # custom_name -- lets a player rename their avatar (was hardcoded to
+    # the "You" template name everywhere) via
+    # character_service.rename_avatar / the /rename command.
+    add_column("player_characters", "custom_name", "VARCHAR(32)")
+
+    # Top.gg vote tracking -- see bot/services/vote_service.py. Defaults
+    # are spelled out in the DDL as well as on the model so existing rows
+    # come back as 0/NULL rather than NULL-where-an-int-is-expected.
+    add_column("players", "last_vote_claimed_at", "DATETIME")
+    add_column("players", "vote_streak", "INTEGER DEFAULT 0")
+    add_column("players", "total_votes", "INTEGER DEFAULT 0")
 
 
 def init_db():

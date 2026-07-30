@@ -10,12 +10,19 @@ Each quest dict has:
   - "goal_type": a string key that bot/services/quest_service.py's
     `record_progress()` call sites (scattered through combat_service,
     dungeon_service, daily_service, character_gacha_service, harvester_service,
-    lootbox_service, item_upgrade_service) report progress against.
-    Valid values: "win_battles", "defeat_boss", "defeat_elite",
+    lootbox_service, item_upgrade_service, vote_service) report progress
+    against. Valid values: "win_battles", "defeat_boss", "defeat_elite",
     "complete_adventures", "upgrade_gear", "claim_daily", "gacha_pulls",
-    "buy_harvester", "collect_harvester", "open_lootboxes" -- see
+    "buy_harvester", "collect_harvester", "open_lootboxes", "vote" -- see
     dungeon_service.resolve_battle_end for the "defeat_elite"/
     "defeat_boss"/"win_battles" split.
+
+    A "vote" quest only ever advances on an instance with top.gg voting
+    configured (TOPGG_TOKEN set). Keep such quests out of BEGINNER_QUESTS
+    for that reason -- a beginner quest that can never complete would
+    permanently block the one-time completion bonus. In the weighted
+    BASIC_QUEST_POOL an unreachable quest is only ever a reroll away, so
+    it's safe there.
   - "goal_count": how much progress is needed to complete it
   - "reward": {currency: amount} -- applied via currency_service.add_currency
     the moment the quest completes, no separate claim step. Any key in
@@ -126,6 +133,18 @@ BASIC_QUEST_COOLDOWN_HOURS = 5
 MAX_ACTIVE_BASIC_QUESTS = 3
 
 BASIC_QUEST_POOL: list[dict] = [
+    # ---- vote ----
+    # Low weight: /vote is on a 12h cooldown regardless, so this can't be
+    # cleared on demand the way the others can, and on an instance without
+    # TOPGG_TOKEN set it can't be cleared at all (see the module docstring).
+    {
+        "id": "basic_vote",
+        "description": "Vote for CascadeBot on top.gg.",
+        "goal_type": "vote",
+        "goal_count": 1,
+        "reward": {"shards": 60, "gold": 150},
+        "weight": 5,
+    },
     # ---- upgrade_gear ----
     {
         "id": "basic_upgrade_gear",
