@@ -17,6 +17,24 @@ slower per-level growth curve (~3.5-4x from level 1 to 100, not ~4.5-5x).
 skill_id / ultimate_id are placeholders for the Combat Overhaul's skill
 registry (bot/game/combat/skills.py, phase 2) -- naming them now so kit
 design and combat wiring can proceed independently.
+
+Bug fix (kit-diversity pass): 10 characters override one growth_hp or
+growth_attack value directly (e.g. Josh's growth_attack=0.34, Refender's
+growth_hp=3.3) to nudge them above their class/star baseline. Those raw
+numbers were written BEFORE LEVELING_GROWTH_MULTIPLIER existed and were
+never rescaled when it was introduced -- unlike _BASELINE_BY_STAR (which
+the loop above multiplies automatically), a character-level override
+replaces the baseline outright, so it bypassed the multiplier entirely.
+Net effect: every one of these 10 characters was quietly WORSE at their
+own signature stat than an identical character with no override at all
+would have been (e.g. pre-fix, Josh's ATK growth of 0.34/level was barely
+half his own class's 0.725/level DPS baseline -- worse than "You" playing
+DPS with zero character-specific tuning). Fixed by multiplying each of
+these 10 raw overrides by LEVELING_GROWTH_MULTIPLIER, same as the
+baseline dict got, preserving the ORIGINAL intended bump-over-baseline
+ratio (~14-17% above class baseline) for all of them except Josh, who
+gets a deliberately larger bump on top (see his kit rework below) to
+stand out as the strongest DPS in the roster at any level, per request.
 """
 
 from __future__ import annotations
@@ -85,7 +103,7 @@ CHARACTER_TEMPLATES: list[dict] = [
     _char("Lily Lovelace", 3, CharacterClass.SUSTAIN,
           "A highly skilled cook who treats every meal like a small act of care -- and every battlefield like a kitchen that needs tidying up.",
           "lily_lovelace_skill", "lily_lovelace_ultimate",
-          base_hp=100, base_defense=10, growth_hp=2.7),
+          base_hp=100, base_defense=10, growth_hp=6.75),
     _char("Nexus", 3, CharacterClass.AMPLIFIER,
           "Always on his phone, chasing the next viral moment. He's convinced that if he just amplifies the right signal, everyone will finally notice him.",
           "nexus_skill", "nexus_ultimate"),
@@ -95,21 +113,21 @@ CHARACTER_TEMPLATES: list[dict] = [
     _char("Arkiver", 3, CharacterClass.DPS,
           "Loves fighting more than just about anything, channeling elemental energy through a pair of dual-wielded gauntlets he never takes off.",
           "arkiver_skill", "arkiver_ultimate",
-          base_attack=9, growth_attack=0.24),
+          base_attack=9, growth_attack=0.6),
     _char("Slikrz", 3, CharacterClass.SUPPORT_DPS,
           "Once a rival syndicate's enforcer, until a rogue procedure to erase his memories left him eerily calm and unnervingly precise -- he doesn't remember why he's still fighting, only how.",
           "slikrz_skill", "slikrz_ultimate"),
     _char("Evz", 3, CharacterClass.SUSTAIN,
           "A trauma surgeon who traded scalpels for throttle levers, Evz still treats the cockpit like an operating table -- steady hands, calm voice, zero patience for panic.",
           "evz_skill", "evz_ultimate",
-          base_hp=100, base_defense=10, growth_hp=2.7),
+          base_hp=100, base_defense=10, growth_hp=6.75),
     _char("Caandy", 3, CharacterClass.AMPLIFIER,
           "Her AI-assisted visor runs a constant stream of battlefield analytics straight to her HUD, feeding Team Cascade the split-second calls that keep everyone one step ahead.",
           "caandy_skill", "caandy_ultimate"),
     _char("Axel", 3, CharacterClass.DPS,
           "A former test subject from Ocellios Labs, forced to replace organs with void-powered augments. Now out for revenge, Axel joined Team Cascade.",
           "axel_skill", "axel_ultimate",
-          base_attack=9, growth_attack=0.24),
+          base_attack=9, growth_attack=0.6),
     _char("IH", 3, CharacterClass.SUPPORT_DPS,
           "A frontline motivator who'd rather load someone else's weapon than fire his own, IH makes sure his squadmate's next shot counts twice.",
           "ih_skill", "ih_ultimate"),
@@ -120,7 +138,7 @@ CHARACTER_TEMPLATES: list[dict] = [
     _char("Bee Jee", 4, CharacterClass.SUSTAIN,
           "A former bioweapons engineer who walked away from that life to support others instead, watching the field through a pair of high-tech goggles.",
           "bee_jee_skill", "bee_jee_ultimate",
-          base_hp=110, base_defense=11, growth_hp=3.0),
+          base_hp=110, base_defense=11, growth_hp=7.5),
     _char("Sader Vorae", 4, CharacterClass.SUPPORT_DPS,
           "A pilot for Team Cascade and one of the few survivors of Glacier 15. She flies every mission looking for answers about what really happened that day.",
           "sader_vorae_skill", "sader_vorae_ultimate"),
@@ -133,18 +151,18 @@ CHARACTER_TEMPLATES: list[dict] = [
     _char("Star", 4, CharacterClass.DPS,
           "Never in a hurry, never needs to be -- Star takes his time lining up a swing so that when it lands, there's nothing left to argue with.",
           "star_skill", "star_ultimate",
-          base_attack=11, growth_attack=0.29, base_speed=8),
+          base_attack=11, growth_attack=0.725, base_speed=8),
     _char("Kotori", 4, CharacterClass.SUSTAIN,
           "Kotori gives until it costs her something real, channeling her own vitality into every ally who's running on empty -- whatever it takes to keep the team standing.",
           "kotori_skill", "kotori_ultimate",
-          base_hp=110, base_defense=11, growth_hp=3.0),
+          base_hp=110, base_defense=11, growth_hp=7.5),
     _char("Jofrog", 4, CharacterClass.AMPLIFIER,
           "A former robotic bodyguard who escaped his programming. Now he wants to pursue his true desire: to live in a happy society.",
           "jofrog_skill", "jofrog_ultimate"),
     _char("Aura", 4, CharacterClass.SUSTAIN,
           "A former field medic who radiates pure aura. Holds a gun in the face of danger but prefers to heal allies.",
           "aura_skill", "aura_ultimate",
-          base_hp=110, base_defense=11, growth_hp=3.0),
+          base_hp=110, base_defense=11, growth_hp=7.5),
     _char("Blueflame", 4, CharacterClass.SUPPORT_DPS,
           "Part of the World Aligners, Blueflame lets everything around him burn slow and steady -- he's not fighting for the cause so much as for the day he doesn't have to answer to anyone's cause at all.",
           "blueflame_skill", "blueflame_ultimate"),
@@ -155,11 +173,11 @@ CHARACTER_TEMPLATES: list[dict] = [
     _char("Josh", 5, CharacterClass.DPS,
           "Leader of the World Aligners and a survivor of Glacier 15, driven by a promise to avenge his friend Rex, who didn't make it out that day.",
           "josh_skill", "josh_ultimate",
-          base_attack=12, growth_attack=0.34),
+          base_attack=13, growth_attack=1.0),
     _char("Refender", 5, CharacterClass.SUSTAIN,
           "Creator of the Refense philosophy -- a balance of offense and defense in all things. From the Hotlands, he travels the Cascade spreading his ideals.",
           "refender_skill", "refender_ultimate",
-          base_hp=120, base_defense=12, growth_hp=3.3),
+          base_hp=120, base_defense=12, growth_hp=8.25),
     _char("Dolphe", 5, CharacterClass.AMPLIFIER,
           "The steady hand holding Team Cascade together, Dolphe reads the battlefield like a conductor reads a score, cueing every member exactly when they're needed most.",
           "dolphe_skill", "dolphe_ultimate"),
