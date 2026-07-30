@@ -33,7 +33,7 @@ from bot.game.combat import enemies as enemy_catalog
 from bot.game.dungeon import graph_utils as gu
 from bot.game.dungeon.encounter_config import get_encounter_by_id, get_encounters_for_room_type
 from bot.game.dungeon.generator import DungeonGenerator
-from bot.game.dungeon.region_config import get_region_difficulty
+from bot.game.dungeon.region_config import get_region_difficulty, region_unlock_requirement
 from bot.game.economy.lootbox_config import tier_for_floor_and_region
 from bot.game.loot.generator import LootGenerator
 from bot.services import character_service, combat_service, item_template_service, lootbox_service, quest_service
@@ -260,6 +260,35 @@ def get_active_expedition(db, player_id: int) -> Expedition | None:
         .filter_by(player_id=player_id, status=ExpeditionStatus.ACTIVE)
         .first()
     )
+
+
+def has_completed_region(db, player_id: int, region: str) -> bool:
+    """Has this player ever fully cleared an expedition in `region` -- i.e.
+    an Expedition row with status COMPLETED, which resolve_battle_end only
+    sets when the FINAL boss of that run is defeated (not just any boss
+    along the way). Past expeditions are never deleted (see
+    expedition_model.py), so this is a plain historical query -- no extra
+    tracking needed."""
+    return (
+        db.query(Expedition)
+        .filter_by(player_id=player_id, region=region, status=ExpeditionStatus.COMPLETED)
+        .first()
+        is not None
+    )
+
+
+def is_region_unlocked(db, player_id: int, region: str) -> tuple[bool, str | None]:
+    """Returns (unlocked, required_region). `required_region` is the
+    region the player still needs to fully clear before `region` opens up
+    -- see region_config.region_unlock_requirement for the tier ordering
+    this follows -- or None if `region` has no requirement (the lowest
+    tier) or is already unlocked."""
+    required = region_unlock_requirement(region)
+    if required is None:
+        return True, None
+    if has_completed_region(db, player_id, required):
+        return True, None
+    return False, required
 
 
 def is_in_combat(expedition: Expedition | None) -> bool:
