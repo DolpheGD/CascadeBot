@@ -122,6 +122,49 @@ from bot.game.combat import formulas
 from bot.game.combat.combatant import Combatant
 from bot.game.combat.status import DamageOverTime, HealOverTime, StatModifier, Vulnerability
 
+# ----------------------------------------------------------------------
+# Poise / Break / Guard tuning. See the Poise/Break block in combatant.py
+# for what the mechanic is and why it's enemy-only.
+#
+# Poise damage is per LANDED HIT, deliberately decoupled from damage
+# numbers: it counts actions, not power. That means breaking is a tactical
+# problem ("what do I press, and when") rather than another thing raw gear
+# score solves for you, and it stays balanced for free as damage scales
+# over 100 levels of gear.
+#
+# An individual ability can override its value with "poise_damage" in its
+# effect dict; without one it's inferred from what kind of action it was.
+# Multi-hit and AOE abilities get no special casing -- they chip once per
+# hit and per target respectively simply because every hit routes through
+# _resolve_hit, which is what makes them the natural break tools.
+# ----------------------------------------------------------------------
+POISE_DAMAGE_BASIC = 1      # a plain Attack
+POISE_DAMAGE_ABILITY = 2    # any weapon/artifact/character skill
+POISE_DAMAGE_ULTIMATE = 3   # an ultimate
+
+BREAK_DURATION_TURNS = 2
+BREAK_DAMAGE_BONUS_PERCENT = 50
+
+GUARD_DAMAGE_REDUCTION_PERCENT = 50
+# Energy banked when a guarded combatant is actually hit. Roughly a third
+# of an ultimate, so two well-read guards meaningfully accelerate one.
+GUARD_ENERGY_ON_HIT = 15
+# Guard also builds resources like a basic attack does, at a reduced rate
+# -- guarding is a tempo choice, not a free turn.
+GUARD_RECHARGE_MULTIPLIER = 0.5
+
+
+def poise_damage_for(ability: dict | None) -> int:
+    """How much poise one hit from `ability` chips. None means a basic
+    attack. An explicit "poise_damage" in the ability's effect wins, so a
+    designed guard-breaker can be tuned without touching this module."""
+    if ability is None:
+        return POISE_DAMAGE_BASIC
+    override = ability.get("effect", {}).get("poise_damage")
+    if override is not None:
+        return int(override)
+    return POISE_DAMAGE_ULTIMATE if ability.get("is_ultimate") else POISE_DAMAGE_ABILITY
+
 
 def resolve_basic_attack(
     attacker: Combatant, defender: Combatant, rng: random.Random, log: list,
@@ -136,6 +179,25 @@ def resolve_basic_attack(
     energy_gained, mana_gained = attacker.gain_energy_and_mana()
     if energy_gained or mana_gained:
         log.append(f"{attacker.name} gains {energy_gained} energy and {mana_gained} SP.")
+
+
+def resolve_guard(actor: Combatant, log: list) -> None:
+    """The Guard action. Raises the actor's guard until their next turn
+    begins (battle.py's _begin_turn clears it), halving incoming damage
+    for that window and paying out bonus energy on any hit that lands
+    while it's up -- see _resolve_hit.
+
+    Guard still builds resources, at a reduced rate versus attacking, so
+    it's a tempo trade rather than a strictly-worse or strictly-free turn:
+    you give up this turn's damage to blunt an incoming one and come out
+    slightly closer to your ultimate."""
+    actor.guarding = True
+    energy_gained, mana_gained = actor.gain_energy_and_mana(
+        actor.effective_stat("recharge") * GUARD_RECHARGE_MULTIPLIER
+    )
+    log.append(f"🛡️ {actor.name} raises their guard.")
+    if energy_gained or mana_gained:
+        log.append(f"{actor.name} gains {energy_gained} energy and {mana_gained} SP.")
 
 
 def resolve_active_ability(
@@ -164,12 +226,24 @@ def resolve_active_ability(
     effect = ability["effect"]
     kind = effect["kind"]
 
+    # Every hit this ability lands chips the same amount of poise (see
+    # poise_damage_for). Bound once here and applied through the _hit
+    # wrapper below rather than repeated as an argument on all ~20
+    # _resolve_hit calls in this dispatcher -- and, because the wrapper is
+    # per-hit rather than per-ability, a multi_hit ability chips once per
+    # swing and an AOE once per target, for free.
+    _ability_poise = poise_damage_for(ability)
+
+    def _hit(*args, **kwargs):
+        kwargs.setdefault("poise_damage", _ability_poise)
+        return _resolve_hit(*args, **kwargs)
+
     if kind == "damage_multiplier":
-        _resolve_hit(attacker, defender, effect["damage_percent"],
+        _hit(attacker, defender, effect["damage_percent"],
                      effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
 
     elif kind == "damage_and_dot":
-        hit = _resolve_hit(attacker, defender, effect["damage_percent"],
+        hit = _hit(attacker, defender, effect["damage_percent"],
                             effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         if hit and defender.is_alive():
             flat_amount = attacker.effective_stat(effect["dot_stat"]) * effect["dot_percent"] / 100
@@ -182,7 +256,7 @@ def resolve_active_ability(
             log.append(f"{defender.name} is burning!")
 
     elif kind == "damage_and_debuff":
-        hit = _resolve_hit(attacker, defender, effect["damage_percent"],
+        hit = _hit(attacker, defender, effect["damage_percent"],
                             effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         if hit and defender.is_alive():
             defender.modifiers.append(StatModifier(
@@ -196,7 +270,7 @@ def resolve_active_ability(
         # StatModifier debuff -- see status.Vulnerability. Repeat casts
         # (matched by this ability's name as the `source`) add another
         # stack onto the SAME instance rather than creating a new one.
-        hit = _resolve_hit(attacker, defender, effect["damage_percent"],
+        hit = _hit(attacker, defender, effect["damage_percent"],
                             effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         if hit and defender.is_alive():
             existing = next(
@@ -226,7 +300,7 @@ def resolve_active_ability(
         log.append(f"💚 {attacker.name} heals {healed} HP.")
 
     elif kind == "damage_and_stun":
-        hit = _resolve_hit(attacker, defender, effect["damage_percent"],
+        hit = _hit(attacker, defender, effect["damage_percent"],
                             effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         if hit and defender.is_alive():
             defender.stunned_turns += effect["duration"]
@@ -242,7 +316,7 @@ def resolve_active_ability(
         log.append(f"{attacker.name} is empowered!")
 
     elif kind == "damage_execute_heal":
-        hit = _resolve_hit(attacker, defender, effect["damage_percent"],
+        hit = _hit(attacker, defender, effect["damage_percent"],
                             effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         if hit and not defender.is_alive():
             healed = attacker.heal(attacker.max_hp * effect["heal_percent_on_kill"] / 100)
@@ -252,12 +326,12 @@ def resolve_active_ability(
         for _ in range(effect["hits"]):
             if not defender.is_alive():
                 break
-            _resolve_hit(attacker, defender, effect["damage_percent_per_hit"],
+            _hit(attacker, defender, effect["damage_percent_per_hit"],
                          effect.get("damage_stat", "attack"), rng, log, suppress_kill_log=True, defender_allies=defender_allies)
         _trigger_on_kill_if_dead(attacker, defender, log)
 
     elif kind == "damage_and_heal_self":
-        hit = _resolve_hit(attacker, defender, effect["damage_percent"],
+        hit = _hit(attacker, defender, effect["damage_percent"],
                             effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         if hit:
             healed = attacker.heal(attacker.effective_stat(effect.get("heal_stat", "attack")) * effect["heal_percent"] / 100)
@@ -274,7 +348,7 @@ def resolve_active_ability(
     elif kind == "damage_all_and_debuff_self":
         # Used sparingly (big ultimates): hits current target hard and
         # trades a temporary defense drop for the burst.
-        hit = _resolve_hit(attacker, defender, effect["damage_percent"],
+        hit = _hit(attacker, defender, effect["damage_percent"],
                             effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         attacker.modifiers.append(StatModifier(
             effect["debuff_stat"], effect["debuff_percent"], effect["duration"], ability["name"]
@@ -308,7 +382,7 @@ def resolve_active_ability(
         # already below the given HP% -- a finisher move.
         is_execute = defender.current_hp <= defender.max_hp * effect["hp_threshold_percent"] / 100
         percent = effect["execute_damage_percent"] if is_execute else effect["damage_percent"]
-        _resolve_hit(attacker, defender, percent, effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
+        _hit(attacker, defender, percent, effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         if is_execute:
             log.append(f"⚔️ {attacker.name} finishes with a decisive blow!")
 
@@ -326,7 +400,7 @@ def resolve_active_ability(
     elif kind == "damage_and_resource_drain":
         # Deals damage and strips energy/mana from the target -- an EMP-
         # style effect that can delay an ultimate or starve out a skill.
-        hit = _resolve_hit(attacker, defender, effect["damage_percent"],
+        hit = _hit(attacker, defender, effect["damage_percent"],
                             effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         if hit and defender.is_alive():
             energy_drained = min(defender.energy, effect.get("energy_drain", 0))
@@ -351,7 +425,7 @@ def resolve_active_ability(
         # (theoretical) 0 HP.
         missing_fraction = 1 - (defender.current_hp / max(1, defender.max_hp))
         total_percent = effect["base_damage_percent"] + effect["bonus_damage_percent_at_zero_hp"] * missing_fraction
-        _resolve_hit(attacker, defender, total_percent, effect.get("damage_stat", "elemental"), rng, log, defender_allies=defender_allies)
+        _hit(attacker, defender, total_percent, effect.get("damage_stat", "elemental"), rng, log, defender_allies=defender_allies)
 
     elif kind == "team_debuff":
         # Applies a stat debuff to every living combatant on the OTHER
@@ -414,7 +488,7 @@ def resolve_active_ability(
         # strips down TWO stats on the target at once (e.g. ATK and DEF),
         # for characters built around dismantling a target rather than
         # just chipping DEF for a follow-up hit.
-        hit = _resolve_hit(attacker, defender, effect["damage_percent"],
+        hit = _hit(attacker, defender, effect["damage_percent"],
                             effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         if hit and defender.is_alive():
             defender.modifiers.append(StatModifier(
@@ -535,7 +609,7 @@ def resolve_active_ability(
         # matter which), rewarding follow-up damage after a debuff lands.
         has_debuff = any(m.percent < 0 for m in defender.modifiers)
         percent = effect["damage_percent"] + (effect["bonus_damage_percent"] if has_debuff else 0)
-        _resolve_hit(attacker, defender, percent, effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
+        _hit(attacker, defender, percent, effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         if has_debuff:
             log.append(f"🎯 {attacker.name} exploits {defender.name}'s weakened state!")
 
@@ -544,11 +618,11 @@ def resolve_active_ability(
         # for the same damage. The first hit always lands; the second is
         # gated behind chance_percent and skipped if the first hit already
         # finished the target.
-        _resolve_hit(attacker, defender, effect["damage_percent"],
+        _hit(attacker, defender, effect["damage_percent"],
                      effect.get("damage_stat", "attack"), rng, log, suppress_kill_log=True, defender_allies=defender_allies)
         if defender.is_alive() and formulas.roll_percent(effect["chance_percent"], rng):
             log.append(f"⚡ {attacker.name}'s {ability['name']} strikes again!")
-            _resolve_hit(attacker, defender, effect["damage_percent"],
+            _hit(attacker, defender, effect["damage_percent"],
                          effect.get("damage_stat", "attack"), rng, log, suppress_kill_log=True, defender_allies=defender_allies)
         _trigger_on_kill_if_dead(attacker, defender, log)
 
@@ -558,7 +632,7 @@ def resolve_active_ability(
         # dumping it all into one target the way the class used to.
         for target in [o for o in opponents if o.is_alive()]:
             target_allies = [o for o in opponents if o is not target and o.is_alive()]
-            _resolve_hit(attacker, target, effect["damage_percent"],
+            _hit(attacker, target, effect["damage_percent"],
                          effect.get("damage_stat", "attack"), rng, log, defender_allies=target_allies)
         log.append(f"💥 {attacker.name}'s {ability['name']} sweeps the whole enemy side!")
 
@@ -570,7 +644,7 @@ def resolve_active_ability(
         # guaranteed on every cast.
         for target in [o for o in opponents if o.is_alive()]:
             target_allies = [o for o in opponents if o is not target and o.is_alive()]
-            hit = _resolve_hit(attacker, target, effect["damage_percent"],
+            hit = _hit(attacker, target, effect["damage_percent"],
                                 effect.get("damage_stat", "attack"), rng, log, defender_allies=target_allies)
             if hit and target.is_alive() and formulas.roll_percent(effect["debuff_chance_percent"], rng):
                 target.modifiers.append(StatModifier(
@@ -586,7 +660,7 @@ def resolve_active_ability(
         # stat debuff, rolled independently per target.
         for target in [o for o in opponents if o.is_alive()]:
             target_allies = [o for o in opponents if o is not target and o.is_alive()]
-            hit = _resolve_hit(attacker, target, effect["damage_percent"],
+            hit = _hit(attacker, target, effect["damage_percent"],
                                 effect.get("damage_stat", "attack"), rng, log, defender_allies=target_allies)
             if hit and target.is_alive() and formulas.roll_percent(effect["drain_chance_percent"], rng):
                 energy_drained = min(target.energy, effect.get("energy_drain", 0))
@@ -604,7 +678,7 @@ def resolve_active_ability(
         # on damage-over-time rather than shredding a stat.
         for target in [o for o in opponents if o.is_alive()]:
             target_allies = [o for o in opponents if o is not target and o.is_alive()]
-            hit = _resolve_hit(attacker, target, effect["damage_percent"],
+            hit = _hit(attacker, target, effect["damage_percent"],
                                 effect.get("damage_stat", "attack"), rng, log, defender_allies=target_allies)
             if hit and target.is_alive() and formulas.roll_percent(effect["dot_chance_percent"], rng):
                 flat_amount = attacker.effective_stat(effect["dot_stat"]) * effect["dot_percent"] / 100
@@ -623,14 +697,23 @@ def resolve_active_ability(
 def _resolve_hit(attacker: Combatant, defender: Combatant, damage_percent: float,
                   damage_stat: str, rng: random.Random, log: list,
                   suppress_kill_log: bool = False,
-                  defender_allies: list[Combatant] | None = None) -> bool:
+                  defender_allies: list[Combatant] | None = None,
+                  poise_damage: int = POISE_DAMAGE_BASIC) -> bool:
     """Resolves one hit. Always lands -- there is no dodge/miss chance in
     this game. Returns True (kept as a return value so callers that guard
     follow-up effects on "did it hit" still read naturally).
 
     `defender_allies` (every OTHER living combatant on defender's own
     side) is only used by defender-reactive team passives (on_hit_team_buff
-    below); every other caller path is unaffected by leaving it out."""
+    below); every other caller path is unaffected by leaving it out.
+
+    `poise_damage` is how much this particular hit chips off the
+    defender's poise (see the Poise/Break block in combatant.py). Because
+    every hit funnels through here, multi-hit and AOE abilities chip once
+    PER hit and PER target respectively without needing any special
+    casing -- which is exactly the identity those effect kinds should
+    have: multi_hit is the single-target break tool, aoe_* is the
+    break-the-whole-group tool."""
     defender_allies = defender_allies or []
     raw = attacker.effective_stat(damage_stat) * damage_percent / 100
 
@@ -655,6 +738,20 @@ def _resolve_hit(attacker: Combatant, defender: Combatant, damage_percent: float
         reduction = eff["base_percent"] + eff["bonus_percent_at_zero_hp"] * missing_fraction
         damage *= 1 - reduction / 100
 
+    # A broken defender takes amplified damage for the whole break window.
+    # This is the payoff half of the mechanic: breaking doesn't just deny
+    # the enemy its telegraphed move, it opens a burst window worth having
+    # saved an ultimate for.
+    if defender.is_broken():
+        damage *= 1 + BREAK_DAMAGE_BONUS_PERCENT / 100
+
+    # Guard: set by the player's Guard action on their previous turn and
+    # cleared when their next turn begins, so it only ever covers the gap
+    # between their turns -- precisely the window a telegraphed enemy move
+    # lands in.
+    if defender.guarding:
+        damage *= 1 - GUARD_DAMAGE_REDUCTION_PERCENT / 100
+
     if defender.shield > 0:
         absorbed = min(damage, defender.shield)
         defender.shield -= absorbed
@@ -664,7 +761,24 @@ def _resolve_hit(attacker: Combatant, defender: Combatant, damage_percent: float
 
     dealt = defender.take_raw_hp_loss(damage)
     crit_tag = " (💥 CRIT!)" if is_crit else ""
-    log.append(f"{attacker.name} hits {defender.name} for {dealt} damage{crit_tag}.")
+    guard_tag = " (🛡️ guarded)" if defender.guarding else ""
+    log.append(f"{attacker.name} hits {defender.name} for {dealt} damage{crit_tag}{guard_tag}.")
+
+    # Guarding paid off -- a hit actually landed while it was up, so the
+    # defender banks energy toward their ultimate. Reading a telegraph
+    # correctly should accelerate you, not merely cost you less.
+    if defender.guarding:
+        before = defender.energy
+        defender.energy = min(defender.max_energy, defender.energy + GUARD_ENERGY_ON_HIT)
+        if defender.energy > before:
+            log.append(f"🛡️ {defender.name} holds firm and builds {defender.energy - before} energy.")
+
+    if defender.damage_poise(poise_damage):
+        defender.enter_break(BREAK_DURATION_TURNS)
+        log.append(
+            f"💫 **{defender.name}'s guard is BROKEN!** Its move is cancelled and it "
+            f"takes +{BREAK_DAMAGE_BONUS_PERCENT}% damage for {BREAK_DURATION_TURNS} turns."
+        )
 
     for passive in attacker.find_passive("lifesteal"):
         healed = attacker.heal(dealt * passive["effect"]["percent"] / 100)

@@ -146,6 +146,10 @@ class DomainCombatView(OwnedView):
     async def ultimate_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await _handle_combat_action(interaction, "ultimate")
 
+    @discord.ui.button(label="🛡️ Guard", style=discord.ButtonStyle.primary, custom_id="cascade_domain_guard")
+    async def guard_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await _handle_combat_action(interaction, "guard")
+
     @discord.ui.button(label="ℹ️ Info", style=discord.ButtonStyle.secondary, custom_id="cascade_domain_info", row=4)
     async def info_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await _handle_combat_info(interaction)

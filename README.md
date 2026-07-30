@@ -109,11 +109,33 @@ cycle, and Speed only decides the ORDER within a cycle (fastest first),
 never whether a slower combatant gets a turn at all -- see the 🔀 Turn Order
 line on the battle message. Some elites and bosses act more than once per
 cycle. Each turn is Attack (free, builds Energy + Mana equal to your
-Recharge stat), your Character Skill, a Skill from an equipped
+Recharge stat), Guard, your Character Skill, a Skill from an equipped
 weapon/artifact (all costing Mana), or your Ultimate from your character's
-own kit (usable once Energy reaches 50). There's no defending or fleeing,
-and no dodge/miss chance -- every hit lands, mitigated only by Defense.
-Switching which enemy you're targeting is a free action.
+own kit (usable once Energy reaches 50). There's no fleeing, and no
+dodge/miss chance -- every hit lands, mitigated only by Defense. Switching
+which enemy you're targeting is a free action.
+
+**Intent and counterplay.** Enemies decide their next move before it
+happens, and the battle message shows it: who is about to act, on whom,
+with what. You get two answers to that information.
+
+- **Guard** halves incoming damage until that character's next turn and
+  banks bonus Energy if a hit does land -- so reading a telegraph
+  correctly moves you closer to your Ultimate rather than merely costing
+  you less.
+- **Breaking** empties an enemy's Poise pool (shown under its HP bar).
+  Every landed hit chips it: 1 for an Attack, 2 for a Skill, 3 for an
+  Ultimate, and once per *hit* for multi-hit skills or per *target* for
+  AOE -- which is what makes those the dedicated breaking tools. At zero
+  the enemy is **Broken**: its telegraphed move is cancelled outright, it
+  loses its next 2 turns, and it takes +50% damage throughout. Poise
+  refills on recovery, so chip damage between breaks is wasted and timing
+  the commit is the actual decision.
+
+Trash mobs have small poise pools and break incidentally; elites and
+bosses have deep ones, so a break there is a window you work toward and
+spend. A break can never be consumed without you getting a turn to
+capitalise on it, regardless of what the turn order does.
 
 ### Characters
 

@@ -283,6 +283,39 @@ class Battle:
             if combatant.cooldowns[ability_id] > 0:
                 combatant.cooldowns[ability_id] -= 1
 
+        # Guard only ever covers the gap between this combatant's turns --
+        # exactly the window a telegraphed enemy move lands in -- so it
+        # expires the moment they act again, whatever they do next.
+        combatant.guarding = False
+
+        # Break: a combatant whose poise was shattered loses its turns for
+        # the duration, then recovers with poise refilled. Ticked here,
+        # before the stun check, so the two never double-skip a turn.
+        if combatant.is_broken():
+            # Only consume a break turn if the other side has had a chance
+            # to act on it since the break (see break_tick_armed). An
+            # unarmed tick still costs this combatant its turn -- it just
+            # doesn't shorten the break.
+            if not combatant.break_tick_armed:
+                self.log.append(f"💫 {combatant.name} is broken and can't act!")
+                self._end_turn(combatant)
+                return
+
+            combatant.break_tick_armed = False
+            combatant.break_turns -= 1
+            if combatant.break_turns <= 0:
+                # Last skipped turn: poise refills now, so the damage
+                # amplification window closes with it and the combatant
+                # acts again on its next turn.
+                combatant.recover_from_break()
+                self.log.append(
+                    f"💫 {combatant.name} is broken and can't act -- it recovers its footing next turn."
+                )
+            else:
+                self.log.append(f"💫 {combatant.name} is broken and can't act!")
+            self._end_turn(combatant)
+            return
+
         if combatant.stunned_turns > 0:
             combatant.stunned_turns -= 1
             self.log.append(f"😵 {combatant.name} is stunned and can't act!")
@@ -313,9 +346,17 @@ class Battle:
 
     # ------------------------------------------------------------------
     # Party actions -- Attack (builds energy+mana), Ability (character
-    # skill, weapon skill, or artifact skill -- costs mana), or Ultimate
-    # (character ultimate, costs 50 energy). No defend, no flee. Always
-    # acts as whichever party member `current_actor()` currently is.
+    # skill, weapon skill, or artifact skill -- costs mana), Ultimate
+    # (character ultimate, costs 50 energy), or Guard (halves incoming
+    # damage until this character's next turn). No fleeing. Always acts as
+    # whichever party member `current_actor()` currently is.
+    #
+    # Guard is the player's half of the intent-telegraphing mechanic: the
+    # UI shows which enemy is about to do what to whom, and Guard is the
+    # answer when breaking the enemy's poise isn't on the table (see
+    # effects.py's Poise/Break/Guard tuning block). It costs the turn's
+    # damage, so the interesting question every turn is whether the
+    # incoming hit is worth spending a turn to blunt.
     # ------------------------------------------------------------------
     def take_party_action(self, action: str, ability_id: str | None = None, target_index: int | None = None) -> None:
         actor = self.current_actor()
@@ -329,7 +370,9 @@ class Battle:
         opponents = self.living_enemies()
         living_opponents_before = len(opponents)
 
-        if action == "attack":
+        if action == "guard":
+            effects.resolve_guard(actor, self.log)
+        elif action == "attack":
             defender_allies = [o for o in opponents if o is not target and o.is_alive()]
             effects.resolve_basic_attack(actor, target, self.rng, self.log, defender_allies=defender_allies)
         elif action == "ability":
@@ -358,6 +401,13 @@ class Battle:
         # fires at most once per action even if several targets died at
         # once (e.g. a wide AOE finishing multiple weakened enemies).
         self._maybe_grant_extra_turn(actor, living_opponents_before)
+
+        # A party turn has now happened, so every broken enemy's next
+        # skipped turn is allowed to count toward ending its break -- see
+        # Combatant.break_tick_armed.
+        for enemy in self.enemies:
+            if enemy.is_broken():
+                enemy.break_tick_armed = True
 
         self._end_turn(actor)
 

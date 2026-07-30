@@ -63,6 +63,52 @@ class Combatant:
 
     stunned_turns: int = 0
 
+    # ------------------------------------------------------------------
+    # Poise / Break -- the counterplay layer for enemy intent telegraphing.
+    #
+    # Enemies decide their next move BEFORE it happens and the UI shows it
+    # (see battle.py's _decide_enemy_intent / pending_intent). Poise is
+    # what lets the player DO something about it: every landed hit chips a
+    # point or two off the target's poise, and when it hits zero the enemy
+    # is BROKEN -- its telegraphed move is cancelled outright, it loses its
+    # turns for break_turns, and it takes amplified damage the whole time.
+    #
+    # This is deliberately asymmetric: only enemies have poise (max_poise
+    # stays 0 for players, and 0 means "cannot be broken"). The player's
+    # side of the mechanic is Guard (see `guarding` below). Making both
+    # sides breakable would double the state to reason about for very
+    # little added depth, and being stun-locked by a boss is not fun.
+    #
+    # Poise refills to full when a break ends, so breaking is a repeatable
+    # tactic across a long fight rather than a one-shot resource -- but the
+    # refill means chip damage between breaks is wasted, which is what
+    # makes "commit to the break now vs. save cooldowns" an actual choice.
+    # ------------------------------------------------------------------
+    max_poise: int = 0
+    poise: int = 0
+    break_turns: int = 0
+
+    # Guards against a break being spent without the player ever getting
+    # to cash it in. break_turns counts the BROKEN combatant's own skipped
+    # turns, but the +damage window is only worth anything on the
+    # ATTACKER's turns -- and those don't reliably interleave. A boss with
+    # actions_per_cycle=2 that's also the fastest thing in the fight takes
+    # the last turn of one cycle and the first of the next back-to-back,
+    # which would burn the entire break with no party turn in between.
+    #
+    # So a break tick is "armed" only once an opposing combatant has
+    # actually acted since the break started (battle.py arms it after
+    # every party action). Broken turns are therefore always paid for with
+    # a real opportunity to capitalise, whatever the turn order does.
+    break_tick_armed: bool = False
+
+    # Set by the Guard action, cleared at the start of this combatant's
+    # next turn. Halves incoming damage (see effects._resolve_hit) and
+    # pays out bonus energy if a hit actually lands while it's up -- so
+    # correctly reading a telegraphed heavy attack is rewarded, and
+    # guarding on a hunch that doesn't pan out simply costs you the turn.
+    guarding: bool = False
+
     # Flat HP-equivalent pool that absorbs incoming damage before current_hp
     # does (see self_shield_percent_max_hp / team_shield_percent_max_hp /
     # shield_regen in bot/game/combat/effects.py). Consumed first, in full
@@ -131,6 +177,52 @@ class Combatant:
 
     def is_alive(self) -> bool:
         return self.current_hp > 0
+
+    # ------------------------------------------------------------------
+    # Poise / Break
+    # ------------------------------------------------------------------
+    def can_be_broken(self) -> bool:
+        """Whether this combatant participates in the poise system at all.
+        False for players and for any enemy explicitly given max_poise 0
+        (useful for a scripted "unbreakable" fight)."""
+        return self.max_poise > 0
+
+    def is_broken(self) -> bool:
+        return self.break_turns > 0
+
+    def damage_poise(self, amount: int) -> bool:
+        """Chips `amount` off this combatant's poise. Returns True only on
+        the hit that actually triggers the break, so the caller can log it
+        once -- further hits while already broken return False rather than
+        re-breaking (and deliberately don't chip poise at all, since it's
+        held at 0 until the break expires and refills it)."""
+        if not self.can_be_broken() or self.is_broken() or amount <= 0:
+            return False
+        self.poise = max(0, self.poise - amount)
+        return self.poise == 0
+
+    def enter_break(self, duration: int) -> None:
+        """Puts this combatant into the broken state. Cancels whatever
+        move it had telegraphed -- that cancellation is the whole point of
+        the mechanic, and it's why breaking a wind-up is worth doing
+        rather than just racing the damage."""
+        self.break_turns = duration
+        self.break_tick_armed = False
+        self.pending_intent = None
+        self.guarding = False
+
+    def recover_from_break(self) -> None:
+        self.break_turns = 0
+        self.break_tick_armed = False
+        self.poise = self.max_poise
+
+    def poise_fraction(self) -> float:
+        """0.0-1.0 for UI bars. 1.0 when the combatant has no poise system
+        at all, so a caller that renders unconditionally shows a full bar
+        rather than an alarming empty one."""
+        if not self.can_be_broken():
+            return 1.0
+        return max(0.0, min(1.0, self.poise / self.max_poise))
 
     def actions_per_cycle(self) -> int:
         """Total actions this combatant takes each cycle: its configured

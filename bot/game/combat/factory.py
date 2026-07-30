@@ -88,6 +88,51 @@ ATTACK_RAMP_PERCENT_PER_TURN_BY_ROLE = {
     "boss_group_member": 1.1,
 }
 
+# ---------------------------------------------------------------------
+# Poise pools by role (see the Poise/Break block in combatant.py and the
+# tuning constants in effects.py). Derived from role here rather than
+# authored per-template so the whole existing ~90-template roster gets the
+# mechanic without a 1,600-line edit; any individual template can still
+# override it with an explicit "max_poise" key.
+#
+# Values are in HITS, not damage, since poise damage counts actions (1 per
+# basic attack, 2 per skill, 3 per ultimate, and once per hit/target for
+# multi-hit/AOE).
+#
+# TUNED AGAINST SIMULATION -- specifically against BREAK FREQUENCY, which
+# 400-fight batches measure reliably, and NOT against win rate, which they
+# don't: win rate turned out to be extremely sensitive to how the sim's
+# stand-in for gear was calibrated (a "50% baseline" over 60 seeds became
+# 100% over 400), so any win-rate number from it is noise dressed as data.
+# Frequency is also the design-legible target: how often a break is
+# available is what decides whether the mechanic is a recurring decision
+# or a once-a-fight novelty.
+#
+# At these values a full 4-person squad sees roughly one break every 5-6
+# cycles on an elite or boss -- 1-2 per fight -- and the sim's AI is
+# deliberately unsophisticated about poise (it fires whatever ability is
+# off cooldown rather than favouring the multi-hit and AOE kinds that chip
+# hardest), so a player who understands the system will break meaningfully
+# faster than these numbers suggest. That gap is intentional headroom:
+# it's the skill expression the mechanic exists to create.
+#
+# What this does to actual difficulty still wants real playtesting -- the
+# sim can say "a break happens about this often", not "fights are now this
+# much easier".
+#
+# Trash mobs (role "combat") sit low on purpose: breaking them should be
+# incidental, something that just happens while you clear, not a decision.
+# The decision lives on elites and bosses, where a break actually denies a
+# telegraphed heavy hit worth denying.
+# ---------------------------------------------------------------------
+POISE_BY_ROLE = {
+    "combat": 6,
+    "elite": 12,
+    "boss": 16,
+    "boss_group_member": 12,
+}
+DEFAULT_POISE = 8
+
 
 def base_character_stats(player_character) -> dict:
     """Template base stats + linear growth to the character's current
@@ -284,6 +329,14 @@ def build_enemy_combatant(template: dict, level: int = 1) -> Combatant:
     # are deliberate per-character kit pieces left untouched by this pass.
     ramp_percent_per_turn = ATTACK_RAMP_PERCENT_PER_TURN_BY_ROLE.get(role, 0.4)
 
+    # Poise pool -- role-derived, per-template overridable. Deliberately
+    # NOT scaled by `level`: poise counts actions rather than damage, so a
+    # floor-40 elite takes the same number of hits to break as a floor-1
+    # one. Breaking stays a tactical decision at every depth instead of
+    # decaying into "you out-gear it so it never breaks" or "you out-gear
+    # it so it's permanently broken".
+    max_poise = template.get("max_poise", POISE_BY_ROLE.get(role, DEFAULT_POISE))
+
     return Combatant(
         name=template["name"],
         is_player=False,
@@ -309,4 +362,6 @@ def build_enemy_combatant(template: dict, level: int = 1) -> Combatant:
         # than a normal enemy without breaking the "everyone still gets a
         # turn" guarantee the cycle system is built around.
         base_actions_per_cycle=template.get("actions_per_cycle", 1),
+        max_poise=max_poise,
+        poise=max_poise,
     )

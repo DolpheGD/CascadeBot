@@ -9,8 +9,13 @@ from __future__ import annotations
 
 import discord
 
+from bot.game.combat.effects import BREAK_DAMAGE_BONUS_PERCENT
 from bot.services.currency_service import format_currency
 from bot.utils.embedder._shared import ROOM_TYPE_EMOJI, _bar
+
+# How many poise pips to render at most, so a 14-poise boss doesn't blow
+# out the embed field width.
+MAX_POISE_PIPS = 10
 
 
 # ----------------------------------------------------------------------
@@ -88,6 +93,27 @@ def dungeon_map_graph_embed(expedition) -> discord.Embed:
     return embed
 
 
+def _poise_line(enemy) -> str:
+    """The poise readout under an enemy's HP bar (see the Poise/Break
+    block in bot/game/combat/combatant.py). Rendered as discrete pips
+    rather than a continuous bar because poise is a small whole number of
+    HITS -- pips let the player count 'three more hits' at a glance, which
+    a proportional bar actively obscures. Empty string for anything that
+    can't be broken, so nothing is shown where it'd be meaningless."""
+    if not enemy.can_be_broken():
+        return ""
+    if enemy.is_broken():
+        return f"\n┗ 💫 Broken -- +{BREAK_DAMAGE_BONUS_PERCENT}% damage taken for {enemy.break_turns} more turn(s)"
+
+    # Cap the pip run so a 14-poise boss doesn't blow out the field width.
+    if enemy.max_poise <= MAX_POISE_PIPS:
+        pips = "🟦" * enemy.poise + "⬜" * (enemy.max_poise - enemy.poise)
+    else:
+        filled = round(MAX_POISE_PIPS * enemy.poise / enemy.max_poise)
+        pips = "🟦" * filled + "⬜" * (MAX_POISE_PIPS - filled)
+    return f"\n┗ 🛡️ Poise {enemy.poise}/{enemy.max_poise} {pips}"
+
+
 def _enemy_intent_lines(battle) -> str:
     """One line per enemy about to act before the next party turn (see
     Battle.peek_upcoming_enemy_intents) -- who they're targeting and
@@ -101,6 +127,9 @@ def _enemy_intent_lines(battle) -> str:
 
     lines = []
     for enemy, intent in upcoming:
+        if enemy.is_broken():
+            lines.append(f"**{enemy.name}** -- 💫 Broken, won't act")
+            continue
         if intent is None:
             lines.append(f"**{enemy.name}** -- 😵 Stunned, won't act")
             continue
@@ -110,7 +139,15 @@ def _enemy_intent_lines(battle) -> str:
             move = "⚔️ Attack"
         else:
             move = f"{'💥' if ability.get('is_ultimate') else '✨'} {ability['name']}"
-        lines.append(f"**{enemy.name}** ➡️ 🎯 {target.name} -- {move}")
+
+        # Spell out the counterplay: how many more hits until this enemy
+        # breaks and loses the move it's telegraphing. Without this the
+        # player has to infer the poise economy from a bar, and the whole
+        # point of the mechanic is that the answer is legible in advance.
+        counter = ""
+        if enemy.can_be_broken():
+            counter = f" *(break in {enemy.poise} hit{'s' if enemy.poise != 1 else ''} to cancel)*"
+        lines.append(f"**{enemy.name}** ➡️ 🎯 {target.name} -- {move}{counter}")
     return "\n".join(lines)
 
 
@@ -150,8 +187,9 @@ def combat_embed(battle, avatar_url: str | None = None) -> discord.Embed:
             continue
         ult_flag = " 💥" if member.ultimate_ready() else ""
         shield_tag = f" 🔷{round(member.shield)}" if member.shield > 0 else ""
+        guard_flag = " 🛡️" if member.guarding else ""
         party_lines.append(
-            f"**{member.name}**{acting_tag}{ult_flag}\n"
+            f"**{member.name}**{acting_tag}{ult_flag}{guard_flag}\n"
             f"┗ ❤️{member.current_hp}/{member.max_hp} {_bar(member.current_hp, member.max_hp, length=8)}{shield_tag}"
             f"  💧{member.mana}/{member.max_mana}  🔋{member.energy}/{member.max_energy}"
         )
@@ -167,9 +205,11 @@ def combat_embed(battle, avatar_url: str | None = None) -> discord.Embed:
         living_i += 1
         target_tag = " 🎯" if is_target else ""
         shield_tag = f" 🔷{round(enemy.shield)}" if enemy.shield > 0 else ""
+        break_tag = " 💫 **BROKEN**" if enemy.is_broken() else ""
         enemy_lines.append(
-            f"**{enemy.name}**{target_tag}\n"
+            f"**{enemy.name}**{target_tag}{break_tag}\n"
             f"┗ ❤️{enemy.current_hp}/{enemy.max_hp} {_bar(enemy.current_hp, enemy.max_hp, length=8)}{shield_tag}"
+            f"{_poise_line(enemy)}"
         )
     embed.add_field(name="👹 Enemies", value="\n".join(enemy_lines), inline=False)
 
@@ -228,6 +268,14 @@ def battle_info_embed(battle) -> discord.Embed:
             lines.append(f"😤 +{bonus:g}% ATK/ELE (prolonged fight, permanent)")
         if c.stunned_turns > 0:
             lines.append(f"😵 Stunned ({c.stunned_turns}t)")
+        if c.is_broken():
+            lines.append(
+                f"💫 Broken ({c.break_turns}t) -- +{BREAK_DAMAGE_BONUS_PERCENT}% damage taken, turns skipped"
+            )
+        elif c.can_be_broken():
+            lines.append(f"🛡️ Poise {c.poise}/{c.max_poise} -- breaks after {c.poise} more hit(s)")
+        if c.guarding:
+            lines.append("🛡️ Guarding -- incoming damage halved until their next turn")
         for ability_id, remaining in c.cooldowns.items():
             if remaining > 0:
                 ability = next(

@@ -53,6 +53,11 @@ def combatant_to_dict(c: Combatant) -> dict:
         "ramp_stacks": c.ramp_stacks,
         "enemy_heal_stacks": c.enemy_heal_stacks,
         "enemy_shield_stacks": c.enemy_shield_stacks,
+        "max_poise": c.max_poise,
+        "poise": c.poise,
+        "break_turns": c.break_turns,
+        "break_tick_armed": c.break_tick_armed,
+        "guarding": c.guarding,
     }
 
 
@@ -85,6 +90,16 @@ def combatant_from_dict(data: dict) -> Combatant:
         ramp_stacks=data.get("ramp_stacks", 0),
         enemy_heal_stacks=data.get("enemy_heal_stacks", 0),
         enemy_shield_stacks=data.get("enemy_shield_stacks", 0),
+        # Saves from before the poise system have no poise keys. Defaulting
+        # max_poise to 0 leaves those enemies unbreakable rather than
+        # crashing or silently full-poise; the next battle built from a
+        # template gets real values. break_turns/guarding default to
+        # "no effect", which is always safe to resume into.
+        max_poise=data.get("max_poise", 0),
+        poise=data.get("poise", 0),
+        break_turns=data.get("break_turns", 0),
+        break_tick_armed=data.get("break_tick_armed", False),
+        guarding=data.get("guarding", False),
     )
 
 
@@ -116,7 +131,53 @@ def battle_to_dict(battle: Battle) -> dict:
         "current_actor_index": next(
             i for i, c in enumerate(all_combatants) if c is battle._current_actor
         ),
+        # Telegraphed enemy intents, as {enemy index: {ability, target
+        # index}}. These live on Combatant.pending_intent but CAN'T be
+        # written by combatant_to_dict, because the target is a live
+        # Combatant reference -- it only becomes an index once you can see
+        # the whole roster, which is here.
+        #
+        # This has to persist or the mechanic is a lie: every player action
+        # is load -> mutate -> save -> render, so an intent decided during
+        # rendering and then dropped would be re-rolled on the next
+        # interaction, and the enemy would do something other than what the
+        # player was shown. That's tolerable when the telegraph is
+        # decoration; it is not tolerable now that Guard and poise-breaking
+        # are decisions made against it.
+        "pending_intents": _intents_to_dict(all_combatants),
     }
+
+
+def _intents_to_dict(all_combatants: list[Combatant]) -> dict:
+    intents: dict[str, dict] = {}
+    for i, c in enumerate(all_combatants):
+        if c.pending_intent is None:
+            continue
+        target = c.pending_intent.get("target")
+        target_index = next(
+            (j for j, other in enumerate(all_combatants) if other is target), None
+        )
+        if target_index is None:
+            continue  # target isn't in this battle any more; re-decide on load
+        intents[str(i)] = {
+            "ability": _ability_to_json(c.pending_intent.get("ability")),
+            "target_index": target_index,
+        }
+    return intents
+
+
+def _intents_from_dict(data: dict, all_combatants: list[Combatant]) -> None:
+    for index_str, intent in (data.get("pending_intents") or {}).items():
+        index = int(index_str)
+        if index >= len(all_combatants):
+            continue
+        target_index = intent.get("target_index")
+        if target_index is None or target_index >= len(all_combatants):
+            continue
+        all_combatants[index].pending_intent = {
+            "ability": intent.get("ability"),
+            "target": all_combatants[target_index],
+        }
 
 
 def battle_from_dict(data: dict, rng: random.Random | None = None) -> Battle:
@@ -142,4 +203,9 @@ def battle_from_dict(data: dict, rng: random.Random | None = None) -> Battle:
     # which self-heals cleanly.
     battle.cycle_order = [all_combatants[i] for i in data.get("cycle_order_indices", [])]
     battle._current_actor = all_combatants[data["current_actor_index"]]
+    # Restore telegraphed intents last -- they point at Combatant objects,
+    # so every combatant has to exist first. Absent on pre-poise saves, in
+    # which case intents are simply re-decided on the next peek, exactly
+    # as they were before this was persisted.
+    _intents_from_dict(data, all_combatants)
     return battle
