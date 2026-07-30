@@ -292,7 +292,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # battlefield data, so putting one down feeds the others.
         "name": "Acatrya Riot Trooper",
         "role": "combat",
-        "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands'],
+        "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands', 'Abyssnia'],
         "base_stats": {
             "attack": 13, "defense": 8, "elemental": 3, "speed": 7,
             "max_hp": 50, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 15,
@@ -346,7 +346,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # it's doing.
         "name": "Acatrya Field Medic",
         "role": "combat",
-        "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands'],
+        "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands', 'Abyssnia'],
         "base_stats": {
             "attack": 4, "defense": 6, "elemental": 5, "speed": 8,
             "max_hp": 65, "max_mana": 999, "crit_rate": 4, "crit_damage": 150, "recharge": 26,
@@ -565,7 +565,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # A grifter who's built a whole act around impersonating Rex
         "name": "Illusion of Rex",
         "role": "elite",
-        "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands', 'Voidcrest Desert'],
+        "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands', 'Voidcrest Desert', 'Abyssnia'],
         "base_stats": {
             "attack": 8, "defense": 8, "elemental": 9, "speed": 20,
             "max_hp": 100, "max_mana": 999, "crit_rate": 15, "crit_damage": 170, "recharge": 27,
@@ -717,7 +717,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # Sir vengeance
         "name": "Sir Vengeance",
         "role": "elite",
-        "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands', 'Voidcrest Desert'],
+        "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands', 'Voidcrest Desert', 'Abyssnia'],
         "base_stats": {
             "attack": 17, "defense": 3, "elemental": 6, "speed": 23,
             "max_hp": 230, "max_mana": 999, "crit_rate": 10, "crit_damage": 280, "recharge": 25,
@@ -736,7 +736,7 @@ ENEMY_TEMPLATES: list[dict] = [
         #The Giveaway
         "name": "The Giveaway",
         "role": "elite",
-        "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands', 'Voidcrest Desert'],
+        "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands', 'Voidcrest Desert', 'Abyssnia'],
         "base_stats": {
             "attack": 4, "defense": 1, "elemental": 4, "speed": 23,
             "max_hp": 300, "max_mana": 999, "crit_rate": 10, "crit_damage": 280, "recharge": 40,
@@ -747,6 +747,29 @@ ENEMY_TEMPLATES: list[dict] = [
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "arcane_battery")],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "world_ender"),
+    },
+    {
+        # Voidcrest-exclusive: a still-active guardian drone dug out of
+        # deep Eris wreckage in the Void Crevasse, running on tech no
+        # living faction can replicate. First enemy in the roster to
+        # carry the Mythic-tier weapon/artifact kit added alongside the
+        # Eris/Genesis gear sets (see bot/game/loot/abilities.py) -- a
+        # preview of that power level before Eris Sentinel below.
+        "name": "Corrupted Eris Sentry",
+        "role": "elite",
+        "regions": ['Voidcrest Desert'],
+        "base_stats": {
+            "attack": 20, "defense": 10, "elemental": 22, "speed": 14,
+            "max_hp": 240, "max_mana": 999, "crit_rate": 12, "crit_damage": 190, "recharge": 22,
+        },
+        "level_scale_percent": 10,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "ruin_breaker"),
+            get_ability_by_id(WEAPON_SKILLS, "voidpiercer"),
+            get_ability_by_id(ARTIFACT_SKILLS, "overmind_surge"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "adaptive_plating")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "cataclysm"),
     },
     # ---------------------------------------------------------------
     # Regular Bosses -- standalone 
@@ -1166,6 +1189,249 @@ ENEMY_TEMPLATES: list[dict] = [
         ],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "cataclysm"),
     },
+    {
+        # Voidcrest Desert previously had NO solo final boss at all --
+        # its "final" role was 100% covered by the Eruptor Trio BOSS_GROUPS
+        # entry (see get_boss_encounter()'s "Bugfix" comment below), so
+        # every single Voidcrest capstone fight was guaranteed to be that
+        # same 3-enemy encounter. This gives it a real solo alternative,
+        # and doubles as the roster's showcase for the newest Divine-tier
+        # kit (see bot/game/loot/abilities.py's Mythic/Divine gap-fill
+        # pass) -- Temporal Capacitor alone effectively doubles its action
+        # economy (base_actions_per_cycle 1 + the passive's +1 bonus, see
+        # Combatant.actions_per_cycle()), so no separate
+        # "actions_per_cycle": 2 is set here to avoid stacking two
+        # extra-action sources into three actions a cycle.
+        "name": "Eris Sentinel",
+        "role": "boss",
+        "region_roles": {'Voidcrest Desert': 'final'},
+        "base_stats": {
+            "attack": 30, "defense": 14, "elemental": 26, "speed": 15,
+            "max_hp": 1050, "max_mana": 999, "crit_rate": 15, "crit_damage": 195, "recharge": 28,
+        },
+        "level_scale_percent": 8,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "cataclysms_edge"),
+            get_ability_by_id(WEAPON_SKILLS, "apex_predator"),
+            get_ability_by_id(ARTIFACT_SKILLS, "absolute_zero"),
+            get_ability_by_id(ARTIFACT_SKILLS, "astral_cascade"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "temporal_capacitor")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "ascension"),
+    },
+    # ---------------------------------------------------------------
+    # ABYSSNIA -- the glittering capital of Acatrya (see docs/WORLD_LORE.md).
+    # Tier 5, the true endgame: Xender's own seat of power, guarded by
+    # riot police, corporate security, and true believers, with an
+    # underclass that never made it into the brochure. First region to
+    # showcase the newer engine mechanics (see bot/game/combat/effects.py's
+    # "New-mechanics pass" docstring) on the ENEMY side rather than just
+    # player kits -- Propaganda Broadcast Unit (on_hit_team_buff), Acatrya
+    # Prime Enforcer (apply_vulnerability_stack), and Xender himself
+    # (extra_turn_on_kill) all carry gear built on them.
+    # ---------------------------------------------------------------
+    {
+        "name": "Skyline Enforcer",
+        "role": "combat",
+        "regions": ['Abyssnia'],
+        "base_stats": {
+            "attack": 16, "defense": 10, "elemental": 4, "speed": 11,
+            "max_hp": 65, "max_mana": 999, "crit_rate": 8, "crit_damage": 155, "recharge": 16,
+        },
+        "level_scale_percent": 8,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "quickdraw_slash"),
+            get_ability_by_id(WEAPON_SKILLS, "guard_splitter"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "iron_skin")],
+    },
+    {
+        # A swarm of repurposed advertisement drones -- fast and numerous,
+        # never actually built to fight, but there are a lot of them.
+        "name": "Ad-Drone Swarm Unit",
+        "role": "combat",
+        "regions": ['Abyssnia'],
+        "base_stats": {
+            "attack": 10, "defense": 5, "elemental": 14, "speed": 18,
+            "max_hp": 50, "max_mana": 999, "crit_rate": 10, "crit_damage": 160, "recharge": 14,
+        },
+        "level_scale_percent": 8,
+        "actions_per_cycle": 2,
+        "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "flurry_slash")],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "static_discharge")],
+    },
+    {
+        # The "fifth of the population" the capital's ads never mention --
+        # desperate, opportunistic, and taking it out on whoever Cascade
+        # sends in, not entirely without reason.
+        "name": "Undercity Scavenger",
+        "role": "combat",
+        "regions": ['Abyssnia'],
+        "base_stats": {
+            "attack": 14, "defense": 6, "elemental": 3, "speed": 10,
+            "max_hp": 58, "max_mana": 999, "crit_rate": 7, "crit_damage": 155, "recharge": 16,
+        },
+        "level_scale_percent": 8,
+        "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "opportunist_strike")],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "vampiric_edge")],
+    },
+    {
+        "name": "Corporate Security Mech",
+        "role": "combat",
+        "regions": ['Abyssnia'],
+        "base_stats": {
+            "attack": 19, "defense": 14, "elemental": 5, "speed": 7,
+            "max_hp": 85, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 18,
+        },
+        "level_scale_percent": 8,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "shield_bash"),
+            get_ability_by_id(WEAPON_SKILLS, "power_strike"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "thornmail")],
+    },
+    {
+        # A true believer in Xender's regime, rallied by broadcasts the
+        # rest of the capital tunes out.
+        "name": "Xender Loyalist",
+        "role": "combat",
+        "regions": ['Abyssnia'],
+        "base_stats": {
+            "attack": 15, "defense": 8, "elemental": 8, "speed": 12,
+            "max_hp": 60, "max_mana": 999, "crit_rate": 9, "crit_damage": 160, "recharge": 15,
+        },
+        "level_scale_percent": 8,
+        "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "rousing_signal")],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "momentum")],
+    },
+    {
+        "name": "Tower Maintenance Bot",
+        "role": "combat",
+        "regions": ['Abyssnia'],
+        "base_stats": {
+            "attack": 12, "defense": 9, "elemental": 6, "speed": 6,
+            "max_hp": 70, "max_mana": 999, "crit_rate": 4, "crit_damage": 150, "recharge": 20,
+        },
+        "level_scale_percent": 8,
+        "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "overclock_repair")],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "scrap_armor")],
+    },
+    {
+        "name": "Acatrya Elite Guard",
+        "role": "elite",
+        "regions": ['Abyssnia'],
+        "base_stats": {
+            "attack": 26, "defense": 16, "elemental": 6, "speed": 13,
+            "max_hp": 260, "max_mana": 999, "crit_rate": 13, "crit_damage": 175, "recharge": 22,
+        },
+        "level_scale_percent": 10,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "rending_cleave"),
+            get_ability_by_id(WEAPON_SKILLS, "guard_splitter"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "retaliation_plating")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "storm_of_blades"),
+    },
+    {
+        # First enemy to carry on_hit_team_buff (see bot/game/loot/
+        # abilities.py's Rallying Plate) -- the whole point of a
+        # "broadcast" unit is that hitting it just makes it louder.
+        "name": "Propaganda Broadcast Unit",
+        "role": "elite",
+        "regions": ['Abyssnia'],
+        "base_stats": {
+            "attack": 18, "defense": 12, "elemental": 18, "speed": 11,
+            "max_hp": 230, "max_mana": 999, "crit_rate": 11, "crit_damage": 170, "recharge": 20,
+        },
+        "level_scale_percent": 10,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "rousing_signal"),
+            get_ability_by_id(ARTIFACT_SKILLS, "static_field"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "rallying_plate")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "cascade_barrage"),
+    },
+    {
+        "name": "Skybridge Sentinel",
+        "role": "elite",
+        "regions": ['Abyssnia'],
+        "base_stats": {
+            "attack": 24, "defense": 13, "elemental": 8, "speed": 20,
+            "max_hp": 240, "max_mana": 999, "crit_rate": 15, "crit_damage": 185, "recharge": 20,
+        },
+        "level_scale_percent": 10,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "tempest_edge"),
+            get_ability_by_id(WEAPON_SKILLS, "sweeping_volley"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "capacitor_shell")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "gale_ascendant"),
+    },
+    {
+        # ---------------------------------------------------------------
+        # Regular Bosses -- Abyssnia
+        # ---------------------------------------------------------------
+        # Ocellios Labs founder Stubby's contingency plan, in case his own
+        # creations ever needed to be put down. Nobody's needed to use it
+        # until now.
+        "name": "Stubby's Failsafe",
+        "role": "boss",
+        "region_roles": {'Abyssnia': 'regular'},
+        "base_stats": {
+            "attack": 28, "defense": 15, "elemental": 22, "speed": 12,
+            "max_hp": 480, "max_mana": 999, "crit_rate": 13, "crit_damage": 180, "recharge": 22,
+        },
+        "level_scale_percent": 9,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "crossfire_salvo"),
+            get_ability_by_id(ARTIFACT_SKILLS, "system_purge"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "adaptive_plating")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "null_strike"),
+    },
+    {
+        # Xender's top enforcer -- carries Weakpoint Marker (see
+        # bot/game/loot/abilities.py), marking whoever Xender himself
+        # wants softened up before the real fight.
+        "name": "Acatrya Prime Enforcer",
+        "role": "boss",
+        "region_roles": {'Abyssnia': 'regular'},
+        "base_stats": {
+            "attack": 32, "defense": 17, "elemental": 10, "speed": 14,
+            "max_hp": 520, "max_mana": 999, "crit_rate": 15, "crit_damage": 190, "recharge": 20,
+        },
+        "level_scale_percent": 9,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "riftcutter"),
+            get_ability_by_id(ARTIFACT_SKILLS, "weakpoint_marker"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "executioner")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "executioners_reckoning"),
+    },
+    {
+        # Abyssnia's final boss -- and the story's actual antagonist (see
+        # docs/WORLD_LORE.md): the leader of Acatrya himself, in the
+        # capital he built on Void-matter rights he never should have
+        # gotten exclusively. The hardest single fight in the game --
+        # Divine-tier kit across the board, and Momentum Core
+        # (extra_turn_on_kill) means every kill he lands just keeps the
+        # fight going for him, not the party.
+        "name": "Xender",
+        "role": "boss",
+        "region_roles": {'Abyssnia': 'final'},
+        "base_stats": {
+            "attack": 38, "defense": 20, "elemental": 34, "speed": 18,
+            "max_hp": 1500, "max_mana": 999, "crit_rate": 18, "crit_damage": 210, "recharge": 28,
+        },
+        "level_scale_percent": 8,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "apex_predator"),
+            get_ability_by_id(ARTIFACT_SKILLS, "absolute_zero"),
+            get_ability_by_id(ARTIFACT_SKILLS, "weakpoint_marker"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "momentum_core")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "world_ender"),
+    },
     # ---------------------------------------------------------------
     # BOSS GROUP -- the Eruptor Trio. Three enemies fought as a single,
     # very difficult boss encounter (see BOSS_GROUPS / get_boss_encounter
@@ -1186,10 +1452,6 @@ ENEMY_TEMPLATES: list[dict] = [
             get_ability_by_id(WEAPON_SKILLS, "twin_fracture_strike"),
             get_ability_by_id(WEAPON_SKILLS, "riftcutter"),
             get_ability_by_id(ARTIFACT_SKILLS, "arc_lightning"),
-        ],
-        "passive_abilities": [
-            get_ability_by_id(ARMOR_PASSIVES, "thornmail"),
-            get_ability_by_id(ARMOR_PASSIVES, "retaliation_plating"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "adaptive_plating"),
                               get_ability_by_id(ARMOR_PASSIVES, "capacitor_shell"),],
@@ -1214,7 +1476,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "level_scale_percent": 8,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "guard_splitter"),
-            get_ability_by_id(WEAPON_SKILLS, "opportunist_strike"),  # Note: this ability ID might be incorrect
+            get_ability_by_id(WEAPON_SKILLS, "opportunist_strike"),
             get_ability_by_id(ARTIFACT_SKILLS, "arc_lightning"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "momentum")],
@@ -1249,6 +1511,64 @@ ENEMY_TEMPLATES: list[dict] = [
         ],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "voidstorm"),
     },
+    # ---------------------------------------------------------------
+    # BOSS GROUP -- Acatrya's Board. A second named trio, this one for
+    # Abyssnia -- deliberately a REGULAR checkpoint-boss alternative
+    # rather than reserved for the final slot the way the Eruptor Trio
+    # is for Voidcrest, since Xender himself is Abyssnia's one and only
+    # final boss and doesn't need competition for that slot. Each member
+    # plays a distinct role in a boardroom rather than a battlefield --
+    # the tank protects, the auditor strips defenses down to capitalize
+    # on them, the censor silences whoever's causing the most trouble.
+    # ---------------------------------------------------------------
+    {
+        "name": "The Chairman",
+        "role": "boss_group_member",
+        "base_stats": {
+            "attack": 30, "defense": 22, "elemental": 10, "speed": 8,
+            "max_hp": 700, "max_mana": 999, "crit_rate": 10, "crit_damage": 160, "recharge": 24,
+        },
+        "level_scale_percent": 9,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "rending_cleave"),
+            get_ability_by_id(ARTIFACT_SKILLS, "empowering_ritual"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "thornmail")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "aegis_protocol"),
+    },
+    {
+        # Strips defenses down first, then her own ultimate (null_strike's
+        # damage_bonus_if_debuffed) capitalizes on exactly the DEF debuffs
+        # she just applied -- a self-contained combo in one kit.
+        "name": "The Auditor",
+        "role": "boss_group_member",
+        "base_stats": {
+            "attack": 22, "defense": 14, "elemental": 20, "speed": 12,
+            "max_hp": 480, "max_mana": 999, "crit_rate": 12, "crit_damage": 170, "recharge": 22,
+        },
+        "level_scale_percent": 9,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
+            get_ability_by_id(ARTIFACT_SKILLS, "static_field"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "executioner")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "null_strike"),
+    },
+    {
+        "name": "The Censor",
+        "role": "boss_group_member",
+        "base_stats": {
+            "attack": 18, "defense": 12, "elemental": 24, "speed": 15,
+            "max_hp": 450, "max_mana": 999, "crit_rate": 14, "crit_damage": 175, "recharge": 20,
+        },
+        "level_scale_percent": 9,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "emp_burst"),
+            get_ability_by_id(ARTIFACT_SKILLS, "jamming_array"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "static_discharge")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "voidstorm"),
+    },
 ]
 
 # Named multi-enemy boss encounters. Each entry is a list of template names
@@ -1257,6 +1577,7 @@ ENEMY_TEMPLATES: list[dict] = [
 # of the usual single boss template.
 BOSS_GROUPS: dict[str, list[str]] = {
     "eruptor_trio": ["Borehole", "Rupture", "Gatekeeper"],
+    "acatrya_board": ["The Chairman", "The Auditor", "The Censor"],
 }
 
 # Same idea as a solo boss template's "region_roles" field (see
@@ -1265,6 +1586,7 @@ BOSS_GROUPS: dict[str, list[str]] = {
 # region's FINAL boss there.
 BOSS_GROUP_REGION_ROLES: dict[str, dict[str, str]] = {
     "eruptor_trio": {"Voidcrest Desert": "final"},
+    "acatrya_board": {"Abyssnia": "regular"},
 }
 
 # Chance that a BOSS room rolls one of the eligible BOSS_GROUPS instead of

@@ -742,6 +742,35 @@ ARTIFACT_SKILLS: list[dict] = [
         "description": "Heal your whole side for 45% of each member's own max HP.",
         "effect": {"kind": "team_heal_percent_max_hp", "percent": 45},
     },
+    {
+        # unique -- brings apply_vulnerability_stack (previously only
+        # Sader Vorae's character skill) to gear, as an ARTIFACT skill
+        # so casters can mark a target for their team's elemental damage
+        # to capitalize on.
+        "id": "weakpoint_marker",
+        "name": "Weakpoint Marker",
+        "min_rarity": Rarity.RARE,
+        "resource_cost": 26,
+        "resource_type": "mana",
+        "cooldown": 2,
+        "description": "Deal 85% ELE damage to the target and mark it, increasing the ELE damage it takes by 6% per stack (max 5 stacks).",
+        "effect": {"kind": "apply_vulnerability_stack", "damage_percent": 85, "damage_stat": "elemental",
+                   "vulnerable_damage_stat": "elemental", "percent_per_stack": 6, "max_stacks": 5},
+    },
+    {
+        # unique -- brings sacrifice_hp_team_buff (previously only Evz's
+        # character ultimate) to gear -- the Blood-Sustain buff family's
+        # artifact-accessible version.
+        "id": "transfusion_matrix",
+        "name": "Transfusion Matrix",
+        "min_rarity": Rarity.EPIC,
+        "resource_cost": 34,
+        "resource_type": "mana",
+        "cooldown": 4,
+        "description": "Sacrifice 15% of your own max HP to boost your whole side's ELE by 25% for 3 turns.",
+        "effect": {"kind": "sacrifice_hp_team_buff", "self_cost_percent": 15,
+                   "buff_stat": "elemental", "buff_percent": 25, "duration": 3},
+    },
 ]
 
 ULTIMATE_ABILITIES: list[dict] = [
@@ -1081,6 +1110,41 @@ ARMOR_PASSIVES: list[dict] = [
         "trigger": "on_turn_start",
         "description": "At the start of every turn, sacrifices 2% of your own max HP to heal the rest of your side for 3% of their own max HP each.",
         "effect": {"kind": "aura_team_regen_self_sacrifice", "self_cost_percent": 2, "percent": 3},
+    },
+    {
+        # unique -- brings on_hit_team_buff (previously only IH's
+        # character passive, see bot/game/combat/skills.py) to gear, so
+        # any tank-flavored build can adopt the "taking a hit is itself
+        # the team-buff trigger" identity, not just one specific character.
+        "id": "rallying_plate",
+        "name": "Rallying Plate",
+        "min_rarity": Rarity.EPIC,
+        "trigger": "always",
+        "description": "Whenever you take a hit, the whole team feels it: gain 5% ATK for 2 turns.",
+        "effect": {"kind": "on_hit_team_buff", "buff_stat": "attack", "buff_percent": 5, "duration": 2},
+    },
+    {
+        # unique -- brings dot_amplifier (previously only Blueflame's
+        # character passive) to gear, for any burn/bleed-focused build.
+        "id": "accelerant_coating",
+        "name": "Accelerant Coating",
+        "min_rarity": Rarity.RARE,
+        "trigger": "always",
+        "description": "Every DoT you apply deals 20% increased damage.",
+        "effect": {"kind": "dot_amplifier", "percent": 20},
+    },
+    {
+        # unique -- brings extra_turn_on_kill (previously only FAX's
+        # character passive) to gear. Gated to DIVINE like Temporal
+        # Capacitor above -- a genuine extra action, on top of whatever a
+        # kill already rewards, is one of the strongest things a passive
+        # can do, so it stays reserved for the very top of the gear curve.
+        "id": "momentum_core",
+        "name": "Momentum Core",
+        "min_rarity": Rarity.DIVINE,
+        "trigger": "always",
+        "description": "Landing a killing blow earns you another turn immediately.",
+        "effect": {"kind": "extra_turn_on_kill"},
     },
 ]
 

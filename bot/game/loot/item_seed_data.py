@@ -12,15 +12,16 @@ bot/game/characters/character_seed_data.py).
 
 The back half of this catalog is the item SET system: Wood, Iron, Sigma
 Wolf, Crystal, Xendium, Permafrost, Hi-Tech, Error Code, Voidwalker,
-Entropic, Refense, Aegis, and the ultra-rare "500 Billian Gem Giveaway".
-Each set piece has a fixed `set_prefix` (so its display name is always just
-"{prefix} {item name}" -- see bot/game/loot/naming.py) and a
-`linked_ability_id` that's ALWAYS the ability it rolls (when it rolls one
-at all -- still gated by RARITY_ABILITY_CHANCE), rather than a random pick
-from its item_type's pool. Sets lean toward a particular class role
-(Crystal/Xendium -> casters, Permafrost/Refense/Aegis -> tanks/Sustain,
-Hi-Tech -> Support DPS, Sigma Wolf -> DPS) without being exclusive to it,
-alongside Wood/Iron as simple, generic, flexible early options.
+Entropic, Refense, Aegis, Vantage, Fieldwork, Eris, Genesis, and the
+ultra-rare "500 Billian Gem Giveaway". Each set piece has a fixed
+`set_prefix` (so its display name is always just "{prefix} {item name}" --
+see bot/game/loot/naming.py) and a `linked_ability_id` that's ALWAYS the
+ability it rolls (when it rolls one at all -- still gated by
+RARITY_ABILITY_CHANCE), rather than a random pick from its item_type's
+pool. Sets lean toward a particular class role (Crystal/Xendium/Genesis ->
+casters, Permafrost/Refense/Aegis/Eris -> tanks/Sustain, Hi-Tech ->
+Support DPS, Sigma Wolf -> DPS) without being exclusive to it, alongside
+Wood/Iron as simple, generic, flexible early options.
 
 Seeded on startup the same way harvester/lootbox templates are (see
 bot/services/item_template_service.py). Expanding this catalog with more
@@ -354,6 +355,39 @@ ITEM_TEMPLATES: list[dict] = [
      "set_name": "Fieldwork Set", "set_prefix": "Fieldwork", "linked_ability_id": "bloodwell_charm",
      "flavor_text": "Every turn it takes a little, so someone else can keep a little more.",
      "min_rarity": Rarity.LEGENDARY, "max_rarity": Rarity.MYTHIC},
+
+    # Eris -- named for the fallen precursor city whose wreckage seeds
+    # every other faction's tech in this world (see docs/WORLD_LORE.md).
+    # First WEAPON in the game able to reach Mythic/Divine at all -- every
+    # other MYTHIC->DIVINE set (Voidwalker, Entropic, Refense above) only
+    # ever paired an ARTIFACT with an ARMOR piece, so no weapon could
+    # previously roll higher than Legendary no matter what region a player
+    # farmed. Both pieces showcase the newest top-tier abilities (see
+    # bot/game/loot/abilities.py's Mythic/Divine gap-fill content pass).
+    {"name": "Erisblade", "item_type": ItemType.WEAPON, "slot": EquipmentSlot.WEAPON,
+     "main_stat": "attack", "base_main_stat_value": 15,
+     "set_name": "Eris Set", "set_prefix": "Eris", "linked_ability_id": "cataclysms_edge",
+     "flavor_text": "Salvaged from wreckage older than any nation now standing. It remembers how to finish a fight.",
+     "min_rarity": Rarity.MYTHIC, "max_rarity": Rarity.DIVINE},
+    {"name": "Eris Plating", "item_type": ItemType.ARMOR, "slot": EquipmentSlot.ARMOR,
+     "main_stat": "defense", "base_main_stat_value": 11,
+     "set_name": "Eris Set", "set_prefix": "Eris", "linked_ability_id": "temporal_capacitor",
+     "flavor_text": "Eris-tech doesn't just protect -- it barely acknowledges time passing at all.",
+     "min_rarity": Rarity.MYTHIC, "max_rarity": Rarity.DIVINE},
+
+    # Genesis -- restorative/caster-support showcase set, the ARTIFACT-side
+    # counterpart to Eris: both pieces lean into the newest Divine-tier
+    # support/caster abilities rather than raw damage.
+    {"name": "Genesis Core", "item_type": ItemType.ARTIFACT, "slot": EquipmentSlot.ARTIFACT,
+     "main_stat": "elemental", "base_main_stat_value": 12,
+     "set_name": "Genesis Set", "set_prefix": "Genesis", "linked_ability_id": "genesis_wellspring",
+     "flavor_text": "Every Cascade medic swears it hums warmer right before someone needs it most.",
+     "min_rarity": Rarity.MYTHIC, "max_rarity": Rarity.DIVINE},
+    {"name": "Genesis Halo", "item_type": ItemType.ARMOR, "slot": EquipmentSlot.ACCESSORY,
+     "main_stat": "max_hp", "base_main_stat_value": 30,
+     "set_name": "Genesis Set", "set_prefix": "Genesis", "linked_ability_id": "regen_field_generator",
+     "flavor_text": "A halo of old Eris light that never quite goes out.",
+     "min_rarity": Rarity.MYTHIC, "max_rarity": Rarity.DIVINE},
 
     # "500 Billian Gem Giveaway" -- ultra rare joke set. The misspelling of
     # "Billion" is intentional; the creator, a silly man named Thedoggyp,
