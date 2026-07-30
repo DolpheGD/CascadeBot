@@ -55,9 +55,11 @@ def dungeon_map_embed(
 
     held = relic_service.held_relics(expedition)
     if held:
+        from bot.utils.embedder.relics import relic_lines
+
         embed.add_field(
             name=f"✨ Relics ({len(held)})",
-            value="\n".join(f"{r['emoji']} **{r['name']}** -- {r['description']}" for r in held),
+            value=relic_lines(held),
             inline=False,
         )
 

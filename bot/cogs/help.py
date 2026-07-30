@@ -76,15 +76,21 @@ class Help(commands.Cog):
                 "usable once Energy reaches 50.\n"
                 "⚔️🔮 **Weapon/Artifact Skill** -- from equipped gear, if any, costs SP.\n"
                 "🎯 Use the target dropdown to switch which enemy you're aiming at -- "
-                "switching targets is free and doesn't use your turn.\n\n"
-                "**💫 Breaking:** every enemy has a Poise pool shown under its "
-                "HP bar, chipped by each hit that lands -- 1 for an Attack, 2 "
-                "for a Skill, 3 for an Ultimate, and once *per hit* for "
-                "multi-hit skills or *per target* for AOE, which makes those "
-                "the best breaking tools. Empty it and the enemy is **Broken**: "
-                "the move it was telegraphing is **cancelled**, it loses its "
-                "next 2 turns, and it takes **+50% damage** the whole time. "
-                "Poise refills when it recovers, so pick your moment.\n\n"
+                "switching targets is free and doesn't use your turn."
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name="💫 Breaking, and Stats",
+            value=(
+                "Every enemy has a **Poise** pool shown under its HP bar, chipped "
+                "by each hit that lands: 1 for an Attack, 2 for a Skill, 3 for an "
+                "Ultimate, and once *per hit* for multi-hit skills or *per target* "
+                "for AOE -- which makes those the best breaking tools.\n"
+                "Empty it and the enemy is **Broken**: the move it was telegraphing "
+                "is **cancelled**, it loses its next 2 turns, and it takes **+50% "
+                "damage** throughout. Poise refills when it recovers, so pick your "
+                "moment.\n\n"
                 "**Stats:** ❤️ HP, ⚔️ ATK, 🛡️ DEF, 💧 SP, 🔮 ELE (elemental "
                 "damage), 💨 SPD, 🎯 Crit Rate%, 💥 Crit DMG%, 🔋 Recharge. "
                 "There is no Dodge -- every hit lands, and DEF reduces damage "
