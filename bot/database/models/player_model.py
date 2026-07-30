@@ -57,15 +57,36 @@ class Player(Base):
     daily_streak: Mapped[int] = mapped_column(Integer, default=0)
 
     # Quests -- see bot/database/models/quest_model.py::PlayerQuest and
-    # bot/services/quest_service.py. last_basic_quest_assigned_at gates the
-    # 5-hour "roll a new basic quest" cooldown (same pattern as
-    # last_daily_claimed_at above); beginner_bonus_claimed guards the
-    # one-time 300 shard bonus for finishing every beginner quest so it
-    # can never be granted twice.
+    # bot/services/quest_service.py. beginner_quest_bonus_claimed guards
+    # the one-time 300 shard bonus for finishing every beginner quest so
+    # it can never be granted twice.
+    # last_basic_quest_assigned_at is no longer read/written by
+    # quest_service (basic quests now use per-row PlayerQuest.assigned_at
+    # instead, since there can be several active at once -- a single
+    # player-wide timestamp can't express that). Column stays here
+    # unused rather than removed, since dropping it would be a schema
+    # change.
     last_basic_quest_assigned_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     beginner_quest_bonus_claimed: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Domains (bot/game/economy/domain_config.py, bot/services/
+    # domain_service.py): a regenerating energy resource spent on
+    # single-battle "domain challenge" fights against a fixed enemy
+    # squad, for direct on-demand rewards (materials/shards/gold/
+    # lootboxes/XP) without running a full expedition. domain_energy is
+    # the last-SAVED point count; domain_energy_updated_at is the anchor
+    # domain_service regenerates real-time from -- same
+    # accrue-since-last-checkpoint pattern as PlayerHarvester.
+    # last_collected_at, except point-based (whole energy) rather than a
+    # continuous rate, so the anchor advances by exact whole intervals
+    # rather than jumping to "now" on every read (see domain_service's
+    # module docstring for why that distinction matters here).
+    domain_energy: Mapped[int] = mapped_column(Integer, default=120)
+    domain_energy_updated_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
     # Base stats -- equipment/artifacts/buffs modify these at combat time,
     # they don't overwrite them here.

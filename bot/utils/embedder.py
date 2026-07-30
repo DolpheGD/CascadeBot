@@ -23,8 +23,10 @@ from bot.database.models.character_model import LEVEL_CAP
 from bot.game.combat.combatant import STAT_KEYS
 from bot.game.combat.factory import base_character_stats as _base_character_stats
 from bot.game.combat.factory import build_character_combatant
-from bot.game.economy.quest_config import BASIC_QUEST_POOL, BEGINNER_QUESTS
+from bot.game.economy.quest_config import BASIC_QUEST_POOL, BEGINNER_QUESTS, MAX_ACTIVE_BASIC_QUESTS
+from bot.game.economy.domain_config import DOMAIN_TYPES, DOMAIN_DIFFICULTY_TIERS, MAX_DOMAIN_ENERGY
 from bot.services.currency_service import currency_emoji, format_currency
+from bot.services import domain_service
 
 ROOM_TYPE_EMOJI = {
     "start": "🚪", "combat": "⚔️", "elite": "🔥", "treasure": "💰",
@@ -363,12 +365,40 @@ def dungeon_map_graph_embed(expedition) -> discord.Embed:
     return embed
 
 
+def _enemy_intent_lines(battle) -> str:
+    """One line per enemy about to act before the next party turn (see
+    Battle.peek_upcoming_enemy_intents) -- who they're targeting and
+    whether it's a basic attack, an ability, or their ultimate. This
+    LOCKS IN those enemies' decisions as a side effect of being called
+    (see peek_upcoming_enemy_intents's docstring), so call this at most
+    once per render."""
+    upcoming = battle.peek_upcoming_enemy_intents()
+    if not upcoming:
+        return "*Nothing incoming right now.*"
+
+    lines = []
+    for enemy, intent in upcoming:
+        if intent is None:
+            lines.append(f"**{enemy.name}** -- 😵 Stunned, won't act")
+            continue
+        ability = intent["ability"]
+        target = intent["target"]
+        if ability is None:
+            move = "⚔️ Attack"
+        else:
+            move = f"{'💥' if ability.get('is_ultimate') else '✨'} {ability['name']}"
+        lines.append(f"**{enemy.name}** ➡️ 🎯 {target.name} -- {move}")
+    return "\n".join(lines)
+
+
 def combat_embed(battle, avatar_url: str | None = None) -> discord.Embed:
     """Renders the current battle state: HP/resource bars for everyone, the
-    turn order preview, current target marker, and a short "Recent Actions"
-    tail of the log, so a Discord message can be edited in place turn after
-    turn. That tail is intentionally brief (see _recent_log_lines) -- the
-    full history is still one 📜 Log tap away via battle_log_embed.
+    turn order preview, an enemy intent preview (see _enemy_intent_lines --
+    who's about to act, on whom, with what), current target marker, and a
+    short "Recent Actions" tail of the log, so a Discord message can be
+    edited in place turn after turn. That tail is intentionally brief (see
+    _recent_log_lines) -- the full history is still one 📜 Log tap away via
+    battle_log_embed.
 
     Party and enemies are each ONE consolidated field (a line per member)
     rather than one Discord field per combatant -- with a full 4-person
@@ -387,6 +417,7 @@ def combat_embed(battle, avatar_url: str | None = None) -> discord.Embed:
 
     if not battle.is_over():
         embed.add_field(name="🔀 Turn Order", value=_turn_order_line(battle), inline=False)
+        embed.add_field(name="😈 Enemy Intent", value=_enemy_intent_lines(battle), inline=False)
 
     party_lines = []
     for member in battle.party:
@@ -923,13 +954,14 @@ def encounter_embed(node: dict, encounter: dict, message: str | None = None, pla
     return embed
 
 
-def quest_board_embed(beginner_quests: list, basic_quest, cooldown_remaining, player) -> discord.Embed:
+def quest_board_embed(beginner_quests: list, basic_quests: list, cooldown_remaining, player) -> discord.Embed:
     """`beginner_quests` is the full list of PlayerQuest rows (kind=
-    "beginner") for this player, `basic_quest` is their current active
-    basic PlayerQuest or None, and `cooldown_remaining` is a
-    datetime.timedelta (or None if a new basic quest can be rolled right
-    now) -- see quest_service.get_beginner_quests /
-    get_active_basic_quest / basic_quest_cooldown_remaining."""
+    "beginner") for this player, `basic_quests` is every currently-active
+    (kind="basic") row -- up to MAX_ACTIVE_BASIC_QUESTS of them -- and
+    `cooldown_remaining` is a datetime.timedelta (or None if a new/rerolled
+    basic quest is available right now) -- see quest_service.
+    get_beginner_quests / get_active_basic_quests /
+    basic_quest_reroll_cooldown_remaining."""
     embed = discord.Embed(title="📋 Quests", color=discord.Color.teal())
 
     descriptions_by_id = {q["id"]: q["description"] for q in BEGINNER_QUESTS}
@@ -949,31 +981,109 @@ def quest_board_embed(beginner_quests: list, basic_quest, cooldown_remaining, pl
     if not player.beginner_quest_bonus_claimed:
         embed.add_field(
             name="🎁 Completion Bonus",
-            value=f"Finish every beginner quest above for {format_currency('shards', 600)}!",
+            value=f"Finish every beginner quest above for {format_currency('shards', 900)}!",
             inline=False,
         )
 
-    if basic_quest is not None:
-        desc = next((q["description"] for q in BASIC_QUEST_POOL if q["id"] == basic_quest.quest_id), basic_quest.quest_id)
-        reward = next((q["reward"] for q in BASIC_QUEST_POOL if q["id"] == basic_quest.quest_id), {})
-        reward_text = ", ".join(format_currency(c, a) for c, a in reward.items())
-        status = "✅ Complete!" if basic_quest.is_completed else f"{basic_quest.progress}/{basic_quest.goal_count}"
-        embed.add_field(
-            name="🎯 Basic Quest",
-            value=f"{desc}\nProgress: {status}\nReward: {reward_text}",
-            inline=False,
-        )
+    if basic_quests:
+        for quest in basic_quests:
+            desc = next((q["description"] for q in BASIC_QUEST_POOL if q["id"] == quest.quest_id), quest.quest_id)
+            reward = next((q["reward"] for q in BASIC_QUEST_POOL if q["id"] == quest.quest_id), {})
+            reward_text = ", ".join(format_currency(c, a) for c, a in reward.items())
+            status = "✅ Complete!" if quest.is_completed else f"{quest.progress}/{quest.goal_count}"
+            embed.add_field(
+                name=f"🎯 Basic Quest ({basic_quests.index(quest) + 1}/{MAX_ACTIVE_BASIC_QUESTS})",
+                value=f"{desc}\nProgress: {status}\nReward: {reward_text}",
+                inline=False,
+            )
     else:
-        embed.add_field(name="🎯 Basic Quest", value="*No quest active.*", inline=False)
+        embed.add_field(name=f"🎯 Basic Quests (0/{MAX_ACTIVE_BASIC_QUESTS})", value="*No quests active.*", inline=False)
 
-    if cooldown_remaining is None:
-        embed.set_footer(text="A new basic quest is ready to roll!")
+    open_slots = MAX_ACTIVE_BASIC_QUESTS - len(basic_quests)
+    if open_slots > 0:
+        embed.set_footer(text=f"{open_slots} quest slot{'s' if open_slots != 1 else ''} open -- roll a new one anytime!")
+    elif cooldown_remaining is None:
+        embed.set_footer(text="All slots full, but your oldest quest is ready to reroll!")
     else:
         hours, remainder = divmod(int(cooldown_remaining.total_seconds()), 3600)
         minutes = remainder // 60
-        embed.set_footer(text=f"Next basic quest reroll available in {hours}h {minutes}m.")
+        embed.set_footer(text=f"All slots full. Oldest quest can be rerolled in {hours}h {minutes}m.")
 
     return embed
+
+
+# ----------------------------------------------------------------------
+# Domains (/domains) -- energy-gated single-battle challenges against a
+# fixed enemy squad, for direct on-demand rewards. See
+# bot/services/domain_service.py and bot/game/economy/domain_config.py.
+# ----------------------------------------------------------------------
+
+def _energy_bar_line(player) -> str:
+    current = domain_service.get_current_energy(player)
+    bar = _bar(current, MAX_DOMAIN_ENERGY, length=12)
+    line = f"⚡ {current}/{MAX_DOMAIN_ENERGY} {bar}"
+    next_point = domain_service.time_until_next_energy_point(player)
+    if next_point is not None:
+        minutes = int(next_point.total_seconds() // 60) + 1
+        line += f"\n*Next point in {minutes}m*"
+    return line
+
+
+def domain_menu_embed(player) -> discord.Embed:
+    """Top-level /domains screen: energy status + every domain type."""
+    embed = discord.Embed(title="🌀 Domains", color=discord.Color.dark_purple())
+    embed.add_field(name="Energy", value=_energy_bar_line(player), inline=False)
+    for domain in DOMAIN_TYPES:
+        embed.add_field(name=f"{domain['icon']} {domain['name']}", value=domain["description"], inline=False)
+    embed.set_footer(text="Pick a domain below to see its difficulty tiers.")
+    return embed
+
+
+def domain_tier_embed(domain: dict, player) -> discord.Embed:
+    """Shown after picking a domain type: energy status + every
+    difficulty tier for THIS domain, with its reward, level requirement,
+    and energy cost. Locked-by-level tiers are still shown (so the player
+    can see what's coming) but marked accordingly -- affordability is
+    conveyed by the tier buttons themselves, not here."""
+    embed = discord.Embed(
+        title=f"{domain['icon']} {domain['name']}", description=domain["description"],
+        color=discord.Color.dark_purple(),
+    )
+    embed.add_field(name="Energy", value=_energy_bar_line(player), inline=False)
+
+    for tier in DOMAIN_DIFFICULTY_TIERS:
+        reward = domain["rewards"][tier["id"]]
+        if domain["reward_kind"] == "currency":
+            reward_text = ", ".join(format_currency(c, a) for c, a in reward.items())
+        elif domain["reward_kind"] == "lootbox":
+            lootbox_tier, quantity = reward
+            reward_text = f"{quantity}x {lootbox_tier.title()} Lootbox"
+        else:
+            reward_text = f"{reward} XP (split across squad)"
+
+        if player.level < tier["min_player_level"]:
+            name = f"🔒 {tier['name']} -- requires level {tier['min_player_level']}"
+        else:
+            name = f"{tier['name']} -- {tier['energy_cost']} ⚡"
+        embed.add_field(name=name, value=reward_text, inline=True)
+
+    return embed
+
+
+def domain_result_embed(result: dict) -> discord.Embed:
+    """Shown once a domain battle ends -- see domain_service.resolve_challenge."""
+    domain, tier = result["domain"], result["tier"]
+    if result["won"]:
+        title = f"✅ {tier['name']} {domain['name']} cleared!"
+        color = discord.Color.green()
+        body = "\n".join(result["reward_lines"]) if result["reward_lines"] else "*Nothing this time.*"
+    else:
+        title = f"💀 {tier['name']} {domain['name']} failed"
+        color = discord.Color.red()
+        body = "No reward this attempt -- the energy spent isn't refunded, but nothing else is lost. Try a lower tier, or gear up and come back."
+    embed = discord.Embed(title=title, description=body, color=color)
+    return embed
+
 
 # ----------------------------------------------------------------------
 # Encyclopedia (/encyclopedia) -- read-only game-content reference, built

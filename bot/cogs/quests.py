@@ -13,6 +13,7 @@ from discord import app_commands
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
 from bot.services import quest_service
+from bot.game.economy.quest_config import MAX_ACTIVE_BASIC_QUESTS
 from bot.utils import embedder
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils.ui_guard import OwnedView, check_message_owner
@@ -20,10 +21,14 @@ from bot.utils.ui_guard import OwnedView, check_message_owner
 
 def _quest_embed_and_view(db, player) -> tuple[discord.Embed, "QuestView"]:
     beginner_quests = quest_service.get_beginner_quests(db, player)
-    basic_quest = quest_service.get_active_basic_quest(db, player)
-    cooldown_remaining = quest_service.basic_quest_cooldown_remaining(player)
+    active_quests = quest_service.get_active_basic_quests(db, player)
 
-    embed = embedder.quest_board_embed(beginner_quests, basic_quest, cooldown_remaining, player)
+    if len(active_quests) < MAX_ACTIVE_BASIC_QUESTS:
+        cooldown_remaining = None  # a slot is open -- always instant, see roll_basic_quest
+    else:
+        cooldown_remaining = quest_service.basic_quest_reroll_cooldown_remaining(active_quests[0])
+
+    embed = embedder.quest_board_embed(beginner_quests, active_quests, cooldown_remaining, player)
     can_roll = cooldown_remaining is None
     view = QuestView(show_roll_button=can_roll, owner_id=player.id)
     return embed, view
@@ -53,6 +58,11 @@ class QuestView(OwnedView):
 
 
 async def _handle_roll_quest(interaction: discord.Interaction):
+    """Fills an empty basic-quest slot if there is one (always instant);
+    otherwise every slot is occupied, so this rerolls the OLDEST active
+    quest instead -- gated by its own per-quest cooldown, same one that
+    decided whether this button was even shown (see _quest_embed_and_view).
+    """
     db = SessionLocal()
     try:
         player = get_player(db, interaction.user.id)
@@ -60,14 +70,23 @@ async def _handle_roll_quest(interaction: discord.Interaction):
             await interaction.response.send_message("Use `/start` first.", ephemeral=True)
             return
 
+        active = quest_service.get_active_basic_quests(db, player)
         try:
-            quest_service.roll_basic_quest(db, player)
+            if len(active) < MAX_ACTIVE_BASIC_QUESTS:
+                quest_service.roll_basic_quest(db, player)
+            else:
+                quest_service.reroll_basic_quest(db, player, active[0].id)
         except quest_service.QuestOnCooldown as exc:
             hours, remainder = divmod(int(exc.time_remaining.total_seconds()), 3600)
             minutes = remainder // 60
             await interaction.response.send_message(
-                f"Your next basic quest isn't ready yet -- come back in {hours}h {minutes}m.",
+                f"That quest isn't reroll-able yet -- come back in {hours}h {minutes}m.",
                 ephemeral=True,
+            )
+            return
+        except quest_service.QuestSlotsFull:
+            await interaction.response.send_message(
+                "All your quest slots are full and on cooldown -- try again later.", ephemeral=True,
             )
             return
 
