@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import random
 
-from bot.database.models.enums import MaterialType
+from bot.database.models.enums import MATERIAL_TIERS, MaterialType
 from bot.game.combat.battle import Battle
 from bot.game.combat.factory import build_enemy_combatant, build_party_combatants
 from bot.game.combat.serialization import battle_from_dict, battle_to_dict
@@ -48,21 +48,17 @@ ROOM_TYPE_REWARD_MULTIPLIER = {"combat": 1.0, "elite": 1.5, "boss": 2.0}
 REROLL_DROP_CHANCE = {"combat": 0.25, "elite": 0.5, "boss": 1.0}
 REROLL_DROP_AMOUNTS = {"combat": (1, 1), "elite": (1, 3), "boss": (2, 3)}
 
-# Mirrors dungeon_service._MATERIAL_TIERS / _material_for_floor -- which
-# material tier drops at a given floor. Duplicated (rather than imported)
-# to avoid a circular import, since dungeon_service already imports this
-# module.
-_MATERIAL_TIERS = [
-    (MaterialType.WOOD, MaterialType.STONE),
-    (MaterialType.METAL, MaterialType.CRYSTAL),
-    (MaterialType.XENDIUM, MaterialType.PERMAFROST_ORE),
-    (MaterialType.VOID, MaterialType.ENTROPY),
-]
+# How many floors it takes to step up one material tier for COMBAT drops.
+# Deliberately slower than the treasure/encounter track
+# (dungeon_service.FLOORS_PER_MATERIAL_TIER == 7): combat is the most
+# frequent material source in a run, so it climbs tiers more grudgingly to
+# keep exploration rooms worth taking.
+FLOORS_PER_MATERIAL_TIER = 9
 
 
 def _material_for_floor(floor: int, rng: random.Random) -> MaterialType:
-    tier_index = min(floor // 9, len(_MATERIAL_TIERS) - 1)
-    return rng.choice(_MATERIAL_TIERS[tier_index])
+    tier_index = min(floor // FLOORS_PER_MATERIAL_TIER, len(MATERIAL_TIERS) - 1)
+    return rng.choice(MATERIAL_TIERS[tier_index])
 
 
 def start_battle(db, expedition, player, enemy_templates: list, level: int) -> Battle:

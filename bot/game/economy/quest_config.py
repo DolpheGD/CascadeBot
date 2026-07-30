@@ -9,7 +9,7 @@ Each quest dict has:
   - "description": shown to the player
   - "goal_type": a string key that bot/services/quest_service.py's
     `record_progress()` call sites (scattered through combat_service,
-    dungeon_service, daily_service, gacha_service, harvester_service,
+    dungeon_service, daily_service, character_gacha_service, harvester_service,
     lootbox_service, item_upgrade_service) report progress against.
     Valid values: "win_battles", "defeat_boss", "defeat_elite",
     "complete_adventures", "upgrade_gear", "claim_daily", "gacha_pulls",

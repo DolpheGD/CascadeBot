@@ -1,8 +1,9 @@
 """
 Characters -- the core of the Combat Overhaul.
 
-The gacha now pulls CHARACTERS, not gear (see bot/game/economy/gacha_config.py
-and bot/services/character_gacha_service.py). Every character -- including your own
+The gacha now pulls CHARACTERS, not gear (see
+bot/game/economy/character_gacha_config.py and
+bot/services/character_gacha_service.py). Every character -- including your own
 avatar -- is a full combatant with its own level, equipment (4 slots: weapon,
 artifact, armor, accessory), a set character skill (mana cost), and a set
 ultimate (energy cost). You bring a squad of 4 into every expedition/battle.
@@ -26,6 +27,7 @@ their kit.
 from __future__ import annotations
 
 import datetime as dt
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     BigInteger,
@@ -42,6 +44,13 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from bot.database.models.base_model import Base
 from bot.database.models.enums import CharacterClass
+
+# Imported for type checkers only -- SQLAlchemy resolves these names from its
+# own class registry at mapper-configuration time, so importing them at runtime
+# would only create import cycles between the model modules.
+if TYPE_CHECKING:  # pragma: no cover
+    from bot.database.models.equipment_model import InventoryItem
+    from bot.database.models.player_model import Player
 
 LEVEL_CAP = 100
 
@@ -135,9 +144,9 @@ class PlayerCharacter(Base):
         DateTime(timezone=True), server_default=func.now()
     )
 
-    player: Mapped["Player"] = relationship(back_populates="characters")  # noqa: F821
+    player: Mapped["Player"] = relationship(back_populates="characters")
     template: Mapped["CharacterTemplate"] = relationship()
-    equipped_items: Mapped[list["InventoryItem"]] = relationship(  # noqa: F821
+    equipped_items: Mapped[list["InventoryItem"]] = relationship(
         back_populates="character"
     )
 
@@ -178,7 +187,7 @@ class SquadSlot(Base):
         Integer, ForeignKey("player_characters.id", ondelete="SET NULL"), nullable=True
     )
 
-    player: Mapped["Player"] = relationship(back_populates="squad_slots")  # noqa: F821
+    player: Mapped["Player"] = relationship(back_populates="squad_slots")
     character: Mapped["PlayerCharacter | None"] = relationship()
 
     def __repr__(self) -> str:  # pragma: no cover

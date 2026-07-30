@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import datetime as dt
 
-from bot.database.models.economy_model import HarvesterTemplate, PlayerHarvester
 from bot.database.models.hq_model import (
     PlayerBase,
     PlayerShopPurchase,
@@ -31,7 +30,6 @@ from bot.database.models.hq_model import (
 )
 from bot.game.combat.combatant import STAT_KEYS
 from bot.game.economy.hq_config import (
-    HQ_LEVEL_CONFIG,
     SHOP_LISTINGS,
     SHRINE_TEMPLATES,
     building_level_cap,
@@ -40,6 +38,7 @@ from bot.game.economy.hq_config import (
 )
 from bot.services import harvester_service
 from bot.services.currency_service import add_currency, currency_emoji, format_currency, spend_currency
+from bot.utils.time_utils import as_utc
 
 DAILY_LIMIT_WINDOW = dt.timedelta(hours=24)
 
@@ -347,9 +346,7 @@ def _get_or_create_purchase_row(db, player_id: int, listing_id: int) -> PlayerSh
         db.refresh(row)
         return row
 
-    started = row.window_started_at
-    if started.tzinfo is None:
-        started = started.replace(tzinfo=dt.timezone.utc)
+    started = as_utc(row.window_started_at)
     if now - started >= DAILY_LIMIT_WINDOW:
         row.purchased_count = 0
         row.window_started_at = now

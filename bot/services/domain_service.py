@@ -52,6 +52,7 @@ from bot.game.economy.domain_config import (
 )
 from bot.services import base_service, character_service, combat_service, lootbox_service
 from bot.services.currency_service import add_currency
+from bot.utils.time_utils import as_utc
 
 # player_id -> Battle. See module docstring for why this is in-memory only.
 _ACTIVE_BATTLES: dict[int, Battle] = {}
@@ -74,9 +75,7 @@ def get_current_energy(player) -> int:
     if player.domain_energy >= MAX_DOMAIN_ENERGY:
         return MAX_DOMAIN_ENERGY
     now = dt.datetime.now(dt.timezone.utc)
-    last = player.domain_energy_updated_at
-    if last.tzinfo is None:
-        last = last.replace(tzinfo=dt.timezone.utc)
+    last = as_utc(player.domain_energy_updated_at)
     elapsed_minutes = (now - last).total_seconds() / 60
     points_gained = int(elapsed_minutes // ENERGY_REGEN_MINUTES_PER_POINT)
     return min(MAX_DOMAIN_ENERGY, player.domain_energy + points_gained)
@@ -88,9 +87,7 @@ def time_until_next_energy_point(player) -> dt.timedelta | None:
     if get_current_energy(player) >= MAX_DOMAIN_ENERGY:
         return None
     now = dt.datetime.now(dt.timezone.utc)
-    last = player.domain_energy_updated_at
-    if last.tzinfo is None:
-        last = last.replace(tzinfo=dt.timezone.utc)
+    last = as_utc(player.domain_energy_updated_at)
     interval = dt.timedelta(minutes=ENERGY_REGEN_MINUTES_PER_POINT)
     elapsed = now - last
     remainder = elapsed - (elapsed // interval) * interval
@@ -105,9 +102,7 @@ def _sync_energy(player) -> None:
     a stale anchor -- see module docstring. Caller is responsible for
     committing."""
     now = dt.datetime.now(dt.timezone.utc)
-    last = player.domain_energy_updated_at
-    if last.tzinfo is None:
-        last = last.replace(tzinfo=dt.timezone.utc)
+    last = as_utc(player.domain_energy_updated_at)
 
     if player.domain_energy >= MAX_DOMAIN_ENERGY:
         player.domain_energy = MAX_DOMAIN_ENERGY

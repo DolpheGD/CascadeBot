@@ -109,11 +109,6 @@ def base_character_stats(player_character) -> dict:
     }
 
 
-# Back-compat alias -- keep the old private name working for any in-repo
-# callers that predate the public export above.
-_base_character_stats = base_character_stats
-
-
 def _resolve_gear_stats(base_stats: dict, equipped_items: list) -> dict:
     """Combines pure character base stats with every equipped item's flat
     and percent contributions. Percent substats are computed once against
@@ -166,7 +161,7 @@ def build_character_combatant(player_character, equipped_items: list) -> Combata
     """`equipped_items` should be that character's InventoryItems where
     is_equipped is True (fetch and filter by character_id before calling)."""
     template = player_character.template
-    base_stats = _base_character_stats(player_character)
+    base_stats = base_character_stats(player_character)
     final_stats = _resolve_gear_stats(base_stats, equipped_items)
 
     effective_class = player_character.effective_class()

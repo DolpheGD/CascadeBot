@@ -8,7 +8,7 @@ from bot.database.session import SessionLocal
 from bot.services.player_service import get_or_create_player, get_player
 from bot.services.currency_service import add_currency
 from bot.services import character_service, dungeon_service, inventory_service
-from bot.utils.ui_guard import OwnedView
+from bot.utils.ui_guard import OwnedView, require_player
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils import embedder
 
@@ -140,11 +140,7 @@ class Profile(commands.Cog):
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
-            if player is None:
-                await ctx.response.send_message(
-                    "You haven't started your journey yet. Use `/start` first.",
-                    ephemeral=True,
-                )
+            if not await require_player(ctx, player):
                 return
 
             ok, message = character_service.rename_avatar(db, player, name)
@@ -174,11 +170,7 @@ class Profile(commands.Cog):
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
-            if player is None:
-                await ctx.response.send_message(
-                    "You haven't started your journey yet. Use `/start` first.",
-                    ephemeral=True,
-                )
+            if not await require_player(ctx, player):
                 return
 
             expedition = dungeon_service.get_active_expedition(db, player.id)
@@ -209,11 +201,7 @@ class Profile(commands.Cog):
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
-            if player is None:
-                await ctx.response.send_message(
-                    "You haven't started your journey yet. Use `/start` first.",
-                    ephemeral=True,
-                )
+            if not await require_player(ctx, player):
                 return
 
             owned = character_service.list_owned_characters(db, player)

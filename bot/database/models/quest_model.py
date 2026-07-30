@@ -27,11 +27,18 @@ completed and its reward is granted immediately (no separate "claim" step
 from __future__ import annotations
 
 import datetime as dt
+from typing import TYPE_CHECKING
 
 from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from bot.database.models.base_model import Base
+
+# Imported for type checkers only -- SQLAlchemy resolves these names from its
+# own class registry at mapper-configuration time, so importing them at runtime
+# would only create import cycles between the model modules.
+if TYPE_CHECKING:  # pragma: no cover
+    from bot.database.models.player_model import Player
 
 
 class PlayerQuest(Base):
@@ -57,7 +64,7 @@ class PlayerQuest(Base):
     )
     completed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    player: Mapped["Player"] = relationship(back_populates="quests")  # noqa: F821
+    player: Mapped["Player"] = relationship(back_populates="quests")
 
     def __repr__(self) -> str:  # pragma: no cover
         return (

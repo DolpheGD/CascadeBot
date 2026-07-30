@@ -32,7 +32,9 @@ class Help(commands.Cog):
                 "`/start` -- create your profile (grants your own class-switchable avatar character)\n"
                 "`/profile` -- 3-page view of your avatar: Overview, Equipment, and Abilities\n"
                 "`/squad` -- view/assign your 4-character active team (slot 1 is always your avatar)\n"
-                "`/characters` -- list every character you own"
+                "`/characters` -- list every character you own\n"
+                "`/class` -- switch your avatar's role (DPS / Support DPS / Amplifier / Sustain)\n"
+                "`/rename` -- give your avatar a name of your own"
             ),
             inline=False,
         )
@@ -41,6 +43,8 @@ class Help(commands.Cog):
             value=(
                 "`/adventure` -- start or resume a dungeon run. Every floor "
                 "offers several room choices, not just two.\n"
+                "`/domains` -- spend energy on single-battle challenges for "
+                "direct rewards, without committing to a full expedition.\n"
                 "Combat and room choices happen through buttons/menus on "
                 "the message -- no extra commands needed mid-run."
             ),
@@ -76,6 +80,8 @@ class Help(commands.Cog):
                 "you own, or open any entry in Detail mode to see full "
                 "stats/abilities and Equip, Level Up, Reroll, or Sell it. "
                 "Use 🔍 Jump to # to go straight to a specific entry.\n"
+                "`/sell_rarity` -- bulk-sell every unequipped item of a given "
+                "rarity in one go.\n"
                 "`/stash` -- your general inventory: gold, shards, reroll "
                 "tokens, materials, and lootboxes (open them right there). "
                 "Nothing in `/stash` can be sold.\n"
@@ -91,10 +97,10 @@ class Help(commands.Cog):
                 "`/daily` -- claim your daily reward (gold, reroll tokens, streak bonuses + lootboxes)\n"
                 "`/quests` -- one-time beginner quests (600 Shards for finishing them all) plus a repeating basic quest, rerollable every 5 hours\n"
                 "`/harvesters` -- buy, upgrade, and collect passive income, all in one place\n"
-                "`/base hq` -- view and upgrade Cascade HQ\n"
-                "`/base shrines` -- build/upgrade party-wide stat shrines\n"
-                "`/base mailbox` -- collect a package of basic supplies every 30min-1hr\n"
-                "`/base shop` -- material exchanges and low-level gear\n"
+                "`/hq` -- view and upgrade Cascade HQ\n"
+                "`/shrines` -- build/upgrade party-wide stat shrines\n"
+                "`/mailbox` -- collect a package of basic supplies every 30min-1hr\n"
+                "`/shop` -- material exchanges and low-level gear\n"
                 "`/pull` -- spend Shards to pull a new character (single or 10x)\n"
                 "`/pull_rates` -- view gacha odds and costs\n"
                 "`/open <tier>` -- open all lootboxes of a tier (or use `/stash`)"

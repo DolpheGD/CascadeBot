@@ -29,7 +29,7 @@ from bot.services.harvester_service import (
 from bot.game.economy.hq_config import is_max_hq_level, upgrade_requirements
 from bot.services.currency_service import format_currency
 from bot.utils.guild_decorator import guild_decorator
-from bot.utils.ui_guard import OwnedView, check_message_owner
+from bot.utils.ui_guard import OwnedView, check_message_owner, require_player
 
 
 # ----------------------------------------------------------------------
@@ -696,11 +696,7 @@ class Base(commands.GroupCog, name="base", description="Cascade HQ base-building
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
-            if player is None:
-                await ctx.response.send_message(
-                    "You haven't started your journey yet. Use `/start` first.",
-                    ephemeral=True,
-                )
+            if not await require_player(ctx, player):
                 return
             embed = _build_hq_embed(db, player)
             view = _build_hq_view(db, player)
@@ -713,11 +709,7 @@ class Base(commands.GroupCog, name="base", description="Cascade HQ base-building
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
-            if player is None:
-                await ctx.response.send_message(
-                    "You haven't started your journey yet. Use `/start` first.",
-                    ephemeral=True,
-                )
+            if not await require_player(ctx, player):
                 return
             embed = _build_shrine_embed(db, player)
             view = _build_shrine_view(db, player)
@@ -730,11 +722,7 @@ class Base(commands.GroupCog, name="base", description="Cascade HQ base-building
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
-            if player is None:
-                await ctx.response.send_message(
-                    "You haven't started your journey yet. Use `/start` first.",
-                    ephemeral=True,
-                )
+            if not await require_player(ctx, player):
                 return
 
             embed = _build_harvester_embed(db, player)
@@ -749,11 +737,7 @@ class Base(commands.GroupCog, name="base", description="Cascade HQ base-building
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
-            if player is None:
-                await ctx.response.send_message(
-                    "You haven't started your journey yet. Use `/start` first.",
-                    ephemeral=True,
-                )
+            if not await require_player(ctx, player):
                 return
             embed = _build_shop_embed(db, player)
             view = _build_shop_view(db, player)
@@ -766,11 +750,7 @@ class Base(commands.GroupCog, name="base", description="Cascade HQ base-building
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
-            if player is None:
-                await ctx.response.send_message(
-                    "You haven't started your journey yet. Use `/start` first.",
-                    ephemeral=True,
-                )
+            if not await require_player(ctx, player):
                 return
             embed = _build_mailbox_embed(db, player)
             view = _build_mailbox_view(db, player)

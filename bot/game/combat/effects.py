@@ -249,7 +249,6 @@ def resolve_active_ability(
             log.append(f"🔥 {attacker.name} is reinvigorated, healing {healed} HP!")
 
     elif kind == "multi_hit":
-        total_dealt = 0
         for _ in range(effect["hits"]):
             if not defender.is_alive():
                 break

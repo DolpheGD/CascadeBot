@@ -12,11 +12,18 @@ without checking in (see bot/services/harvester_service.py for the math).
 from __future__ import annotations
 
 import datetime as dt
+from typing import TYPE_CHECKING
 
 from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from bot.database.models.base_model import Base
+
+# Imported for type checkers only -- SQLAlchemy resolves these names from its
+# own class registry at mapper-configuration time, so importing them at runtime
+# would only create import cycles between the model modules.
+if TYPE_CHECKING:  # pragma: no cover
+    from bot.database.models.player_model import Player
 
 
 class HarvesterTemplate(Base):
@@ -64,7 +71,7 @@ class PlayerHarvester(Base):
         DateTime(timezone=True), server_default=func.now()
     )
 
-    player: Mapped["Player"] = relationship(back_populates="harvesters")  # noqa: F821
+    player: Mapped["Player"] = relationship(back_populates="harvesters")
     template: Mapped["HarvesterTemplate"] = relationship()
 
     def __repr__(self) -> str:  # pragma: no cover
@@ -99,7 +106,7 @@ class PlayerLootbox(Base):
     template_id: Mapped[int] = mapped_column(Integer, ForeignKey("lootbox_templates.id"))
     quantity: Mapped[int] = mapped_column(Integer, default=0)
 
-    player: Mapped["Player"] = relationship(back_populates="lootboxes")  # noqa: F821
+    player: Mapped["Player"] = relationship(back_populates="lootboxes")
     template: Mapped["LootboxTemplate"] = relationship()
 
     def __repr__(self) -> str:  # pragma: no cover

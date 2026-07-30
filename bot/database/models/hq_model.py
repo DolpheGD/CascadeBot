@@ -34,11 +34,18 @@ better packages; the *wait window* never changes with level.
 from __future__ import annotations
 
 import datetime as dt
+from typing import TYPE_CHECKING
 
 from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from bot.database.models.base_model import Base
+
+# Imported for type checkers only -- SQLAlchemy resolves these names from its
+# own class registry at mapper-configuration time, so importing them at runtime
+# would only create import cycles between the model modules.
+if TYPE_CHECKING:  # pragma: no cover
+    from bot.database.models.player_model import Player
 
 
 class PlayerBase(Base):
@@ -49,7 +56,7 @@ class PlayerBase(Base):
     )
     hq_level: Mapped[int] = mapped_column(Integer, default=1)
 
-    player: Mapped["Player"] = relationship(back_populates="base")  # noqa: F821
+    player: Mapped["Player"] = relationship(back_populates="base")
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<PlayerBase player_id={self.player_id} hq_level={self.hq_level}>"
@@ -69,7 +76,7 @@ class PlayerMailbox(Base):
         DateTime(timezone=True), server_default=func.now()
     )
 
-    player: Mapped["Player"] = relationship(back_populates="mailbox")  # noqa: F821
+    player: Mapped["Player"] = relationship(back_populates="mailbox")
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<PlayerMailbox player_id={self.player_id} level={self.level}>"
@@ -112,7 +119,7 @@ class PlayerShrine(Base):
     template_id: Mapped[int] = mapped_column(Integer, ForeignKey("shrine_templates.id"))
     level: Mapped[int] = mapped_column(Integer, default=1)
 
-    player: Mapped["Player"] = relationship(back_populates="shrines")  # noqa: F821
+    player: Mapped["Player"] = relationship(back_populates="shrines")
     template: Mapped["ShrineTemplate"] = relationship()
 
     def __repr__(self) -> str:  # pragma: no cover

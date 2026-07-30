@@ -13,6 +13,7 @@ from bot.game.economy.harvester_config import HARVESTER_TEMPLATES
 from bot.game.economy.hq_config import building_level_cap
 from bot.services import quest_service
 from bot.services.currency_service import add_currency, format_currency, spend_currency
+from bot.utils.time_utils import as_utc
 
 
 def ensure_harvester_templates_seeded(db) -> None:
@@ -96,9 +97,7 @@ def collect_harvester(db, harvester: PlayerHarvester) -> int:
     template = harvester.template
     now = dt.datetime.now(dt.timezone.utc)
 
-    last_collected = harvester.last_collected_at
-    if last_collected.tzinfo is None:
-        last_collected = last_collected.replace(tzinfo=dt.timezone.utc)
+    last_collected = as_utc(harvester.last_collected_at)
 
     elapsed_hours = (now - last_collected).total_seconds() / 3600
     elapsed_hours = min(elapsed_hours, template.max_accumulation_hours)

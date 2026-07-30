@@ -166,6 +166,18 @@ class MaterialType(str, enum.Enum):
         }[self]
 
 
+# The same tier grouping as MaterialType.tier, but indexed the other way:
+# MATERIAL_TIERS[tier] -> the materials in it. Lives here (rather than in a
+# service) because both combat_service and dungeon_service need it, and
+# either of them importing the other would create a cycle -- it used to be
+# copy-pasted into both, with a comment in each explaining why.
+MATERIAL_TIERS: list[tuple[MaterialType, ...]] = [
+    (MaterialType.WOOD, MaterialType.STONE),
+    (MaterialType.METAL, MaterialType.CRYSTAL),
+    (MaterialType.XENDIUM, MaterialType.PERMAFROST_ORE),
+    (MaterialType.VOID, MaterialType.ENTROPY),
+]
+
 MATERIAL_DISPLAY_NAME: dict[MaterialType, str] = {
     MaterialType.WOOD: "Wood",
     MaterialType.STONE: "Stone",

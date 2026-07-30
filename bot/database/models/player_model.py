@@ -14,12 +14,23 @@ combat never has a miss chance.
 from __future__ import annotations
 
 import datetime as dt
-from typing import List
+from typing import List, TYPE_CHECKING
 
 from sqlalchemy import BigInteger, Boolean, DateTime, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from bot.database.models.base_model import Base
+
+# Imported for type checkers only -- SQLAlchemy resolves these names from its
+# own class registry at mapper-configuration time, so importing them at runtime
+# would only create import cycles between the model modules.
+if TYPE_CHECKING:  # pragma: no cover
+    from bot.database.models.character_model import PlayerCharacter, SquadSlot
+    from bot.database.models.economy_model import PlayerHarvester
+    from bot.database.models.equipment_model import InventoryItem
+    from bot.database.models.expedition_model import Expedition
+    from bot.database.models.hq_model import PlayerBase, PlayerLootbox, PlayerMailbox, PlayerShrine
+    from bot.database.models.quest_model import PlayerQuest
 
 
 class Player(Base):
@@ -105,34 +116,34 @@ class Player(Base):
         DateTime(timezone=True), server_default=func.now()
     )
 
-    inventory_items: Mapped[List["InventoryItem"]] = relationship(  # noqa: F821
+    inventory_items: Mapped[List["InventoryItem"]] = relationship(
         back_populates="player", cascade="all, delete-orphan"
     )
-    expeditions: Mapped[List["Expedition"]] = relationship(  # noqa: F821
+    expeditions: Mapped[List["Expedition"]] = relationship(
         back_populates="player", cascade="all, delete-orphan"
     )
-    harvesters: Mapped[List["PlayerHarvester"]] = relationship(  # noqa: F821
+    harvesters: Mapped[List["PlayerHarvester"]] = relationship(
         back_populates="player", cascade="all, delete-orphan"
     )
-    base: Mapped["PlayerBase"] = relationship(  # noqa: F821
+    base: Mapped["PlayerBase"] = relationship(
         back_populates="player", uselist=False, cascade="all, delete-orphan"
     )
-    mailbox: Mapped["PlayerMailbox"] = relationship(  # noqa: F821
+    mailbox: Mapped["PlayerMailbox"] = relationship(
         back_populates="player", uselist=False, cascade="all, delete-orphan"
     )
-    shrines: Mapped[List["PlayerShrine"]] = relationship(  # noqa: F821
+    shrines: Mapped[List["PlayerShrine"]] = relationship(
         back_populates="player", cascade="all, delete-orphan"
     )
-    lootboxes: Mapped[List["PlayerLootbox"]] = relationship(  # noqa: F821
+    lootboxes: Mapped[List["PlayerLootbox"]] = relationship(
         back_populates="player", cascade="all, delete-orphan"
     )
-    characters: Mapped[List["PlayerCharacter"]] = relationship(  # noqa: F821
+    characters: Mapped[List["PlayerCharacter"]] = relationship(
         back_populates="player", cascade="all, delete-orphan"
     )
-    squad_slots: Mapped[List["SquadSlot"]] = relationship(  # noqa: F821
+    squad_slots: Mapped[List["SquadSlot"]] = relationship(
         back_populates="player", cascade="all, delete-orphan"
     )
-    quests: Mapped[List["PlayerQuest"]] = relationship(  # noqa: F821
+    quests: Mapped[List["PlayerQuest"]] = relationship(
         back_populates="player", cascade="all, delete-orphan"
     )
 

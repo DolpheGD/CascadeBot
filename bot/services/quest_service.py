@@ -33,7 +33,7 @@ times" quest, if both happen to be active. Call sites:
   fires "win_battles" too, so a generic "win N battles" quest still
   advances no matter what kind of fight it was
 - daily_service.claim_daily -> "claim_daily"
-- gacha_service.pull_single/pull_multi -> "gacha_pulls"
+- character_gacha_service.pull_single/pull_multi -> "gacha_pulls"
 - harvester_service.buy_harvester -> "buy_harvester"
 - harvester_service.collect_harvester -> "collect_harvester"
 - lootbox_service.open_lootboxes -> "open_lootboxes"
@@ -58,6 +58,7 @@ from bot.game.economy.quest_config import (
     MAX_ACTIVE_BASIC_QUESTS,
 )
 from bot.services.currency_service import add_currency
+from bot.utils.time_utils import as_utc
 
 
 class QuestOnCooldown(Exception):
@@ -128,9 +129,7 @@ def basic_quest_reroll_cooldown_remaining(quest: PlayerQuest) -> dt.timedelta | 
     rerolled right now (see reroll_basic_quest). Only meaningful for an
     unfinished quest -- a completed one frees its slot immediately, no
     cooldown involved (see roll_basic_quest)."""
-    assigned = quest.assigned_at
-    if assigned.tzinfo is None:
-        assigned = assigned.replace(tzinfo=dt.timezone.utc)
+    assigned = as_utc(quest.assigned_at)
     elapsed = dt.datetime.now(dt.timezone.utc) - assigned
     remaining = dt.timedelta(hours=BASIC_QUEST_COOLDOWN_HOURS) - elapsed
     return remaining if remaining > dt.timedelta(0) else None

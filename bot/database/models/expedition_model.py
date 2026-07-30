@@ -11,12 +11,19 @@ player can resume exactly where they left off.
 from __future__ import annotations
 
 import datetime as dt
+from typing import TYPE_CHECKING
 
 from sqlalchemy import JSON, BigInteger, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from bot.database.models.base_model import Base
 from bot.database.models.enums import ExpeditionStatus
+
+# Imported for type checkers only -- SQLAlchemy resolves these names from its
+# own class registry at mapper-configuration time, so importing them at runtime
+# would only create import cycles between the model modules.
+if TYPE_CHECKING:  # pragma: no cover
+    from bot.database.models.player_model import Player
 
 
 class Expedition(Base):
@@ -71,7 +78,7 @@ class Expedition(Base):
         DateTime(timezone=True), nullable=True
     )
 
-    player: Mapped["Player"] = relationship(back_populates="expeditions")  # noqa: F821
+    player: Mapped["Player"] = relationship(back_populates="expeditions")
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<Expedition id={self.id} region={self.region!r} status={self.status}>"

@@ -1,6 +1,6 @@
 # CascadeBot
 
-A Discord roguelite RPG: procedurally generated dungeons, ATB-based turn combat,
+A Discord roguelite RPG: procedurally generated dungeons, cycle-based turn combat,
 Diablo-style loot, and a full economy (gold/shards, harvesters, gacha, lootboxes) --
 all played entirely through slash commands and buttons.
 
@@ -50,39 +50,52 @@ all played entirely through slash commands and buttons.
 
 ## Playing
 
-- `/start` -- create your character (grants starting gold)
+- `/start` -- create your profile (grants starting gold/shards and your own
+  class-switchable avatar character)
 - `/adventure` -- start or resume a dungeon expedition; every floor offers
   several room choices, and combat/movement happen entirely through
   buttons and dropdowns on the message
+- `/domains` -- energy-gated single-battle challenges for direct rewards,
+  without committing to a full expedition
 - `/profile` -- 3-page view: Overview (stats/currency), Equipment (every
   slot, empty or filled), and Abilities (weapon/artifact skills, ultimate,
   passives)
+- `/class`, `/rename` -- switch your avatar's role, or give it your own name
+- `/squad`, `/characters` -- manage your 4-character team and see everyone you own
 - `/inventory` -- browse a compact list of every item and lootbox you own,
   or open one in Detail mode to Equip/Level Up/Reroll/Open it; jump to a
   specific entry by number instead of paging through everything
+- `/sell_rarity` -- bulk-sell every unequipped item of a given rarity
+- `/stash` -- gold, shards, reroll tokens, materials, and lootboxes
 - `/daily` -- claim daily reward (gold, streak bonus, materials, lootboxes)
-- `/harvesters` -- buy, upgrade, and collect passive income
-- `/pull` -- gacha pull for characters and gear (costs Shards)
-- `/lootboxes`, `/open <tier>` -- quick-glance and open lootboxes (also
-  reachable from `/inventory`)
-- `/admin_testgear` -- (Administrator only) grants a full Legendary kit
-  (2 weapons, 4 armor pieces, 2 artifacts, 1 scroll, all with abilities)
-  plus gold/shards/lootboxes, for quickly testing combat and the UI
+- `/quests` -- one-time beginner quests plus a rerollable repeating quest
+- `/harvesters`, `/hq`, `/shrines`, `/shop`, `/mailbox` -- the base-building layer
+- `/pull` -- gacha pull for characters (costs Shards); `/pull_rates` for the odds
+- `/open <tier>` -- open all lootboxes of a tier (also reachable from `/stash`)
+- `/encyclopedia` -- reference for characters, classes, enemies, abilities,
+  equipment, and materials
+- `/admin_boosterkit` -- (Administrator only) grants a target user gold,
+  shards, and starter lootboxes
 
 ### Combat at a glance
 
-Turn order is speed-based (an ATB gauge), not a fixed rotation -- see the
-🔀 Turn Order line on the battle message. Each turn is Attack (free, builds
-Energy + Mana equal to your Recharge stat), a Skill from an equipped
-weapon/artifact (costs Mana), or your Ultimate from your character's own
-kit (usable once Energy reaches 50). There's no defending or fleeing, and
-no dodge/miss chance -- every hit lands, mitigated only by Defense.
+Turn order is cycle-based: every living combatant acts exactly once per
+cycle, and Speed only decides the ORDER within a cycle (fastest first),
+never whether a slower combatant gets a turn at all -- see the 🔀 Turn Order
+line on the battle message. Some elites and bosses act more than once per
+cycle. Each turn is Attack (free, builds Energy + Mana equal to your
+Recharge stat), your Character Skill, a Skill from an equipped
+weapon/artifact (all costing Mana), or your Ultimate from your character's
+own kit (usable once Energy reaches 50). There's no defending or fleeing,
+and no dodge/miss chance -- every hit lands, mitigated only by Defense.
 Switching which enemy you're targeting is a free action.
 
 ### Characters
 
 Every character has a mechanical identity, not just a different portrait --
-their skills, ultimate, and passive scale off different stats on purpose:
+their skills, ultimate, and passive scale off different stats on purpose.
+The full roster (25 characters) lives in
+`bot/game/characters/character_seed_data.py`; a sample:
 
 | Character | Class | Identity |
 |---|---|---|
@@ -97,7 +110,10 @@ their skills, ultimate, and passive scale off different stats on purpose:
 | Josh | DPS | High-attack scaling, the World Aligners' leader |
 | "You" | DPS (switchable) | The player's own free avatar; can freely change class |
 
-Characters are rated 3★ to 5★ and pulled via `/pull` alongside gear.
+Characters are rated 3★ to 5★ and pulled via `/pull`. The gacha grants
+characters only -- gear comes from dungeon drops, lootboxes, and the shop.
+Pulling a duplicate converts into gold + reroll tokens instead of a wasted
+second copy.
 
 ### Loot and materials
 

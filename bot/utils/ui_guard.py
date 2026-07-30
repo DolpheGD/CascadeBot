@@ -29,6 +29,26 @@ from __future__ import annotations
 import discord
 
 NOT_YOUR_MENU = "This isn't your menu -- run the command yourself to get your own."
+NOT_STARTED = "You haven't started your journey yet. Use `/start` first."
+
+
+async def require_player(interaction: discord.Interaction, player) -> bool:
+    """The "have they run /start yet?" gate every player-facing command
+    opens with. Returns True if `player` exists and the caller should
+    carry on; otherwise sends the standard ephemeral nudge and returns
+    False, so call sites read:
+
+        player = get_player(db, ctx.user.id)
+        if not await require_player(ctx, player):
+            return
+
+    This was an 18-times-copy-pasted `if player is None: await
+    ctx.response.send_message(...)` block across seven cogs before, which
+    is exactly how the wording drifts out of sync between commands."""
+    if player is not None:
+        return True
+    await interaction.response.send_message(NOT_STARTED, ephemeral=True)
+    return False
 
 
 class OwnedView(discord.ui.View):

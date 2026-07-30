@@ -206,6 +206,9 @@ def set_avatar_class(db, player, new_class) -> tuple[bool, str]:
     avatar.current_class = new_class
     db.commit()
     return True, f"Switched your role to **{CLASS_DISPLAY_NAME[new_class]}**. This takes effect next battle."
+
+
+def rename_avatar(db, player, new_name: str | None) -> tuple[bool, str]:
     """Sets (or, if `new_name` is None/blank, clears) the custom_name on
     the player's own avatar PlayerCharacter -- lets them go by something
     other than the "You" template name everywhere it's shown (profile,

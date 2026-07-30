@@ -6,8 +6,8 @@ Puzzle, Secret, Merchant -- is now resolved entirely through the
 Encounter system (see bot/game/dungeon/encounter_config.py and
 ROOM_ENCOUNTER_CHANCE below), at 100% odds. Trap and Puzzle used to be
 genuinely interactive mini-games of their own (a random success/fail
-decision and a basic multiple-choice quiz, respectively, defined in the
-now-decommissioned bot/game/dungeon/interactive_config.py); that system
+decision and a basic multiple-choice quiz, respectively, defined in a
+since-deleted bot/game/dungeon/interactive_config.py); that system
 has been fully phased out in favor of Encounters so there's exactly one
 interactive-room system in the game rather than two parallel ones.
 Each room type below still keeps a small, plain (non-Encounter)
@@ -19,10 +19,10 @@ every room type.
 
 from __future__ import annotations
 
-import math
 import random
 
 from bot.database.models.enums import (
+    MATERIAL_TIERS,
     ExpeditionStatus,
     MaterialType,
     Rarity,
@@ -39,21 +39,19 @@ from bot.game.loot.generator import LootGenerator
 from bot.services import character_service, combat_service, item_template_service, lootbox_service, quest_service
 from bot.services.currency_service import add_currency, format_currency, spend_currency
 
-# Which material tier drops from treasure/secret rooms at a given floor --
-# mirrors the tier progression harvesters/upgrades use (see
-# bot/database/models/enums.py::MaterialType.tier).
-_MATERIAL_TIERS = [
-    (MaterialType.WOOD, MaterialType.STONE),
-    (MaterialType.METAL, MaterialType.CRYSTAL),
-    (MaterialType.XENDIUM, MaterialType.PERMAFROST_ORE),
-    (MaterialType.VOID, MaterialType.ENTROPY),
-]
+# How many floors it takes to step up one material tier for treasure/secret/
+# encounter drops. Faster than the combat track
+# (combat_service.FLOORS_PER_MATERIAL_TIER == 9) on purpose -- exploration
+# rooms are the scarcer material source, so they reward better materials
+# sooner. The tier groupings themselves live on
+# bot/database/models/enums.py::MATERIAL_TIERS, shared with combat_service.
+FLOORS_PER_MATERIAL_TIER = 7
 
 
 def _material_for_floor(floor: int, rng: random.Random | None = None) -> MaterialType:
     rng = rng or random
-    tier_index = min(floor // 7, len(_MATERIAL_TIERS) - 1)
-    return rng.choice(_MATERIAL_TIERS[tier_index])
+    tier_index = min(floor // FLOORS_PER_MATERIAL_TIER, len(MATERIAL_TIERS) - 1)
+    return rng.choice(MATERIAL_TIERS[tier_index])
 
 
 def _mark_completed(expedition: Expedition, node_id: str) -> None:
@@ -782,7 +780,7 @@ def _apply_gain(
     if "material_tier" in gain:
         tier = gain.pop("material_tier")
         amount = _roll_amount(rng, gain.pop("amount", [1, 3]))
-        material = rng.choice(_MATERIAL_TIERS[tier])
+        material = rng.choice(MATERIAL_TIERS[tier])
         if amount > 0:
             add_currency(db, player, material.value, amount)
             _ledger_add_material(expedition, material.value, amount)
@@ -873,7 +871,7 @@ def _apply_loss(db, player, rng: random.Random, loss: dict, expedition: Expediti
     if "material_tier" in loss:
         tier = loss.pop("material_tier")
         amount = _roll_amount(rng, loss.pop("amount", [1, 3]))
-        material = rng.choice(_MATERIAL_TIERS[tier])
+        material = rng.choice(MATERIAL_TIERS[tier])
         actual = min(getattr(player, material.value), amount)
         if actual > 0:
             spend_currency(db, player, material.value, actual)

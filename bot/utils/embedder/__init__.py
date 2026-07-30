@@ -1,0 +1,149 @@
+"""
+Every discord.Embed the bot renders lives in this package, kept separate from
+the cogs so presentation never gets tangled with interaction/DB plumbing.
+
+This was a single 1300-line bot/utils/embedder.py module. It is now split one
+module per UI surface -- the same section boundaries the old file already had
+as comment banners -- so a change to, say, the combat message doesn't mean
+scrolling past the encyclopedia renderers to find it:
+
+    _shared.py       constants + small formatting helpers used across sections
+    profile.py       /profile
+    dungeon.py       expedition floor map / room choices
+    combat.py        battle message, log, info, end-of-run summary
+    inventory.py     /inventory (detail + list) and /stash
+    gacha.py         /pull results and /pull_rates
+    encounters.py    interactive dungeon NPC encounters
+    quests.py        /quests board
+    domains.py       /domains
+    encyclopedia.py  /encyclopedia
+
+Everything is re-exported here, so existing `from bot.utils import embedder`
+call sites keep working unchanged -- `embedder.combat_embed(...)` still
+resolves exactly as before. Import from the specific submodule in new code if
+you prefer; both are supported.
+"""
+
+from __future__ import annotations
+
+from bot.utils.embedder._shared import (
+    ROOM_TYPE_EMOJI,
+    RARITY_COLORS,
+    RARITY_EMOJI,
+    STAT_EMOJI,
+    STAT_LABEL,
+    PERCENT_STATS,
+    _fmt_stat,
+    _fmt_stat_with_base,
+    _bar,
+)
+from bot.utils.embedder.profile import (
+    PROFILE_PAGE_COUNT,
+    PROFILE_PAGE_TITLES,
+    _profile_abilities_page,
+    _profile_equipment_page,
+    _profile_overview_page,
+    profile_embed,
+)
+from bot.utils.embedder.dungeon import (
+    dungeon_map_embed,
+)
+from bot.utils.embedder.combat import (
+    _enemy_intent_lines,
+    _recent_log_lines,
+    _turn_order_line,
+    battle_info_embed,
+    battle_log_embed,
+    combat_embed,
+    dungeon_map_graph_embed,
+    expedition_summary_embed,
+)
+from bot.utils.embedder.inventory import (
+    ITEMS_PER_LIST_PAGE,
+    entry_detail_embed,
+    general_inventory_embed,
+    inventory_list_embed,
+    item_detail_embed,
+    lootbox_detail_embed,
+)
+from bot.utils.embedder.gacha import (
+    STAR_EMOJI,
+    gacha_pull_embed,
+    gacha_rates_embed,
+)
+from bot.utils.embedder.encounters import (
+    encounter_embed,
+)
+from bot.utils.embedder.quests import (
+    quest_board_embed,
+)
+from bot.utils.embedder.domains import (
+    _energy_bar_line,
+    domain_menu_embed,
+    domain_result_embed,
+    domain_tier_embed,
+)
+from bot.utils.embedder.encyclopedia import (
+    ENCYCLOPEDIA_ENTRIES_PER_PAGE,
+    _encyclopedia_ability_embed,
+    _encyclopedia_character_embed,
+    _encyclopedia_class_embed,
+    _encyclopedia_enemy_embed,
+    _encyclopedia_item_embed,
+    _encyclopedia_material_embed,
+    encyclopedia_categories_embed,
+    encyclopedia_detail_embed,
+    encyclopedia_list_embed,
+)
+
+__all__ = [
+    "ENCYCLOPEDIA_ENTRIES_PER_PAGE",
+    "ITEMS_PER_LIST_PAGE",
+    "PERCENT_STATS",
+    "PROFILE_PAGE_COUNT",
+    "PROFILE_PAGE_TITLES",
+    "RARITY_COLORS",
+    "RARITY_EMOJI",
+    "ROOM_TYPE_EMOJI",
+    "STAR_EMOJI",
+    "STAT_EMOJI",
+    "STAT_LABEL",
+    "_bar",
+    "_encyclopedia_ability_embed",
+    "_encyclopedia_character_embed",
+    "_encyclopedia_class_embed",
+    "_encyclopedia_enemy_embed",
+    "_encyclopedia_item_embed",
+    "_encyclopedia_material_embed",
+    "_enemy_intent_lines",
+    "_energy_bar_line",
+    "_fmt_stat",
+    "_fmt_stat_with_base",
+    "_profile_abilities_page",
+    "_profile_equipment_page",
+    "_profile_overview_page",
+    "_recent_log_lines",
+    "_turn_order_line",
+    "battle_info_embed",
+    "battle_log_embed",
+    "combat_embed",
+    "domain_menu_embed",
+    "domain_result_embed",
+    "domain_tier_embed",
+    "dungeon_map_embed",
+    "dungeon_map_graph_embed",
+    "encounter_embed",
+    "encyclopedia_categories_embed",
+    "encyclopedia_detail_embed",
+    "encyclopedia_list_embed",
+    "entry_detail_embed",
+    "expedition_summary_embed",
+    "gacha_pull_embed",
+    "gacha_rates_embed",
+    "general_inventory_embed",
+    "inventory_list_embed",
+    "item_detail_embed",
+    "lootbox_detail_embed",
+    "profile_embed",
+    "quest_board_embed",
+]

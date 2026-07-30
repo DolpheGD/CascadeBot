@@ -18,6 +18,7 @@ from bot.game.economy.daily_config import (
 )
 from bot.services import lootbox_service, quest_service
 from bot.services.currency_service import add_currency
+from bot.utils.time_utils import as_utc
 
 
 class DailyOnCooldown(Exception):
@@ -34,9 +35,7 @@ def claim_daily(db, player) -> dict:
     now = dt.datetime.now(dt.timezone.utc)
 
     if player.last_daily_claimed_at is not None:
-        last_claimed = player.last_daily_claimed_at
-        if last_claimed.tzinfo is None:
-            last_claimed = last_claimed.replace(tzinfo=dt.timezone.utc)
+        last_claimed = as_utc(player.last_daily_claimed_at)
 
         elapsed = now - last_claimed
         if elapsed < dt.timedelta(hours=DAILY_COOLDOWN_HOURS):

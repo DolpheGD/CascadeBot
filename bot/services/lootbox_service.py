@@ -2,9 +2,10 @@
 Lootboxes are consumable counters: a player owns some quantity of each
 tier, and opening one rolls gold/shards plus item(s) from the existing loot
 generator at that tier's boosted rarity odds (bot/game/economy/lootbox_config.py).
-Mechanically this is the same pattern as gacha (bot/services/gacha_service.py)
--- a currency-gated loot roll with better-than-natural odds -- just paid for
-with an owned box instead of spent shards.
+Mechanically this is the same pattern as the character gacha
+(bot/services/character_gacha_service.py) -- a currency-gated roll with
+better-than-natural odds -- just paid for with an owned box instead of
+spent shards, and yielding gear rather than characters.
 """
 
 from __future__ import annotations
@@ -12,7 +13,6 @@ from __future__ import annotations
 import random
 
 from bot.database.models.economy_model import LootboxTemplate, PlayerLootbox
-from bot.database.models.equipment_model import ItemTemplate
 from bot.game.economy.lootbox_config import LOOTBOX_RARITY_WEIGHTS, LOOTBOX_TEMPLATES
 from bot.game.loot.generator import LootGenerator
 from bot.services.currency_service import add_currency

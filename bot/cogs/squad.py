@@ -16,7 +16,7 @@ from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
 from bot.services import character_service, dungeon_service
 from bot.utils.guild_decorator import guild_decorator
-from bot.utils.ui_guard import OwnedView
+from bot.utils.ui_guard import OwnedView, require_player
 
 SLOT_LABELS = ["Slot 1 (Avatar -- locked)", "Slot 2", "Slot 3", "Slot 4"]
 
@@ -114,11 +114,7 @@ class Squad(commands.Cog):
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
-            if player is None:
-                await ctx.response.send_message(
-                    "You haven't started your journey yet. Use `/start` first.",
-                    ephemeral=True,
-                )
+            if not await require_player(ctx, player):
                 return
 
             embed = _build_squad_embed(db, player)
@@ -135,11 +131,7 @@ class Squad(commands.Cog):
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
-            if player is None:
-                await ctx.response.send_message(
-                    "You haven't started your journey yet. Use `/start` first.",
-                    ephemeral=True,
-                )
+            if not await require_player(ctx, player):
                 return
 
             owned = character_service.list_owned_characters(db, player)

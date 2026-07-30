@@ -1,23 +1,22 @@
+from __future__ import annotations
+
 import discord
 
 from discord.ext import commands
 from discord import app_commands
 
 from bot.database.session import SessionLocal
-from bot.services.player_service import get_player
-from bot.services.daily_service import claim_daily, DailyOnCooldown
-from bot.services import base_service
-from bot.services.character_gacha_service import pull_single, pull_multi
-from bot.services import character_service, dungeon_service, lootbox_service
+from bot.services import dungeon_service, lootbox_service
+from bot.services.character_gacha_service import pull_multi, pull_single
 from bot.services.currency_service import format_currency
+from bot.services.daily_service import DailyOnCooldown, claim_daily
+from bot.services.player_service import get_player
 from bot.utils import embedder
 from bot.utils.guild_decorator import guild_decorator
-from bot.utils.ui_guard import OwnedView, check_message_owner
 from bot.utils.logger import get_logger
+from bot.utils.ui_guard import require_player
 
 logger = get_logger("economy")
-
-
 
 
 @guild_decorator
@@ -38,11 +37,7 @@ class Economy(commands.Cog):
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
-            if player is None:
-                await ctx.response.send_message(
-                    "You haven't started your journey yet. Use `/start` first.",
-                    ephemeral=True,
-                )
+            if not await require_player(ctx, player):
                 return
 
             try:
@@ -89,11 +84,7 @@ class Economy(commands.Cog):
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
-            if player is None:
-                await ctx.response.send_message(
-                    "You haven't started your journey yet. Use `/start` first.",
-                    ephemeral=True,
-                )
+            if not await require_player(ctx, player):
                 return
 
             expedition = dungeon_service.get_active_expedition(db, player.id)
@@ -162,11 +153,7 @@ class Economy(commands.Cog):
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
-            if player is None:
-                await ctx.response.send_message(
-                    "You haven't started your journey yet. Use `/start` first.",
-                    ephemeral=True,
-                )
+            if not await require_player(ctx, player):
                 return
 
             expedition = dungeon_service.get_active_expedition(db, player.id)
