@@ -57,6 +57,7 @@ def combatant_to_dict(c: Combatant) -> dict:
         "poise": c.poise,
         "break_turns": c.break_turns,
         "break_tick_armed": c.break_tick_armed,
+        "bonus_poise_damage": c.bonus_poise_damage,
         "guarding": c.guarding,
     }
 
@@ -99,6 +100,7 @@ def combatant_from_dict(data: dict) -> Combatant:
         poise=data.get("poise", 0),
         break_turns=data.get("break_turns", 0),
         break_tick_armed=data.get("break_tick_armed", False),
+        bonus_poise_damage=data.get("bonus_poise_damage", 0),
         guarding=data.get("guarding", False),
     )
 

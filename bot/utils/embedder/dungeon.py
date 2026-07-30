@@ -48,6 +48,19 @@ def dungeon_map_embed(
     if squad_hp_lines:
         embed.add_field(name="❤️ Squad HP", value="\n".join(squad_hp_lines), inline=True)
 
+    # Held relics -- persistently visible, because they're the thing that
+    # makes this run different from the last one and they inform every
+    # routing decision from here on.
+    from bot.services import relic_service
+
+    held = relic_service.held_relics(expedition)
+    if held:
+        embed.add_field(
+            name=f"✨ Relics ({len(held)})",
+            value="\n".join(f"{r['emoji']} **{r['name']}** -- {r['description']}" for r in held),
+            inline=False,
+        )
+
     if expedition.status.value == "completed":
         embed.add_field(name="Status", value="🏆 Expedition Complete!", inline=False)
     elif expedition.status.value == "failed":

@@ -102,6 +102,15 @@ class Combatant:
     # a real opportunity to capitalise, whatever the turn order does.
     break_tick_armed: bool = False
 
+    # Extra poise chipped by every hit THIS combatant lands, on top of the
+    # per-action baseline. Granted by run-scoped poise_damage relics (see
+    # bot/services/relic_service.py) and baked onto the Combatant at
+    # battle-build time rather than looked up per hit, so effects.py stays
+    # unaware of expeditions and the bonus survives serialization the same
+    # way every other combat value does. Always 0 in Domains, which have
+    # no expedition and therefore no relics.
+    bonus_poise_damage: int = 0
+
     # Set by the Guard action, cleared at the start of this combatant's
     # next turn. Halves incoming damage (see effects._resolve_hit) and
     # pays out bonus energy if a hit actually lands while it's up -- so

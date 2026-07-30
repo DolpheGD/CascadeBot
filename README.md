@@ -137,6 +137,26 @@ bosses have deep ones, so a break there is a window you work toward and
 spend. A break can never be consumed without you getting a turn to
 capitalise on it, regardless of what the turn order does.
 
+### Campfires and relics
+
+HP persists across every fight in a run and is only restored at a
+campfire, which appears before each boss and offers exactly one of:
+
+- **Rest** -- recover 50% of max HP across the squad. Not a full heal;
+  the point is that damage taken earlier in a run still costs you
+  something later.
+- **Attune** -- take one of three offered **relics** instead, and go into
+  the boss on whatever HP you have.
+
+Relics are run-scoped party-wide power that vanishes when the expedition
+ends: percent stat boosts, granted passives (lifesteal, thornmail, cheat
+death), bonus Poise damage for faster breaking, or a gold multiplier.
+They also drop from non-final bosses and sometimes from elites. Because
+the offer is a choice from a random three, two runs with the same squad
+and the same gear end up shaped differently -- which is the point.
+Relics never stack with themselves, and an offer never includes one you
+already carry.
+
 ### Characters
 
 Every character has a mechanical identity, not just a different portrait --

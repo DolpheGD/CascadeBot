@@ -17,6 +17,7 @@ scrolling past the encyclopedia renderers to find it:
     quests.py        /quests board
     domains.py       /domains
     vote.py          /vote (top.gg voting)
+    relics.py        run-scoped relics + the campfire choice
     encyclopedia.py  /encyclopedia
 
 Everything is re-exported here, so existing `from bot.utils import embedder`
@@ -84,6 +85,11 @@ from bot.utils.embedder.domains import (
     domain_result_embed,
     domain_tier_embed,
 )
+from bot.utils.embedder.relics import (
+    campfire_embed,
+    relic_gained_embed,
+    relic_lines,
+)
 from bot.utils.embedder.vote import (
     vote_claimed_embed,
     vote_prompt_embed,
@@ -132,6 +138,7 @@ __all__ = [
     "_turn_order_line",
     "battle_info_embed",
     "battle_log_embed",
+    "campfire_embed",
     "combat_embed",
     "domain_menu_embed",
     "domain_result_embed",
@@ -152,6 +159,8 @@ __all__ = [
     "lootbox_detail_embed",
     "profile_embed",
     "quest_board_embed",
+    "relic_gained_embed",
+    "relic_lines",
     "vote_claimed_embed",
     "vote_prompt_embed",
     "vote_unconfigured_embed",

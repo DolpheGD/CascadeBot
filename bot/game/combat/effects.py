@@ -773,7 +773,7 @@ def _resolve_hit(attacker: Combatant, defender: Combatant, damage_percent: float
         if defender.energy > before:
             log.append(f"🛡️ {defender.name} holds firm and builds {defender.energy - before} energy.")
 
-    if defender.damage_poise(poise_damage):
+    if defender.damage_poise(poise_damage + attacker.bonus_poise_damage):
         defender.enter_break(BREAK_DURATION_TURNS)
         log.append(
             f"💫 **{defender.name}'s guard is BROKEN!** Its move is cancelled and it "

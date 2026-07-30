@@ -5,7 +5,7 @@ from discord import app_commands
 
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
-from bot.services import character_service, dungeon_service, combat_service
+from bot.services import character_service, combat_service, dungeon_service, relic_service
 from bot.utils import embedder
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils.ui_guard import OwnedView
@@ -221,6 +221,41 @@ class EncounterView(OwnedView):
             self.add_item(EncounterChoiceButton(choice))
 
 
+class CampfireRestButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="🔥 Rest", style=discord.ButtonStyle.success, custom_id="cascade_campfire_rest")
+
+    async def callback(self, interaction: discord.Interaction):
+        await _handle_campfire_choice(interaction, "rest")
+
+
+class CampfireAttuneButton(discord.ui.Button):
+    """One button per offered relic. Not a DynamicItem: the campfire view
+    is always rebuilt from live expedition state on render (the offer is
+    re-rolled deterministically from the expedition + node id -- see
+    dungeon_service.get_campfire_offer), so there's nothing that needs to
+    survive a restart baked into the custom_id."""
+
+    def __init__(self, relic: dict):
+        super().__init__(
+            label=f"✨ {relic['name']}"[:80],
+            style=discord.ButtonStyle.primary,
+            custom_id=f"cascade_campfire_attune:{relic['id']}",
+        )
+        self.relic_id = relic["id"]
+
+    async def callback(self, interaction: discord.Interaction):
+        await _handle_campfire_choice(interaction, "attune", relic_id=self.relic_id)
+
+
+class CampfireView(OwnedView):
+    def __init__(self, offer: list[dict], owner_id: int | None = None):
+        super().__init__(timeout=None, owner_id=owner_id)
+        self.add_item(CampfireRestButton())
+        for relic in offer:
+            self.add_item(CampfireAttuneButton(relic))
+
+
 def _build_dungeon_view(expedition) -> DungeonView | None:
     if expedition.status.value != "active":
         return None
@@ -316,6 +351,12 @@ def _reward_extras_text(r: dict) -> str:
         extras += f"\n+{lb['quantity']} {lb['tier'].title()} Lootbox!"
     if r.get("reroll_tokens"):
         extras += f"\n+{r['reroll_tokens']} 🎲"
+    # Relic drops (elites and non-final bosses) get their own emphasised
+    # line -- they're the rarest and most run-shaping thing a fight can
+    # produce, so they shouldn't read as one more item in a loot list.
+    if r.get("relic"):
+        relic = r["relic"]
+        extras += f"\n\n✨ **Relic acquired: {relic['emoji']} {relic['name']}**\n*{relic['description']}*"
     return extras
 
 
@@ -460,6 +501,13 @@ def _render_room(db, expedition, player, kind: str, message: str, avatar_url: st
             EncounterView(dungeon_service.get_encounter_choices(encounter), owner_id=expedition.player_id),
         )
 
+    if kind == "campfire":
+        offer = dungeon_service.get_campfire_offer(expedition)
+        return (
+            embedder.campfire_embed(node, offer, relic_service.held_relics(expedition), message),
+            CampfireView(offer, owner_id=expedition.player_id),
+        )
+
     return (
         embedder.dungeon_map_embed(
             expedition, message, avatar_url=avatar_url, squad_hp_lines=_squad_hp_lines(db, player)
@@ -478,6 +526,23 @@ async def _handle_encounter_choice(interaction: discord.Interaction, choice_id: 
             return
 
         result = dungeon_service.resolve_encounter_choice(db, expedition, player, choice_id)
+        avatar_url = interaction.user.display_avatar.url
+        embed, view = _render_room(db, expedition, player, result["kind"], result["message"], avatar_url)
+        await interaction.response.edit_message(embed=embed, view=view)
+    finally:
+        db.close()
+
+
+async def _handle_campfire_choice(interaction: discord.Interaction, choice: str, relic_id: str | None = None):
+    db = SessionLocal()
+    try:
+        player = get_player(db, interaction.user.id)
+        expedition = dungeon_service.get_active_expedition(db, player.id) if player else None
+        if player is None or expedition is None or not expedition.pending_interaction:
+            await interaction.response.send_message("There's nothing to resolve here right now.", ephemeral=True)
+            return
+
+        result = dungeon_service.resolve_campfire_choice(db, expedition, player, choice, relic_id=relic_id)
         avatar_url = interaction.user.display_avatar.url
         embed, view = _render_room(db, expedition, player, result["kind"], result["message"], avatar_url)
         await interaction.response.edit_message(embed=embed, view=view)

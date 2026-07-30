@@ -320,6 +320,21 @@ def expedition_summary_embed(ledger: dict, won: bool, forfeited: bool = False) -
         color=discord.Color.gold() if won else discord.Color.dark_gray(),
     )
 
+    # Relics led with, before the loot tally: they're what made this run
+    # play differently from the last one, which is the part worth
+    # remembering once the numbers have been banked.
+    relic_ids = ledger.get("relics") or []
+    if relic_ids:
+        from bot.game.dungeon.relic_config import get_relic
+
+        relics = [r for r in (get_relic(rid) for rid in relic_ids) if r]
+        if relics:
+            embed.add_field(
+                name=f"✨ Relics carried ({len(relics)})",
+                value="\n".join(f"{r['emoji']} **{r['name']}**" for r in relics),
+                inline=False,
+            )
+
     gained_lines = []
     if ledger["gold_gained"]:
         gained_lines.append(f"{format_currency('gold', ledger['gold_gained'])}")

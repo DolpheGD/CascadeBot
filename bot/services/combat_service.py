@@ -21,7 +21,13 @@ from bot.game.combat.factory import build_enemy_combatant, build_party_combatant
 from bot.game.combat.serialization import battle_from_dict, battle_to_dict
 from bot.game.economy.lootbox_config import tier_for_floor_and_region
 from bot.game.loot.generator import LootGenerator
-from bot.services import base_service, character_service, item_template_service, lootbox_service
+from bot.services import (
+    base_service,
+    character_service,
+    item_template_service,
+    lootbox_service,
+    relic_service,
+)
 from bot.services.currency_service import add_currency
 
 # Chance of an item dropping on victory -- elites and bosses feel worth
@@ -77,6 +83,10 @@ def start_battle(db, expedition, player, enemy_templates: list, level: int) -> B
     )
     party_combatants = build_party_combatants(squad, equipped_by_char)
     base_service.apply_shrine_bonuses(db, player, party_combatants)
+    # Run-scoped relics, applied after shrines so their percentages are
+    # computed against the fully-equipped, fully-shrined stat line -- the
+    # same ordering gear substats already use.
+    relic_service.apply_relic_effects(expedition, party_combatants)
 
     enemy_combatants = []
     for entry in enemy_templates:
@@ -167,7 +177,7 @@ def apply_victory_rewards(
     # Combat rework: base gold/xp payout raised across the board so combat
     # rewards feel worth it on their own, on top of the new material/
     # lootbox drops below.
-    gold_reward = round((20 + (floor // 5) * 8) * multiplier)
+    gold_reward = round((20 + (floor // 5) * 8) * multiplier * relic_service.gold_multiplier(expedition))
     xp_reward = round((15 + (floor // 5) * 7) * multiplier)
 
     add_currency(db, player, "gold", gold_reward)

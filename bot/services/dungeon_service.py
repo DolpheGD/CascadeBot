@@ -34,9 +34,17 @@ from bot.game.dungeon import graph_utils as gu
 from bot.game.dungeon.encounter_config import get_encounter_by_id, get_encounters_for_room_type
 from bot.game.dungeon.generator import DungeonGenerator
 from bot.game.dungeon.region_config import get_region_difficulty, region_unlock_requirement
+from bot.game.dungeon.relic_config import CAMPFIRE_REST_PERCENT, ELITE_RELIC_DROP_CHANCE
 from bot.game.economy.lootbox_config import tier_for_floor_and_region
 from bot.game.loot.generator import LootGenerator
-from bot.services import character_service, combat_service, item_template_service, lootbox_service, quest_service
+from bot.services import (
+    character_service,
+    combat_service,
+    item_template_service,
+    lootbox_service,
+    quest_service,
+    relic_service,
+)
 from bot.services.currency_service import add_currency, format_currency, spend_currency
 
 # How many floors it takes to step up one material tier for treasure/secret/
@@ -101,6 +109,7 @@ def _new_ledger() -> dict:
         "lootboxes_found": {},  # tier -> qty -- treasure/secret rooms
         "lootboxes_bought": {}, # tier -> qty -- shop purchases
         "level_ups": {},        # character name -> {"from":, "to":}
+        "relics": [],           # relic ids taken this run (campfire/elite/boss)
     }
 
 
@@ -170,6 +179,14 @@ def _ledger_add_lootbox(expedition: Expedition, tier: str, quantity: int = 1, bo
     boxes = dict(ledger[key])
     boxes[tier] = boxes.get(tier, 0) + quantity
     ledger[key] = boxes
+    expedition.loot_ledger = ledger
+
+
+def _ledger_add_relic(expedition: Expedition, relic_id: str) -> None:
+    ledger = _ledger(expedition)
+    if relic_id in ledger["relics"]:
+        return
+    ledger["relics"] = list(ledger["relics"]) + [relic_id]
     expedition.loot_ledger = ledger
 
 
@@ -408,11 +425,20 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
         return {"kind": "combat", "message": f"{names} appears!"}
 
     if room_type == RoomType.CAMPFIRE:
-        for pc in character_service.get_squad(db, player):
-            pc.current_hp = None  # None == full HP, see PlayerCharacter.current_hp
-        _mark_completed(expedition, expedition.current_node_id)
+        # Campfires used to be a free full heal, which is precisely why HP
+        # was never a resource: whatever a run cost you was refunded before
+        # every boss, so routing and damage taken didn't matter. Now it's a
+        # choice between recovering and getting stronger -- see
+        # resolve_campfire_choice.
+        expedition.pending_interaction = {"kind": "campfire"}
         db.commit()
-        return {"kind": "resolved", "message": "You rest at the campfire. Your squad heals to full."}
+        return {
+            "kind": "campfire",
+            "message": (
+                "You make camp in the quiet before the storm. There's time "
+                "for one thing only."
+            ),
+        }
 
     if room_type == RoomType.TREASURE:
         encounter = _maybe_roll_encounter(room_type, rng)
@@ -657,11 +683,31 @@ def resolve_battle_end(db, expedition: Expedition, player, battle) -> dict:
         if rewards.get("reroll_tokens"):
             _ledger_add_reroll_tokens(expedition, rewards["reroll_tokens"])
         _ledger_record_level_ups(expedition, rewards["level_ups"])
+
+        # Relic drops. Elites and (non-final) bosses are the two room types
+        # that are meant to feel like milestones rather than filler, and a
+        # relic is the reward that actually changes how the rest of the run
+        # plays instead of just topping up numbers. The FINAL boss is
+        # excluded deliberately -- the run ends on that kill, so a relic
+        # there would expire before it did anything.
+        final_boss_node = expedition.graph.get("boss_nodes", [expedition.graph.get("boss_node")])[-1]
+        is_final_boss = expedition.current_node_id == final_boss_node
+        dropped_relic = None
+        drops_relic = (
+            room_type == RoomType.BOSS and not is_final_boss
+        ) or (
+            room_type == RoomType.ELITE and random.random() < ELITE_RELIC_DROP_CHANCE
+        )
+        if drops_relic:
+            dropped_relic = relic_service.grant_random_relic(db, expedition)
+            if dropped_relic is not None:
+                rewards["relic"] = dropped_relic
+                _ledger_add_relic(expedition, dropped_relic["id"])
+
         _mark_completed(expedition, expedition.current_node_id)
         combat_service.clear_battle(db, expedition)
 
-        final_boss = expedition.graph.get("boss_nodes", [expedition.graph.get("boss_node")])[-1]
-        if expedition.current_node_id == final_boss:
+        if is_final_boss:
             expedition.status = ExpeditionStatus.COMPLETED
             db.commit()
             quest_service.record_progress(db, player, "complete_adventures")
@@ -695,6 +741,77 @@ def resolve_battle_end(db, expedition: Expedition, player, battle) -> dict:
 # and merchant purchases show up in the whole-run summary exactly like
 # combat/treasure/trap/puzzle rewards do.
 # ----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
+# Campfire -- Rest or Attune, exactly one of the two.
+#
+# This is the run's scarcity valve. HP persists across every fight in a
+# run (see combat_service.sync_party_hp_to_characters) but is only ever
+# restored here, so "how much damage did that fight cost me" is a real
+# question with a real answer. Taking a relic instead means going into the
+# boss on whatever HP you have left -- which is the trade the whole thing
+# exists to create.
+# ----------------------------------------------------------------------
+
+def get_campfire_offer(expedition: Expedition, rng: random.Random | None = None) -> list[dict]:
+    """The relics on offer for the Attune option. Rolled fresh per call
+    but seeded off the expedition and node so it's STABLE: re-rendering the
+    same campfire (a restart, an edited message, the player clicking twice)
+    must not reshuffle the choice out from under them."""
+    seed = f"{expedition.id}:{expedition.current_node_id}"
+    return relic_service.offer_relics(expedition, rng=rng or random.Random(seed))
+
+
+def resolve_campfire_choice(db, expedition: Expedition, player, choice: str, relic_id: str | None = None) -> dict:
+    """`choice` is "rest" or "attune". Returns a dict with a player-facing
+    message; the room is marked completed either way, so a campfire is
+    spent once whichever option was taken."""
+    if not expedition.pending_interaction or expedition.pending_interaction.get("kind") != "campfire":
+        return {"kind": "resolved", "message": "There's nothing to do here."}
+
+    if choice == "rest":
+        squad = character_service.get_squad(db, player)
+        message = _rest_squad(db, squad)
+    elif choice == "attune":
+        relic = relic_service.grant_relic(db, expedition, relic_id) if relic_id else None
+        if relic is None:
+            return {"kind": "campfire", "message": "That relic isn't on offer."}
+        _ledger_add_relic(expedition, relic["id"])
+        message = f"You attune to the {relic['emoji']} **{relic['name']}**.\n*{relic['description']}*"
+    else:
+        return {"kind": "campfire", "message": "That's not something you can do here."}
+
+    expedition.pending_interaction = None
+    _mark_completed(expedition, expedition.current_node_id)
+    db.commit()
+    return {"kind": "resolved", "message": message}
+
+
+def _rest_squad(db, squad: list) -> str:
+    """Heals every squad member by CAMPFIRE_REST_PERCENT of their own max
+    HP. Deliberately a percentage of max rather than a full restore -- see
+    relic_config.CAMPFIRE_REST_PERCENT."""
+    if not squad:
+        return "There's nobody here to rest."
+
+    from bot.game.combat.factory import build_character_combatant
+
+    equipped_by_char = character_service.get_equipped_items_by_character(db, [pc.id for pc in squad])
+    healed_lines = []
+    for pc in squad:
+        combatant = build_character_combatant(pc, equipped_by_char.get(pc.id, []))
+        if combatant.current_hp >= combatant.max_hp:
+            continue
+        restored = max(1, round(combatant.max_hp * CAMPFIRE_REST_PERCENT / 100))
+        new_hp = min(combatant.max_hp, combatant.current_hp + restored)
+        pc.current_hp = None if new_hp >= combatant.max_hp else new_hp
+        healed_lines.append(f"{pc.display_name} +{new_hp - combatant.current_hp}")
+    db.commit()
+
+    if not healed_lines:
+        return "Your squad is already at full strength. You rest anyway."
+    return f"You rest by the fire and recover **{CAMPFIRE_REST_PERCENT}%** HP.\n" + ", ".join(healed_lines)
+
 
 def get_pending_encounter(expedition: Expedition) -> dict | None:
     """Reconstructs the active encounter dict from
@@ -966,7 +1083,9 @@ def resolve_encounter_choice(db, expedition: Expedition, player, choice_id: str,
 
     node = expedition.graph["nodes"][expedition.current_node_id]
     difficulty = get_region_difficulty(expedition.region)
-    gold_mult = difficulty["reward_multiplier"]
+    # Encounters are the main gold faucet in a run, so this is where a
+    # gold_multiplier relic (Prospector's Ledger) actually earns its slot.
+    gold_mult = difficulty["reward_multiplier"] * relic_service.gold_multiplier(expedition)
     max_item_rarity = difficulty["max_item_rarity"]
     item_level = node["floor"] + 1 + difficulty["level_offset"]
     action = choice["action"]
