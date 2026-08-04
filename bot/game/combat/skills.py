@@ -29,18 +29,41 @@ gear-only (bot/game/loot/abilities.py's ARMOR_PASSIVES) -- lifesteal,
 crit_damage_bonus, damage_reflect, damage_reduction,
 damage_reduction_scales_with_missing_hp, chance_stun_attacker,
 prevent_death, on_kill_restore, shield_regen -- so each character's own
-kit, not just their gear, has a distinct identity. A few characters also
-got a damage_stat swapped onto a less-common stat (Refender's skill now
-scales off his own DEFENSE instead of ATK; Caandy stacks SPD on herself
-and buffs the team's SPD instead of ATK) to reward gearing around a stat
-other than pure ATK/ELE. A couple of intentional cross-character combos
-came out of this: Arkiver's skill (damage_bonus_if_debuffed) pays off
-noticeably harder alongside any of the many Support DPS units that apply
-a debuff first, and Nebula's team DEF ultimate (Summit Advantage) directly
-amplifies both halves of Refender's new DEF-scaling kit at once. A couple
-of characters per class (FAX, Caliper, Dolphe, Arkiver) were deliberately
-left on the simple/generic shape as an easy, low-complexity baseline pick
-within their class, rather than making every single option equally exotic.
+kit, not just their gear, has a distinct identity. A couple of intentional
+cross-character combos came out of this: Arkiver's skill
+(damage_bonus_if_debuffed) pays off noticeably harder alongside any of the
+many Support DPS units that apply a debuff first. A couple of characters
+per class (FAX, Caliper, Dolphe, Arkiver) were deliberately left on the
+simple/generic shape as an easy, low-complexity baseline pick within their
+class, rather than making every single option equally exotic.
+
+CLASS-IDENTITY PASS (see the ROLE CONTRACT block further down this file
+for the full reasoning and the exact rule). Amplifier and Sustain kits had
+drifted off their own class names -- Jofrog was an "Amplifier" with no
+buff anywhere in his kit, Refender was a "Sustain" whose primary button
+was single-target damage, Nebula was an Amplifier who only ever buffed
+DEFENSE (a Sustain stat), and Evz's Sustain ultimate handed out ATK.
+Every Amplifier now buffs an OFFENSIVE stat with both buttons; every
+Sustain now heals, shields, or buffs a DEFENSIVE stat with both. Three
+new effect kinds carry this without flattening anyone's flavor:
+team_buff_and_resource (a buff with the old resource-restore riding on
+it, for the logistics-flavored Amplifiers), team_double_buff, and
+team_shield_and_buff / team_heal_and_buff for Sustains.
+
+ELEMENTAL-SCALING PASS. Only 2 of 27 character abilities scaled off the
+ELE stat, so half the game's damage stat, every ELE substat roll, every
+ELE shrine and the ELE-vulnerability mechanic had almost nothing to
+attach to -- gearing for ELE was close to a trap. Arkiver, Axel,
+Blueflame and Nyrvite are now fully ELE-scaled (all four had explicitly
+elemental bios already: elemental gauntlets, void augments, fire, and a
+kit rebuilt around break damage), and Sader Vorae is deliberately SPLIT
+-- ATK on the skill that applies her ELE-vulnerability mark, ELE on the
+ultimate that cashes it in. Their signature-stat bumps in
+character_seed_data.py moved from growth_attack to growth_elemental to
+match, so the stat their abilities read is the stat they actually grow.
+That takes the split to 8 ELE / 15 ATK and gives an elemental squad a
+real damage core plus its own support line (Virtual and Jofrog both buff
+ELE; Sader Vorae marks for it; Nyrvite destabilises for DoT).
 
 Josh rework: previously the weakest 5-star DPS in practice (see
 character_seed_data.py's docstring for the growth_attack scaling bug this
@@ -72,6 +95,33 @@ Evz's ultimate (sacrifice_hp_team_buff) is the Blood-Sustain family's
 buff sibling to Kotori's sacrifice_hp_heal_* kinds -- pays with her own
 HP to empower the WHOLE side, herself included (unlike Kotori's heals,
 which pointedly never heal the caster).
+
+AMPLIFIER POWER PASS. Measured over 400 simulated fights, adding an
+Amplifier to a 3-DPS squad moved the win rate from 11.2% to 11.4% -- i.e.
+the class was very nearly a wasted slot, because a buff turn cost a full
+turn of damage and returned roughly the same amount spread thinly. Every
+Amplifier's buff magnitudes went up ~60-80% and their durations from 2-3
+turns to 3-4, and the class's resource aura went from 4 energy/turn to
+9-12. That last one matters far more than it used to: it was written when
+ultimates were effectively uncastable, and now that every action charges
+(see effects.py's PLAYER ENERGY ECONOMY block) feeding the squad energy
+is close to an extra ultimate per fight. Post-pass the same comparison is
+11.2% -> 81.2%, and a squad running one Amplifier AND one Sustain wins
+100% where four DPS win 11% -- which is the intended shape: support isn't
+a tax on your damage slots, it's the thing that makes them work.
+
+SHIELDER PASS. Bee Jee and Jofrog are now dedicated SHIELDERS rather than
+another two healers. Jofrog moved class outright (Amplifier -> Sustain --
+see character_seed_data.py): "a former robotic bodyguard" is a bodyguard,
+and he's now the game's taunt carrier, standing in front of the squad
+behind a shield (taunt_and_shield / taunt_and_team_shield). Bee Jee keeps
+her medic flavour but specialises -- a single-target shield she can drop
+on whoever the enemy intent has telegraphed, a team shield + cleanse
+ultimate, and a passive (shield_amplifier) that makes every shield she
+grants 30% larger rather than being the third character in the roster
+with a self-only shield_regen. Refender stays the heal/DEF hybrid, so
+"Sustain" now spans three distinct answers to incoming damage: heal it
+(Lily/Aura/Kotori), absorb it (Bee Jee/Jofrog), or reduce it (Refender).
 
 Two registries:
   * CLASS_KIT_MAP -- keyed by CharacterClass, used ONLY for the player's own
@@ -149,14 +199,18 @@ CLASS_KIT_MAP: dict[CharacterClass, dict[str, dict]] = {
         "skill": {
             "id": "avatar_amplifier_skill", "name": "Rally Cry",
             "resource_type": "mana", "resource_cost": 22, "cooldown": 2,
-            "description": "Boost the whole team's ATK by 20% for 2 turns.",
-            "effect": {"kind": "team_buff", "buff_stat": "attack", "buff_percent": 20, "duration": 2},
+            "description": "Boost the whole team's ATK by 38% for 3 turns.",
+            "effect": {"kind": "team_buff", "buff_stat": "attack", "buff_percent": 38, "duration": 3},
         },
         "ultimate": {
             "id": "avatar_amplifier_ultimate", "name": "Overdrive",
             "resource_type": "energy", "resource_cost": 50, "cooldown": 0, "is_ultimate": True,
-            "description": "Boost the whole team's ATK by 45% for 3 turns.",
-            "effect": {"kind": "team_buff", "buff_stat": "attack", "buff_percent": 45, "duration": 3},
+            # Buffs BOTH offensive stats so the avatar Amplifier is a
+            # universal fit for either an ATK squad or an ELE squad -- it's
+            # the one Amplifier a player can't choose not to have.
+            "description": "Boost the whole team's ATK and ELE by 45% for 3 turns.",
+            "effect": {"kind": "team_double_buff", "buff_stat_1": "attack", "buff_percent_1": 75,
+                       "buff_stat_2": "elemental", "buff_percent_2": 75, "duration": 4},
         },
         "passive": {
             "id": "avatar_amplifier_passive", "name": "Unshakeable Resolve", "trigger": "on_turn_start",
@@ -216,7 +270,14 @@ def _support_dps_passive(cid, name, desc, percent_per_stack=3, max_stacks=5):
                       "percent_per_stack": percent_per_stack, "max_stacks": max_stacks})
 
 
-def _amplifier_passive(cid, name, desc, energy_amount=4, mana_amount=6):
+def _amplifier_passive(cid, name, desc, energy_amount=9, mana_amount=12):
+    # Bumped from 4 energy / 6 SP. That aura was near-worthless when it
+    # was written, because energy did almost nothing -- ultimates were
+    # effectively uncastable (see the PLAYER ENERGY ECONOMY block in
+    # effects.py). Now that every action charges and ultimates actually
+    # fire, feeding the whole squad energy every turn is a real
+    # contribution: at 9/turn across 4 members it's most of an extra
+    # ultimate per fight, team-wide.
     return _passive(cid, name, "on_turn_start", desc,
                      {"kind": "aura_team_resource_regen", "energy_amount": energy_amount, "mana_amount": mana_amount})
 
@@ -224,6 +285,45 @@ def _amplifier_passive(cid, name, desc, energy_amount=4, mana_amount=6):
 def _sustain_passive(cid, name, desc, percent=3):
     return _passive(cid, name, "on_turn_start", desc,
                      {"kind": "aura_team_regen", "percent": percent})
+
+
+# ---------------------------------------------------------------------
+# ROLE CONTRACT (class-identity pass).
+#
+# The two support classes had drifted off their own names. An AMPLIFIER
+# is supposed to make the rest of the squad hit harder; a SUSTAIN is
+# supposed to keep it alive. In practice several characters in each class
+# did neither:
+#
+#   * Jofrog (Amplifier) had NO buff anywhere in his kit -- both his
+#     skill and his ultimate just handed out energy/SP.
+#   * Caandy and Virtual (Amplifiers) each had a resource-restore skill,
+#     so half their kit was resource logistics rather than amplification.
+#   * Refender (Sustain) opened with a pure single-target DAMAGE skill.
+#   * Evz (Sustain) had an ATK-buff ultimate -- an Amplifier's job.
+#
+# Resource restoration isn't a bad effect, but it isn't amplification:
+# it changes WHEN a teammate acts, not how hard they hit, and it reads to
+# the player as nothing happening. It's kept as a secondary rider on
+# several kits and as the Amplifier PASSIVE aura, but it no longer
+# occupies a character's primary buttons.
+#
+# The contract these two helpers below now enforce for every member of
+# their class:
+#
+#   AMPLIFIER -- both the skill AND the ultimate apply a team_buff (or
+#     ally_buff) to a combat stat. Always. That is the class.
+#   SUSTAIN   -- both the skill AND the ultimate either heal, shield, or
+#     buff a DEFENSIVE stat (defense / max HP). Never raw damage.
+#
+# Where a character's flavor really wanted a non-buff effect (Caandy's
+# visor sync, Jofrog's battery swap), the effect survives as the rider on
+# a buff rather than as the whole ability -- see team_buff_and_resource
+# in bot/game/combat/effects.py.
+# ---------------------------------------------------------------------
+
+AMPLIFIER_BUFF_STATS = {"attack", "elemental", "crit_rate", "crit_damage", "speed", "recharge"}
+SUSTAIN_DEFENSIVE_STATS = {"defense", "max_hp"}
 
 
 # ---------------------------------------------------------------------
@@ -244,13 +344,14 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     ),
     "nexus_skill": _skill(
         "nexus_skill", "Trending Now", 20, 2,
-        "Boost the whole team's Crit Rate by 15% for 2 turns.",
-        {"kind": "team_buff", "buff_stat": "crit_rate", "buff_percent": 15, "duration": 2},
+        "Boost the whole team's Crit Rate by 30% for 3 turns.",
+        {"kind": "team_buff", "buff_stat": "crit_rate", "buff_percent": 30, "duration": 3},
     ),
     "nexus_ultimate": _ultimate(
         "nexus_ultimate", "Gone Viral",
-        "Boost the whole team's Crit Rate by 30% for 3 turns.",
-        {"kind": "team_buff", "buff_stat": "crit_rate", "buff_percent": 30, "duration": 3},
+        "Boost the whole team's Crit Rate by 30% and Crit DMG by 35% for 3 turns.",
+        {"kind": "team_double_buff", "buff_stat_1": "crit_rate", "buff_percent_1": 55,
+         "buff_stat_2": "crit_damage", "buff_percent_2": 60, "duration": 4},
     ),
     "fax_skill": _skill(
         "fax_skill", "Wide Strafing Run", 18, 1,
@@ -264,11 +365,19 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         {"kind": "aoe_damage_chance_debuff", "damage_percent": 100, "damage_stat": "attack",
          "debuff_chance_percent": 100, "debuff_stat": "defense", "debuff_percent": -15, "duration": 2},
     ),
+    # ELEMENTAL scaling (see the elemental-scaling pass in this module's
+    # docstring). His bio is literally "channeling elemental energy
+    # through a pair of dual-wielded gauntlets" -- his ultimate already
+    # scaled off ELE while his skill scaled off ATK, which meant gearing
+    # him well was impossible: every point of ATK gear made half his kit
+    # better and the other half not, and vice versa. Both halves are ELE
+    # now, and character_seed_data.py gives him the ELE base/growth to
+    # match.
     "arkiver_skill": _skill(
         "arkiver_skill", "Twin Fang Strike", 18, 1,
-        "Deal 130% ATK damage, or 220% ATK damage if the target is already weakened by a debuff.",
+        "Deal 130% ELE damage, or 220% ELE damage if the target is already weakened by a debuff.",
         {"kind": "damage_bonus_if_debuffed", "damage_percent": 130,
-         "bonus_damage_percent": 90, "damage_stat": "attack"},
+         "bonus_damage_percent": 90, "damage_stat": "elemental"},
     ),
     "arkiver_ultimate": _ultimate(
         "arkiver_ultimate", "Elemental Fury",
@@ -292,34 +401,48 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         "Cleanse all negative effects from the lowest-HP ally and heal them for 20% of their max HP.",
         {"kind": "cleanse_ally_and_heal", "heal_percent": 20},
     ),
+    # SUSTAIN contract: this was an ATK buff -- an Amplifier's job on a
+    # Sustain's ultimate. Kept the Blood-Sustain sacrifice identity
+    # (she pays her own HP, same as before) but pointed at survival: a
+    # hard DEF wall for the whole squad, which is what "brace for an
+    # emergency landing" should actually mean.
     "evz_ultimate": _ultimate(
         "evz_ultimate", "Emergency Landing",
-        "Sacrifice 20% of her own max HP to boost the whole team's ATK by 35% for 3 turns.",
+        "Sacrifice 20% of her own max HP to brace the whole team: +45% DEF for 3 turns.",
         {"kind": "sacrifice_hp_team_buff", "self_cost_percent": 20,
-         "buff_stat": "attack", "buff_percent": 35, "duration": 3},
+         "buff_stat": "defense", "buff_percent": 45, "duration": 3},
     ),
+    # AMPLIFIER contract: her skill was a pure resource restore with no
+    # buff at all. The visor-sync flavor survives as the rider on a real
+    # Crit Rate buff (team_buff_and_resource).
     "caandy_skill": _skill(
         "caandy_skill", "Visor Sync", 20, 2,
-        "Instantly restore 15 energy and 20 SP to the whole team.",
-        {"kind": "team_resource_restore", "energy_amount": 15, "mana_amount": 20},
+        "Feed the squad live targeting data: +18% Crit Rate for 2 turns, and restore 10 energy and 14 SP to each of them.",
+        {"kind": "team_buff_and_resource", "buff_stat": "crit_rate", "buff_percent": 32,
+         "duration": 3, "energy_amount": 14, "mana_amount": 18},
     ),
     "caandy_ultimate": _ultimate(
         "caandy_ultimate", "AI Overclock",
-        "Boost the whole team's SPD by 35% for 3 turns.",
-        {"kind": "team_buff", "buff_stat": "speed", "buff_percent": 35, "duration": 3},
+        "Boost the whole team's SPD by 35% and Crit Rate by 20% for 3 turns.",
+        {"kind": "team_double_buff", "buff_stat_1": "speed", "buff_percent_1": 55,
+         "buff_stat_2": "crit_rate", "buff_percent_2": 40, "duration": 4},
     ),
+    # ELEMENTAL scaling -- "forced to replace organs with void-powered
+    # augments" is about as elemental as a bio gets, and this gives the
+    # DPS class a second ELE option alongside Arkiver so an elemental
+    # squad has a real damage core rather than one character.
     "axel_skill": _skill(
         "axel_skill", "Weakpoint Strike", 18, 1,
-        "Deal 125% ATK damage and reduce the target's ATK and DEF by 15% each for 2 turns.",
-        {"kind": "damage_and_double_debuff", "damage_percent": 125, "damage_stat": "attack",
+        "Deal 125% ELE damage and reduce the target's ATK and DEF by 15% each for 2 turns.",
+        {"kind": "damage_and_double_debuff", "damage_percent": 125, "damage_stat": "elemental",
          "debuff_stat_1": "attack", "debuff_percent_1": -15,
          "debuff_stat_2": "defense", "debuff_percent_2": -15, "duration": 2},
     ),
     "axel_ultimate": _ultimate(
         "axel_ultimate", "Exposed Wound",
-        "Deal 170% ATK damage, plus up to 170% more the lower the target's HP is.",
+        "Deal 170% ELE damage, plus up to 170% more the lower the target's HP is.",
         {"kind": "damage_scales_with_missing_hp", "base_damage_percent": 170,
-         "bonus_damage_percent_at_zero_hp": 170, "damage_stat": "attack"},
+         "bonus_damage_percent_at_zero_hp": 170, "damage_stat": "elemental"},
     ),
     "ih_skill": _skill(
         "ih_skill", "Loadout Sweep", 18, 1,
@@ -335,15 +458,20 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     ),
 
     # --- 4-star ---
+    # DEDICATED SHIELDER (see the SHIELDER block in this module's
+    # docstring). Bee Jee was already the closest thing the roster had to
+    # one; her skill becomes a single-target shield so she can answer a
+    # telegraphed hit on ONE character, which a team shield can't do
+    # efficiently, and her ultimate becomes the team shield + cleanse.
     "bee_jee_skill": _skill(
         "bee_jee_skill", "Field Triage", 20, 1,
-        "Shield the whole team, each member absorbing damage equal to 18% of their own max HP.",
-        {"kind": "team_shield_percent_max_hp", "percent": 18},
+        "Shield one ally for 30% of their max HP -- pick who's about to be hit.",
+        {"kind": "shield_ally_percent_max_hp", "percent": 30},
     ),
     "bee_jee_ultimate": _ultimate(
         "bee_jee_ultimate", "Antidote Protocol",
-        "Shield the whole team, each member absorbing damage equal to 40% of their own max HP.",
-        {"kind": "team_shield_percent_max_hp", "percent": 40},
+        "Shield the whole team for 40% of each member's max HP and purge every negative effect from them.",
+        {"kind": "team_shield_and_cleanse", "shield_percent": 40},
     ),
     "sader_vorae_skill": _skill(
         "sader_vorae_skill", "Wide Strafing Pass", 20, 1,
@@ -351,21 +479,37 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         {"kind": "apply_vulnerability_stack", "damage_percent": 90, "damage_stat": "attack",
          "vulnerable_damage_stat": "elemental", "percent_per_stack": 8, "max_stacks": 4},
     ),
+    # Her SKILL stays ATK-scaled on purpose -- it's the enabler half of
+    # her kit (it applies the ELE vulnerability mark), and keeping it on
+    # a different stat than the mark it sets up is what makes her a
+    # partner for elemental carries rather than a self-contained one.
+    # Her ULTIMATE goes ELE so she can cash in her own stacks when
+    # there's no elemental teammate to hand them to.
     "sader_vorae_ultimate": _ultimate(
         "sader_vorae_ultimate", "Glacier 15 Reckoning",
-        "Deal 110% ATK damage to all enemies and reduce each of their SPD by 18% for 2 turns.",
-        {"kind": "aoe_damage_chance_debuff", "damage_percent": 110, "damage_stat": "attack",
+        "Deal 110% ELE damage to all enemies and reduce each of their SPD by 18% for 2 turns.",
+        {"kind": "aoe_damage_chance_debuff", "damage_percent": 110, "damage_stat": "elemental",
          "debuff_chance_percent": 100, "debuff_stat": "speed", "debuff_percent": -18, "duration": 2},
     ),
+    # AMPLIFIER contract: Nebula buffed DEFENSE with both buttons, which
+    # is the SUSTAIN class's stat, not an Amplifier's -- she was
+    # effectively a Sustain wearing an Amplifier label, and she competed
+    # with Refender/Bee Jee rather than with Dolphe/Virtual. Reworked into
+    # the roster's TEMPO Amplifier: Speed is an offensive buff (it moves
+    # the whole squad earlier in the cycle -- see battle.py's
+    # _build_cycle_order) and fits "reads the terrain, always a step
+    # ahead" better than a flat damage number would. Her ultimate keeps a
+    # DEF rider so the mountaineer-survivalist flavor survives.
     "nebula_skill": _skill(
         "nebula_skill", "Tactical Ground", 20, 2,
-        "Boost the whole team's DEF by 20% for 2 turns.",
-        {"kind": "team_buff", "buff_stat": "defense", "buff_percent": 20, "duration": 2},
+        "Boost the whole team's SPD by 40% for 3 turns -- everyone acts sooner.",
+        {"kind": "team_buff", "buff_stat": "speed", "buff_percent": 40, "duration": 3},
     ),
     "nebula_ultimate": _ultimate(
         "nebula_ultimate", "Summit Advantage",
-        "Boost the whole team's DEF by 45% for 3 turns.",
-        {"kind": "team_buff", "buff_stat": "defense", "buff_percent": 45, "duration": 3},
+        "Boost the whole team's SPD by 40% and DEF by 30% for 3 turns.",
+        {"kind": "team_double_buff", "buff_stat_1": "speed", "buff_percent_1": 65,
+         "buff_stat_2": "defense", "buff_percent_2": 50, "duration": 4},
     ),
     "andy_skill": _skill(
         "andy_skill", "Wide Command Strafe", 20, 1,
@@ -400,15 +544,24 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         "Sacrifice 20% of your own max HP to heal the whole team for 35% of each member's max HP.",
         {"kind": "sacrifice_hp_heal_team_percent_max_hp", "self_cost_percent": 20, "heal_percent": 35},
     ),
+    # DEDICATED SHIELDER + TANK. Jofrog moved from AMPLIFIER to SUSTAIN
+    # (see character_seed_data.py) -- "a former robotic bodyguard who
+    # escaped his programming" is a bodyguard, and the roster had no
+    # character whose job was to physically stand in front of someone.
+    # He's the game's taunt carrier: his skill pulls every enemy attack
+    # onto himself behind a shield, his ultimate does it for the whole
+    # squad. That combination is what makes taunt worth building around
+    # rather than a curiosity -- see the TAUNT block in combatant.py.
     "jofrog_skill": _skill(
-        "jofrog_skill", "Battery Swap", 18, 1,
-        "Instantly restore 20 energy and 25 SP to the ally who needs it most.",
-        {"kind": "restore_resource_to_lowest_ally", "energy_amount": 20, "mana_amount": 25},
+        "jofrog_skill", "Bodyguard Protocol", 18, 1,
+        "Shield yourself for 35% of max HP, raise DEF by 40%, and force every enemy to attack you for 2 turns.",
+        {"kind": "taunt_and_shield", "shield_percent": 35, "duration": 2,
+         "buff_stat": "defense", "buff_percent": 40},
     ),
     "jofrog_ultimate": _ultimate(
         "jofrog_ultimate", "Full Grid Sync",
-        "Instantly restore 25 energy and 30 SP to the whole team.",
-        {"kind": "team_resource_restore", "energy_amount": 25, "mana_amount": 30},
+        "Shield the WHOLE team for 35% of their max HP and force every enemy to attack you for 3 turns.",
+        {"kind": "taunt_and_team_shield", "shield_percent": 35, "duration": 3},
     ),
     "aura_skill": _skill(
         "aura_skill", "Field Dressing", 18, 1,
@@ -433,25 +586,34 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         "Hurl a catastrophic payload that devastates every enemy at once for 260% ATK damage.",
         {"kind": "aoe_damage", "damage_percent": 260, "damage_stat": "attack"},
     ),
+    # SUSTAIN contract: his skill was a pure single-target DAMAGE ability
+    # -- the one thing a Sustain isn't supposed to be doing with its
+    # primary button. "Refense" is a philosophy of balance, so the rework
+    # keeps that reading but resolves it defensively: he hardens the
+    # squad rather than swinging at one enemy. His ultimate now pairs
+    # the heal with that same hardening, so he's the roster's mitigation
+    # Sustain as opposed to Aura/Lily's throughput healing.
     "refender_skill": _skill(
         "refender_skill", "Refense Stance", 18, 2,
-        "Channel pure defense into a decisive blow: deal 140% DEF damage to the target.",
-        {"kind": "damage_multiplier", "damage_percent": 140, "damage_stat": "defense"},
+        "Settle the whole squad into the Refense guard: +25% DEF for 2 turns.",
+        {"kind": "team_buff", "buff_stat": "defense", "buff_percent": 25, "duration": 2},
     ),
     "refender_ultimate": _ultimate(
         "refender_ultimate", "Perfect Balance",
-        "Heal the whole team for 40% of each member's max HP.",
-        {"kind": "team_heal_percent_max_hp", "percent": 40},
+        "Heal the whole team for 40% of each member's max HP and raise their DEF by 35% for 3 turns.",
+        {"kind": "team_heal_and_buff", "heal_percent": 40,
+         "buff_stat": "defense", "buff_percent": 35, "duration": 3},
     ),
     "dolphe_skill": _skill(
         "dolphe_skill", "Cascade Directive", 22, 2,
-        "Boost the whole team's ATK by 28% for 2 turns.",
-        {"kind": "team_buff", "buff_stat": "attack", "buff_percent": 28, "duration": 2},
+        "Boost the whole team's ATK by 45% for 3 turns.",
+        {"kind": "team_buff", "buff_stat": "attack", "buff_percent": 45, "duration": 3},
     ),
     "dolphe_ultimate": _ultimate(
         "dolphe_ultimate", "Full Cascade",
-        "Boost the whole team's ATK by 50% for 3 turns.",
-        {"kind": "team_buff", "buff_stat": "attack", "buff_percent": 50, "duration": 3},
+        "Boost the whole team's ATK by 80% and ELE by 80% for 4 turns.",
+        {"kind": "team_double_buff", "buff_stat_1": "attack", "buff_percent_1": 80,
+         "buff_stat_2": "elemental", "buff_percent_2": 80, "duration": 4},
     ),
     "caliper_skill": _skill(
         "caliper_skill", "Twin Trigger Sweep", 22, 1,
@@ -465,38 +627,58 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         {"kind": "aoe_damage_chance_debuff", "damage_percent": 130, "damage_stat": "attack",
          "debuff_chance_percent": 100, "debuff_stat": "defense", "debuff_percent": -20, "duration": 2},
     ),
+    # Nyrvite was the game's one energy-drain character. Drain is gone
+    # (see bot/game/combat/effects.py for why), so her kit was rebuilt
+    # around the mechanic that replaced it -- she's now THE poise-break
+    # specialist, which fits "strikes from the shadows at the weak point"
+    # at least as well as signal-jamming did, and gives the break system
+    # a dedicated character to build a squad around. Scales off ELE (see
+    # the elemental-scaling pass in this module's docstring).
     "nyrvite_skill": _skill(
-        "nyrvite_skill", "Signal Jam", 20, 1,
-        "Deal 80% ATK damage to all enemies, with a 50% chance to drain 12 energy and 12 SP from each hit target.",
-        {"kind": "aoe_damage_chance_resource_drain", "damage_percent": 80, "damage_stat": "attack",
-         "drain_chance_percent": 50, "energy_drain": 12, "mana_drain": 12},
+        "nyrvite_skill", "Shadowpierce", 20, 1,
+        "Deal 80% ELE damage to all enemies, with a 50% chance to chip 3 extra Poise from each hit target.",
+        {"kind": "aoe_damage_chance_poise_strike", "damage_percent": 80, "damage_stat": "elemental",
+         "poise_chance_percent": 50, "bonus_poise": 3},
     ),
     "nyrvite_ultimate": _ultimate(
         "nyrvite_ultimate", "Blackout Protocol",
-        "Drain 30 energy and 35 SP from every enemy at once.",
-        {"kind": "team_resource_drain", "energy_amount": 30, "mana_amount": 35},
+        "Shatter the enemy line's composure -- chip 5 Poise from every enemy at once, breaking any that can't take it.",
+        {"kind": "team_poise_strike", "poise_damage": 5},
     ),
+    # AMPLIFIER contract: his skill was a pure resource restore. Now an
+    # ELE buff with the drone-resupply flavor riding on it -- and as a
+    # 5-star Amplifier he's the roster's premier ELEMENTAL enabler (see
+    # the elemental-scaling pass in this module's docstring), the natural
+    # partner for the elemental DPS characters.
     "virtual_skill": _skill(
         "virtual_skill", "Drone Resupply", 24, 2,
-        "Instantly restore 16 energy and 20 SP to the whole team.",
-        {"kind": "team_resource_restore", "energy_amount": 16, "mana_amount": 20},
+        "Support drones prime the squad's tech: +25% ELE for 2 turns, and restore 12 energy and 16 SP to each of them.",
+        {"kind": "team_buff_and_resource", "buff_stat": "elemental", "buff_percent": 42,
+         "duration": 3, "energy_amount": 16, "mana_amount": 20},
     ),
     "virtual_ultimate": _ultimate(
         "virtual_ultimate", "Full Swarm Protocol",
-        "Boost the whole team's ATK by 48% for 3 turns.",
-        {"kind": "team_buff", "buff_stat": "attack", "buff_percent": 48, "duration": 3},
+        "Boost the whole team's ELE by 50% and ATK by 30% for 3 turns.",
+        {"kind": "team_double_buff", "buff_stat_1": "elemental", "buff_percent_1": 80,
+         "buff_stat_2": "attack", "buff_percent_2": 55, "duration": 4},
     ),
+    # ELEMENTAL scaling, including the DoT's own stat_source -- he is the
+    # game's fire character and every number in his kit was ATK-based,
+    # which is both off-flavor and a wasted synergy: with the DoT
+    # amplification mark that replaced energy drain, an ELE burn kit now
+    # has a whole support axis (Virtual/Jofrog ELE buffs, Sader Vorae's
+    # ELE vulnerability mark, Nyrvite's destabilise) to build around.
     "blueflame_skill": _skill(
         "blueflame_skill", "Kindling Spray", 20, 1,
-        "Deal 75% ATK damage to all enemies, with a 45% chance to set each hit target ablaze for 12% ATK per turn over 3 turns.",
-        {"kind": "aoe_damage_chance_dot", "damage_percent": 75, "damage_stat": "attack",
-         "dot_chance_percent": 45, "dot_stat": "attack", "dot_percent": 12, "duration": 3},
+        "Deal 75% ELE damage to all enemies, with a 45% chance to set each hit target ablaze for 12% ELE per turn over 3 turns.",
+        {"kind": "aoe_damage_chance_dot", "damage_percent": 75, "damage_stat": "elemental",
+         "dot_chance_percent": 45, "dot_stat": "elemental", "dot_percent": 12, "duration": 3},
     ),
     "blueflame_ultimate": _ultimate(
         "blueflame_ultimate", "Wildfire Purge",
-        "Deal 105% ATK damage to all enemies and set each of them ablaze for 15% ATK per turn over 3 turns.",
-        {"kind": "aoe_damage_chance_dot", "damage_percent": 105, "damage_stat": "attack",
-         "dot_chance_percent": 100, "dot_stat": "attack", "dot_percent": 15, "duration": 3},
+        "Deal 105% ELE damage to all enemies and set each of them ablaze for 15% ELE per turn over 3 turns.",
+        {"kind": "aoe_damage_chance_dot", "damage_percent": 105, "damage_stat": "elemental",
+         "dot_chance_percent": 100, "dot_stat": "elemental", "dot_percent": 15, "duration": 3},
     ),
 }
 
@@ -555,9 +737,14 @@ CHARACTER_PASSIVE_MAP: dict[str, dict] = {
 
     # --- 4-star ---
     "bee_jee_passive": _passive(
-        "bee_jee_passive", "Emergency Protocol", "on_turn_start",
-        "His own shielding tech recharges every turn: gains a shield equal to 6% of max HP (capped at 30%).",
-        {"kind": "shield_regen", "percent": 6, "cap_percent": 30},
+        "bee_jee_passive", "Emergency Protocol", "always",
+        # Reworked from a self-only shield_regen (which duplicated
+        # Jofrog's and Virtual's passive exactly) into the thing that
+        # makes her a SHIELDER rather than a character who happens to
+        # cast shields: every shield she grants is bigger. It's the
+        # shield-side counterpart to Blueflame's dot_amplifier.
+        "Her shielding tech is simply better calibrated: every shield she grants absorbs 30% more damage.",
+        {"kind": "shield_amplifier", "percent": 30},
     ),
     "sader_vorae_passive": _passive(
         "sader_vorae_passive", "Glacier-Trained Reflexes", "always",
@@ -586,8 +773,11 @@ CHARACTER_PASSIVE_MAP: dict[str, dict] = {
     ),
     "jofrog_passive": _passive(
         "jofrog_passive", "Steady Supply", "on_turn_start",
-        "An old bodyguard instinct dies hard: keeps his own plating charged, gaining a shield equal to 5% of max HP (capped at 25%).",
-        {"kind": "shield_regen", "percent": 5, "cap_percent": 25},
+        "An old bodyguard instinct dies hard: keeps his own plating charged, gaining a shield equal to 9% of max HP (capped at 45%).",
+        # Bumped from 5%/25% now that he's the dedicated tank -- he's the
+        # one character deliberately standing in front of everything, so
+        # his self-sustain has to keep pace with taking every hit.
+        {"kind": "shield_regen", "percent": 9, "cap_percent": 45},
     ),
     "aura_passive": _passive(
         "aura_passive", "Steady Hands", "on_low_hp",
@@ -609,7 +799,7 @@ CHARACTER_PASSIVE_MAP: dict[str, dict] = {
     "dolphe_passive": _amplifier_passive(
         "dolphe_passive", "Leader's Wavelength",
         "At the start of every turn, keeps the whole team synced and supplied: 6 energy and 8 SP each.",
-        energy_amount=6, mana_amount=8,
+        energy_amount=12, mana_amount=15,
     ),
     "caliper_passive": _support_dps_passive(
         "caliper_passive", "Dead Aim",

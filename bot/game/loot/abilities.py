@@ -409,15 +409,19 @@ ARTIFACT_SKILLS: list[dict] = [
         "effect": {"kind": "true_damage_percent_max_hp", "percent": 12},
     },
     {
+        # Was "EMP Burst" (damage_and_resource_drain) -- energy/mana
+        # drain was removed from the game entirely; see the block at the
+        # top of bot/game/combat/effects.py for why. Same disruptive
+        # identity, re-pointed at the poise economy.
         "id": "emp_burst",
-        "name": "EMP Burst",
+        "name": "Concussive Burst",
         "min_rarity": Rarity.RARE,
         "resource_cost": 24,
         "resource_type": "mana",
         "cooldown": 3,
-        "description": "Deal 100% ELE damage and drain 20 energy and 15 mana from the target.",
-        "effect": {"kind": "damage_and_resource_drain", "damage_percent": 100, "damage_stat": "elemental",
-                   "energy_drain": 20, "mana_drain": 15},
+        "description": "Deal 100% ELE damage and chip 3 extra Poise, driving the target toward a Break.",
+        "effect": {"kind": "damage_and_poise_strike", "damage_percent": 100, "damage_stat": "elemental",
+                   "bonus_poise": 3},
     },
     {
         "id": "overclock_repair",
@@ -557,18 +561,19 @@ ARTIFACT_SKILLS: list[dict] = [
                    "debuff_chance_percent": 40, "debuff_stat": "speed", "debuff_percent": -18, "duration": 2},
     },
     {
-        # unique -- new aoe_damage_chance_resource_drain kind: Nyrvite's
-        # signal-jamming take on the AOE-plus-sometimes-more shape, now
-        # available as a rollable artifact skill.
+        # unique -- aoe_damage_chance_poise_strike: Nyrvite's take on the
+        # AOE-plus-sometimes-more shape, as a rollable artifact skill.
+        # Was a resource drain before that mechanic was removed (see
+        # bot/game/combat/effects.py).
         "id": "jamming_array",
-        "name": "Jamming Array",
+        "name": "Shatter Array",
         "min_rarity": Rarity.LEGENDARY,
         "resource_cost": 34,
         "resource_type": "mana",
         "cooldown": 4,
-        "description": "Deal 75% ELE damage to all enemies, with a 45% chance to drain 12 energy and 12 SP from each hit target.",
-        "effect": {"kind": "aoe_damage_chance_resource_drain", "damage_percent": 75, "damage_stat": "elemental",
-                   "drain_chance_percent": 45, "energy_drain": 12, "mana_drain": 12},
+        "description": "Deal 75% ELE damage to all enemies, with a 45% chance to chip 3 extra Poise from each hit target.",
+        "effect": {"kind": "aoe_damage_chance_poise_strike", "damage_percent": 75, "damage_stat": "elemental",
+                   "poise_chance_percent": 45, "bonus_poise": 3},
     },
     {
         # unique -- new team_heal_percent_max_hp kind on gear (previously
@@ -622,17 +627,19 @@ ARTIFACT_SKILLS: list[dict] = [
         "effect": {"kind": "cleanse_ally_and_heal", "heal_percent": 25},
     },
     {
-        # unique -- new team_resource_drain kind on gear: the opposing-
-        # side counterpart to Power Transfer, draining flat energy/mana
-        # from every living enemy at once.
+        # unique -- team_dot_amplify on gear. Was team_resource_drain
+        # before drain was removed (see bot/game/combat/effects.py); the
+        # replacement is a pure SETUP tool, which gear had almost none of
+        # -- it does no damage at all and is only worth a turn if the
+        # squad has burns to amplify.
         "id": "null_field_projector",
-        "name": "Null Field Projector",
+        "name": "Destabiliser Field",
         "min_rarity": Rarity.EPIC,
         "resource_cost": 28,
         "resource_type": "mana",
         "cooldown": 3,
-        "description": "Drain 20 energy and 20 SP from every enemy at once.",
-        "effect": {"kind": "team_resource_drain", "energy_amount": 20, "mana_amount": 20},
+        "description": "Destabilise every enemy at once -- damage-over-time on them deals 20% more damage (stacks up to 3x).",
+        "effect": {"kind": "team_dot_amplify", "percent_per_stack": 20, "max_stacks": 3},
     },
     {
         # unique -- new sacrifice_hp_heal_lowest_ally_percent_max_hp kind
@@ -1145,6 +1152,78 @@ ARMOR_PASSIVES: list[dict] = [
         "trigger": "always",
         "description": "Landing a killing blow earns you another turn immediately.",
         "effect": {"kind": "extra_turn_on_kill"},
+    },
+
+    # ------------------------------------------------------------------
+    # BREAK-POTENTIAL passives (poise rebalance pass -- see the BREAK
+    # POTENTIAL block in bot/game/combat/effects.py).
+    #
+    # The rebalance moved poise power out of "always on, stacks without
+    # limit" and into "opt in, on purpose". These are the opt-in: gear a
+    # player can deliberately chase to build a break squad, rather than
+    # a bonus that quietly accumulated until the mechanic broke.
+    # ------------------------------------------------------------------
+    {
+        "id": "sundering_edge",
+        "name": "Sundering Edge",
+        "min_rarity": Rarity.RARE,
+        "trigger": "always",
+        "description": "Every hit you land chips 1 extra Poise.",
+        "effect": {"kind": "poise_damage_bonus", "amount": 1},
+    },
+
+    # ------------------------------------------------------------------
+    # SHIELD/TAUNT passives. Shields existed as a mechanic but had almost
+    # no gear supporting them, so building a shield-focused character
+    # meant relying entirely on one character's kit. These make it a
+    # gearing direction.
+    # ------------------------------------------------------------------
+    {
+        "id": "reinforced_barrier",
+        "name": "Reinforced Barrier",
+        "min_rarity": Rarity.RARE,
+        "trigger": "always",
+        "description": "Every shield you grant (to yourself or an ally) absorbs 20% more damage.",
+        "effect": {"kind": "shield_amplifier", "percent": 20},
+    },
+    {
+        "id": "bulwark_protocol",
+        "name": "Bulwark Protocol",
+        "min_rarity": Rarity.LEGENDARY,
+        "trigger": "always",
+        "description": "Every shield you grant absorbs 40% more damage.",
+        "effect": {"kind": "shield_amplifier", "percent": 40},
+    },
+    {
+        "id": "provoking_aura",
+        "name": "Provoking Aura",
+        "min_rarity": Rarity.EPIC,
+        "trigger": "on_turn_start",
+        # Auto-taunt on a passive is strong, so it's paired with a real
+        # shield rather than handed out bare -- a character permanently
+        # drawing every attack with nothing to absorb them is a liability
+        # to their own squad, not a tank.
+        "description": "At the start of your turn, draw all enemy attacks for 1 turn and gain a shield worth 8% of max HP.",
+        "effect": {"kind": "taunt_regen", "duration": 1, "shield_percent": 8},
+    },
+    {
+        "id": "shatterpoint_focus",
+        "name": "Shatterpoint Focus",
+        "min_rarity": Rarity.EPIC,
+        "trigger": "always",
+        # Doesn't help you break FASTER -- rewards cashing a break in
+        # hard, which is the counterweight design to break resistance:
+        # as breaks get rarer, each one is worth more.
+        "description": "Your hits against a Broken enemy deal an additional 25% damage.",
+        "effect": {"kind": "break_damage_bonus", "percent": 25},
+    },
+    {
+        "id": "guard_breaker",
+        "name": "Guard Breaker",
+        "min_rarity": Rarity.LEGENDARY,
+        "trigger": "always",
+        "description": "Every hit you land chips 2 extra Poise.",
+        "effect": {"kind": "poise_damage_bonus", "amount": 2},
     },
 ]
 

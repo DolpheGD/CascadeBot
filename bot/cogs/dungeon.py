@@ -6,7 +6,7 @@ from discord import app_commands
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
 from bot.services import character_service, combat_service, dungeon_service, relic_service
-from bot.utils import embedder
+from bot.utils import combat_ui, embedder
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils.ui_guard import OwnedView
 
@@ -135,6 +135,33 @@ class TargetSelect(discord.ui.Select):
         await _handle_select_target(interaction, int(self.values[0]))
 
 
+class AllySelect(discord.ui.Select):
+    """Pick which squad member a single-ally support ability will land on
+    (heals, cleanses, single-target buffs, resource restores).
+
+    Only rendered when the acting character actually HAS such an ability
+    (see effects.combatant_has_ally_targeting) -- a DPS character would
+    otherwise get a dropdown that does nothing, and the battle view has no
+    room to spare for controls that don't apply.
+
+    Like target selection, choosing is a FREE action: it re-renders and
+    waits, so a player can line up the recipient and still decide between
+    their skill and their ultimate afterwards."""
+
+    def __init__(self, options: list[discord.SelectOption]):
+        super().__init__(
+            placeholder="💚 Support target...",
+            options=options,
+            custom_id="cascade_ally_select",
+            min_values=1,
+            max_values=1,
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        raw = self.values[0]
+        await _handle_select_ally(interaction, None if raw == "auto" else int(raw))
+
+
 class CombatView(OwnedView):
     def __init__(
         self,
@@ -145,6 +172,7 @@ class CombatView(OwnedView):
         ultimate_energy: int = 0,
         ultimate_cost: int = 100,
         owner_id: int | None = None,
+        ally_options: list[discord.SelectOption] | None = None,
     ):
         super().__init__(timeout=None, owner_id=owner_id)
         self.attack_button.disabled = False
@@ -161,6 +189,8 @@ class CombatView(OwnedView):
             self.add_item(AbilitySelect(ability_options))
         if target_options:
             self.add_item(TargetSelect(target_options))
+        if ally_options:
+            self.add_item(AllySelect(ally_options))
 
     @discord.ui.button(label="⚔️ Attack", style=discord.ButtonStyle.danger, custom_id="cascade_attack")
     async def attack_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -302,16 +332,11 @@ def _build_combat_view(battle, owner_id: int) -> CombatView:
             description=ability["description"][:100],
         ))
 
-    living = battle.living_enemies()
-    target_options = []
-    if len(living) > 1:
-        for i, enemy in enumerate(living):
-            marker = "🎯 " if i == battle.target_index else ""
-            target_options.append(discord.SelectOption(
-                label=f"{marker}{enemy.name} ({enemy.current_hp}/{enemy.max_hp} HP)"[:100],
-                value=str(i),
-                default=(i == battle.target_index),
-            ))
+    # Built by the shared helper so all three combat surfaces agree on
+    # when targeting is unavailable -- notably while an enemy is taunting.
+    target_options = combat_ui.enemy_target_options(battle)
+
+    ally_options = combat_ui.ally_select_options(battle) if combat_ui.should_offer_ally_select(battle) else []
 
     return CombatView(
         ability_options or None,
@@ -321,6 +346,7 @@ def _build_combat_view(battle, owner_id: int) -> CombatView:
         ultimate_energy=actor.energy,
         ultimate_cost=actor.ultimate_ability["resource_cost"] if actor.ultimate_ability else 100,
         owner_id=owner_id,
+        ally_options=ally_options or None,
     )
 
 
@@ -701,7 +727,8 @@ async def _handle_combat_info(interaction: discord.Interaction):
             return
 
         battle = combat_service.load_battle(expedition)
-        await interaction.response.send_message(embed=embedder.battle_info_embed(battle), ephemeral=True)
+        embed, view = combat_ui.info_response(battle)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
     finally:
         db.close()
 
@@ -792,6 +819,42 @@ async def _handle_select_target(interaction: discord.Interaction, target_index: 
             return
 
         battle.select_target(target_index)
+        combat_service.save_battle(db, expedition, battle)
+
+        avatar_url = interaction.user.display_avatar.url
+        await interaction.response.edit_message(
+            embed=embedder.combat_embed(battle, avatar_url=avatar_url), view=_build_combat_view(battle, expedition.player_id)
+        )
+    finally:
+        db.close()
+
+
+async def _handle_select_ally(interaction: discord.Interaction, party_index: int | None):
+    """Choosing the recipient for a single-ally support ability. Free, in
+    exactly the same sense as switching enemy targets: it re-renders and
+    hands the turn back rather than consuming it, so the player can pick
+    the recipient and then still choose which ability to cast on them.
+
+    `party_index` is None for the "Auto" entry, which clears the choice
+    back to the original whoever-needs-it-most behaviour."""
+    db = SessionLocal()
+    try:
+        player = get_player(db, interaction.user.id)
+        if player is None:
+            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            return
+
+        expedition = dungeon_service.get_active_expedition(db, player.id)
+        if expedition is None or not expedition.combat_state:
+            await interaction.response.send_message("You're not in a battle right now.", ephemeral=True)
+            return
+
+        battle = combat_service.load_battle(expedition)
+        if battle.current_actor() not in battle.party:
+            await interaction.response.send_message("It's not your turn yet.", ephemeral=True)
+            return
+
+        battle.select_ally_target(party_index)
         combat_service.save_battle(db, expedition, battle)
 
         avatar_url = interaction.user.display_avatar.url

@@ -64,6 +64,38 @@ class Combatant:
     stunned_turns: int = 0
 
     # ------------------------------------------------------------------
+    # TAUNT -- forced targeting, in both directions.
+    #
+    # While taunt_turns > 0, every SINGLE-TARGET attack from the OPPOSING
+    # side must aim at this combatant. Deliberately one symmetric
+    # mechanic rather than two:
+    #
+    #   * A party member taunting pulls enemy attacks onto themself --
+    #     the classic tank play, and the thing that makes a shielded,
+    #     high-DEF character worth a squad slot rather than just a
+    #     survivable one. It's also the counterplay to the enemy intent
+    #     telegraph that Guard couldn't be: Guard blunts a hit on the
+    #     character being aimed at, taunt moves that hit onto someone who
+    #     wants it.
+    #   * An enemy taunting forces the PLAYER's attacks onto it -- a
+    #     "deal with me first" bodyguard, which is what finally makes
+    #     enemy positioning matter. Without it, the player could always
+    #     ignore a defensive enemy and burst the healer behind it.
+    #
+    # AOE is deliberately unaffected: an ability that hits everything
+    # already hits the taunter, and letting taunt shrink an AOE to a
+    # single target would make it a debuff on the player's own kit.
+    #
+    # Ticks down at the end of the TAUNTER's own turn (battle._end_turn),
+    # same cadence as StatModifier durations, so "3 turns" means three of
+    # the taunter's turns rather than three of anyone's.
+    # ------------------------------------------------------------------
+    taunt_turns: int = 0
+
+    def is_taunting(self) -> bool:
+        return self.taunt_turns > 0
+
+    # ------------------------------------------------------------------
     # Poise / Break -- the counterplay layer for enemy intent telegraphing.
     #
     # Enemies decide their next move BEFORE it happens and the UI shows it
@@ -83,10 +115,42 @@ class Combatant:
     # tactic across a long fight rather than a one-shot resource -- but the
     # refill means chip damage between breaks is wasted, which is what
     # makes "commit to the break now vs. save cooldowns" an actual choice.
+    #
+    # ------------------------------------------------------------------
+    # BREAK RESISTANCE (rebalance pass).
+    #
+    # The refill-to-full rule above was the ONLY thing limiting how often
+    # a target could be broken, and it turned out not to be a limit at
+    # all once poise-damage bonuses entered the picture. The relics stack
+    # additively and apply PER LANDED HIT, so a squad holding both
+    # Breaker's Charge (+1) and Shatterpoint Prism (+2) chipped 4 poise
+    # with a plain basic attack and 12+ with a single multi-hit ultimate.
+    # Against a 16-poise boss that is a guaranteed break every cycle --
+    # and since a break cancels the telegraphed move AND skips the
+    # target's turns AND amplifies damage taken, "permanently broken"
+    # meant the boss never acted again. The counterplay mechanic had
+    # become a win condition on its own.
+    #
+    # So a broken combatant now comes back TOUGHER: every break
+    # permanently raises its max_poise by BREAK_RESISTANCE_PERCENT for
+    # the rest of the battle (compounding). The first break is as easy as
+    # it ever was -- nothing about the opening play is nerfed -- but the
+    # second costs ~1.5x, the third ~2.2x, and so on, so break frequency
+    # decays toward a floor instead of running away. This deliberately
+    # scales WITH the player's investment: more poise-damage bonuses
+    # still mean more breaks, they just can't compound into a lock.
+    #
+    # Implemented as a growing max_poise rather than a cap on bonuses
+    # because it leaves the relics feeling exactly as strong as they read
+    # on the tin, and because it's legible in the UI for free -- the
+    # player watches the poise bar get longer and understands why.
     # ------------------------------------------------------------------
     max_poise: int = 0
     poise: int = 0
     break_turns: int = 0
+    # How many times this combatant has been broken so far this battle.
+    # Drives the max_poise escalation in recover_from_break().
+    break_count: int = 0
 
     # Guards against a break being spent without the player ever getting
     # to cash it in. break_turns counts the BROKEN combatant's own skipped
@@ -210,6 +274,11 @@ class Combatant:
         self.poise = max(0, self.poise - amount)
         return self.poise == 0
 
+    # Percent by which max_poise grows after EACH break, compounding --
+    # see the BREAK RESISTANCE block above. At 40%, a 16-poise boss needs
+    # 16 / 22 / 31 / 44 poise for its first four breaks.
+    BREAK_RESISTANCE_PERCENT = 40
+
     def enter_break(self, duration: int) -> None:
         """Puts this combatant into the broken state. Cancels whatever
         move it had telegraphed -- that cancellation is the whole point of
@@ -217,12 +286,21 @@ class Combatant:
         rather than just racing the damage."""
         self.break_turns = duration
         self.break_tick_armed = False
+        self.break_count += 1
         self.pending_intent = None
         self.guarding = False
 
     def recover_from_break(self) -> None:
+        """Ends the break and refills poise -- but to a HIGHER maximum
+        than last time (see the BREAK RESISTANCE block above). This is
+        the one thing standing between the poise system and a permanent
+        stunlock once poise-damage bonuses stack up."""
         self.break_turns = 0
         self.break_tick_armed = False
+        self.max_poise = max(
+            self.max_poise,
+            round(self.max_poise * (1 + self.BREAK_RESISTANCE_PERCENT / 100)),
+        )
         self.poise = self.max_poise
 
     def poise_fraction(self) -> float:

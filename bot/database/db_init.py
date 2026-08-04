@@ -11,6 +11,7 @@ from bot.database.models import (  # noqa: F401
     hq_model,
     player_model,
     quest_model,
+    raid_model,
 )
 
 
@@ -44,6 +45,13 @@ def _ensure_columns(conn):
     add_column("players", "last_vote_claimed_at", "DATETIME")
     add_column("players", "vote_streak", "INTEGER DEFAULT 0")
     add_column("players", "total_votes", "INTEGER DEFAULT 0")
+
+    # Character gacha pity counters -- see
+    # bot/game/economy/character_gacha_config.py. Existing players start
+    # at 0, i.e. a fresh pity cycle, which is the generous read of an
+    # ambiguous situation (we have no pull history to reconstruct from).
+    add_column("players", "pity_since_five_star", "INTEGER DEFAULT 0")
+    add_column("players", "pity_since_four_star", "INTEGER DEFAULT 0")
 
 
 def init_db():

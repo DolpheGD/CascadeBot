@@ -1,3 +1,30 @@
+"""
+/help -- a paged guide.
+
+This was ONE embed with seven long fields. It had two problems that a
+rewrite fixes rather than a trim:
+
+  1. It was out of date. It described a 50% damage Break bonus (now 35%
+     and per-attacker), a shop selling "low-level gear" (the shop is a
+     materials market now and sells no gear at all), and said nothing
+     about raids, leaderboards, gacha pity, taunt, shields, cursed
+     relics, ally targeting or domains' unlock rules -- most of which
+     are things a player cannot discover on their own.
+  2. It was too long to read. A single embed pushing Discord's 6000-char
+     ceiling is not a reference, it's a wall, and the specific failure
+     mode is that the useful part (the command list) sat below several
+     screens of combat theory.
+
+So: six short pages behind a dropdown, each one answering a single
+question, plus prev/next for browsing. Every page is built to stay well
+under the per-field limit -- see _PAGES.
+
+The page CONTENT deliberately lives in this module as plain data rather
+than being generated from the command tree. A generated list can only
+ever say what a command is named; the value here is in saying what's
+worth doing and in what order, which is authored knowledge.
+"""
+
 import discord
 
 from discord.ext import commands
@@ -6,145 +33,269 @@ from discord import app_commands
 from bot.utils.guild_decorator import guild_decorator
 
 
+# Each page: (key, label, emoji, description, [(field name, field value)])
+_PAGES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
+    (
+        "start", "Getting Started", "🧭",
+        "New here? This is the whole loop in order.",
+        [
+            (
+                "The loop",
+                "`/start` → `/pull` a few characters → `/squad` to set your team → "
+                "`/adventure` → gear up in `/inventory` → repeat.\n"
+                "Everything else on these pages is optional depth you can pick up later.",
+            ),
+            (
+                "Your characters",
+                "`/start` — create your profile and your own avatar character\n"
+                "`/squad` — set your 4-character team (slot 1 is always your avatar)\n"
+                "`/characters` — every character you own\n"
+                "`/class` — switch your avatar between DPS / Support DPS / Amplifier / Sustain\n"
+                "`/rename` — name your avatar\n"
+                "`/profile` — stats, equipment and abilities",
+            ),
+            (
+                "Where to fight",
+                "`/adventure` — a full dungeon run. Regions unlock in order; harder ones pay more.\n"
+                "`/domains` — single fights for direct rewards, costs energy, no run commitment. "
+                "Tiers unlock by clearing regions and by your total character levels.\n"
+                "`/raid` — your server's co-op boss.",
+            ),
+        ],
+    ),
+    (
+        "combat", "Combat Basics", "⚔️",
+        "Your four characters act one at a time, fastest first.",
+        [
+            (
+                "Your turn",
+                "⚔️ **Attack** — builds Energy **and** SP. The only source of SP.\n"
+                "🌀 **Skill** — costs SP. Also builds Energy.\n"
+                "💥 **Ultimate** — costs 50 Energy. Every action you take charges it, "
+                "and so does taking a hit.\n"
+                "🛡️ **Guard** — halves incoming damage until your next turn and banks "
+                "extra Energy if a hit lands. Read the 😈 Incoming panel and guard whoever is being aimed at.",
+            ),
+            (
+                "Free actions (don't use your turn)",
+                "🎯 **Switch target** — pick which enemy you're hitting.\n"
+                "💚 **Support target** — pick which ally your heal/shield/buff lands on. "
+                "Leave it on Auto and it goes to whoever needs it most.",
+            ),
+            (
+                "Reading the screen",
+                "**😈 Incoming** shows what each enemy will do *before* it happens, and it "
+                "never lies — what's shown is what resolves. An attack hitting everyone "
+                "says **ALL of you** rather than naming one target.\n"
+                "**ℹ️ Info** pages through every combatant: full stats with buffs applied, "
+                "their whole kit, and every effect on them. **📜 Log** is the full history.",
+            ),
+        ],
+    ),
+    (
+        "mechanics", "Combat Mechanics", "💫",
+        "The systems worth building a squad around.",
+        [
+            (
+                "💫 Poise & Break",
+                "Every enemy has Poise, chipped by each landed hit — 1 per Attack, 2 per "
+                "Skill, 3 per Ultimate, and once *per hit or per target* for multi-hit and "
+                "AOE, which makes those the best breaking tools.\n"
+                "Empty it and the enemy is **Broken**: its telegraphed move is **cancelled**, "
+                "it loses turns, and it takes extra damage.\n"
+                "Each break makes the next one harder on that enemy, so breaking stays a "
+                "repeatable tactic rather than a lock. Gear and relics can raise your break power.",
+            ),
+            (
+                "🎯 Taunt",
+                "A taunting character forces the other side's single-target attacks onto "
+                "itself. Your tank taunts to protect the squad; an enemy taunts to stop you "
+                "picking off the healer behind it. AOE ignores taunt.",
+            ),
+            (
+                "🔷 Shields & 💚 Healing",
+                "Shields absorb damage before HP and never expire — they just run out. "
+                "Dedicated shielders make every shield they grant bigger.\n"
+                "**HP carries between fights inside a run** and is only restored at campfires, "
+                "so damage taken is a real cost. Domains and raids always start you at full HP.",
+            ),
+            (
+                "Classes",
+                "⚔️ **DPS** / 🎯 **Support DPS** deal the damage.\n"
+                "📡 **Amplifier** buffs the squad's offence — a good one is worth more than a "
+                "fourth attacker.\n"
+                "💚 **Sustain** keeps you alive by healing, shielding, or hardening.\n"
+                "Running at least one Amplifier and one Sustain is the strongest shape.",
+            ),
+        ],
+    ),
+    (
+        "gear", "Gear & Characters", "🎒",
+        "Getting stronger between runs.",
+        [
+            (
+                "Items",
+                "`/inventory` — browse, equip, level up, reroll or sell\n"
+                "`/sell_rarity` — bulk-sell every unequipped item of one rarity\n"
+                "`/stash` — currencies, materials and lootboxes\n"
+                "Each character wears 1 Weapon, 1 Artifact, 2 Armor and 2 Accessories. "
+                "Weapons and Artifacts grant active skills; Armor and Accessories grant passives.",
+            ),
+            (
+                "Pulling",
+                "`/pull` — spend Shards on characters (single or 10x)\n"
+                "`/pull_rates` — odds, costs, and your live pity progress\n"
+                "**Pity:** a 4★ or better is guaranteed every 10 pulls, and a 5★ is guaranteed "
+                "by pull 50 — with the odds climbing steadily from pull 30, so most land sooner. "
+                "Duplicates convert to gold and reroll tokens.",
+            ),
+            (
+                "✨ Relics (run-only)",
+                "Drafted at campfires and dropped by bosses and elites. They're party-wide, "
+                "last only that run, and are what makes two runs with the same squad play "
+                "differently.\n"
+                "**Cursed** relics are stronger than anything else on offer but carry a real "
+                "drawback — big attack for less defence, and so on. Sometimes the right call.",
+            ),
+        ],
+    ),
+    (
+        "base", "Economy & Base", "💰",
+        "The between-runs game.",
+        [
+            (
+                "Cascade HQ",
+                "`/hq` — upgrade HQ; it gates everything else below\n"
+                "`/harvesters` — buy, upgrade and collect passive income\n"
+                "`/shrines` — permanent party-wide stat bonuses\n"
+                "`/mailbox` — a free package every 30-60 minutes",
+            ),
+            (
+                "Shop",
+                "`/shop` — a **materials market**: buy or sell every material for gold, and "
+                "refine materials into the tier above. Tabs split Sell / Buy / Refine / Special.\n"
+                "Buying costs more than selling pays, so harvesting is always cheaper than "
+                "shopping. It doesn't sell gear — that comes from adventuring.",
+            ),
+            (
+                "Income",
+                "`/daily` — daily reward with streak bonuses\n"
+                "`/vote` — vote on top.gg every 12h for the biggest Shard payout in the game\n"
+                "`/quests` — one-time beginner quests plus a rerollable repeating quest\n"
+                "`/open <tier>` — open all lootboxes of a tier",
+            ),
+        ],
+    ),
+    (
+        "multiplayer", "Multiplayer", "🐉",
+        "Everything that involves the rest of your server.",
+        [
+            (
+                "🐉 Co-op raids",
+                "`/raid` — one raid runs per server at a time, with a shared HP pool everyone "
+                "chips away at on their own schedule. Nobody has to be online at the same time.\n"
+                "You get a limited number of attacks, and **damage counts whether you win the "
+                "fight or not** — a squad that can't beat the boss still contributes.\n"
+                "`/raid_claim` — collect your share once it's down. Rewards scale to how much "
+                "damage *you* did, so they never depend on who else turned up.",
+            ),
+            (
+                "🏆 Leaderboards",
+                "`/leaderboard` — four boards for your server: Squad Power, Roster Levels, "
+                "Deepest Clear, and Collection. If you're outside the top 10 it still tells you "
+                "where you stand.",
+            ),
+            (
+                "📖 Reference",
+                "`/encyclopedia` — characters, classes, enemies, abilities, items and materials. "
+                "No profile needed.",
+            ),
+        ],
+    ),
+]
+
+_PAGE_INDEX = {key: i for i, (key, *_rest) in enumerate(_PAGES)}
+
+
+def _build_help_embed(page: int, avatar_url: str | None = None) -> discord.Embed:
+    page = max(0, min(page, len(_PAGES) - 1))
+    key, label, emoji, description, fields = _PAGES[page]
+
+    embed = discord.Embed(
+        title=f"{emoji} {label}",
+        description=f"{description}\n*Page {page + 1}/{len(_PAGES)} — use the menu below to jump around.*",
+        color=discord.Color.blurple(),
+    )
+    if avatar_url and page == 0:
+        embed.set_thumbnail(url=avatar_url)
+    for name, value in fields:
+        embed.add_field(name=name, value=value, inline=False)
+    embed.set_footer(text="Gold is the common currency; Shards are for the character gacha.")
+    return embed
+
+
+class HelpPageSelect(discord.ui.Select):
+    def __init__(self, current: int):
+        super().__init__(
+            placeholder="Jump to a section...",
+            options=[
+                discord.SelectOption(label=label, value=key, emoji=emoji, description=desc[:100],
+                                     default=(i == current))
+                for i, (key, label, emoji, desc, _f) in enumerate(_PAGES)
+            ],
+            min_values=1, max_values=1,
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        await self.view.show(interaction, _PAGE_INDEX[self.values[0]])
+
+
+class HelpView(discord.ui.View):
+    """Not a persistent view: /help is read once and closed, so there's
+    nothing worth surviving a restart. Timing out after 5 minutes leaves
+    a readable embed with dead buttons, which is the right failure mode
+    for a reference."""
+
+    def __init__(self, page: int = 0):
+        super().__init__(timeout=300)
+        self.page = page
+        self.prev_button.disabled = page == 0
+        self.next_button.disabled = page >= len(_PAGES) - 1
+        self.add_item(HelpPageSelect(page))
+
+    async def show(self, interaction: discord.Interaction, page: int):
+        await interaction.response.edit_message(
+            embed=_build_help_embed(page, interaction.client.user.display_avatar.url),
+            view=HelpView(page),
+        )
+
+    @discord.ui.button(label="◀", style=discord.ButtonStyle.secondary)
+    async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.show(interaction, self.page - 1)
+
+    @discord.ui.button(label="▶", style=discord.ButtonStyle.secondary)
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.show(interaction, self.page + 1)
+
+
 @guild_decorator
 class Help(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    # COMMAND: /help
-    # A getting-started guide plus a categorized command reference.
-    @app_commands.command(name="help", description="Get a guide to CascadeBot's commands.")
-    async def help(self, ctx: discord.Interaction):
-        embed = discord.Embed(
-            title="Welcome to CascadeBot",
-            description=(
-                "A quick path to get going:\n"
-                "`/start` -> `/pull` a couple characters -> `/squad` to set your team -> "
-                "`/adventure` -> gear up with `/inventory` -> repeat."
-            ),
-            color=discord.Color.blurple(),
+    @app_commands.command(name="help", description="A paged guide to CascadeBot.")
+    @app_commands.choices(section=[
+        app_commands.Choice(name=label, value=key) for key, label, *_r in _PAGES
+    ])
+    async def help(self, ctx: discord.Interaction, section: str | None = None):
+        """`section` lets a returning player jump straight to the page
+        they want instead of paging through the intro every time."""
+        page = _PAGE_INDEX.get(section, 0)
+        await ctx.response.send_message(
+            embed=_build_help_embed(page, ctx.client.user.display_avatar.url),
+            view=HelpView(page),
+            ephemeral=True,
         )
-        embed.set_thumbnail(url=ctx.client.user.display_avatar.url)
-
-        embed.add_field(
-            name="🧑 Getting Started",
-            value=(
-                "`/start` -- create your profile (grants your own class-switchable avatar character)\n"
-                "`/profile` -- 3-page view of your avatar: Overview, Equipment, and Abilities\n"
-                "`/squad` -- view/assign your 4-character active team (slot 1 is always your avatar)\n"
-                "`/characters` -- list every character you own\n"
-                "`/class` -- switch your avatar's role (DPS / Support DPS / Amplifier / Sustain)\n"
-                "`/rename` -- give your avatar a name of your own"
-            ),
-            inline=False,
-        )
-        embed.add_field(
-            name="⚔️ Adventuring",
-            value=(
-                "`/adventure` -- start or resume a dungeon run. Every floor "
-                "offers several room choices, not just two.\n"
-                "🏕️ **Campfires** appear before each boss and give you ONE "
-                "thing: **Rest** (recover 50% HP) or **Attune** (take 1 of 3 "
-                "relics). HP carries between fights all run, so that's a real "
-                "trade.\n"
-                "✨ **Relics** are run-only party-wide power -- stat boosts, "
-                "granted passives, faster Poise breaking. They also drop from "
-                "bosses and sometimes elites, and vanish when the run ends, so "
-                "no two runs play quite the same.\n"
-                "`/domains` -- spend energy on single-battle challenges for "
-                "direct rewards, without committing to a full expedition.\n"
-                "Combat and room choices happen through buttons/menus on "
-                "the message -- no extra commands needed mid-run."
-            ),
-            inline=False,
-        )
-        embed.add_field(
-            name="🥊 How Combat Works",
-            value=(
-                "You fight with your full 4-character squad against enemies, one "
-                "party member's turn at a time. **Turn order is speed-based, not "
-                "fixed** -- see the 🔀 Turn Order line on the battle message.\n\n"
-                "**Each character's actions (no fleeing):**\n"
-                "⚔️ **Attack** -- always available, builds Energy and SP equal "
-                "to a % of each pool's max (scaled by Recharge).\n"
-                "🛡️ **Guard** -- halves damage taken until your next turn and "
-                "banks bonus Energy if a hit actually lands. Read the 😈 Enemy "
-                "Intent line and guard the character being aimed at.\n"
-                "🌀 **Character Skill** -- fixed to that character (or your class, "
-                "for your own avatar), costs SP.\n"
-                "💥 **Character Ultimate** -- also fixed to the character/class, "
-                "usable once Energy reaches 50.\n"
-                "⚔️🔮 **Weapon/Artifact Skill** -- from equipped gear, if any, costs SP.\n"
-                "🎯 Use the target dropdown to switch which enemy you're aiming at -- "
-                "switching targets is free and doesn't use your turn."
-            ),
-            inline=False,
-        )
-        embed.add_field(
-            name="💫 Breaking, and Stats",
-            value=(
-                "Every enemy has a **Poise** pool shown under its HP bar, chipped "
-                "by each hit that lands: 1 for an Attack, 2 for a Skill, 3 for an "
-                "Ultimate, and once *per hit* for multi-hit skills or *per target* "
-                "for AOE -- which makes those the best breaking tools.\n"
-                "Empty it and the enemy is **Broken**: the move it was telegraphing "
-                "is **cancelled**, it loses its next 2 turns, and it takes **+50% "
-                "damage** throughout. Poise refills when it recovers, so pick your "
-                "moment.\n\n"
-                "**Stats:** ❤️ HP, ⚔️ ATK, 🛡️ DEF, 💧 SP, 🔮 ELE (elemental "
-                "damage), 💨 SPD, 🎯 Crit Rate%, 💥 Crit DMG%, 🔋 Recharge. "
-                "There is no Dodge -- every hit lands, and DEF reduces damage "
-                "by a percentage rather than fully blocking it."
-            ),
-            inline=False,
-        )
-        embed.add_field(
-            name="🎒 Gear",
-            value=(
-                "`/inventory` -- browse your ITEMS: a compact List of everything "
-                "you own, or open any entry in Detail mode to see full "
-                "stats/abilities and Equip, Level Up, Reroll, or Sell it. "
-                "Use 🔍 Jump to # to go straight to a specific entry.\n"
-                "`/sell_rarity` -- bulk-sell every unequipped item of a given "
-                "rarity in one go.\n"
-                "`/stash` -- your general inventory: gold, shards, reroll "
-                "tokens, materials, and lootboxes (open them right there). "
-                "Nothing in `/stash` can be sold.\n"
-                "Each character has 4 slots: Weapon, Artifact, Armor, and Accessory -- "
-                "equipping asks which of your squad members should wear it. "
-                "Ultimates come from characters now, not gear."
-            ),
-            inline=False,
-        )
-        embed.add_field(
-            name="💰 Economy",
-            value=(
-                "`/vote` -- vote on top.gg every 12h for the biggest Shard payout in the game, plus gold, materials and lootboxes that grow with your vote streak\n"
-                "`/daily` -- claim your daily reward (gold, reroll tokens, streak bonuses + lootboxes)\n"
-                "`/quests` -- one-time beginner quests (600 Shards for finishing them all) plus a repeating basic quest, rerollable every 5 hours\n"
-                "`/harvesters` -- buy, upgrade, and collect passive income, all in one place\n"
-                "`/hq` -- view and upgrade Cascade HQ\n"
-                "`/shrines` -- build/upgrade party-wide stat shrines\n"
-                "`/mailbox` -- collect a package of basic supplies every 30min-1hr\n"
-                "`/shop` -- material exchanges and low-level gear\n"
-                "`/pull` -- spend Shards to pull a new character (single or 10x)\n"
-                "`/pull_rates` -- view gacha odds and costs\n"
-                "`/open <tier>` -- open all lootboxes of a tier (or use `/stash`)"
-            ),
-            inline=False,
-        )
-        embed.add_field(
-            name="📖 Reference",
-            value=(
-                "`/encyclopedia` -- browse characters, classes, enemies, "
-                "abilities, equipment, and materials. Pure reference info, "
-                "no profile required."
-            ),
-            inline=False,
-        )
-        embed.set_footer(text="Gold is common currency; Shards are rarer, used for the character gacha.")
-
-        await ctx.response.send_message(embed=embed)
 
 
 async def setup(bot):

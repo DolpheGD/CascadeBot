@@ -12,6 +12,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
+from bot.database.models.enums import CLASS_DISPLAY_NAME
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
 from bot.services import character_service, dungeon_service
@@ -22,8 +23,13 @@ SLOT_LABELS = ["Slot 1 (Avatar -- locked)", "Slot 2", "Slot 3", "Slot 4"]
 
 
 def _character_label(pc) -> str:
+    # effective_class(), NOT template.character_class -- the player's own
+    # avatar can switch class freely (PlayerCharacter.current_class), and
+    # reading the template here made "You" show as DPS forever no matter
+    # what role was actually equipped. Pulled characters have
+    # current_class NULL, so this falls back to the template for them.
     stars = "★" * pc.template.star_rating
-    class_label = pc.template.character_class.value.replace("_", " ").title()
+    class_label = CLASS_DISPLAY_NAME[pc.effective_class()]
     return f"{pc.display_name} {stars} Lv{pc.level} ({class_label})"[:100]
 
 

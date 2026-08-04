@@ -19,6 +19,7 @@ scrolling past the encyclopedia renderers to find it:
     vote.py          /vote (top.gg voting)
     relics.py        run-scoped relics + the campfire choice
     encyclopedia.py  /encyclopedia
+    raid.py          co-op guild raids + server leaderboards
 
 Everything is re-exported here, so existing `from bot.utils import embedder`
 call sites keep working unchanged -- `embedder.combat_embed(...)` still
@@ -50,8 +51,16 @@ from bot.utils.embedder.profile import (
 from bot.utils.embedder.dungeon import (
     dungeon_map_embed,
 )
+from bot.utils.embedder.raid import (
+    leaderboard_embed,
+    raid_attack_result_embed,
+    raid_claim_embed,
+    raid_menu_embed,
+    raid_status_embed,
+    raid_tiers_help_embed,
+)
 from bot.utils.embedder.combat import (
-    _enemy_intent_lines,
+    _intent_lines,
     _recent_log_lines,
     _turn_order_line,
     battle_info_embed,
@@ -127,7 +136,7 @@ __all__ = [
     "_encyclopedia_enemy_embed",
     "_encyclopedia_item_embed",
     "_encyclopedia_material_embed",
-    "_enemy_intent_lines",
+    "_intent_lines",
     "_energy_bar_line",
     "_fmt_stat",
     "_fmt_stat_with_base",
@@ -157,7 +166,13 @@ __all__ = [
     "inventory_list_embed",
     "item_detail_embed",
     "lootbox_detail_embed",
+    "leaderboard_embed",
     "profile_embed",
+    "raid_attack_result_embed",
+    "raid_claim_embed",
+    "raid_menu_embed",
+    "raid_status_embed",
+    "raid_tiers_help_embed",
     "quest_board_embed",
     "relic_gained_embed",
     "relic_lines",

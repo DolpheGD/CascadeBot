@@ -70,9 +70,11 @@ class CascadeBot(commands.Bot):
             MailboxCollectButton,
             MailboxUpgradeButton,
             ShopBuyButton,
+            ShopCategoryButton,
             ShrineActionButton,
         )
         from bot.cogs.quests import RollQuestButton
+        from bot.cogs.raid import RaidActionView, RaidSummonButton
 
         dummy_ability_options = [discord.SelectOption(label="dummy", value="dummy")]
         dummy_target_options = [discord.SelectOption(label="dummy", value="0")]
@@ -92,9 +94,14 @@ class CascadeBot(commands.Bot):
             EntryOpenLootboxButton, ListPageButton,
         )
         self.add_dynamic_items(HarvesterActionButton, HarvesterCollectAllButton)
-        self.add_dynamic_items(HQUpgradeButton, ShrineActionButton, ShopBuyButton)
+        self.add_dynamic_items(HQUpgradeButton, ShrineActionButton, ShopBuyButton, ShopCategoryButton)
         self.add_dynamic_items(MailboxCollectButton, MailboxUpgradeButton)
         self.add_dynamic_items(RollQuestButton)
+        # Raids: the action view is timeout=None and must survive restarts
+        # (a raid runs for a week -- see raid_config.RAID_DURATION, which
+        # is far longer than any bot uptime should be assumed to be).
+        self.add_view(RaidActionView())
+        self.add_dynamic_items(RaidSummonButton)
 
         if DEV_MODE:
             # clear the guild command tree to avoid duplicates when reloading

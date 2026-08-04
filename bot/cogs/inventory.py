@@ -6,7 +6,7 @@ from discord import app_commands
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
 from bot.services import character_service, dungeon_service, inventory_service, item_upgrade_service, lootbox_service
-from bot.database.models.enums import Rarity
+from bot.database.models.enums import CLASS_DISPLAY_NAME, Rarity
 from bot.services.currency_service import format_currency
 from bot.utils import embedder
 from bot.utils.guild_decorator import guild_decorator
@@ -546,7 +546,9 @@ async def _handle_equip_toggle(interaction: discord.Interaction, item_id: int):
         squad_ids = {pc.id for pc in character_service.get_squad(db, player)}
         options = [
             discord.SelectOption(
-                label=f"{pc.display_name} (Lv{pc.level}, {pc.template.character_class.value.replace('_', ' ').title()})"[:100],
+                # effective_class(), not template.character_class -- see
+                # the same fix in bot/cogs/squad.py::_character_label.
+                label=f"{pc.display_name} (Lv{pc.level}, {CLASS_DISPLAY_NAME[pc.effective_class()]})"[:100],
                 description="In your active squad" if pc.id in squad_ids else "Not in your squad",
                 value=str(pc.id),
             )

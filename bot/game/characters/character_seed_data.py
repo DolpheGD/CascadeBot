@@ -110,10 +110,15 @@ CHARACTER_TEMPLATES: list[dict] = [
     _char("FAX", 3, CharacterClass.SUPPORT_DPS,
           "A Cascade airship pilot with dreams bigger than his cargo hold -- he's saving every fare toward the business he swears he'll launch any day now.",
           "fax_skill", "fax_ultimate"),
+    # ELEMENTAL-SCALING CHARACTER (see the elemental pass note in the
+    # module docstring). His whole kit now scales off ELE, so the
+    # signature-stat bump that used to sit on ATK moves to ELE -- exactly
+    # the same magnitude relative to the class baseline, just on the stat
+    # his abilities actually read.
     _char("Arkiver", 3, CharacterClass.DPS,
           "Loves fighting more than just about anything, channeling elemental energy through a pair of dual-wielded gauntlets he never takes off.",
           "arkiver_skill", "arkiver_ultimate",
-          base_attack=9, growth_attack=0.6),
+          base_elemental=9, growth_elemental=0.6),
     _char("Slikrz", 3, CharacterClass.SUPPORT_DPS,
           "Once a rival syndicate's enforcer, until a rogue procedure to erase his memories left him eerily calm and unnervingly precise -- he doesn't remember why he's still fighting, only how.",
           "slikrz_skill", "slikrz_ultimate"),
@@ -124,10 +129,12 @@ CHARACTER_TEMPLATES: list[dict] = [
     _char("Caandy", 3, CharacterClass.AMPLIFIER,
           "Her AI-assisted visor runs a constant stream of battlefield analytics straight to her HUD, feeding Team Cascade the split-second calls that keep everyone one step ahead.",
           "caandy_skill", "caandy_ultimate"),
+    # ELEMENTAL-SCALING CHARACTER -- signature-stat bump moved from ATK
+    # to ELE alongside his kit rework. Same reasoning as Arkiver above.
     _char("Axel", 3, CharacterClass.DPS,
           "A former test subject from Ocellios Labs, forced to replace organs with void-powered augments. Now out for revenge, Axel joined Team Cascade.",
           "axel_skill", "axel_ultimate",
-          base_attack=9, growth_attack=0.6),
+          base_elemental=9, growth_elemental=0.6),
     _char("IH", 3, CharacterClass.SUPPORT_DPS,
           "A frontline motivator who'd rather load someone else's weapon than fire his own, IH makes sure his squadmate's next shot counts twice.",
           "ih_skill", "ih_ultimate"),
@@ -139,9 +146,12 @@ CHARACTER_TEMPLATES: list[dict] = [
           "A former bioweapons engineer who walked away from that life to support others instead, watching the field through a pair of high-tech goggles.",
           "bee_jee_skill", "bee_jee_ultimate",
           base_hp=110, base_defense=11, growth_hp=7.5),
+    # Split-stat by design: ATK skill (the enabler) + ELE ultimate (the
+    # payoff), so she wants a bit of both rather than stacking one.
     _char("Sader Vorae", 4, CharacterClass.SUPPORT_DPS,
           "A pilot for Team Cascade and one of the few survivors of Glacier 15. She flies every mission looking for answers about what really happened that day.",
-          "sader_vorae_skill", "sader_vorae_ultimate"),
+          "sader_vorae_skill", "sader_vorae_ultimate",
+          base_elemental=9, growth_elemental=0.4),
     _char("Nebula", 4, CharacterClass.AMPLIFIER,
           "A survival specialist and excellent mountaineer who turns any terrain into a tactical advantage, reading the land the way others read a map.",
           "nebula_skill", "nebula_ultimate"),
@@ -156,16 +166,28 @@ CHARACTER_TEMPLATES: list[dict] = [
           "Kotori gives until it costs her something real, channeling her own vitality into every ally who's running on empty -- whatever it takes to keep the team standing.",
           "kotori_skill", "kotori_ultimate",
           base_hp=110, base_defense=11, growth_hp=7.5),
-    _char("Jofrog", 4, CharacterClass.AMPLIFIER,
+    # RECLASSED Amplifier -> Sustain, as the roster's dedicated
+    # shielder/tank. His kit is now taunt + shields (see skills.py), which
+    # is defensive work, so leaving him labelled Amplifier would have
+    # broken the class contract that every Amplifier buffs an offensive
+    # stat. Given Sustain HP/DEF baselines to match -- a character whose
+    # entire job is being attacked needs to survive being attacked.
+    _char("Jofrog", 4, CharacterClass.SUSTAIN,
           "A former robotic bodyguard who escaped his programming. Now he wants to pursue his true desire: to live in a happy society.",
-          "jofrog_skill", "jofrog_ultimate"),
+          "jofrog_skill", "jofrog_ultimate",
+          base_hp=115, base_defense=13, growth_hp=7.5),
     _char("Aura", 4, CharacterClass.SUSTAIN,
           "A former field medic who radiates pure aura. Holds a gun in the face of danger but prefers to heal allies.",
           "aura_skill", "aura_ultimate",
           base_hp=110, base_defense=11, growth_hp=7.5),
+    # ELEMENTAL-SCALING CHARACTER -- his burn kit reads entirely off ELE
+    # now (damage AND the DoT's stat_source), so he gets the ELE bump a
+    # 4-star signature-stat character should have. He had no override at
+    # all before, which left him on the flat class baseline.
     _char("Blueflame", 4, CharacterClass.SUPPORT_DPS,
           "Part of the World Aligners, Blueflame lets everything around him burn slow and steady -- he's not fighting for the cause so much as for the day he doesn't have to answer to anyone's cause at all.",
-          "blueflame_skill", "blueflame_ultimate"),
+          "blueflame_skill", "blueflame_ultimate",
+          base_elemental=10, growth_elemental=0.5),
 
     # -----------------------------------------------------------------
     # 5-star
@@ -184,9 +206,13 @@ CHARACTER_TEMPLATES: list[dict] = [
     _char("Caliper", 5, CharacterClass.SUPPORT_DPS,
           "There isn't a firearm Caliper can't make sing -- Team Cascade's sharpest shooter, equally comfortable threading a called shot or laying down suppressing fire.",
           "caliper_skill", "caliper_ultimate"),
+    # ELEMENTAL-SCALING CHARACTER -- rebuilt as the poise-break
+    # specialist when energy drain was removed from the game, and her
+    # damage moved to ELE with it.
     _char("Nyrvite", 5, CharacterClass.SUPPORT_DPS,
           "A shadow-ops specialist self-proclaimed “ninja” who operates in the darkness, striking from the shadows and leaving no trace.",
-          "nyrvite_skill", "nyrvite_ultimate"),
+          "nyrvite_skill", "nyrvite_ultimate",
+          base_elemental=12, growth_elemental=0.55),
     _char("Virtual", 5, CharacterClass.AMPLIFIER,
           "Team Cascade's director of all engineering operations. Happiest elbow-deep in a chassis, Virtual is always tinkering on a new drone -- especially the support models that keep everyone else's gear running.",
           "virtual_skill", "virtual_ultimate"),

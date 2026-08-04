@@ -41,7 +41,7 @@ Combatant.pending_intent): an enemy's target + move for its turn is
 decided ahead of the turn actually happening, and then REUSED (not
 re-rolled) once that turn arrives, so whatever the UI showed the player
 beforehand is guaranteed to be exactly what happens -- see
-bot/utils/embedder.py's _enemy_intent_lines for where that gets rendered.
+bot/utils/embedder/combat.py's _intent_lines for where that gets rendered.
 
 Usage:
 
@@ -65,6 +65,40 @@ from bot.game.combat.combatant import Combatant
 
 MAX_PARTY_SIZE = 4
 
+# ----------------------------------------------------------------------
+# Enemy energy economy (bug fix: enemies never used their ultimates).
+#
+# Enemies are built with a real ultimate_ability and a 50-energy gate
+# (see factory.build_enemy_combatant), but energy was only ever granted
+# by Combatant.gain_energy_and_mana, which only fires on a BASIC ATTACK
+# (effects.resolve_basic_attack). Enemy AI picks an off-cooldown ability
+# ~95% of the time and enemies have effectively infinite mana, so they
+# basic-attacked roughly one turn in twenty -- at ~5 energy a pop that's
+# ~200 turns to a single ultimate. In practice no enemy ultimate had
+# ever fired in a real fight.
+#
+# Enemies now build energy on EVERY action they take instead, at a flat
+# rate per action. This is deliberately NOT the player's rule (players
+# still only charge on Attack/Guard -- that trade-off is the player's
+# resource decision and is meant to stay a decision); enemies have no
+# such decision to make, so tying their charge to a specific action only
+# ever produced the dead mechanic above.
+#
+# At 10 per action against a 50 cap, a normal enemy ults about every 5th
+# turn and a boss with actions_per_cycle=2 about every 2.5 cycles --
+# frequent enough to be a real, recurring threat the player has to read
+# and answer (Guard or break the wind-up), rare enough to stay a moment.
+# ----------------------------------------------------------------------
+ENEMY_ENERGY_PER_ACTION = 10
+
+# How likely an enemy is to fire its ultimate on a turn where it's fully
+# charged. Was 0.3, which -- on top of the energy bug above -- meant even
+# a hypothetically-charged enemy usually sat on it. A charged ultimate is
+# the single most interesting thing an enemy can telegraph, so it should
+# essentially always be the move; the residual chance of doing something
+# else keeps it from being perfectly clockwork.
+ENEMY_ULTIMATE_USE_CHANCE = 0.85
+
 
 class Battle:
     def __init__(self, party: list[Combatant], enemies: list[Combatant], rng: random.Random | None = None):
@@ -85,6 +119,24 @@ class Battle:
         # acting party member is targeting. Selecting a target does not
         # consume a turn.
         self.target_index = 0
+
+        # Which party member (by index into `party`, so it's stable even
+        # as members die) the single-ally SUPPORT kinds will land on --
+        # heals, cleanses, single-target buffs and resource restores. See
+        # effects._pick_ally.
+        #
+        # None means "no explicit choice", which falls back to each
+        # effect's own "whoever needs it most" heuristic -- so this is
+        # purely additive: an untouched battle behaves exactly as it did
+        # before, and enemies never set it at all.
+        #
+        # Reset to None at the end of every party turn (see _end_turn) on
+        # purpose. A stale pick is worse than no pick: the player chose
+        # "heal Josh" three turns ago for reasons that no longer hold, and
+        # silently honouring it later is precisely the kind of invisible
+        # state that makes a support turn feel like it did the wrong
+        # thing.
+        self.ally_target_index: int | None = None
 
         # Cycle turn order state. `cycle_order` is the remaining queue of
         # actors for the CURRENT cycle (already decided -- see
@@ -121,6 +173,30 @@ class Battle:
         if not living:
             return
         self.target_index = max(0, min(target_index, len(living) - 1))
+
+    def select_ally_target(self, party_index: int | None) -> None:
+        """Choose which squad member the next single-ally support ability
+        will land on (see ally_target_index). Free action -- like enemy
+        targeting, picking a recipient does not consume a turn, so a
+        player can line the choice up and still decide what to cast.
+
+        Indexes into `self.party` rather than a filtered living list, so
+        the meaning of a stored index can't shift when someone dies.
+        Passing None clears the choice back to automatic."""
+        if party_index is None:
+            self.ally_target_index = None
+            return
+        if 0 <= party_index < len(self.party):
+            self.ally_target_index = party_index
+
+    def current_ally_target(self) -> Combatant | None:
+        """The chosen recipient, or None for automatic. Returns None for a
+        dead pick too -- effects._pick_ally would fall back anyway, and
+        this keeps the UI from rendering a corpse as the current target."""
+        if self.ally_target_index is None:
+            return None
+        target = self.party[self.ally_target_index]
+        return target if target.is_alive() else None
 
     # ------------------------------------------------------------------
     # Turn order preview -- a best-effort projection of the next `count`
@@ -231,9 +307,18 @@ class Battle:
         self._begin_turn(actor)
 
     def _begin_turn(self, combatant: Combatant) -> None:
-        # Damage-over-time ticks at the start of the affected combatant's own turn.
+        # Damage-over-time ticks at the start of the affected combatant's
+        # own turn, scaled by any DoT-amplification marks on it (see
+        # effects.DOT_VULNERABILITY_STAT -- the target-side counterpart of
+        # the attacker-side `dot_amplifier` passive, and part of what
+        # replaced the removed energy-drain mechanic). Applied HERE at
+        # tick time rather than frozen into flat_amount at application
+        # time, deliberately: that's what lets a mark applied AFTER a burn
+        # already landed still amplify it, which is the whole point of
+        # having a separate setup piece.
+        dot_amplify = 1 + combatant.total_vulnerability_percent(effects.DOT_VULNERABILITY_STAT) / 100
         for dot in list(combatant.dots):
-            dealt = combatant.take_raw_hp_loss(dot.flat_amount)
+            dealt = combatant.take_raw_hp_loss(dot.flat_amount * dot_amplify)
             self.log.append(f"🔥 {combatant.name} takes {dealt} damage from {dot.source}.")
             dot.duration -= 1
         combatant.dots = [d for d in combatant.dots if d.duration > 0]
@@ -283,6 +368,16 @@ class Battle:
             if combatant.cooldowns[ability_id] > 0:
                 combatant.cooldowns[ability_id] -= 1
 
+        # Taunt ticks at the START of the taunter's turn, NOT the end.
+        # Ending it would decrement on the very turn the taunt was cast,
+        # so a "2 turn" taunt only ever covered ONE round of enemy turns
+        # and the ability description was off by one. Ticking here means
+        # the count is spent on rounds the taunt was actually up for.
+        if combatant.taunt_turns > 0:
+            combatant.taunt_turns -= 1
+            if combatant.taunt_turns == 0:
+                self.log.append(f"🎯 {combatant.name} is no longer drawing attacks.")
+
         # Guard only ever covers the gap between this combatant's turns --
         # exactly the window a telegraphed enemy move lands in -- so it
         # expires the moment they act again, whatever they do next.
@@ -326,6 +421,15 @@ class Battle:
             modifier.duration -= 1
         combatant.modifiers = [m for m in combatant.modifiers if m.duration > 0]
 
+
+        # An explicit ally pick lasts exactly the turn it was made for --
+        # see ally_target_index. Carrying it into the NEXT character's
+        # turn would silently apply one character's decision to another's
+        # ability, which is the sort of thing a player only notices after
+        # it has already healed the wrong person.
+        if combatant in self.party:
+            self.ally_target_index = None
+
         # Keep the active target pointing at a still-living enemy.
         living = self.living_enemies()
         if living:
@@ -358,14 +462,19 @@ class Battle:
     # damage, so the interesting question every turn is whether the
     # incoming hit is worth spending a turn to blunt.
     # ------------------------------------------------------------------
-    def take_party_action(self, action: str, ability_id: str | None = None, target_index: int | None = None) -> None:
+    def take_party_action(self, action: str, ability_id: str | None = None,
+                          target_index: int | None = None,
+                          ally_target_index: int | None = None) -> None:
         actor = self.current_actor()
         if self.is_over() or actor not in self.party:
             return
 
         if target_index is not None:
             self.select_target(target_index)
+        if ally_target_index is not None:
+            self.select_ally_target(ally_target_index)
         target = self._pick_enemy_target(self.target_index)
+        chosen_ally = self.current_ally_target()
         allies = [c for c in self.party if c is not actor and c.is_alive()]
         opponents = self.living_enemies()
         living_opponents_before = len(opponents)
@@ -380,13 +489,13 @@ class Battle:
             if ability is None or not actor.ability_ready(ability):
                 self.log.append(f"{actor.name} can't use that ability right now.")
                 return
-            effects.resolve_active_ability(actor, target, ability, self.rng, self.log, allies=allies, opponents=opponents)
+            effects.resolve_active_ability(actor, target, ability, self.rng, self.log, allies=allies, opponents=opponents, chosen_ally=chosen_ally)
         elif action == "ultimate":
             ability = actor.ultimate_ability
             if ability is None or not actor.ability_ready(ability):
                 self.log.append(f"{actor.name}'s ultimate isn't ready yet.")
                 return
-            effects.resolve_active_ability(actor, target, ability, self.rng, self.log, allies=allies, opponents=opponents)
+            effects.resolve_active_ability(actor, target, ability, self.rng, self.log, allies=allies, opponents=opponents, chosen_ally=chosen_ally)
         else:
             self.log.append(f"Unknown action: {action}")
             return
@@ -411,17 +520,40 @@ class Battle:
 
         self._end_turn(actor)
 
+    def taunting_enemy(self) -> Combatant | None:
+        """The living enemy currently forcing the party's single-target
+        attacks onto it, if any (see Combatant.taunt_turns). With several
+        taunting at once the FIRST is used -- deterministic rather than
+        random, because the UI has to show the player which enemy their
+        attack is locked to before they commit, and a re-rolled answer
+        between render and execution would make that display a lie."""
+        return next((e for e in self.living_enemies() if e.is_taunting()), None)
+
+    def taunting_ally(self) -> Combatant | None:
+        """The living party member currently drawing enemy attacks."""
+        return next((p for p in self.living_party() if p.is_taunting()), None)
+
     def _pick_enemy_target(self, target_index: int) -> Combatant:
         living = self.living_enemies()
         if not living:
             return self.enemies[0]
+        # A taunting enemy overrides the player's chosen target. The UI
+        # disables target selection and says why while this holds, so the
+        # override is never a silent surprise.
+        taunter = self.taunting_enemy()
+        if taunter is not None:
+            return taunter
         return living[min(target_index, len(living) - 1)]
 
     def _pick_party_target(self) -> Combatant:
-        """Default enemy AI target -- a random living party member."""
+        """Enemy AI target: the taunting party member if one is drawing
+        fire, otherwise a random living party member."""
         living = self.living_party()
         if not living:
             return self.party[0]
+        taunter = self.taunting_ally()
+        if taunter is not None:
+            return taunter
         return self.rng.choice(living)
 
     def _find_active_ability(self, combatant: Combatant, ability_id: str | None):
@@ -440,13 +572,13 @@ class Battle:
     # exactly what happens. See Combatant.pending_intent.
     # ------------------------------------------------------------------
     def _decide_enemy_intent(self, enemy: Combatant) -> dict:
-        """Pure decision, no execution: prefers the ultimate when ready
-        (30% of the time), then an off-cooldown affordable ability about
-        95% of the time, otherwise a basic attack. Targets a random living
-        party member. Returns {"ability": dict|None, "target": Combatant}
-        -- None ability means a basic attack."""
+        """Pure decision, no execution: prefers the ultimate when charged
+        (ENEMY_ULTIMATE_USE_CHANCE), then an off-cooldown affordable
+        ability about 95% of the time, otherwise a basic attack. Targets a
+        random living party member. Returns {"ability": dict|None,
+        "target": Combatant} -- None ability means a basic attack."""
         target = self._pick_party_target()
-        if enemy.ultimate_ready() and self.rng.random() < 0.3:
+        if enemy.ultimate_ready() and self.rng.random() < ENEMY_ULTIMATE_USE_CHANCE:
             return {"ability": enemy.ultimate_ability, "target": target}
         usable = [a for a in enemy.active_abilities if enemy.ability_ready(a)]
         if usable and self.rng.random() < 0.95:
@@ -478,23 +610,70 @@ class Battle:
         one -- take_enemy_turn reuses whatever's already been decided
         instead of re-rolling, so this is intentionally not side-effect
         free the way preview_turn_order is."""
+        return [
+            (enemy, intent)
+            for enemy, intent, imminent, _repeat in self.peek_enemy_intent_schedule()
+            if imminent
+        ]
+
+    def peek_enemy_intent_schedule(self, max_entries: int = 8) -> list[tuple[Combatant, dict | None, bool, bool]]:
+        """The full enemy plan for the rest of the CURRENT cycle, not just
+        the enemies queued before your next turn.
+
+        Returns (enemy, intent, imminent, is_repeat) tuples:
+          * `imminent` is True for the enemies that will act the moment
+            you submit this turn's action (everything before the next
+            party member in the queue) -- i.e. exactly what
+            peek_upcoming_enemy_intents used to return on its own.
+          * `is_repeat` marks an enemy's SECOND-or-later queued slot this
+            cycle (an actions_per_cycle >= 2 boss). Those deliberately
+            carry intent None.
+
+        WHY the lookahead exists: intents previously only became visible
+        once the enemy was already next in line, so a telegraphed heavy
+        hit showed up with a single party turn left to answer it. Guard
+        and poise-breaking are both decisions you want to make a turn or
+        two out, and you can't plan against information you don't have
+        yet.
+
+        WHY repeats carry no intent (this is the accuracy fix): an intent
+        is LOCKED IN when it's shown and reused verbatim at execution, so
+        anything shown must still be valid when its turn arrives. A
+        multi-action enemy's second slot isn't predictable yet -- its
+        first action may put the chosen ability on cooldown or spend the
+        energy its ultimate needs, at which point take_enemy_turn would
+        have to silently fall back to a basic attack and the UI would have
+        lied. Locking exactly ONE intent per enemy at a time means every
+        move shown is a move that actually happens; the later slot is
+        shown as "acts again" instead of a guess."""
         candidates: list[Combatant] = []
         if self._current_actor is not None and self._current_actor in self.enemies and self._current_actor.is_alive():
             candidates.append(self._current_actor)
         candidates.extend(self.cycle_order)
 
-        result: list[tuple[Combatant, dict | None]] = []
+        result: list[tuple[Combatant, dict | None, bool, bool]] = []
+        seen: set[int] = set()
+        imminent = True  # everything up to the first party member resolves immediately
         for c in candidates:
+            if len(result) >= max_entries:
+                break
             if not c.is_alive():
                 continue
             if c in self.party:
-                break
-            if c.stunned_turns > 0:
-                result.append((c, None))
+                imminent = False
+                continue
+
+            if id(c) in seen:
+                result.append((c, None, imminent, True))
+                continue
+            seen.add(id(c))
+
+            if c.stunned_turns > 0 or c.is_broken():
+                result.append((c, None, imminent, False))
                 continue
             if c.pending_intent is None:
                 c.pending_intent = self._decide_enemy_intent(c)
-            result.append((c, c.pending_intent))
+            result.append((c, c.pending_intent, imminent, False))
         return result
 
     def take_enemy_turn(self) -> None:
@@ -523,10 +702,27 @@ class Battle:
             effects.resolve_active_ability(enemy, target, ability, self.rng, self.log, allies=allies, opponents=opponents)
         else:
             # Basic attack -- either that was the decided intent, or the
-            # decided ability/ultimate is no longer usable (resource spent
-            # or cooldown started some other way since it was decided).
+            # decided ability/ultimate is no longer usable. The latter
+            # should now be unreachable: peek_enemy_intent_schedule locks
+            # exactly one intent per enemy at a time and take_enemy_turn
+            # clears it on use, so nothing can invalidate a shown move
+            # between telegraph and execution. Kept as a guard, but it is
+            # LOGGED when it fires -- a silent fallback here is precisely
+            # what made the telegraph untrustworthy before, and a
+            # mismatch should be visible rather than quietly papered over.
+            if ability is not None:
+                self.log.append(
+                    f"⚠️ {enemy.name} couldn't follow through with {ability['name']} and attacks instead."
+                )
             defender_allies = [o for o in opponents if o is not target and o.is_alive()]
             effects.resolve_basic_attack(enemy, target, self.rng, self.log, defender_allies=defender_allies)
+
+        # Enemies charge toward their ultimate on EVERY action, not just
+        # basic attacks -- see ENEMY_ENERGY_PER_ACTION. Granted after the
+        # action resolves so an ultimate can't pay for itself on the same
+        # turn it fires.
+        if enemy.energy < enemy.max_energy:
+            enemy.energy = min(enemy.max_energy, enemy.energy + ENEMY_ENERGY_PER_ACTION)
 
         self._maybe_grant_extra_turn(enemy, living_opponents_before)
         self._end_turn(enemy)

@@ -13,7 +13,7 @@ import random
 
 from bot.game.combat.battle import Battle
 from bot.game.combat.combatant import Combatant
-from bot.game.combat.status import DamageOverTime, HealOverTime, StatModifier
+from bot.game.combat.status import DamageOverTime, HealOverTime, StatModifier, Vulnerability
 
 
 def _ability_to_json(ability: dict | None) -> dict | None:
@@ -46,7 +46,18 @@ def combatant_to_dict(c: Combatant) -> dict:
         "modifiers": [dataclasses.asdict(m) for m in c.modifiers],
         "dots": [dataclasses.asdict(d) for d in c.dots],
         "heals": [dataclasses.asdict(h) for h in c.heals],
+        # Bug fix: vulnerabilities were never serialized, so every
+        # Vulnerability stack silently vanished the moment a battle was
+        # saved and reloaded -- which for expedition combat is after
+        # EVERY single action (see the load -> mutate -> save note in this
+        # module's docstring). Sader Vorae's whole kit is built on
+        # stacking these, so in practice her mark never once survived to
+        # do anything. Now that DoT amplification also rides on
+        # Vulnerability (see effects.DOT_VULNERABILITY_STAT), this would
+        # have quietly broken that too.
+        "vulnerabilities": [dataclasses.asdict(v) for v in c.vulnerabilities],
         "stunned_turns": c.stunned_turns,
+        "taunt_turns": c.taunt_turns,
         "base_actions_per_cycle": c.base_actions_per_cycle,
         "shield": c.shield,
         "ramp_percent_per_turn": c.ramp_percent_per_turn,
@@ -57,6 +68,11 @@ def combatant_to_dict(c: Combatant) -> dict:
         "poise": c.poise,
         "break_turns": c.break_turns,
         "break_tick_armed": c.break_tick_armed,
+        # Break resistance escalation (see combatant.py) -- without this
+        # persisted, a target's accumulated resistance would reset on
+        # every save/load, which for expedition combat is after every
+        # single action, i.e. the escalation would never happen at all.
+        "break_count": c.break_count,
         "bonus_poise_damage": c.bonus_poise_damage,
         "guarding": c.guarding,
     }
@@ -84,7 +100,14 @@ def combatant_from_dict(data: dict) -> Combatant:
         modifiers=[StatModifier(**m) for m in data["modifiers"]],
         dots=[DamageOverTime(**d) for d in data["dots"]],
         heals=[HealOverTime(**h) for h in data.get("heals", [])],
+        # .get with a default: saves written before vulnerabilities were
+        # serialized simply resume with none, which is exactly the
+        # behaviour they already had.
+        vulnerabilities=[Vulnerability(**v) for v in data.get("vulnerabilities", [])],
         stunned_turns=data["stunned_turns"],
+        # Absent on pre-taunt saves -- 0 means "not taunting", which is
+        # the behaviour those battles already had.
+        taunt_turns=data.get("taunt_turns", 0),
         base_actions_per_cycle=data.get("base_actions_per_cycle", 1),
         shield=data.get("shield", 0.0),
         ramp_percent_per_turn=data.get("ramp_percent_per_turn", 0.0),
@@ -99,6 +122,7 @@ def combatant_from_dict(data: dict) -> Combatant:
         max_poise=data.get("max_poise", 0),
         poise=data.get("poise", 0),
         break_turns=data.get("break_turns", 0),
+        break_count=data.get("break_count", 0),
         break_tick_armed=data.get("break_tick_armed", False),
         bonus_poise_damage=data.get("bonus_poise_damage", 0),
         guarding=data.get("guarding", False),
@@ -110,6 +134,12 @@ def battle_to_dict(battle: Battle) -> dict:
     return {
         "party": [combatant_to_dict(c) for c in battle.party],
         "enemies": [combatant_to_dict(e) for e in battle.enemies],
+        # Cleared at the end of every party turn, so this is only ever
+        # non-None mid-turn -- but expedition combat saves after EVERY
+        # interaction, including the free target-select action, so it has
+        # to round-trip or picking an ally then casting would lose the
+        # pick in between.
+        "ally_target_index": battle.ally_target_index,
         "turn_count": battle.turn_count,
         "log": list(battle.log),
         "result": battle.result,
@@ -199,6 +229,10 @@ def battle_from_dict(data: dict, rng: random.Random | None = None) -> Battle:
     battle.log = list(data["log"])
     battle.result = data["result"]
     battle.target_index = data.get("target_index", data.get("player_target_index", 0))
+    # Absent on saves from before ally targeting existed -- None is
+    # exactly the "no explicit choice, fall back to automatic" value, so
+    # those resume with the original behaviour.
+    battle.ally_target_index = data.get("ally_target_index")
     battle.cycle_number = data.get("cycle_number", 0)
     # Old saves (pre-cycle-system) won't have this -- an empty queue just
     # means the next turn will build a fresh cycle from whoever's alive,

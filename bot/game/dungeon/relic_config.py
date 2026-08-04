@@ -48,7 +48,18 @@ EFFECT SHAPES. A relic's "effect" is one of:
         Economy relic; read by dungeon_service when awarding run gold.
 
 RARITY drives how often a relic shows up in an offer, nothing else -- a
-Legendary relic is rarer, not mechanically special-cased.
+Legendary relic is rarer, not mechanically special-cased. The one
+near-exception is "cursed", which is still just an offer weight, but is
+used exclusively for relics that pair a large upside with a real
+drawback (see the CURSED block at the end of the catalog). Nothing in
+the code branches on it; it exists so those relics read as a distinct
+category to the player before they commit.
+
+A negative percent in a "stat"/"stat_flat" effect is fully supported and
+needs no special handling -- relic_service applies it through the exact
+same multiply-and-add path as a positive one, and _sync_pools clamps
+current HP/SP into any reduced maximum. That's what lets the cursed tier
+express its drawbacks as ordinary data rather than new machinery.
 """
 
 from __future__ import annotations
@@ -56,15 +67,23 @@ from __future__ import annotations
 import random
 
 # Relative weight of each rarity appearing in an offer.
+#
+# "cursed" is a rarity in the offer-weighting sense only -- mechanically
+# it means "powerful, WITH a real downside" rather than "rarer". See the
+# CURSED RELICS block below the catalog for the design reasoning. Weighted
+# to show up a little less often than rare so an offer is usually a
+# straight choice and only sometimes a gamble.
 RARITY_WEIGHTS: dict[str, float] = {
-    "common": 55,
-    "rare": 32,
-    "legendary": 13,
+    "common": 42,
+    "rare": 27,
+    "cursed": 19,
+    "legendary": 12,
 }
 
 RARITY_EMOJI: dict[str, str] = {
     "common": "⚪",
     "rare": "🔵",
+    "cursed": "🟣",
     "legendary": "🟠",
 }
 
@@ -253,12 +272,22 @@ RELICS: list[dict] = [
         "effect": {"kind": "passive", "passive_id": "soul_harvest"},
     },
     {
+        # Rebalance pass: was a flat +2 poise per hit, which stacked with
+        # Breaker's Charge into a permanent stunlock (see the BREAK
+        # RESISTANCE block in bot/game/combat/combatant.py). Re-pointed at
+        # the new poise-SHRED lever instead of yet more per-hit chip:
+        # shred is the direct counter to break resistance, so this stays
+        # the best break relic in the game without being additive with
+        # the common one.
         "id": "shatterpoint_prism",
         "name": "Shatterpoint Prism",
         "emoji": "💠",
         "rarity": "legendary",
-        "description": "Every hit chips 2 extra Poise -- shatter even bosses on schedule.",
-        "effect": {"kind": "poise_damage", "bonus": 2},
+        "description": "Every hit chips 1 extra Poise, and the whole squad's Breaks deal +25% bonus damage.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "poise_damage", "bonus": 1},
+            {"kind": "passive", "passive_id": "shatterpoint_focus"},
+        ]},
     },
     {
         "id": "warlords_banner",
@@ -269,6 +298,115 @@ RELICS: list[dict] = [
         "effect": {"kind": "multi", "effects": [
             {"kind": "stat", "stat": "attack", "percent": 20},
             {"kind": "stat", "stat": "elemental", "percent": 20},
+        ]},
+    },
+
+    # ------------------------------------------------------------------
+    # CURSED -- larger numbers than any Legendary, paid for with a real,
+    # permanent-for-the-run downside.
+    #
+    # WHY THIS TIER EXISTS. Every relic above is a strict upgrade: taking
+    # one is never worse than not taking one, so the only question an
+    # offer asks is "which of these three is biggest for my squad?"
+    # That's a preference, not a decision. A cursed relic asks an actual
+    # question, and the answer legitimately changes run to run -- +45%
+    # Attack for -35% Defense is an obvious yes on a squad that's ending
+    # fights in three turns and an obvious no on one that's limping into
+    # the next boss at half HP.
+    #
+    # They're built from PAIRED stat effects rather than new machinery,
+    # so the drawback is applied by exactly the same code path as the
+    # upside (relic_service.apply_relic_effects) and can't desync from
+    # it. A negative "stat" percent works out of the box there -- it's
+    # the same multiply-and-add every positive relic uses.
+    #
+    # The one rule they all follow: a drawback may never be lethal on its
+    # own. Nothing here reduces max HP below the squad's current HP or
+    # zeroes a stat, because "you took a relic and instantly lost the
+    # run" is a trap, not a trade-off -- see _sync_pools in
+    # relic_service.py, which clamps current HP into any new maximum.
+    # ------------------------------------------------------------------
+    {
+        "id": "berserkers_pact",
+        "name": "Berserker's Pact",
+        "emoji": "🩸",
+        "rarity": "cursed",
+        "description": "+45% Attack for the whole squad -- but -35% Defense. Hit like a truck, fold like paper.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "stat", "stat": "attack", "percent": 45},
+            {"kind": "stat", "stat": "defense", "percent": -35},
+        ]},
+    },
+    {
+        "id": "glass_reactor",
+        "name": "Glass Reactor",
+        "emoji": "💥",
+        "rarity": "cursed",
+        "description": "+50% Elemental and +25 Crit Rate -- but -30% max HP. Everything you have, all at once.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "stat", "stat": "elemental", "percent": 50},
+            {"kind": "stat_flat", "stat": "crit_rate", "amount": 25},
+            {"kind": "stat", "stat": "max_hp", "percent": -30},
+        ]},
+    },
+    {
+        "id": "leaden_bulwark",
+        "name": "Leaden Bulwark",
+        "emoji": "🗿",
+        "rarity": "cursed",
+        "description": "+60% Defense and +35% max HP -- but -30% Speed. Unmovable, and unhurried.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "stat", "stat": "defense", "percent": 60},
+            {"kind": "stat", "stat": "max_hp", "percent": 35},
+            {"kind": "stat", "stat": "speed", "percent": -30},
+        ]},
+    },
+    {
+        "id": "hollow_crown",
+        "name": "Hollow Crown",
+        "emoji": "👑",
+        "rarity": "cursed",
+        "description": "The squad gains Vampiric Edge and +30% Attack -- but -40% healing capacity from SP (max SP).",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "passive", "passive_id": "vampiric_edge"},
+            {"kind": "stat", "stat": "attack", "percent": 30},
+            {"kind": "stat", "stat": "max_mana", "percent": -40},
+        ]},
+    },
+    {
+        "id": "gamblers_coin",
+        "name": "Gambler's Coin",
+        "emoji": "🪙",
+        "rarity": "cursed",
+        "description": "+80% gold from everything -- but -20% Attack and -20% Elemental. You came here to get paid, not to fight.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "gold_multiplier", "percent": 80},
+            {"kind": "stat", "stat": "attack", "percent": -20},
+            {"kind": "stat", "stat": "elemental", "percent": -20},
+        ]},
+    },
+    {
+        "id": "overclocked_core",
+        "name": "Overclocked Core",
+        "emoji": "⚡",
+        "rarity": "cursed",
+        "description": "+35% Speed and +8 Recharge -- but -25% max HP. Act first, and often; survive less.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "stat", "stat": "speed", "percent": 35},
+            {"kind": "stat_flat", "stat": "recharge", "amount": 8},
+            {"kind": "stat", "stat": "max_hp", "percent": -25},
+        ]},
+    },
+    {
+        "id": "executioners_bargain",
+        "name": "Executioner's Bargain",
+        "emoji": "⚖️",
+        "rarity": "cursed",
+        "description": "The squad gains Executioner and every hit chips 2 extra Poise -- but -30% max HP.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "passive", "passive_id": "executioner"},
+            {"kind": "poise_damage", "bonus": 2},
+            {"kind": "stat", "stat": "max_hp", "percent": -30},
         ]},
     },
 ]

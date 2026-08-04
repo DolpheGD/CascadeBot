@@ -11,7 +11,7 @@ from discord.ext import commands
 from discord import app_commands
 
 from bot.database.session import SessionLocal
-from bot.database.models.hq_model import ShrineTemplate
+from bot.database.models.hq_model import ShopListing, ShrineTemplate
 from bot.database.models.economy_model import HarvesterTemplate
 from bot.services.player_service import get_player
 from bot.services import base_service, dungeon_service, mailbox_service
@@ -26,8 +26,13 @@ from bot.services.harvester_service import (
     get_production_rate,
     effective_max_level,
 )
-from bot.game.economy.hq_config import is_max_hq_level, upgrade_requirements
+from bot.game.economy.hq_config import (
+    MATERIAL_GOLD_VALUE,
+    is_max_hq_level,
+    upgrade_requirements,
+)
 from bot.services.currency_service import format_currency
+from bot.utils.embedder._shared import fit_field
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils.ui_guard import OwnedView, check_message_owner, require_player
 
@@ -479,18 +484,106 @@ class ShopBuyButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascad
                 return
 
             hq_level = base_service.get_hq_level(db, player)
+            # Read the listing BEFORE purchasing so the tab can be
+            # restored afterward -- a buy shouldn't bounce the player back
+            # to the default tab, which with a 23-listing market would
+            # mean re-navigating after every single transaction. Derived
+            # from the listing they just clicked, so it's always the tab
+            # they were actually on.
+            listing = db.get(ShopListing, self.listing_id)
+            category = _shop_category_of(listing) if listing else DEFAULT_SHOP_CATEGORY
+
             ok, message = base_service.purchase_listing(db, player, self.listing_id, hq_level)
 
-            embed = _build_shop_embed(db, player)
-            view = _build_shop_view(db, player)
+            embed = _build_shop_embed(db, player, category)
+            view = _build_shop_view(db, player, category)
             await interaction.response.edit_message(content=message, embed=embed, view=view)
         finally:
             db.close()
 
 
+# ----------------------------------------------------------------------
+# Shop categories.
+#
+# The shop grew from 4 listings to 23 when it became a full two-way
+# materials market (see bot/game/economy/hq_config.py). That does not fit
+# on one screen: Discord caps a message at 25 components AND an embed at
+# 25 fields, and even at exactly the limit a 23-button wall is unusable.
+#
+# So listings are bucketed into tabs, derived from the listing's own data
+# rather than a stored column -- no schema change, and a newly authored
+# listing files itself automatically. Only one bucket's buy buttons are
+# ever on screen at once, which keeps the component count to roughly
+# (listings in the biggest bucket + 4 tab buttons), comfortably inside
+# the cap.
+# ----------------------------------------------------------------------
+SHOP_CATEGORIES = [
+    ("sell", "💰 Sell"),
+    ("buy", "🛒 Buy"),
+    ("refine", "⚗️ Refine"),
+    ("special", "✨ Special"),
+]
+DEFAULT_SHOP_CATEGORY = "sell"
+
+_MATERIAL_CURRENCIES = set(MATERIAL_GOLD_VALUE)
+
+
+def _shop_category_of(listing) -> str:
+    """Which tab a listing belongs in, inferred from what it trades:
+      * material -> gold   = sell
+      * gold     -> material = buy
+      * material -> material = refine (the tier-conversion recipes)
+      * anything else (gold -> shards, and any future non-material trade)
+        = special.
+    Inferring rather than storing means the bucketing can never disagree
+    with the listing's actual arithmetic."""
+    cost_is_material = listing.cost_currency in _MATERIAL_CURRENCIES
+    reward_is_material = listing.reward_currency in _MATERIAL_CURRENCIES
+
+    if cost_is_material and reward_is_material:
+        return "refine"
+    if cost_is_material and listing.reward_currency == "gold":
+        return "sell"
+    if listing.cost_currency == "gold" and reward_is_material:
+        return "buy"
+    return "special"
+
+
+class ShopCategoryButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade_shop_cat:(?P<category>\w+)"):
+    def __init__(self, category: str, label: str = "...", selected: bool = False):
+        super().__init__(discord.ui.Button(
+            label=label[:80],
+            style=discord.ButtonStyle.success if selected else discord.ButtonStyle.secondary,
+            custom_id=f"cascade_shop_cat:{category}",
+            row=0,
+        ))
+        self.category = category
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match):
+        return cls(match["category"])
+
+    async def callback(self, interaction: discord.Interaction):
+        if not await check_message_owner(interaction):
+            return
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            if player is None:
+                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                return
+            embed = _build_shop_embed(db, player, self.category)
+            view = _build_shop_view(db, player, self.category)
+            await interaction.response.edit_message(content=None, embed=embed, view=view)
+        finally:
+            db.close()
+
+
 class ShopView(OwnedView):
-    def __init__(self, buy_buttons: list[ShopBuyButton], owner_id: int | None = None):
+    def __init__(self, buy_buttons: list[ShopBuyButton], category: str, owner_id: int | None = None):
         super().__init__(timeout=None, owner_id=owner_id)
+        for key, label in SHOP_CATEGORIES:
+            self.add_item(ShopCategoryButton(key, label, selected=(key == category)))
         for button in buy_buttons:
             self.add_item(button)
 
@@ -521,33 +614,64 @@ def _shop_listing_button_label(listing) -> str:
     )
 
 
-def _build_shop_embed(db, player) -> discord.Embed:
+SHOP_CATEGORY_BLURB = {
+    "sell": "Turn surplus materials into gold. Every material has a price.",
+    "buy": "Buy any material outright -- costs more than harvesting it yourself.",
+    "refine": "Convert materials into the tier above. Limited per day.",
+    "special": "Everything that isn't a material trade.",
+}
+
+
+def _listings_in_category(db, player, category: str):
     hq_level = base_service.get_hq_level(db, player)
     listings = base_service.list_shop_listings(db, hq_level)
+    return [l for l in listings if _shop_category_of(l) == category]
 
-    embed = discord.Embed(title="Local Shop", color=discord.Color.orange())
-    embed.description = "Low-level goods and material exchanges. More unlocks as Cascade HQ levels up."
+
+def _build_shop_embed(db, player, category: str = DEFAULT_SHOP_CATEGORY) -> discord.Embed:
+    listings = _listings_in_category(db, player, category)
+    label = next((lbl for key, lbl in SHOP_CATEGORIES if key == category), category.title())
+
+    embed = discord.Embed(title=f"Local Shop -- {label}", color=discord.Color.orange())
+    embed.description = SHOP_CATEGORY_BLURB.get(category, "") + "\nMore unlocks as Cascade HQ levels up."
+
+    # One compact line per listing instead of a field each: at up to 8
+    # listings per tab, a field apiece was ~24 lines of mostly-repeated
+    # boilerplate. The exact give/get arithmetic is still shown in full --
+    # that's the part the player is actually comparing.
+    lines = []
     for listing in listings:
-        value = f"{listing.description}\n{_shop_listing_summary(listing)}"
+        line = f"**{listing.name}** — {_shop_listing_summary(listing)}"
         if listing.daily_limit:
-            value += f"\n(max {listing.daily_limit}/day)"
-        embed.add_field(name=listing.name, value=value, inline=False)
-    if not listings:
-        embed.add_field(name="Nothing here yet", value="Check back after upgrading Cascade HQ.", inline=False)
+            line += f"  *(max {listing.daily_limit}/day)*"
+        lines.append(line)
+
+    if lines:
+        embed.add_field(name="Available", value=fit_field(lines), inline=False)
+    else:
+        embed.add_field(
+            name="Nothing here yet",
+            value="Check back after upgrading Cascade HQ.",
+            inline=False,
+        )
+    embed.set_footer(text="Use the tabs above to switch between selling, buying, refining, and specials.")
     return embed
 
 
-def _build_shop_view(db, player) -> ShopView:
-    hq_level = base_service.get_hq_level(db, player)
-    listings = base_service.list_shop_listings(db, hq_level)
+def _build_shop_view(db, player, category: str = DEFAULT_SHOP_CATEGORY) -> ShopView:
+    listings = _listings_in_category(db, player, category)
 
+    # 4 tab buttons occupy row 0, and Discord allows 25 components total,
+    # so 20 buy buttons is the hard ceiling. No current category comes
+    # close (the biggest is 8), but the slice keeps a future catalog
+    # addition from silently producing a message Discord rejects outright.
     buttons = []
-    for listing in listings[:25]:
+    for listing in listings[:20]:
         buttons.append(ShopBuyButton(
             listing.id, label=_shop_listing_button_label(listing),
             style=discord.ButtonStyle.primary,
         ))
-    return ShopView(buttons, owner_id=player.id)
+    return ShopView(buttons, category, owner_id=player.id)
 
 
 # ----------------------------------------------------------------------

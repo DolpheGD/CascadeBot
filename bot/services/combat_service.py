@@ -141,6 +141,31 @@ def sync_party_hp_to_characters(db, battle: Battle) -> None:
     db.commit()
 
 
+def restore_squad_to_full_hp(db, squad: list) -> None:
+    """Resets every squad member to full HP by clearing the persisted
+    value back to the None sentinel (see PlayerCharacter.current_hp).
+
+    Called before starting any SELF-CONTAINED fight -- a domain challenge
+    or a raid attack. Those are one-off battles you pay an entry cost for
+    (energy, or one of a limited number of raid attacks), not steps
+    within a longer run, so carrying HP into them was doing real damage
+    to both features: one bad domain fight left the squad too hurt to
+    attempt another, and there is no way to heal outside an expedition
+    campfire, so the only fix available to the player was to go run a
+    whole expedition first. That's backwards -- domains exist precisely
+    as the "I don't want to commit to a full run" option.
+
+    Expeditions deliberately do NOT use this between rooms: HP as a
+    resource spent across a run is the entire point of the campfire
+    Rest-vs-Relic decision (see dungeon_service's campfire block).
+    start_expedition does reset at the START of a run, for the same
+    reason this exists -- a fresh piece of content shouldn't inherit an
+    unrelated one's damage."""
+    for pc in squad:
+        pc.current_hp = None  # None == full HP
+    db.commit()
+
+
 def apply_character_xp(db, squad: list, xp_reward: int) -> list[dict]:
     """Splits `xp_reward` evenly across every squad member (not just who
     landed the killing blow -- simpler and keeps off-action support/sustain

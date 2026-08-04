@@ -104,7 +104,7 @@ class Economy(commands.Cog):
                     await ctx.response.send_message(message, ephemeral=True)
                     return
 
-                embed = embedder.gacha_pull_embed(results)
+                embed = embedder.gacha_pull_embed(results, player=player)
             except Exception:
                 # Surface the real error instead of a silent "This
                 # interaction failed" -- makes any future regression here
@@ -123,10 +123,15 @@ class Economy(commands.Cog):
 
     # COMMAND: /pull_rates
     # Shows gacha odds by star rating, cost, and the duplicate-conversion rule.
-    @app_commands.command(name="pull_rates", description="View gacha odds and pull costs.")
+    @app_commands.command(name="pull_rates", description="View gacha odds, pity progress, and pull costs.")
     async def pull_rates(self, ctx: discord.Interaction):
+        db = SessionLocal()
         try:
-            embed = embedder.gacha_rates_embed()
+            # Player is optional here on purpose -- someone who hasn't run
+            # /start yet should still be able to read the odds table, they
+            # just don't get a personal pity readout with it.
+            player = get_player(db, ctx.user.id)
+            embed = embedder.gacha_rates_embed(player=player)
         except Exception:
             logger.exception("`/pull_rates` failed to build its embed")
             await ctx.response.send_message(
@@ -135,6 +140,8 @@ class Economy(commands.Cog):
                 ephemeral=True,
             )
             return
+        finally:
+            db.close()
         await ctx.response.send_message(embed=embed, ephemeral=True)
 
     # COMMAND: /open

@@ -13,7 +13,7 @@ takes MAX_DOMAIN_ENERGY * ENERGY_REGEN_MINUTES_PER_POINT minutes (120 * 6
 domain_energy_updated_at hold the persisted state this accrues against.
 
 ----------------------------------------------------------------------
-Difficulty tiers
+Difficulty tiers -- UNLOCK (reworked)
 ----------------------------------------------------------------------
 DOMAIN_DIFFICULTY_TIERS is a SHARED ladder of 6 stages used by every
 domain TYPE below -- what differs between, say, the Material Domain and
@@ -25,15 +25,46 @@ that don't occur in a normal expedition (a regular boss paired with an
 elite from a different region at "Hard") and set-piece fights normally
 gated behind clearing an entire region (the Eruptor Trio boss group at
 "Extreme", Xender himself -- the story's final antagonist -- solo at
-"Nightmare"). Gated by the player's OWN character level (Player.level,
-already-existing state) rather than a separate unlock/completion tracker,
-so easier tiers are trivially accessible early and the hardest tier is a
-genuine long-term target rather than a hard gate.
+"Nightmare").
 
-Each tier's `squad` is a list of (enemy_name, level) pairs -- enemy_name
-must match a bot/game/combat/enemies.py template name exactly;
-domain_service builds each via factory.build_enemy_combatant at the
-given level, same as a normal dungeon encounter.
+Tiers used to gate on Player.level, which does not work: Player.level is
+account-level XP that barely moves (it is NOT the character levels that
+decide how strong a squad actually is), so the gate was simultaneously
+meaningless and misleading. Every tier now has TWO requirements, both of
+which must be met:
+
+  * `required_region` -- a region name that must have been fully CLEARED
+    (dungeon_service.has_completed_region -- an Expedition row with
+    status COMPLETED, only ever set by beating a run's FINAL boss). None
+    means no region requirement. This is the "stage beaten" axis.
+  * `min_roster_levels` -- the SUM of every owned PlayerCharacter's level
+    across the account. This is the "total character levels" axis, and it
+    is what stops "cleared Glacier 15 at character level 7" from opening
+    a tier the squad cannot actually handle.
+
+----------------------------------------------------------------------
+Difficulty tiers -- SCALING (reworked)
+----------------------------------------------------------------------
+Enemy levels used to be hardcoded per tier (e.g. Trivial was always a
+level-5 Wandering Vagrant). That's why the early tiers were free: a
+squad several times stronger than a fixed level-5 enemy walks through it
+no matter how the unlock is gated.
+
+Enemy level is now DERIVED from the squad that shows up:
+
+    enemy_level = clamp(avg squad character level + level_offset,
+                        min_enemy_level, LEVEL_CAP)
+
+so a domain fight is always posed relative to the party actually
+entering it. `level_offset` is the tier's real difficulty knob -- how far
+ABOVE (or below) the party each tier punches -- and `min_enemy_level`
+keeps a low-level party from trivializing the top tiers by bringing a
+weak squad on purpose.
+
+Each tier's `squad` is a list of enemy_name strings -- each must match a
+bot/game/combat/enemies.py template name exactly; domain_service builds
+each via factory.build_enemy_combatant at the computed level, same as a
+normal dungeon encounter.
 """
 
 from __future__ import annotations
@@ -41,27 +72,45 @@ from __future__ import annotations
 MAX_DOMAIN_ENERGY = 120
 ENERGY_REGEN_MINUTES_PER_POINT = 6
 
+# Hard ceiling on a computed enemy level -- mirrors
+# character_model.LEVEL_CAP (imported lazily where needed rather than at
+# module scope, so this pure-config module keeps importing no DB code).
+MAX_ENEMY_LEVEL = 100
+
 DOMAIN_DIFFICULTY_TIERS: list[dict] = [
     {
         "id": "trivial",
         "name": "Trivial",
-        "min_player_level": 1,
+        "required_region": None,
+        "min_roster_levels": 0,
         "energy_cost": 6,
-        "squad": [("Wandering Vagrant", 5)],
+        # Slightly under the party: this tier is the "spend leftover
+        # energy without thinking" tier and is meant to be winnable, but
+        # -2 rather than the old fixed level 5 means it never becomes a
+        # zero-input freebie at high levels either.
+        "level_offset": -2,
+        "min_enemy_level": 3,
+        "squad": ["Wandering Vagrant"],
     },
     {
         "id": "easy",
         "name": "Easy",
-        "min_player_level": 15,
+        "required_region": "Glacier 15",
+        "min_roster_levels": 40,
         "energy_cost": 10,
-        "squad": [("Corrupted Wastelander", 20), ("Wasteland Rebel", 20)],
+        "level_offset": 2,
+        "min_enemy_level": 10,
+        "squad": ["Corrupted Wastelander", "Wasteland Rebel"],
     },
     {
         "id": "moderate",
         "name": "Moderate",
-        "min_player_level": 30,
+        "required_region": "The Wastelands",
+        "min_roster_levels": 120,
         "energy_cost": 16,
-        "squad": [("H-Nation Vanguard", 40), ("Xendium Overcharge Drone", 40)],
+        "level_offset": 6,
+        "min_enemy_level": 25,
+        "squad": ["H-Nation Vanguard", "Xendium Overcharge Drone"],
     },
     {
         # A regular boss paired with an elite from a DIFFERENT region --
@@ -69,9 +118,12 @@ DOMAIN_DIFFICULTY_TIERS: list[dict] = [
         # each region draws its boss/elite encounters from its own pool.
         "id": "hard",
         "name": "Hard",
-        "min_player_level": 50,
+        "required_region": "The Hotlands",
+        "min_roster_levels": 250,
         "energy_cost": 24,
-        "squad": [("Corrupted Bli", 55), ("Corrupted Eris Sentry", 55)],
+        "level_offset": 10,
+        "min_enemy_level": 45,
+        "squad": ["Corrupted Bli", "Corrupted Eris Sentry"],
     },
     {
         # The Eruptor Trio -- normally ONLY reachable as Voidcrest
@@ -80,9 +132,12 @@ DOMAIN_DIFFICULTY_TIERS: list[dict] = [
         # full Voidcrest run each time.
         "id": "extreme",
         "name": "Extreme",
-        "min_player_level": 70,
+        "required_region": "Voidcrest Desert",
+        "min_roster_levels": 420,
         "energy_cost": 34,
-        "squad": [("Borehole", 75), ("Rupture", 75), ("Gatekeeper", 75)],
+        "level_offset": 15,
+        "min_enemy_level": 65,
+        "squad": ["Borehole", "Rupture", "Gatekeeper"],
     },
     {
         # Xender himself, solo -- the story's actual final antagonist
@@ -91,11 +146,24 @@ DOMAIN_DIFFICULTY_TIERS: list[dict] = [
         # the game, now available as a repeatable target.
         "id": "nightmare",
         "name": "Nightmare",
-        "min_player_level": 90,
+        "required_region": "Abyssnia",
+        "min_roster_levels": 650,
         "energy_cost": 50,
-        "squad": [("Xender", 95)],
+        "level_offset": 22,
+        "min_enemy_level": 85,
+        "squad": ["Xender"],
     },
 ]
+
+
+def enemy_level_for(tier: dict, avg_squad_level: float) -> int:
+    """The level every enemy in `tier` is built at, given the average
+    character level of the squad walking in. See the SCALING block in the
+    module docstring -- this is what makes a domain fight track the
+    party's actual power instead of a hardcoded number."""
+    level = round(avg_squad_level + tier.get("level_offset", 0))
+    level = max(tier.get("min_enemy_level", 1), level)
+    return max(1, min(MAX_ENEMY_LEVEL, level))
 
 
 def get_tier(tier_id: str) -> dict | None:

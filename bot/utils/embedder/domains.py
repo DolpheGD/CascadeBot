@@ -41,12 +41,17 @@ def domain_menu_embed(player) -> discord.Embed:
     return embed
 
 
-def domain_tier_embed(domain: dict, player) -> discord.Embed:
+def domain_tier_embed(domain: dict, player, lock_reasons: dict[str, str | None] | None = None) -> discord.Embed:
     """Shown after picking a domain type: energy status + every
-    difficulty tier for THIS domain, with its reward, level requirement,
-    and energy cost. Locked-by-level tiers are still shown (so the player
-    can see what's coming) but marked accordingly -- affordability is
-    conveyed by the tier buttons themselves, not here."""
+    difficulty tier for THIS domain, with its reward, unlock requirement,
+    and energy cost. Locked tiers are still shown (so the player can see
+    what's coming) but marked with WHY they're locked -- affordability is
+    conveyed by the tier buttons themselves, not here.
+
+    `lock_reasons` maps tier_id -> None (unlocked) or a short reason
+    string, resolved by the caller via domain_service.tier_lock_reason
+    (which needs a DB session; this module deliberately has none)."""
+    lock_reasons = lock_reasons or {}
     embed = discord.Embed(
         title=f"{domain['icon']} {domain['name']}", description=domain["description"],
         color=discord.Color.dark_purple(),
@@ -63,12 +68,21 @@ def domain_tier_embed(domain: dict, player) -> discord.Embed:
         else:
             reward_text = f"{reward} XP (split across squad)"
 
-        if player.level < tier["min_player_level"]:
-            name = f"🔒 {tier['name']} -- requires level {tier['min_player_level']}"
+        reason = lock_reasons.get(tier["id"])
+        if reason is not None:
+            name = f"🔒 {tier['name']}"
+            reward_text = f"*Locked: {reason}*\n{reward_text}"
         else:
             name = f"{tier['name']} -- {tier['energy_cost']} ⚡"
+            offset = tier.get("level_offset", 0)
+            sign = "+" if offset >= 0 else ""
+            reward_text = f"*Enemies at squad Lv{sign}{offset}*\n{reward_text}"
         embed.add_field(name=name, value=reward_text, inline=True)
 
+    embed.set_footer(
+        text="Domain enemies scale to your squad's average level -- levelling up raises the "
+             "challenge as well as your power."
+    )
     return embed
 
 

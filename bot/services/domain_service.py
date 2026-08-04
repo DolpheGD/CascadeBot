@@ -47,6 +47,7 @@ from bot.game.economy.domain_config import (
     DOMAIN_DIFFICULTY_TIERS,
     ENERGY_REGEN_MINUTES_PER_POINT,
     MAX_DOMAIN_ENERGY,
+    enemy_level_for,
     get_domain_type,
     get_tier,
 )
@@ -123,11 +124,65 @@ def _sync_energy(player) -> None:
         )
 
 
-def get_available_tiers(player) -> list[dict]:
-    """Every difficulty tier the player's current character level allows
-    -- see domain_config.DOMAIN_DIFFICULTY_TIERS. Always includes at
-    least the first tier (min_player_level 1)."""
-    return [t for t in DOMAIN_DIFFICULTY_TIERS if player.level >= t["min_player_level"]]
+# ----------------------------------------------------------------------
+# Unlocks (reworked -- see domain_config's UNLOCK block)
+#
+# A tier opens on TWO axes at once: a region that must have been fully
+# cleared ("stage beaten") and a minimum sum of every owned character's
+# level ("total character levels"). Player.level -- the old gate -- is no
+# longer consulted anywhere in this module.
+# ----------------------------------------------------------------------
+
+def roster_total_levels(db, player) -> int:
+    """Sum of every owned PlayerCharacter's level. This is the "total
+    character levels" unlock axis: it only ever goes up, it can't be
+    gamed by swapping the squad around right before a challenge, and it
+    reflects real investment across the account rather than the single
+    number Player.level was."""
+    from bot.database.models.character_model import PlayerCharacter
+
+    levels = db.query(PlayerCharacter.level).filter_by(player_id=player.id).all()
+    return sum(level for (level,) in levels)
+
+
+def average_squad_level(db, player) -> float:
+    """Mean character level of the squad that would actually enter a
+    fight right now -- the input to domain_config.enemy_level_for, so
+    domain enemies scale to the party instead of a hardcoded level."""
+    squad = character_service.get_squad(db, player)
+    if not squad:
+        return 1.0
+    return sum(pc.level for pc in squad) / len(squad)
+
+
+def tier_lock_reason(db, player, tier: dict) -> str | None:
+    """None if `tier` is unlocked, else a short player-facing reason it
+    isn't. Region requirement is reported first when both fail -- it's
+    the one the player can act on most directly."""
+    from bot.services import dungeon_service
+
+    required_region = tier.get("required_region")
+    if required_region and not dungeon_service.has_completed_region(db, player.id, required_region):
+        return f"Clear {required_region}"
+
+    required_levels = tier.get("min_roster_levels", 0)
+    if required_levels:
+        total = roster_total_levels(db, player)
+        if total < required_levels:
+            return f"{total}/{required_levels} total character levels"
+
+    return None
+
+
+def is_tier_unlocked(db, player, tier: dict) -> bool:
+    return tier_lock_reason(db, player, tier) is None
+
+
+def get_available_tiers(db, player) -> list[dict]:
+    """Every difficulty tier the player has actually unlocked -- see
+    domain_config.DOMAIN_DIFFICULTY_TIERS. The first tier has no
+    requirements at all, so this is never empty."""
+    return [t for t in DOMAIN_DIFFICULTY_TIERS if is_tier_unlocked(db, player, t)]
 
 
 def has_active_challenge(player_id: int) -> bool:
@@ -151,11 +206,9 @@ def start_challenge(db, player, domain_id: str, tier_id: str) -> Battle:
     tier = get_tier(tier_id)
     if tier is None:
         raise DomainChallengeError("No such difficulty tier.")
-    if player.level < tier["min_player_level"]:
-        raise DomainChallengeError(
-            f"{tier['name']} requires character level {tier['min_player_level']} "
-            f"(you're level {player.level})."
-        )
+    lock_reason = tier_lock_reason(db, player, tier)
+    if lock_reason is not None:
+        raise DomainChallengeError(f"{tier['name']} is still locked -- {lock_reason}.")
 
     _sync_energy(player)
     if player.domain_energy < tier["energy_cost"]:
@@ -170,13 +223,25 @@ def start_challenge(db, player, domain_id: str, tier_id: str) -> Battle:
         db.commit()
         raise DomainChallengeError("You need at least one character in your squad first.")
 
+    # A domain challenge is a self-contained fight you pay energy for, not
+    # a step in a longer run -- so it starts on full HP rather than
+    # inheriting whatever an expedition left the squad on. See
+    # combat_service.restore_squad_to_full_hp for the full reasoning.
+    # Done BEFORE building combatants, since factory reads current_hp.
+    combat_service.restore_squad_to_full_hp(db, squad)
+
     equipped_by_char = character_service.get_equipped_items_by_character(db, [pc.id for pc in squad])
     party_combatants = build_party_combatants(squad, equipped_by_char)
     base_service.apply_shrine_bonuses(db, player, party_combatants)
 
+    # Enemy level is derived from the squad actually walking in, not
+    # hardcoded per tier -- see domain_config's SCALING block. This is
+    # what stops "cleared Glacier 15 at character level 7" from also
+    # meaning "and the domain fight is trivial".
+    level = enemy_level_for(tier, sum(pc.level for pc in squad) / len(squad))
     enemy_combatants = [
         build_enemy_combatant(get_template_by_name(name), level=level)
-        for name, level in tier["squad"]
+        for name in tier["squad"]
     ]
 
     player.domain_energy -= tier["energy_cost"]
@@ -197,7 +262,7 @@ def abandon_challenge(db, player) -> None:
     battle = _ACTIVE_BATTLES.pop(player.id, None)
     _ACTIVE_CHALLENGE.pop(player.id, None)
     if battle is not None:
-        combat_service.sync_party_hp_to_characters(db, battle)
+        # Deliberately does NOT sync HP back -- see resolve_challenge.
         db.commit()
 
 
@@ -232,8 +297,15 @@ def resolve_challenge(db, player) -> dict:
             combat_service.apply_character_xp(db, squad, reward)
             reward_lines.append(f"+{reward} XP (split across squad)")
 
-    combat_service.sync_party_hp_to_characters(db, battle)
-
+    # HP is deliberately NOT written back from a domain fight. The squad
+    # entered on full HP (see start_challenge) and a domain is a
+    # self-contained challenge paid for in ENERGY, so letting it also
+    # spend HP would be a second, invisible cost -- and one with no way
+    # to pay it back, since healing only exists at expedition campfires.
+    # Leaving the persisted value untouched (still the None "full"
+    # sentinel the entry reset wrote) also stops the profile from showing
+    # a damaged squad that will be silently restored the next time the
+    # player does anything.
     _ACTIVE_BATTLES.pop(player.id, None)
     _ACTIVE_CHALLENGE.pop(player.id, None)
     db.commit()

@@ -147,64 +147,132 @@ SHRINE_TEMPLATES: list[dict] = [
 
 
 # ----------------------------------------------------------------------
-# Shop: no ownership/leveling, just a purchasable catalog. "exchange"
-# listings convert one currency into another (material exchanges);
-# "item" listings roll a single InventoryItem from an existing ItemTemplate
-# (see bot/game/loot/item_seed_data.py for valid names) -- reserved for
-# genuinely mid/high-tier gear now; guaranteed-basic-gear trades (Common-
-# rarity, item_level 1) were pulled since adventuring outpaces them almost
-# immediately, making them a dead purchase; "lootbox" listings grant
-# lootboxes of a given tier (see bot/game/economy/lootbox_config.py) --
-# each successive tier unlocks at a higher HQ level and costs more, so a
-# fatter HQ investment keeps paying off in better crates, not just bigger
-# building caps.
+# Shop -- REWORKED into a full two-way MATERIALS MARKET.
+#
+# WHAT CHANGED AND WHY.
+#
+# 1. Gear and lootbox listings are GONE. The shop used to sell specific
+#    InventoryItems ("Runic Robe Bundle", item level 8) and lootbox
+#    crates. Both were dead purchases: a player reaches the shop's gear
+#    through ordinary adventuring long before they've banked the gold for
+#    it, and buying loot competes with the dungeon -- which is the part of
+#    the game the loot is supposed to pull you back into. The "item" and
+#    "lootbox" listing KINDS still work in base_service.purchase_listing;
+#    there just aren't any authored anymore. (base_service's seeder
+#    actively retires listings dropped from this catalog, so removing them
+#    here is enough -- no migration, no orphan rows.)
+#
+# 2. Every material is now both BUYABLE and SELLABLE, from HQ level 1.
+#    Previously only wood and stone could be sold and only wood/stone/
+#    metal/crystal could be bought, so the six other materials had no
+#    gold price at all -- a player sitting on 400 Void had no way to turn
+#    it into anything, and a player 20 Entropy short of an upgrade had no
+#    way to close the gap. A material with no market isn't a resource,
+#    it's clutter.
+#
+# 3. The low HQ levels are where the DEPTH is now. Levels 1-2 carry the
+#    entire 16-listing material market; higher levels add the conversion
+#    RECIPES (refining a material into the tier above it), which are the
+#    genuinely valuable trades. That inverts the old shape, where the
+#    early shop had four listings and everything interesting was gated
+#    behind HQ 4-5.
+#
+# PRICING. Every material has one base gold value derived from its tier
+# (see MATERIAL_GOLD_VALUE). Selling pays that value; buying costs it
+# multiplied by MARKET_SPREAD. The spread is the whole economy here: it
+# means round-tripping a material through the shop LOSES gold, so the
+# market can never be farmed as an infinite-gold exploit, and it makes
+# "harvest it yourself" always cheaper than "buy it" without needing a
+# daily limit to enforce that.
 # ----------------------------------------------------------------------
 
-SHOP_LISTINGS: list[dict] = [
-    {
-        "name": "Lumber Buyer",
-        "description": "The quartermaster always needs lumber.",
-        "kind": "exchange",
-        "unlock_hq_level": 1,
-        "cost_currency": "wood",
-        "cost_amount": 20,
-        "reward_currency": "gold",
-        "reward_amount": 50,
-        "daily_limit": 0,
-    },
-    {
-        "name": "Stone Buyer",
-        "description": "The quartermaster always needs stone.",
-        "kind": "exchange",
-        "unlock_hq_level": 1,
-        "cost_currency": "stone",
-        "cost_amount": 20,
-        "reward_currency": "gold",
-        "reward_amount": 50,
-        "daily_limit": 0,
-    },
-    {
-        "name": "Lumber Shipment",
-        "description": "Pricier than harvesting it yourself, but instant.",
-        "kind": "exchange",
-        "unlock_hq_level": 1,
-        "cost_currency": "gold",
-        "cost_amount": 70,
-        "reward_currency": "wood",
-        "reward_amount": 20,
-        "daily_limit": 0,
-    },
-    {
-        "name": "Stone Shipment",
-        "description": "Pricier than harvesting it yourself, but instant.",
-        "kind": "exchange",
-        "unlock_hq_level": 1,
-        "cost_currency": "gold",
-        "cost_amount": 70,
-        "reward_currency": "stone",
-        "reward_amount": 20,
-        "daily_limit": 0,
-    },
+# Gold a single unit of each material SELLS for, by MaterialType.tier
+# (see bot/database/models/enums.py). Roughly 3.5x per tier, tracking how
+# much rarer each tier is to actually obtain.
+MATERIAL_GOLD_VALUE: dict[str, int] = {
+    "wood": 3, "stone": 3,
+    "metal": 11, "crystal": 11,
+    "xendium": 38, "permafrost_ore": 38,
+    "void": 130, "entropy": 130,
+}
+
+# Buy price = sell price * this. A 2.2x spread is deliberately wide: the
+# shop is a convenience, not an arbitrage opportunity, and a player who
+# buys what they could have harvested should feel the premium.
+MARKET_SPREAD = 2.2
+
+# How many units change hands per transaction, by tier. Bigger blocks for
+# cheap materials so trading 400 wood isn't 40 button presses.
+MATERIAL_TRADE_BLOCK: dict[str, int] = {
+    "wood": 25, "stone": 25,
+    "metal": 15, "crystal": 15,
+    "xendium": 10, "permafrost_ore": 10,
+    "void": 5, "entropy": 5,
+}
+
+MATERIAL_LABEL: dict[str, str] = {
+    "wood": "Wood", "stone": "Stone", "metal": "Metal", "crystal": "Crystal",
+    "xendium": "Xendium", "permafrost_ore": "Permafrost Ore",
+    "void": "Void", "entropy": "Entropy",
+}
+
+# Which HQ level each material's market opens at. Tiers 0-1 are available
+# from the very start (that's the "more options at low levels" goal); the
+# rarer two tiers open a little later, purely so a brand-new player isn't
+# shown eight listings for materials they've never seen.
+MATERIAL_UNLOCK_HQ: dict[str, int] = {
+    "wood": 1, "stone": 1, "metal": 1, "crystal": 1,
+    "xendium": 2, "permafrost_ore": 2,
+    "void": 3, "entropy": 3,
+}
+
+
+def _material_market_listings() -> list[dict]:
+    """Generates the buy AND sell listing for every material, rather than
+    hand-writing 16 near-identical dicts. Generated because the numbers
+    are all derived from one table -- hand-written copies drift the moment
+    anyone retunes a price, and a shop whose description disagrees with
+    its arithmetic is worse than no shop."""
+    listings: list[dict] = []
+    for material, value in MATERIAL_GOLD_VALUE.items():
+        label = MATERIAL_LABEL[material]
+        block = MATERIAL_TRADE_BLOCK[material]
+        unlock = MATERIAL_UNLOCK_HQ[material]
+
+        listings.append({
+            "name": f"Sell {label}",
+            "description": f"The quartermaster buys surplus {label.lower()} at the going rate.",
+            "kind": "exchange",
+            "unlock_hq_level": unlock,
+            "cost_currency": material,
+            "cost_amount": block,
+            "reward_currency": "gold",
+            "reward_amount": value * block,
+            "daily_limit": 0,
+        })
+        listings.append({
+            "name": f"Buy {label}",
+            "description": f"{label} off the shelf -- pricier than harvesting it, but instant.",
+            "kind": "exchange",
+            "unlock_hq_level": unlock,
+            "cost_currency": "gold",
+            "cost_amount": int(value * block * MARKET_SPREAD),
+            "reward_currency": material,
+            "reward_amount": block,
+            "daily_limit": 0,
+        })
+    return listings
+
+SHOP_LISTINGS: list[dict] = _material_market_listings() + [
+    # ------------------------------------------------------------------
+    # REFINERIES -- convert a material into one of the tier above. These
+    # are the shop's actual depth, and the reason to keep levelling HQ:
+    # a tier-3 material is worth ~43x a tier-0 one, so the ability to
+    # walk cheap surplus up the ladder is worth far more than any flat
+    # gold trade. Daily-limited (unlike the plain market listings) so
+    # refining stays a steady drip rather than a way to convert an entire
+    # wood stockpile into Void in one sitting.
+    # ------------------------------------------------------------------
     {
         "name": "Metal Refinery",
         "description": "The quarry's forge can refine stone into metal, slowly.",
@@ -215,54 +283,6 @@ SHOP_LISTINGS: list[dict] = [
         "reward_currency": "metal",
         "reward_amount": 15,
         "daily_limit": 5,
-    },
-    {
-        "name": "Metal Shipment",
-        "description": "Pricier than refining it yourself, but instant.",
-        "kind": "exchange",
-        "unlock_hq_level": 2,
-        "cost_currency": "gold",
-        "cost_amount": 300,
-        "reward_currency": "metal",
-        "reward_amount": 15,
-        "daily_limit": 0,
-    },
-    {
-        "name": "Shard Trader",
-        "description": "A hooded figure who deals only in gold and Cascade Shards.",
-        "kind": "exchange",
-        "unlock_hq_level": 2,
-        "cost_currency": "gold",
-        "cost_amount": 1000,
-        "reward_currency": "shards",
-        "reward_amount": 10,
-        "daily_limit": 3,
-    },
-    # -- Mid-tier goods and lootboxes, gradually unlocked as Cascade HQ
-    # levels up. Each tier is a clear step up in item_level/lootbox rarity
-    # over the last, giving HQ levels a tangible shopping payoff on top of
-    # the higher building caps.
-    {
-        "name": "Common Lootbox Crate",
-        "description": "A sealed Cascade supply crate. Contents unknown.",
-        "kind": "lootbox",
-        "unlock_hq_level": 2,
-        "cost_currency": "gold",
-        "cost_amount": 400,
-        "lootbox_tier": "common",
-        "lootbox_quantity": 1,
-        "daily_limit": 5,
-    },
-    {
-        "name": "Runic Robe Bundle",
-        "description": "Mid-tier arcane armor, forge-fresh.",
-        "kind": "item",
-        "unlock_hq_level": 2,
-        "cost_currency": "gold",
-        "cost_amount": 600,
-        "item_template_name": "Runic Robe",
-        "item_level": 8,
-        "daily_limit": 2,
     },
     {
         "name": "Crystal Refinery",
@@ -276,69 +296,65 @@ SHOP_LISTINGS: list[dict] = [
         "daily_limit": 5,
     },
     {
-        "name": "Crystal Shipment",
-        "description": "Pricier than refining it yourself, but instant.",
+        "name": "Xendium Refinery",
+        "description": "Crystal, supercooled and compressed until it destabilises into Xendium.",
         "kind": "exchange",
-        "unlock_hq_level": 3,
-        "cost_currency": "gold",
-        "cost_amount": 500,
-        "reward_currency": "crystal",
-        "reward_amount": 15,
-        "daily_limit": 0,
-    },
-    {
-        "name": "Uncommon Lootbox Crate",
-        "description": "A reinforced Cascade supply crate. Better odds inside.",
-        "kind": "lootbox",
-        "unlock_hq_level": 3,
-        "cost_currency": "gold",
-        "cost_amount": 900,
-        "lootbox_tier": "uncommon",
-        "lootbox_quantity": 1,
-        "daily_limit": 5,
-    },
-    {
-        "name": "Arcane Staff Bundle",
-        "description": "A staff humming with stored Cascade energy.",
-        "kind": "item",
-        "unlock_hq_level": 3,
-        "cost_currency": "gold",
-        "cost_amount": 1500,
-        "item_template_name": "Arcane Staff",
-        "item_level": 15,
-        "daily_limit": 2,
-    },
-    {
-        "name": "Rare Lootbox Crate",
-        "description": "A sealed Cascade vault crate. Only the well-established get one.",
-        "kind": "lootbox",
         "unlock_hq_level": 4,
-        "cost_currency": "gold",
-        "cost_amount": 2000,
-        "lootbox_tier": "rare",
-        "lootbox_quantity": 1,
+        "cost_currency": "crystal",
+        "cost_amount": 45,
+        "reward_currency": "xendium",
+        "reward_amount": 10,
+        "daily_limit": 4,
+    },
+    {
+        "name": "Permafrost Kiln",
+        "description": "Slow-frozen crystal, drawn out into Permafrost Ore.",
+        "kind": "exchange",
+        "unlock_hq_level": 4,
+        "cost_currency": "crystal",
+        "cost_amount": 45,
+        "reward_currency": "permafrost_ore",
+        "reward_amount": 10,
+        "daily_limit": 4,
+    },
+    {
+        "name": "Void Condenser",
+        "description": "Xendium, collapsed in on itself. The lights dim when it runs.",
+        "kind": "exchange",
+        "unlock_hq_level": 5,
+        "cost_currency": "xendium",
+        "cost_amount": 40,
+        "reward_currency": "void",
+        "reward_amount": 8,
         "daily_limit": 3,
     },
     {
-        "name": "Charged Plating Bundle",
-        "description": "High-tier armor plating, still warm from the forge.",
-        "kind": "item",
-        "unlock_hq_level": 4,
-        "cost_currency": "gold",
-        "cost_amount": 3500,
-        "item_template_name": "Charged Plating",
-        "item_level": 22,
-        "daily_limit": 2,
-    },
-    {
-        "name": "Epic Lootbox Crate",
-        "description": "An ornate Cascade coffer, humming with power. Reserved for well-established HQs.",
-        "kind": "lootbox",
+        "name": "Entropy Distillery",
+        "description": "Permafrost Ore, unwound down to raw Entropy. Nobody watches this one directly.",
+        "kind": "exchange",
         "unlock_hq_level": 5,
+        "cost_currency": "permafrost_ore",
+        "cost_amount": 40,
+        "reward_currency": "entropy",
+        "reward_amount": 8,
+        "daily_limit": 3,
+    },
+
+    # ------------------------------------------------------------------
+    # SPECIAL -- the only non-material trade left in the shop. Kept
+    # because Shards are the gacha currency and a gold sink for them is
+    # the main thing stopping late-game gold from becoming meaningless
+    # once the player owns every harvester and shrine.
+    # ------------------------------------------------------------------
+    {
+        "name": "Shard Trader",
+        "description": "A hooded figure who deals only in gold and Cascade Shards.",
+        "kind": "exchange",
+        "unlock_hq_level": 2,
         "cost_currency": "gold",
-        "cost_amount": 4500,
-        "lootbox_tier": "epic",
-        "lootbox_quantity": 1,
-        "daily_limit": 2,
+        "cost_amount": 1000,
+        "reward_currency": "shards",
+        "reward_amount": 10,
+        "daily_limit": 3,
     },
 ]

@@ -133,6 +133,33 @@ POISE_BY_ROLE = {
 }
 DEFAULT_POISE = 8
 
+# ---------------------------------------------------------------------
+# Percent-stat scaling for enemies.
+#
+# crit_rate / crit_damage / recharge are PERCENTAGES, and running them
+# through the full level curve produced nonsense: a template with 18%
+# crit reached 81% by level 45 and 153% -- every hit, always -- by 95,
+# with crit damage compounding to 1789%. Players are explicitly excluded
+# from scaling these (see base_character_stats: "gear's job to move"),
+# so a level-95 player fought at ~6% crit against an enemy at 153%.
+#
+# They aren't cut to zero growth either, though, and that's deliberate:
+# enemies have no gear, so this scaling is their ONLY substitute for the
+# crit/recharge a player accumulates from equipment over 100 levels.
+# Removing it entirely made every test composition win 100%.
+#
+# So: scale at a fraction of the normal curve, then hard-cap. The caps
+# are what actually matter -- they keep a late-game enemy meaningfully
+# more dangerous than an early one while guaranteeing it can never
+# out-crit a geared player or exceed "crits about half the time".
+#
+# Surfaced by the new paged ℹ️ Info view, which shows every combatant's
+# real stats for the first time. The numbers were always this wrong;
+# there was simply nowhere in the game to see them.
+# ---------------------------------------------------------------------
+PERCENT_STAT_SCALE_FACTOR = 0.25
+PERCENT_STAT_CAPS = {"crit_rate": 50, "crit_damage": 300, "recharge": 60}
+
 
 def base_character_stats(player_character) -> dict:
     """Template base stats + linear growth to the character's current
@@ -246,10 +273,27 @@ def build_character_combatant(player_character, equipped_items: list) -> Combata
 
     # If the character has HP persisted from a previous battle (see
     # PlayerCharacter.current_hp / the HP-persistence display change),
-    # start there instead of full -- clamped in case max_hp changed
-    # (leveling, regear) since it was last saved.
+    # start there instead of full -- clamped down in case max_hp SHRANK
+    # (a cursed relic, regearing) since it was last saved.
+    #
+    # The lower bound is 0, not 1. It used to be max(1, ...), which had
+    # two visible consequences, both wrong:
+    #
+    #   1. A character who died was stored at 0 (sync_party_hp_to_characters
+    #      writes the real value) but rebuilt at 1, so every view that
+    #      builds a Combatant -- the profile page, the dungeon map's squad
+    #      HP lines -- reported a dead character as being on 1 HP.
+    #   2. Worse, it was a free revival. Expedition HP persists BETWEEN
+    #      fights in a run, so a character who died in one room came back
+    #      at 1 HP for the next room's fight, every time, at no cost.
+    #      Death inside a run was effectively "you're at 1 HP now".
+    #
+    # Nothing needs the clamp: every entry point that starts a fresh
+    # fight resets the squad to full first (start_expedition, and now
+    # domain_service/raid_service too), and a party wiped mid-expedition
+    # ends the run rather than continuing with 0-HP members.
     starting_hp = getattr(player_character, "current_hp", None)
-    starting_hp = max_hp if starting_hp is None else max(1, min(starting_hp, max_hp))
+    starting_hp = max_hp if starting_hp is None else max(0, min(starting_hp, max_hp))
 
     return Combatant(
         name=player_character.display_name,
@@ -283,10 +327,19 @@ def build_enemy_combatant(template: dict, level: int = 1) -> Combatant:
     """`level` is typically the dungeon floor/expedition depth the enemy
     was encountered at -- higher floors produce tougher enemies from the
     same template via level_scale_percent."""
+    # Magnitude stats take the full level curve; percent stats take a
+    # fraction of it and are then capped -- see PERCENT_STAT_CAPS above
+    # for why they can neither scale fully nor be frozen entirely.
     scale = 1 + (level - 1) * template.get("level_scale_percent", 8) / 100
-    base_stats = {
-        stat: round(template["base_stats"].get(stat, 0) * scale) for stat in STAT_KEYS
-    }
+    percent_scale = 1 + (scale - 1) * PERCENT_STAT_SCALE_FACTOR
+
+    base_stats = {}
+    for stat in STAT_KEYS:
+        raw = template["base_stats"].get(stat, 0)
+        if stat in PERCENT_STAT_CAPS:
+            base_stats[stat] = round(min(raw * percent_scale, PERCENT_STAT_CAPS[stat]))
+        else:
+            base_stats[stat] = round(raw * scale)
     base_stats["max_hp"] = max(1, base_stats["max_hp"])
 
     role = template.get("role", "combat")

@@ -42,10 +42,27 @@ cleanse_ally_and_heal) mirror their team-wide counterparts (team_buff,
 team_resource_restore, cleanse_self_and_heal) but pick exactly one living
 ally to help -- whichever needs it most by the relevant metric -- instead
 of hitting the whole side or the caster. Each falls back to targeting the
-caster if no ally is alive, so the effect is never wasted. damage_and_double_debuff
-and team_resource_drain round out the debuff side: the former stacks two
-stat debuffs from one hit, the latter drains energy/mana from the WHOLE
-opposing side at once (opponents' counterpart to team_resource_restore).
+caster if no ally is alive, so the effect is never wasted.
+damage_and_double_debuff stacks two stat debuffs from one hit.
+
+ENERGY/MANA DRAIN WAS REMOVED FROM THE GAME. The three kinds that did it
+(damage_and_resource_drain, team_resource_drain,
+aoe_damage_chance_resource_drain) are gone, not deprecated -- draining a
+resource is a purely subtractive effect with no counterplay: the target
+can't respond to it, can't play around it, and the only thing it changes
+is that something good happens later than it would have. Everything that
+used them now uses one of five replacements, all of which feed mechanics
+the player can actually engage with:
+
+  * damage_and_poise_strike / aoe_damage_chance_poise_strike /
+    team_poise_strike -- pay into the POISE economy instead (see the
+    Poise/Break tuning block below). Same "disrupt their turn" fantasy,
+    but the payoff is a break the player can see coming and build toward.
+  * damage_and_dot_amplify / aoe_damage_chance_dot_amplify /
+    team_dot_amplify -- mark the target so damage-over-time on it hits
+    harder (see DOT_VULNERABILITY_STAT). This is a genuine team-synergy
+    piece: a marker character and a separate burn character now multiply
+    each other, where drain combo'd with nothing.
 
 Shield kit (content pass, new abilities): Combatant.shield is a flat
 HP-equivalent pool that absorbs incoming damage before current_hp does
@@ -69,11 +86,12 @@ aoe_damage_chance_debuff hits every living opponent, and each hit target
 independently rolls debuff_chance_percent odds of picking up a stat
 debuff -- unlike damage_and_debuff (guaranteed), the debuff here is a
 per-target coin flip, which is the "sometimes applies debuffs" part of
-the shift. aoe_damage_chance_resource_drain is the same shape with an
-energy/mana drain instead of a stat debuff (Nyrvite's signal-jamming
-flavor on the same AOE-plus-sometimes-more kit piece).
-aoe_damage_chance_dot is the same shape again, but with a burn
-(DamageOverTime) instead of a stat debuff -- Blueflame's kit piece.
+the shift. aoe_damage_chance_poise_strike is the same shape with a burst
+of extra poise damage instead of a stat debuff (Nyrvite's kit piece,
+post-drain-removal). aoe_damage_chance_dot is the same shape again, but
+with a burn (DamageOverTime) instead of a stat debuff -- Blueflame's kit
+piece -- and aoe_damage_chance_dot_amplify completes the set with the
+DoT-amplification mark.
 
 New-mechanics pass (roster diversity, round 2): four genuinely new pieces
 of combat plumbing, not just new data on existing kinds.
@@ -143,7 +161,152 @@ POISE_DAMAGE_ABILITY = 2    # any weapon/artifact/character skill
 POISE_DAMAGE_ULTIMATE = 3   # an ultimate
 
 BREAK_DURATION_TURNS = 2
-BREAK_DAMAGE_BONUS_PERCENT = 50
+
+# Rebalance pass: was 50. A break already does three separate things at
+# once -- it CANCELS the telegraphed move, it SKIPS the target's turns for
+# the duration, and it amplifies incoming damage -- so the damage rider
+# doesn't also need to be the largest multiplier in the game. Trimmed
+# alongside the break-resistance escalation in combatant.py; see that
+# block for the full picture of why the mechanic needed reining in.
+BREAK_DAMAGE_BONUS_PERCENT = 35
+
+# ----------------------------------------------------------------------
+# BREAK POTENTIAL -- the intended ways to make breaking EASIER.
+#
+# The rebalance above deliberately doesn't just nerf poise: it moves the
+# power from "always on, stacks without limit" to "earn it, on purpose".
+# Three levers exist, all of which the player opts into:
+#
+#   1. `poise_damage_bonus` (always-on passive, gear or character) --
+#      flat extra poise per landed hit, same shape the relics use.
+#   2. `poise_shred` (rider on an active effect) -- permanently lowers
+#      the target's max_poise for the rest of the battle. This is the
+#      direct answer to break resistance: shred counteracts escalation,
+#      so a squad built for breaking keeps breaking while an incidental
+#      one doesn't.
+#   3. `break_damage_bonus` (always-on passive) -- doesn't help you break
+#      faster, but makes each break hit harder, for kits that want to
+#      cash a rare break in rather than chain cheap ones.
+#
+# Poise shred is capped at MIN_SHREDDED_POISE so nothing can be reduced
+# to an unbreakable-by-arithmetic 0 (which can_be_broken() reads as "has
+# no poise system at all" -- a 0 here would make the target IMMUNE, the
+# exact opposite of what shredding it should do).
+# ----------------------------------------------------------------------
+MIN_SHREDDED_POISE = 3
+
+
+def apply_poise_shred(target: Combatant, amount: int, log: list, source: str = "") -> None:
+    """Permanently lowers `target`'s max_poise for the rest of the
+    battle, clamped so it can never reach the 0 that would read as
+    "unbreakable". Current poise is clamped down with it, so shredding a
+    nearly-broken target can finish the break immediately rather than
+    leaving it stranded above its own new maximum."""
+    if not target.can_be_broken() or amount <= 0:
+        return
+    before = target.max_poise
+    target.max_poise = max(MIN_SHREDDED_POISE, target.max_poise - amount)
+    target.poise = min(target.poise, target.max_poise)
+    if target.max_poise < before:
+        log.append(
+            f"🪓 {target.name}'s guard is sundered -- max Poise {before} → {target.max_poise}"
+            + (f" ({source})" if source else "")
+        )
+
+
+def _break_damage_percent(attacker: Combatant) -> float:
+    """The damage amplification a break grants, for THIS attacker: the
+    global BREAK_DAMAGE_BONUS_PERCENT plus any `break_damage_bonus`
+    passives they carry. Per-attacker rather than global so a
+    break-focused build can invest in cashing breaks in harder without
+    raising the number for everyone (which is what made the mechanic
+    oppressive in the first place)."""
+    return BREAK_DAMAGE_BONUS_PERCENT + sum(
+        p["effect"].get("percent", 0) for p in attacker.find_passive("break_damage_bonus")
+    )
+
+
+def total_poise_damage_bonus(attacker: Combatant) -> int:
+    """Every source of bonus poise damage on a landed hit: run-scoped
+    relics (Combatant.bonus_poise_damage, baked on at battle-build time)
+    plus any `poise_damage_bonus` passives from gear or a character kit.
+    Centralised here so relics and passives can never drift apart in how
+    they're counted."""
+    return attacker.bonus_poise_damage + sum(
+        p["effect"].get("amount", 1) for p in attacker.find_passive("poise_damage_bonus")
+    )
+
+# ----------------------------------------------------------------------
+# DoT amplification as a TARGET-side debuff.
+#
+# `dot_amplifier` (an always-on ATTACKER passive) already scaled up DoTs
+# at the moment they were created. This is the other side of that: a
+# stacking mark on the DEFENDER that scales up every DoT ticking on it,
+# whoever applied them -- which is what makes it a team-synergy piece
+# rather than a solo one, since a marker character and a separate burn
+# character now multiply each other.
+#
+# Implemented as a status.Vulnerability with this sentinel damage_stat
+# rather than a bespoke status type. Vulnerability already stacks per
+# source, caps at max_stacks, persists battle-long and (as of this pass)
+# serializes -- reusing it means no new plumbing anywhere, and the ℹ️
+# Info view picks it up for free. It is deliberately NOT a real stat
+# name, so it can never collide with a hit's damage_stat lookup in
+# _resolve_hit.
+# ----------------------------------------------------------------------
+DOT_VULNERABILITY_STAT = "dot"
+
+
+def grant_shield(caster: Combatant, target: Combatant, percent_max_hp: float) -> float:
+    """Shields `target` for `percent_max_hp`% of the TARGET's max HP,
+    scaled up by any `shield_amplifier` passives the CASTER carries.
+
+    Exists as a single choke point for the same reason dot_amplifier's
+    scaling is applied where DoTs are created: the amplifier belongs to
+    the caster, but Combatant.gain_shield only knows about the recipient,
+    so the multiplier can't live down there. Every shield-granting effect
+    kind routes through here, which is what lets a dedicated shielder
+    (Bee Jee) be better at shielding than a character who merely has a
+    shield ability, without special-casing any individual ability.
+
+    Returns the actual amount added -- gain_shield still applies the
+    enemy diminishing-returns curve on top, so the requested and granted
+    amounts can differ."""
+    amount = target.max_hp * percent_max_hp / 100
+    for passive in caster.find_passive("shield_amplifier"):
+        amount *= 1 + passive["effect"]["percent"] / 100
+    return target.gain_shield(amount)
+
+
+def _apply_dot_vulnerability(target: Combatant, ability: dict, effect: dict, log: list) -> None:
+    """Applies (or adds a stack to) the DoT-amplification mark on
+    `target`. Shared by damage_and_dot_amplify, team_dot_amplify and
+    aoe_damage_chance_dot_amplify so all three stack identically -- repeat
+    applications from the SAME ability build one instance toward
+    max_stacks; different abilities track their own."""
+    source = ability["name"]
+    existing = next(
+        (v for v in target.vulnerabilities
+         if v.damage_stat == DOT_VULNERABILITY_STAT and v.source == source),
+        None,
+    )
+    if existing is not None:
+        existing.stacks = min(existing.max_stacks, existing.stacks + 1)
+        stacks_now = existing.stacks
+    else:
+        stacks_now = 1
+        target.vulnerabilities.append(Vulnerability(
+            damage_stat=DOT_VULNERABILITY_STAT,
+            percent_per_stack=effect.get("percent_per_stack", 15),
+            stacks=1,
+            max_stacks=effect.get("max_stacks", 3),
+            source=source,
+        ))
+    total = target.total_vulnerability_percent(DOT_VULNERABILITY_STAT)
+    log.append(
+        f"☣️ {target.name} is destabilised ({stacks_now}x) -- "
+        f"damage-over-time on it deals +{total:g}% damage."
+    )
 
 GUARD_DAMAGE_REDUCTION_PERCENT = 50
 # Energy banked when a guarded combatant is actually hit. Roughly a third
@@ -152,6 +315,53 @@ GUARD_ENERGY_ON_HIT = 15
 # Guard also builds resources like a basic attack does, at a reduced rate
 # -- guarding is a tempo choice, not a free turn.
 GUARD_RECHARGE_MULTIPLIER = 0.5
+
+# ----------------------------------------------------------------------
+# PLAYER ENERGY ECONOMY (bug fix: character ultimates were never cast).
+#
+# Energy used to come from exactly two places: a basic Attack, and Guard.
+# Using a SKILL granted none. That is not a tuning problem, it's a dead
+# mechanic: a character's skill is strictly better than their basic
+# attack in almost every situation and is usually off cooldown every
+# turn, so playing well meant never attacking, and never attacking meant
+# never charging. Measured over 300 simulated fights, a squad using its
+# skills whenever available cast ZERO ultimates in ~13,000 player turns
+# -- and quadrupling Recharge changed nothing, because Recharge scales a
+# gain that was never triggered.
+#
+# Every action a combatant takes now builds energy:
+#
+#   * Attack -- energy AND mana (unchanged). Attack keeps its exclusive
+#     role as the ONLY source of SP, which is what stops it from becoming
+#     a strictly-worse button now that it isn't the only way to charge.
+#   * Skill / Ultimate -- energy only, at ABILITY_ENERGY_MULTIPLIER of
+#     the attack rate. Slightly under attacking, so there's still a
+#     reason to weave basics in beyond mana.
+#   * Guard -- half rate, plus GUARD_ENERGY_ON_HIT if a hit lands
+#     (unchanged).
+#   * Taking a hit -- ENERGY_ON_TAKING_HIT, flat. This exists so the
+#     characters who charge SLOWEST under an action-based rule are the
+#     ones being attacked, which is exactly backwards otherwise: a
+#     Sustain spending turns healing while soaking damage should reach
+#     their ultimate sooner than a DPS standing untouched, not later.
+#
+# Deliberately mirrors the enemy rule (see ENEMY_ENERGY_PER_ACTION in
+# battle.py) so "how does anything charge its ultimate" has one answer.
+# ----------------------------------------------------------------------
+ABILITY_ENERGY_MULTIPLIER = 0.8
+ENERGY_ON_TAKING_HIT = 4
+
+
+def grant_action_energy(actor: Combatant, log: list, multiplier: float = 1.0) -> None:
+    """Energy (no mana) for taking a non-Attack action. Attack routes
+    through gain_energy_and_mana instead, since it uniquely grants both.
+    Silent by default -- these fire on literally every action, and a log
+    line per action was the single noisiest thing in the battle log."""
+    pct = max(0.0, actor.effective_stat("recharge")) * multiplier
+    gained = int(round(actor.max_energy * pct / 100))
+    if gained <= 0:
+        return
+    actor.energy = min(actor.max_energy, actor.energy + gained)
 
 
 def poise_damage_for(ability: dict | None) -> int:
@@ -200,9 +410,154 @@ def resolve_guard(actor: Combatant, log: list) -> None:
         log.append(f"{actor.name} gains {energy_gained} energy and {mana_gained} SP.")
 
 
+# Effect kinds that land on exactly ONE ally and therefore accept a
+# player-chosen recipient (see _pick_ally). Exported so the combat UIs can
+# decide whether to offer an ally selector for the acting character
+# without duplicating this list in three cogs -- and, more importantly, so
+# adding a sixth single-ally kind later can't silently ship without its
+# selector.
+ALLY_TARGET_KINDS = frozenset({
+    "heal_lowest_ally_percent_max_hp",
+    "sacrifice_hp_heal_lowest_ally_percent_max_hp",
+    "ally_buff",
+    "restore_resource_to_lowest_ally",
+    "cleanse_ally_and_heal",
+    "shield_ally_percent_max_hp",
+})
+
+
+# Effect kinds that hit or affect EVERY combatant on the opposing side
+# rather than one target. The enemy intent telegraph has to know these:
+# it was naming a single victim for an ability that hits the whole squad,
+# which is worse than showing nothing -- a player would Guard the named
+# character believing the rest were safe.
+AOE_OPPONENT_KINDS = frozenset({
+    "aoe_damage",
+    "aoe_damage_chance_debuff",
+    "aoe_damage_chance_dot",
+    "aoe_damage_chance_poise_strike",
+    "aoe_damage_chance_dot_amplify",
+    "damage_all_and_debuff_self",
+    "team_debuff",
+    "team_dot_amplify",
+    "team_poise_strike",
+})
+
+# Effect kinds that affect the CASTER'S OWN whole side (buffs, team heals,
+# team shields). Shown as "whole squad"/"all allies" rather than a target
+# name, for the same reason.
+TEAM_SELF_KINDS = frozenset({
+    "team_heal_percent_max_hp",
+    "team_buff",
+    "team_double_buff",
+    "team_buff_and_resource",
+    "team_resource_restore",
+    "team_regen_over_time",
+    "team_shield_percent_max_hp",
+    "team_shield_and_buff",
+    "team_heal_and_buff",
+    "team_shield_and_cleanse",
+    "sacrifice_hp_heal_team_percent_max_hp",
+    "sacrifice_hp_team_buff",
+    "taunt_and_team_shield",
+})
+
+# Kinds that only ever affect the caster.
+SELF_ONLY_KINDS = frozenset({
+    "heal_percent_max_hp",
+    "self_buff_debuff",
+    "heal_and_self_buff",
+    "cleanse_self_and_heal",
+    "self_shield_percent_max_hp",
+    "taunt_and_shield",
+})
+
+
+def ability_scope(ability: dict | None) -> str:
+    """How wide an ability's effect is: "aoe" (every opponent), "team"
+    (the caster's whole side), "self", or "single".
+
+    Used by the enemy intent telegraph so an AOE reads as "everyone"
+    instead of naming one arbitrary victim. Keyed off the effect kind
+    rather than a hand-set flag on each ability, so a new AOE ability
+    can't ship without its telegraph being right -- the only thing an
+    author has to get correct is the kind, which they already must."""
+    if not ability:
+        return "single"
+    kind = ability.get("effect", {}).get("kind")
+    if kind in AOE_OPPONENT_KINDS:
+        return "aoe"
+    if kind in TEAM_SELF_KINDS:
+        return "team"
+    if kind in SELF_ONLY_KINDS:
+        return "self"
+    return "single"
+
+
+def ability_targets_ally(ability: dict | None) -> bool:
+    """Whether `ability` lets the player choose which ally it affects."""
+    if not ability:
+        return False
+    return ability.get("effect", {}).get("kind") in ALLY_TARGET_KINDS
+
+
+def combatant_has_ally_targeting(combatant) -> bool:
+    """True if any ability this combatant could use on their turn takes an
+    ally target -- the condition for showing an ally selector."""
+    if ability_targets_ally(combatant.ultimate_ability):
+        return True
+    return any(ability_targets_ally(a) for a in combatant.active_abilities)
+
+
+def _pick_ally(
+    attacker: Combatant,
+    allies: list[Combatant],
+    chosen_ally: Combatant | None,
+    auto: "callable",
+    include_self: bool,
+) -> Combatant:
+    """Resolves WHO a single-ally support effect lands on.
+
+    Player-controlled combatants get to choose (`chosen_ally`, threaded
+    down from Battle.ally_target_index -- see battle.py). Enemies, and any
+    case where the chosen ally is missing or has since died, fall back to
+    `auto`, the effect's own "who needs it most" heuristic.
+
+    WHY THE CHOICE EXISTS. Auto-targeting made every support ability
+    deterministic: there was no decision to make, so a Sustain player's
+    turn was "press the heal and see who gets it". It was also frequently
+    just wrong -- lowest HP% is a poor proxy for who's about to be
+    attacked, and the enemy intent telegraph (which now shows the target
+    a turn or more ahead) means the player often knows perfectly well who
+    needs the shield and had no way to say so.
+
+    `include_self` mirrors each effect's existing rule about whether the
+    caster is a legal recipient: a plain heal may land on the caster, but
+    the Blood-Sustain sacrifice kinds pointedly may not (paying your own
+    HP to heal yourself is a no-op). A player who explicitly picks
+    themself on a caster-excluded ability is honoured anyway -- if
+    they've read the ability and still chose it, that's their call, and
+    silently retargeting a deliberate choice is worse than letting it be
+    a bad one."""
+    living = [a for a in allies if a.is_alive()]
+    if chosen_ally is not None and chosen_ally.is_alive():
+        if chosen_ally is attacker:
+            if include_self:
+                return attacker
+            # Caster-excluded effect, but the player asked for themself.
+            return attacker
+        if chosen_ally in living:
+            return chosen_ally
+    candidates = ([attacker] + living) if include_self else living
+    if not candidates:
+        return attacker
+    return auto(candidates)
+
+
 def resolve_active_ability(
     attacker: Combatant, defender: Combatant, ability: dict, rng: random.Random, log: list,
     allies: list[Combatant] | None = None, opponents: list[Combatant] | None = None,
+    chosen_ally: Combatant | None = None,
 ) -> None:
     """`allies` is every OTHER living combatant on attacker's side (not
     including attacker) -- only used by team-oriented effect kinds
@@ -215,11 +570,23 @@ def resolve_active_ability(
     member of whichever side is on the receiving end of a given hit) --
     used by defender-reactive team passives like on_hit_team_buff. Every
     other effect kind ignores all of this, so they're safe to omit for
-    simple 1v1-style abilities."""
+    simple 1v1-style abilities.
+
+    `chosen_ally` is the PLAYER'S explicitly picked recipient for the
+    single-ally support kinds (heal_lowest_ally_percent_max_hp,
+    cleanse_ally_and_heal, restore_resource_to_lowest_ally, ally_buff,
+    sacrifice_hp_heal_lowest_ally_percent_max_hp). None -- always, for
+    enemies -- keeps the original automatic "whoever needs it most"
+    behaviour. See _pick_ally."""
     allies = allies or []
     opponents = opponents if opponents is not None else [defender]
     defender_allies = [o for o in opponents if o is not defender and o.is_alive()]
     attacker.spend_resource(ability)
+    # Using an ability builds energy toward the NEXT ultimate -- see the
+    # PLAYER ENERGY ECONOMY block above for why this has to exist.
+    # Granted after spend_resource so an ultimate can't partially refund
+    # itself on the same cast.
+    grant_action_energy(attacker, log, multiplier=ABILITY_ENERGY_MULTIPLIER)
     icon = "💥" if ability.get("is_ultimate") else "✨"
     log.append(f"{icon} {attacker.name} uses {ability['name']}!")
 
@@ -355,10 +722,14 @@ def resolve_active_ability(
         ))
 
     elif kind == "heal_lowest_ally_percent_max_hp":
-        # Sustain/Support "single-target heal" kit piece -- picks whoever
-        # (including the caster) is lowest on HP% among attacker + allies.
-        candidates = [attacker] + [a for a in allies if a.is_alive()]
-        target = min(candidates, key=lambda c: c.current_hp / max(1, c.max_hp))
+        # Sustain/Support "single-target heal" kit piece. The player picks
+        # the recipient when they've chosen one; otherwise it falls back
+        # to whoever (including the caster) is lowest on HP%. See _pick_ally.
+        target = _pick_ally(
+            attacker, allies, chosen_ally,
+            auto=lambda cs: min(cs, key=lambda c: c.current_hp / max(1, c.max_hp)),
+            include_self=True,
+        )
         healed = target.heal(target.max_hp * effect["percent"] / 100)
         log.append(f"💚 {attacker.name}'s {ability['name']} heals {target.name} for {healed} HP.")
 
@@ -397,18 +768,33 @@ def resolve_active_ability(
         if not defender.is_alive():
             _trigger_on_kill(attacker, log)
 
-    elif kind == "damage_and_resource_drain":
-        # Deals damage and strips energy/mana from the target -- an EMP-
-        # style effect that can delay an ultimate or starve out a skill.
+    elif kind == "damage_and_poise_strike":
+        # Replaces the removed damage_and_resource_drain. Energy/mana
+        # drain is gone from the game entirely (it made a fight worse
+        # without making it more interesting -- there is no counterplay to
+        # "your ultimate is further away now", it just subtracts). The
+        # replacement pays into the poise economy instead: a heavy,
+        # break-focused hit that chips far more poise than its damage
+        # alone would. Same "disrupt the enemy's turn" fantasy, but the
+        # payoff is a break the player can see coming and build toward.
+        if effect.get("poise_shred"):
+            apply_poise_shred(defender, effect["poise_shred"], log, source=ability["name"])
+        _hit(attacker, defender, effect["damage_percent"],
+             effect.get("damage_stat", "attack"), rng, log,
+             defender_allies=defender_allies,
+             poise_damage=poise_damage_for(ability) + effect.get("bonus_poise", 0))
+
+    elif kind == "damage_and_dot_amplify":
+        # The other half of the drain replacement: a mark that makes every
+        # damage-over-time effect ticking on the target hurt more. Routed
+        # through status.Vulnerability with damage_stat "dot" (see
+        # DOT_VULNERABILITY_STAT) rather than a bespoke status, so it
+        # stacks, serializes, and displays through plumbing that already
+        # exists.
         hit = _hit(attacker, defender, effect["damage_percent"],
-                            effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
+                   effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         if hit and defender.is_alive():
-            energy_drained = min(defender.energy, effect.get("energy_drain", 0))
-            mana_drained = min(defender.mana, effect.get("mana_drain", 0))
-            defender.energy -= energy_drained
-            defender.mana -= mana_drained
-            if energy_drained or mana_drained:
-                log.append(f"🔌 {defender.name} loses {energy_drained} energy and {mana_drained} SP!")
+            _apply_dot_vulnerability(defender, ability, effect, log)
 
     elif kind == "cleanse_self_and_heal":
         # Self-repair: strips the caster's own debuffs/DOTs and heals a
@@ -445,8 +831,11 @@ def resolve_active_ability(
         paid = attacker.take_raw_hp_loss(self_cost)
         if paid:
             log.append(f"🩸 {attacker.name} sacrifices {paid} HP to fuel {ability['name']}.")
-        living_allies = [a for a in allies if a.is_alive()]
-        target = min(living_allies, key=lambda c: c.current_hp / max(1, c.max_hp)) if living_allies else attacker
+        target = _pick_ally(
+            attacker, allies, chosen_ally,
+            auto=lambda cs: min(cs, key=lambda c: c.current_hp / max(1, c.max_hp)),
+            include_self=False,
+        )
         healed = target.heal(target.max_hp * effect["heal_percent"] / 100)
         if healed:
             log.append(f"💚 {attacker.name}'s {ability['name']} heals {target.name} for {healed} HP.")
@@ -507,8 +896,11 @@ def resolve_active_ability(
         # lowest effective value of the buffed stat, i.e. who needs it
         # most) rather than the whole side. Falls back to buffing the
         # caster if no ally is alive to receive it.
-        living_allies = [a for a in allies if a.is_alive()]
-        target = min(living_allies, key=lambda c: c.effective_stat(effect["buff_stat"])) if living_allies else attacker
+        target = _pick_ally(
+            attacker, allies, chosen_ally,
+            auto=lambda cs: min(cs, key=lambda c: c.effective_stat(effect["buff_stat"])),
+            include_self=False,
+        )
         target.modifiers.append(StatModifier(
             stat=effect["buff_stat"], percent=effect["buff_percent"],
             duration=effect["duration"], source=ability["name"],
@@ -520,13 +912,15 @@ def resolve_active_ability(
         # team_resource_restore, this tops off just whichever living ally
         # (never the caster) has the lowest combined energy+mana ratio.
         # Falls back to restoring the caster if no ally is alive.
-        living_allies = [a for a in allies if a.is_alive()]
-
         def _resource_ratio(c):
             pool = c.max_energy + c.max_mana
             return (c.energy + c.mana) / pool if pool else 0
 
-        target = min(living_allies, key=_resource_ratio) if living_allies else attacker
+        target = _pick_ally(
+            attacker, allies, chosen_ally,
+            auto=lambda cs: min(cs, key=_resource_ratio),
+            include_self=False,
+        )
         energy_gained = min(target.max_energy - target.energy, effect.get("energy_amount", 0))
         mana_gained = min(target.max_mana - target.mana, effect.get("mana_amount", 0))
         target.energy += energy_gained
@@ -540,26 +934,122 @@ def resolve_active_ability(
         # is lowest on HP% (never the caster), strips their debuffs/DOTs,
         # and heals them. Falls back to cleansing/healing the caster if no
         # ally is alive.
-        living_allies = [a for a in allies if a.is_alive()]
-        target = min(living_allies, key=lambda c: c.current_hp / max(1, c.max_hp)) if living_allies else attacker
+        target = _pick_ally(
+            attacker, allies, chosen_ally,
+            auto=lambda cs: min(cs, key=lambda c: c.current_hp / max(1, c.max_hp)),
+            include_self=False,
+        )
         removed = len([m for m in target.modifiers if m.percent < 0]) + len(target.dots)
         target.modifiers = [m for m in target.modifiers if m.percent >= 0]
         target.dots = []
         healed = target.heal(target.max_hp * effect["heal_percent"] / 100)
         log.append(f"🛠️ {attacker.name}'s {ability['name']} purges {removed} negative effect(s) from {target.name} and heals {healed} HP.")
 
-    elif kind == "team_resource_drain":
-        # Utility debuff piece (Nyrvite) -- the opposing-side counterpart to
-        # team_resource_restore. Strips flat energy/mana from every living
-        # combatant on the OTHER side at once, delaying their ultimates
-        # and starving their skills.
+    elif kind == "team_dot_amplify":
+        # Replaces the removed team_resource_drain. Marks EVERY living
+        # enemy so that damage-over-time on them hits harder -- the
+        # team-wide setup counterpart to damage_and_dot_amplify, and a
+        # natural partner for the AOE-DoT kits (Blueflame, Slikrz) that
+        # had nothing to combo with before.
         for target in [o for o in opponents if o.is_alive()]:
-            energy_lost = min(target.energy, effect.get("energy_amount", 0))
-            mana_lost = min(target.mana, effect.get("mana_amount", 0))
-            target.energy -= energy_lost
-            target.mana -= mana_lost
-            if energy_lost or mana_lost:
-                log.append(f"🔌 {target.name} loses {energy_lost} energy and {mana_lost} SP to {attacker.name}'s {ability['name']}!")
+            _apply_dot_vulnerability(target, ability, effect, log)
+
+    elif kind == "team_poise_strike":
+        # Team-wide poise pressure: chips poise off every living enemy at
+        # once with no damage attached. The other replacement shape for
+        # the removed drain kinds -- "shut the whole enemy line down" as a
+        # break-setup tool rather than a resource tax.
+        amount = effect.get("poise_damage", 2) + total_poise_damage_bonus(attacker)
+        for target in [o for o in opponents if o.is_alive()]:
+            if effect.get("poise_shred"):
+                apply_poise_shred(target, effect["poise_shred"], log, source=ability["name"])
+            if target.damage_poise(amount):
+                target.enter_break(BREAK_DURATION_TURNS)
+                log.append(
+                    f"💥 {target.name}'s poise SHATTERS! Its move is cancelled and it "
+                    f"takes +{_break_damage_percent(attacker)}% damage for {BREAK_DURATION_TURNS} turns."
+                )
+            elif target.can_be_broken():
+                log.append(f"🔨 {target.name}'s guard buckles ({target.poise}/{target.max_poise} poise).")
+
+    elif kind == "team_buff_and_resource":
+        # Amplifier class-identity pass (see the ROLE CONTRACT block in
+        # bot/game/combat/skills.py). A team stat buff with a resource
+        # restore riding along on it. Exists so that characters whose
+        # FLAVOR is resource logistics (Caandy's visor sync, Jofrog's
+        # battery swap, Virtual's drone resupply) still amplify -- which
+        # is what their class promises -- without losing the flavor that
+        # made them distinct. The buff is the point; the resource is the
+        # garnish.
+        for member in [attacker] + [a for a in allies if a.is_alive()]:
+            member.modifiers.append(StatModifier(
+                stat=effect["buff_stat"], percent=effect["buff_percent"],
+                duration=effect["duration"], source=ability["name"],
+            ))
+            energy_gained = min(member.max_energy - member.energy, effect.get("energy_amount", 0))
+            mana_gained = min(member.max_mana - member.mana, effect.get("mana_amount", 0))
+            member.energy += energy_gained
+            member.mana += mana_gained
+        log.append(
+            f"📡 {attacker.name}'s {ability['name']} boosts the team's {effect['buff_stat']} "
+            f"by {effect['buff_percent']}% for {effect['duration']} turns"
+            + (f", and restores {effect.get('energy_amount', 0)} energy / {effect.get('mana_amount', 0)} SP each."
+               if effect.get("energy_amount") or effect.get("mana_amount") else ".")
+        )
+
+    elif kind == "team_double_buff":
+        # Two stat buffs on the whole team from one cast -- the team-wide
+        # sibling of self_buff_debuff's two-stat shape. Added for the
+        # Amplifier pass so an Amplifier ultimate can feel like a bigger
+        # deal than its own skill without simply printing a larger number
+        # on the same single stat.
+        for member in [attacker] + [a for a in allies if a.is_alive()]:
+            for stat_key, pct_key in (("buff_stat_1", "buff_percent_1"), ("buff_stat_2", "buff_percent_2")):
+                member.modifiers.append(StatModifier(
+                    stat=effect[stat_key], percent=effect[pct_key],
+                    duration=effect["duration"], source=ability["name"],
+                ))
+        log.append(
+            f"📡 {attacker.name}'s {ability['name']} boosts the team's "
+            f"{effect['buff_stat_1']} by {effect['buff_percent_1']}% and "
+            f"{effect['buff_stat_2']} by {effect['buff_percent_2']}% for {effect['duration']} turns."
+        )
+
+    elif kind == "team_shield_and_buff":
+        # Sustain class-identity pass (see the ROLE CONTRACT block in
+        # skills.py): shields the whole team AND hardens it, so a Sustain
+        # ultimate can be defensively decisive without just being a bigger
+        # heal number than the last one.
+        for member in [attacker] + [a for a in allies if a.is_alive()]:
+            gained = grant_shield(attacker, member, effect["shield_percent"])
+            member.modifiers.append(StatModifier(
+                stat=effect["buff_stat"], percent=effect["buff_percent"],
+                duration=effect["duration"], source=ability["name"],
+            ))
+            if gained:
+                log.append(f"🔷 {member.name} gains a {round(gained)} HP shield.")
+        log.append(
+            f"🛡️ {attacker.name}'s {ability['name']} raises the team's "
+            f"{effect['buff_stat']} by {effect['buff_percent']}% for {effect['duration']} turns."
+        )
+
+    elif kind == "team_heal_and_buff":
+        # Sustain shape: an instant team heal plus a defensive stat buff.
+        # Same reasoning as team_shield_and_buff -- gives Sustain kits a
+        # second axis (mitigation) so they aren't all competing on
+        # healing throughput alone.
+        for member in [attacker] + [a for a in allies if a.is_alive()]:
+            healed = member.heal(member.max_hp * effect["heal_percent"] / 100)
+            member.modifiers.append(StatModifier(
+                stat=effect["buff_stat"], percent=effect["buff_percent"],
+                duration=effect["duration"], source=ability["name"],
+            ))
+            if healed:
+                log.append(f"💚 {member.name} heals {healed} HP.")
+        log.append(
+            f"🛡️ {attacker.name}'s {ability['name']} raises the team's "
+            f"{effect['buff_stat']} by {effect['buff_percent']}% for {effect['duration']} turns."
+        )
 
     elif kind == "team_resource_restore":
         # Instant support burst -- restores flat energy and/or mana to the
@@ -584,13 +1074,85 @@ def resolve_active_ability(
             ))
         log.append(f"🌿 {attacker.name}'s {ability['name']} sets in, regenerating the whole team over time.")
 
+    elif kind == "taunt_and_shield":
+        # The tank button (see the TAUNT block in combatant.py). Pulls the
+        # opposing side's single-target attacks onto the caster AND gives
+        # them something to survive it with -- the two halves are one
+        # ability on purpose, because a taunt without mitigation is just a
+        # slower way to die, and a shield without a taunt doesn't protect
+        # the squishy character the enemy was actually aiming at.
+        gained = grant_shield(attacker, attacker, effect.get("shield_percent", 0))
+        attacker.taunt_turns = max(attacker.taunt_turns, effect.get("duration", 2))
+        if effect.get("buff_stat"):
+            attacker.modifiers.append(StatModifier(
+                stat=effect["buff_stat"], percent=effect["buff_percent"],
+                duration=effect.get("duration", 2), source=ability["name"],
+            ))
+        log.append(
+            f"🎯 {attacker.name} draws every attack for {attacker.taunt_turns} turn(s)"
+            + (f" behind a {round(gained)} HP shield!" if gained else "!")
+        )
+
+    elif kind == "taunt_and_team_shield":
+        # Ultimate-scale version: taunt onto the caster, but the shield
+        # goes to the WHOLE squad. Taunting means the caster eats the
+        # single-target damage while the team's shields absorb whatever
+        # AOE still gets through -- which is the one combination that
+        # makes a dedicated shielder better than a healer for a turn.
+        attacker.taunt_turns = max(attacker.taunt_turns, effect.get("duration", 2))
+        for member in [attacker] + [a for a in allies if a.is_alive()]:
+            gained = grant_shield(attacker, member, effect["shield_percent"])
+            if gained:
+                log.append(f"🔷 {member.name} gains a {round(gained)} HP shield.")
+        log.append(f"🎯 {attacker.name} draws every attack for {attacker.taunt_turns} turn(s)!")
+
+    elif kind == "damage_and_self_taunt":
+        # Enemy-facing shape (and usable by a player bruiser): hit
+        # something, then force the other side to deal with you. This is
+        # what stops the player from simply ignoring a defensive enemy
+        # and bursting the healer standing behind it.
+        _hit(attacker, defender, effect["damage_percent"],
+             effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
+        attacker.taunt_turns = max(attacker.taunt_turns, effect.get("duration", 2))
+        log.append(f"🎯 {attacker.name} demands attention -- attacks are forced onto it for {attacker.taunt_turns} turn(s)!")
+
+    elif kind == "shield_ally_percent_max_hp":
+        # Single-ALLY shield -- the shielder's counterpart to
+        # heal_lowest_ally_percent_max_hp, and player-targetable through
+        # the same ally selector (see ALLY_TARGET_KINDS). Shielding the
+        # character an enemy has TELEGRAPHED an attack on is the most
+        # direct use of the intent preview in the game, and it needed a
+        # single-target shield to exist at all.
+        target = _pick_ally(
+            attacker, allies, chosen_ally,
+            auto=lambda cs: min(cs, key=lambda c: c.current_hp / max(1, c.max_hp)),
+            include_self=True,
+        )
+        gained = grant_shield(attacker, target, effect["percent"])
+        log.append(f"🔷 {attacker.name}'s {ability['name']} shields {target.name} for {round(gained)} HP.")
+
+    elif kind == "team_shield_and_cleanse":
+        # Shielder ultimate shape: absorb AND purge. Distinct from the
+        # healers' cleanse (cleanse_ally_and_heal, single target) by
+        # covering the whole squad, which is what a dedicated shielder
+        # should be better at than a healer.
+        for member in [attacker] + [a for a in allies if a.is_alive()]:
+            removed = len([m for m in member.modifiers if m.percent < 0]) + len(member.dots)
+            member.modifiers = [m for m in member.modifiers if m.percent >= 0]
+            member.dots = []
+            gained = grant_shield(attacker, member, effect["shield_percent"])
+            if gained or removed:
+                log.append(
+                    f"🔷 {member.name} gains a {round(gained)} HP shield"
+                    + (f" and sheds {removed} negative effect(s)." if removed else ".")
+                )
+
     elif kind == "self_shield_percent_max_hp":
         # Ionic Ward-style burst shield -- grants the caster a flat
         # HP-equivalent pool (Combatant.shield) that absorbs incoming
         # damage before current_hp does (see _resolve_hit). Adds onto any
         # shield already up rather than overwriting it.
-        requested = attacker.max_hp * effect["percent"] / 100
-        gained = attacker.gain_shield(requested)
+        gained = grant_shield(attacker, attacker, effect["percent"])
         log.append(f"🔷 {attacker.name} raises a shield worth {round(gained)} HP.")
 
     elif kind == "team_shield_percent_max_hp":
@@ -598,8 +1160,7 @@ def resolve_active_ability(
         # self_shield_percent_max_hp but for the caster's whole side at
         # once, each member shielded off their OWN max HP.
         for member in [attacker] + [a for a in allies if a.is_alive()]:
-            requested = member.max_hp * effect["percent"] / 100
-            member.gain_shield(requested)
+            grant_shield(attacker, member, effect["percent"])
         log.append(f"🔷 {attacker.name}'s {ability['name']} shields the whole team!")
 
     elif kind == "damage_bonus_if_debuffed":
@@ -653,22 +1214,35 @@ def resolve_active_ability(
                 ))
                 log.append(f"{target.name}'s {effect['debuff_stat']} is reduced!")
 
-    elif kind == "aoe_damage_chance_resource_drain":
-        # Nyrvite's take on the AOE-plus-debuff shape -- same "hits
-        # everyone, sometimes does more" idea as aoe_damage_chance_debuff,
-        # but the "more" is a resource drain (energy/mana) instead of a
-        # stat debuff, rolled independently per target.
+    elif kind == "aoe_damage_chance_poise_strike":
+        # Replaces the removed aoe_damage_chance_resource_drain. Same
+        # "hits everyone, sometimes does more" shape as
+        # aoe_damage_chance_debuff, but the "more" is a burst of extra
+        # poise damage rolled independently per target -- an AOE that
+        # sets up breaks across the whole enemy line instead of taxing
+        # their resources.
+        for target in [o for o in opponents if o.is_alive()]:
+            target_allies = [o for o in opponents if o is not target and o.is_alive()]
+            bonus = (
+                effect.get("bonus_poise", 2)
+                if formulas.roll_percent(effect.get("poise_chance_percent", 50), rng)
+                else 0
+            )
+            _hit(attacker, target, effect["damage_percent"],
+                 effect.get("damage_stat", "attack"), rng, log,
+                 defender_allies=target_allies,
+                 poise_damage=poise_damage_for(ability) + bonus)
+
+    elif kind == "aoe_damage_chance_dot_amplify":
+        # AOE sibling of damage_and_dot_amplify: hits every living enemy,
+        # and each hit target independently rolls for the DoT-amplify
+        # mark. The "sometimes more" version of team_dot_amplify.
         for target in [o for o in opponents if o.is_alive()]:
             target_allies = [o for o in opponents if o is not target and o.is_alive()]
             hit = _hit(attacker, target, effect["damage_percent"],
-                                effect.get("damage_stat", "attack"), rng, log, defender_allies=target_allies)
-            if hit and target.is_alive() and formulas.roll_percent(effect["drain_chance_percent"], rng):
-                energy_drained = min(target.energy, effect.get("energy_drain", 0))
-                mana_drained = min(target.mana, effect.get("mana_drain", 0))
-                target.energy -= energy_drained
-                target.mana -= mana_drained
-                if energy_drained or mana_drained:
-                    log.append(f"🔌 {target.name} loses {energy_drained} energy and {mana_drained} SP!")
+                       effect.get("damage_stat", "attack"), rng, log, defender_allies=target_allies)
+            if hit and target.is_alive() and formulas.roll_percent(effect.get("amplify_chance_percent", 50), rng):
+                _apply_dot_vulnerability(target, ability, effect, log)
 
     elif kind == "aoe_damage_chance_dot":
         # DoT sibling of aoe_damage_chance_debuff -- hits every living
@@ -743,7 +1317,7 @@ def _resolve_hit(attacker: Combatant, defender: Combatant, damage_percent: float
     # the enemy its telegraphed move, it opens a burst window worth having
     # saved an ultimate for.
     if defender.is_broken():
-        damage *= 1 + BREAK_DAMAGE_BONUS_PERCENT / 100
+        damage *= 1 + _break_damage_percent(attacker) / 100
 
     # Guard: set by the player's Guard action on their previous turn and
     # cleared when their next turn begins, so it only ever covers the gap
@@ -764,6 +1338,14 @@ def _resolve_hit(attacker: Combatant, defender: Combatant, damage_percent: float
     guard_tag = " (🛡️ guarded)" if defender.guarding else ""
     log.append(f"{attacker.name} hits {defender.name} for {dealt} damage{crit_tag}{guard_tag}.")
 
+    # Being hit builds a little energy -- see the PLAYER ENERGY ECONOMY
+    # block. Without this, an action-based rule alone would leave the
+    # characters who take the most punishment charging the slowest, which
+    # is precisely backwards for Sustain/tank kits. Applied to enemies
+    # too, for the same symmetry reason ENEMY_ENERGY_PER_ACTION exists.
+    if dealt > 0 and defender.is_alive():
+        defender.energy = min(defender.max_energy, defender.energy + ENERGY_ON_TAKING_HIT)
+
     # Guarding paid off -- a hit actually landed while it was up, so the
     # defender banks energy toward their ultimate. Reading a telegraph
     # correctly should accelerate you, not merely cost you less.
@@ -773,11 +1355,11 @@ def _resolve_hit(attacker: Combatant, defender: Combatant, damage_percent: float
         if defender.energy > before:
             log.append(f"🛡️ {defender.name} holds firm and builds {defender.energy - before} energy.")
 
-    if defender.damage_poise(poise_damage + attacker.bonus_poise_damage):
+    if defender.damage_poise(poise_damage + total_poise_damage_bonus(attacker)):
         defender.enter_break(BREAK_DURATION_TURNS)
         log.append(
             f"💫 **{defender.name}'s guard is BROKEN!** Its move is cancelled and it "
-            f"takes +{BREAK_DAMAGE_BONUS_PERCENT}% damage for {BREAK_DURATION_TURNS} turns."
+            f"takes +{_break_damage_percent(attacker)}% damage for {BREAK_DURATION_TURNS} turns."
         )
 
     for passive in attacker.find_passive("lifesteal"):
@@ -876,11 +1458,21 @@ def trigger_on_turn_start(combatant: Combatant, log: list, allies: list[Combatan
             # HP) so it can't be stacked into an unbreakable wall turn
             # after turn.
             cap = combatant.max_hp * effect.get("cap_percent", 50) / 100
-            requested = min(cap - combatant.shield, combatant.max_hp * effect["percent"] / 100)
-            requested = max(0.0, requested)
-            gained = combatant.gain_shield(requested)
+            headroom_percent = max(0.0, (cap - combatant.shield) / max(1, combatant.max_hp) * 100)
+            gained = grant_shield(combatant, combatant, min(headroom_percent, effect["percent"]))
             if gained:
                 log.append(f"🔷 {combatant.name}'s {passive['name']} reinforces their shield (+{round(gained)}).")
+
+        elif effect["kind"] == "taunt_regen":
+            # Passive auto-taunt (Provoking Aura). Refreshes rather than
+            # stacks -- max() not += -- so an active longer taunt from an
+            # ability is never shortened by the passive ticking under it.
+            combatant.taunt_turns = max(combatant.taunt_turns, effect.get("duration", 1))
+            gained = grant_shield(combatant, combatant, effect.get("shield_percent", 0))
+            log.append(
+                f"🎯 {combatant.name}'s {passive['name']} draws every attack"
+                + (f", shielding for {round(gained)}." if gained else ".")
+            )
 
         elif effect["kind"] == "aura_team_resource_regen":
             # Support aura -- restores energy/mana to combatant AND its

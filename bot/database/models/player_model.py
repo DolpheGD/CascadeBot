@@ -62,6 +62,15 @@ class Player(Base):
     void: Mapped[int] = mapped_column(Integer, default=0)
     entropy: Mapped[int] = mapped_column(Integer, default=0)
 
+    # Character gacha pity counters (bot/game/economy/character_gacha_config.py,
+    # bot/services/character_gacha_service.py). Each counts pulls SINCE the
+    # last result of that rarity, so both are "how deep into the current
+    # pity cycle am I" -- not lifetime totals. Persisted rather than held
+    # per-session so a guarantee can't be dodged or lost by pulling across
+    # a restart, and so single and 10x pulls share one continuous count.
+    pity_since_five_star: Mapped[int] = mapped_column(Integer, default=0)
+    pity_since_four_star: Mapped[int] = mapped_column(Integer, default=0)
+
     last_daily_claimed_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

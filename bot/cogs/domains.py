@@ -25,7 +25,7 @@ from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
 from bot.services import domain_service
 from bot.game.economy.domain_config import DOMAIN_TYPES, DOMAIN_DIFFICULTY_TIERS, get_domain_type
-from bot.utils import embedder
+from bot.utils import combat_ui, embedder
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils.ui_guard import OwnedView, require_player
 
@@ -55,10 +55,15 @@ class DomainMenuView(OwnedView):
 
 
 class TierButton(discord.ui.Button):
-    def __init__(self, domain_id: str, tier: dict, player):
-        unlocked = player.level >= tier["min_player_level"]
+    def __init__(self, domain_id: str, tier: dict, player, lock_reason: str | None = None):
+        """`lock_reason` comes from domain_service.tier_lock_reason and is
+        resolved by the CALLER (which still has a live DB session), not
+        here -- the unlock check needs to query expedition history and the
+        character roster, and a view constructor is the wrong place to be
+        opening a session."""
+        unlocked = lock_reason is None
         affordable = domain_service.get_current_energy(player) >= tier["energy_cost"]
-        label = f"{tier['name']} ({tier['energy_cost']}⚡)" if unlocked else f"🔒 {tier['name']} (Lv.{tier['min_player_level']})"
+        label = f"{tier['name']} ({tier['energy_cost']}⚡)" if unlocked else f"🔒 {tier['name']}"
         style = discord.ButtonStyle.success if (unlocked and affordable) else discord.ButtonStyle.secondary
         super().__init__(
             label=label[:80], style=style, disabled=not (unlocked and affordable),
@@ -80,10 +85,10 @@ class BackToDomainsButton(discord.ui.Button):
 
 
 class DomainTierView(OwnedView):
-    def __init__(self, domain_id: str, player, owner_id: int | None = None):
+    def __init__(self, domain_id: str, player, lock_reasons: dict[str, str | None], owner_id: int | None = None):
         super().__init__(timeout=180, owner_id=owner_id)
         for tier in DOMAIN_DIFFICULTY_TIERS:
-            self.add_item(TierButton(domain_id, tier, player))
+            self.add_item(TierButton(domain_id, tier, player, lock_reasons.get(tier["id"])))
         self.add_item(BackToDomainsButton())
 
 
@@ -111,6 +116,21 @@ class DomainTargetSelect(discord.ui.Select):
         await _handle_select_target(interaction, int(self.values[0]))
 
 
+class DomainAllySelect(discord.ui.Select):
+    """Support-target picker -- see AllySelect in bot/cogs/dungeon.py for
+    what this is and why it's a free action."""
+
+    def __init__(self, options: list[discord.SelectOption]):
+        super().__init__(
+            placeholder="💚 Support target...", options=options,
+            custom_id="cascade_domain_ally_select", min_values=1, max_values=1,
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        raw = self.values[0]
+        await _handle_select_ally(interaction, None if raw == "auto" else int(raw))
+
+
 class DomainCombatView(OwnedView):
     def __init__(
         self,
@@ -121,6 +141,7 @@ class DomainCombatView(OwnedView):
         ultimate_energy: int = 0,
         ultimate_cost: int = 100,
         owner_id: int | None = None,
+        ally_options: list[discord.SelectOption] | None = None,
     ):
         super().__init__(timeout=None, owner_id=owner_id)
         self.attack_button.disabled = False
@@ -137,6 +158,8 @@ class DomainCombatView(OwnedView):
             self.add_item(DomainAbilitySelect(ability_options))
         if target_options:
             self.add_item(DomainTargetSelect(target_options))
+        if ally_options:
+            self.add_item(DomainAllySelect(ally_options))
 
     @discord.ui.button(label="⚔️ Attack", style=discord.ButtonStyle.danger, custom_id="cascade_domain_attack")
     async def attack_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -187,15 +210,11 @@ def _build_domain_combat_view(battle, owner_id: int) -> DomainCombatView:
             label=label[:100], value=ability["id"], description=ability["description"][:100],
         ))
 
-    living = battle.living_enemies()
-    target_options = []
-    if len(living) > 1:
-        for i, enemy in enumerate(living):
-            marker = "🎯 " if i == battle.target_index else ""
-            target_options.append(discord.SelectOption(
-                label=f"{marker}{enemy.name} ({enemy.current_hp}/{enemy.max_hp} HP)"[:100],
-                value=str(i), default=(i == battle.target_index),
-            ))
+    # Shared helper -- see combat_ui.enemy_target_options (returns none
+    # while an enemy is taunting, which forces the target).
+    target_options = combat_ui.enemy_target_options(battle)
+
+    ally_options = combat_ui.ally_select_options(battle) if combat_ui.should_offer_ally_select(battle) else []
 
     return DomainCombatView(
         ability_options or None,
@@ -205,6 +224,7 @@ def _build_domain_combat_view(battle, owner_id: int) -> DomainCombatView:
         ultimate_energy=actor.energy,
         ultimate_cost=actor.ultimate_ability["resource_cost"] if actor.ultimate_ability else 100,
         owner_id=owner_id,
+        ally_options=ally_options or None,
     )
 
 
@@ -245,8 +265,15 @@ async def _handle_show_tiers(interaction: discord.Interaction, domain_id: str):
         if domain is None:
             await interaction.response.send_message("No such domain.", ephemeral=True)
             return
-        embed = embedder.domain_tier_embed(domain, player)
-        view = DomainTierView(domain_id, player, owner_id=player.id)
+        # Resolved once here and passed down to both the embed and the
+        # view, so the two can never disagree about what's locked and the
+        # unlock queries only run once per render.
+        lock_reasons = {
+            tier["id"]: domain_service.tier_lock_reason(db, player, tier)
+            for tier in DOMAIN_DIFFICULTY_TIERS
+        }
+        embed = embedder.domain_tier_embed(domain, player, lock_reasons)
+        view = DomainTierView(domain_id, player, lock_reasons, owner_id=player.id)
         await interaction.response.edit_message(embed=embed, view=view)
     finally:
         db.close()
@@ -285,7 +312,8 @@ async def _handle_combat_info(interaction: discord.Interaction):
     if battle is None:
         await interaction.response.send_message("You're not in a domain battle right now.", ephemeral=True)
         return
-    await interaction.response.send_message(embed=embedder.battle_info_embed(battle), ephemeral=True)
+    embed, view = combat_ui.info_response(battle)
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 
 async def _handle_combat_log(interaction: discord.Interaction):
@@ -336,6 +364,28 @@ async def _handle_select_target(interaction: discord.Interaction, target_index: 
         return
 
     battle.select_target(target_index)
+    avatar_url = interaction.user.display_avatar.url
+    await interaction.response.edit_message(
+        embed=embedder.combat_embed(battle, avatar_url=avatar_url),
+        view=_build_domain_combat_view(battle, player_id),
+    )
+
+
+async def _handle_select_ally(interaction: discord.Interaction, party_index: int | None):
+    """Free action, same as target selection -- see
+    dungeon.py::_handle_select_ally. No DB write here: a domain battle is
+    held in memory only (see domain_service's module docstring), so
+    mutating the live Battle is the whole persistence step."""
+    player_id = interaction.user.id
+    battle = domain_service.get_active_battle(player_id)
+    if battle is None:
+        await interaction.response.send_message("You're not in a domain battle right now.", ephemeral=True)
+        return
+    if battle.current_actor() not in battle.party:
+        await interaction.response.send_message("It's not your turn yet.", ephemeral=True)
+        return
+
+    battle.select_ally_target(party_index)
     avatar_url = interaction.user.display_avatar.url
     await interaction.response.edit_message(
         embed=embedder.combat_embed(battle, avatar_url=avatar_url),
