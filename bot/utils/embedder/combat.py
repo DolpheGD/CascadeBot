@@ -39,17 +39,27 @@ MAX_POISE_PIPS = 10
 # line wrapping to two turned ~9 rows into ~18 and pushed the actual
 # decision (what's incoming, whose turn it is) off-screen entirely.
 #
-# So every per-combatant line here is built to a HARD budget: one line,
-# under ~34 visible characters. That drives three specific choices below --
-# names are truncated (NAME_BUDGET), big HP values are abbreviated
-# (_short_num: "12.4k" not "12437"), and the HP bar is dropped from the
-# party rows entirely (the numbers already say it, and the bar was the
-# single widest element on the line).
+# So every per-combatant line here is built to a budget: one line, under
+# roughly 34 visible characters. That drives two choices below -- names
+# are truncated (NAME_BUDGET) and big HP values are abbreviated
+# (_short_num: "12.4k" not "12437").
 #
-# Everything removed from this view is still one tap away in the ℹ️ Info
-# and 📜 Log ephemeral embeds, which have no such budget.
+# The budget loosened once the avatar THUMBNAIL was replaced by a small
+# author icon. set_thumbnail renders a large image on the right that
+# every field's text wraps around, so it was costing horizontal width on
+# every single line of the most width-starved view in the game;
+# set_author costs one short line and nothing horizontally. The HP bar
+# (dropped in the first declutter pass) came back with that space.
+#
+# Anything still left out of this view is one tap away in the ℹ️ Info and
+# 📜 Log ephemeral embeds, which have no layout budget to respect.
 # ----------------------------------------------------------------------
-NAME_BUDGET = 14
+# Raised from 14/9 after the avatar thumbnail was removed. set_thumbnail
+# rendered a large image that every field wrapped around, costing roughly
+# a third of the usable width on mobile; set_author costs one short line
+# and nothing horizontally, so names can breathe again and fewer of them
+# get clipped to an ambiguous "Corrupted Eri…".
+NAME_BUDGET = 18
 TURN_ORDER_NAME_BUDGET = 9
 
 
@@ -80,17 +90,16 @@ def _short_num(value: float) -> str:
 # Combat
 # ----------------------------------------------------------------------
 
-def _turn_order_line(battle, count: int = 4) -> str:
+def _turn_order_line(battle, count: int = 5) -> str:
     """Compact turn order, rendered into the embed DESCRIPTION rather than
     its own field -- a field costs a bold header line of vertical space to
     show what is essentially one line of content.
 
-    Four entries rather than the old six, at a tighter name budget: six
-    full names ran past 60 visible characters and wrapped to two rows on
-    every phone, which is exactly the problem this pass exists to solve.
-    Four is also about as far ahead as the order is actually actionable --
-    beyond that it's a projection (see preview_turn_order) that a single
-    kill invalidates anyway."""
+    Five entries at a tight per-name budget. Six full-length names ran
+    past 70 visible characters and wrapped even on the full-width
+    description line; five clipped ones sit near 50. Five is also about
+    as far ahead as the order stays actionable -- beyond that it's a
+    projection (see preview_turn_order) that a single kill invalidates."""
     parts = []
     for c in battle.preview_turn_order(count):
         icon = "🧑" if c.is_player else "👹"
@@ -98,7 +107,7 @@ def _turn_order_line(battle, count: int = 4) -> str:
     return " ▸ ".join(parts) if parts else "--"
 
 
-def _recent_log_lines(battle, count: int = 3, char_limit: int = 600) -> str:
+def _recent_log_lines(battle, count: int = 5, char_limit: int = 900) -> str:
     """A short, in-battlefield tail of the log (see combat_embed) -- the
     last few lines only, further trimmed to fit comfortably inside one
     embed field. Deliberately much shorter than battle_log_embed's full
@@ -246,25 +255,18 @@ def _intent_lines(battle) -> str:
     if not schedule:
         return "*Nothing incoming right now.*"
 
-    now_lines, later_names = [], []
-    for enemy, intent, imminent, is_repeat in schedule:
+    now_lines, later_lines = [], []
+    for row in schedule:
+        enemy, intent = row["enemy"], row["intent"]
         name = _clip(enemy.name)
 
-        if not imminent:
-            # Later this cycle -- deliberately just a name. Anything more
-            # would either be a guess (see peek_enemy_intent_schedule) or
-            # would cost the vertical space this rewrite is reclaiming.
-            later_names.append(f"{name}{'⟳' if is_repeat else ''}")
-            continue
-
-        if is_repeat:
-            now_lines.append(f"**{name}** ⟳ acts again")
-            continue
         if enemy.is_broken():
-            now_lines.append(f"**{name}** 💫 broken, won't act")
+            state = f"**{name}** 💫 broken, won't act"
+            (now_lines if row["imminent"] else later_lines).append(state)
             continue
         if intent is None:
-            now_lines.append(f"**{name}** 😵 stunned, won't act")
+            state = f"**{name}** 😵 stunned, won't act"
+            (now_lines if row["imminent"] else later_lines).append(state)
             continue
 
         ability = intent["ability"]
@@ -290,18 +292,24 @@ def _intent_lines(battle) -> str:
         else:
             target_label = _clip(intent["target"].name)
 
+        # No certainty marker: every move here is pinned and binding, no
+        # matter how far ahead it was shown (see
+        # Battle.peek_enemy_intent_schedule). The only things that change
+        # one are breaking the enemy, which cancels it outright, or
+        # killing it -- both of which the player did on purpose and both
+        # of which are visible when they happen.
+        repeat = " ⟳" if row["slot"] > 0 else ""
+
         # Spell out the counterplay: how many more hits until this enemy
-        # breaks and loses the move it's telegraphing. Without this the
-        # player has to infer the poise economy from a number, and the
-        # whole point of the mechanic is that the answer is legible in
-        # advance. Kept terse ("break in 3") -- the long parenthetical
-        # this replaced was itself a frequent cause of wrapping.
-        counter = f" · break in {enemy.poise}" if enemy.can_be_broken() else ""
-        now_lines.append(f"**{name}** ▸ {target_label}\n┗ {move}{counter}")
+        # breaks and loses the move it's telegraphing.
+        counter = f" · break in {enemy.poise}" if enemy.can_be_broken() and row["imminent"] else ""
+        line = f"**{name}**{repeat} ▸ {target_label}\n┗ {move}{counter}"
+        (now_lines if row["imminent"] else later_lines).append(line)
 
     parts = now_lines or ["*Nothing incoming right now.*"]
-    if later_names:
-        parts.append(f"*Later this cycle: {', '.join(later_names)}*")
+    if later_lines:
+        parts.append("*— later this cycle —*")
+        parts.extend(later_lines)
     return "\n".join(parts)
 
 
@@ -309,11 +317,17 @@ def _party_line(battle, member) -> str:
     """One combatant, one line, inside the mobile budget (see the layout
     block at the top of this module).
 
-    Deliberately dropped versus the old two-line form: the 8-segment HP
-    bar (redundant with the numbers right next to it, and the widest
-    single element on the row) and the "/max" on mana and energy (a
-    player knows their own pools; the current value is the decision-
-    relevant half). Flags collapse to bare emoji with no spacing."""
+    The HP BAR is kept (at 6 segments rather than the original 8): the
+    declutter pass dropped it as redundant with the numbers beside it,
+    but a bar is read at a glance where a number has to be read and
+    compared, and "who is low" is the single most frequent question this
+    view answers. Six segments plus abbreviated numbers still fits the
+    one-line budget.
+
+    Still dropped versus the original two-line form: the "/max" on mana
+    and energy (a player knows their own pools; the current value is the
+    decision-relevant half). Flags collapse to bare emoji with no
+    spacing."""
     acting = "🔸" if not battle.is_over() and member is battle.current_actor() else ""
     name = _clip(member.name)
     if not member.is_alive():
@@ -336,10 +350,15 @@ def _party_line(battle, member) -> str:
     if member.shield > 0:
         flags += f"🔷{_short_num(member.shield)}"
 
+    # Energy shown as current/max: with ultimates now genuinely castable
+    # (see effects.py's PLAYER ENERGY ECONOMY block), "how close am I"
+    # is a real per-turn question, and a bare number can't answer it
+    # without the player remembering the cap.
     return (
         f"{acting}**{name}** {flags}\n"
         f"❤️{_short_num(member.current_hp)}/{_short_num(member.max_hp)}"
-        f" 💧{member.mana} 🔋{member.energy}"
+        f" {_bar(member.current_hp, member.max_hp, length=7)}"
+        f" 💧{member.mana} 🔋{member.energy}/{member.max_energy}"
     )
 
 
@@ -400,9 +419,16 @@ def combat_embed(battle, avatar_url: str | None = None) -> discord.Embed:
     elif battle.result == "lost":
         color = discord.Color.dark_gray()
 
+    # Author line rather than a thumbnail. set_thumbnail renders a large
+    # image on the right of the embed and, on mobile, every field's text
+    # wraps around it -- so the avatar was costing horizontal width on
+    # EVERY line of the battle screen, which is the most width-starved
+    # view in the game. set_author puts the same picture in as a small
+    # inline icon that costs one short line and squeezes nothing.
     embed = discord.Embed(title="⚔️ Battle", color=color)
     if avatar_url:
-        embed.set_thumbnail(url=avatar_url)
+        embed.set_author(name="Battle", icon_url=avatar_url)
+        embed.title = None  # the author line already carries the label
 
     if not battle.is_over():
         embed.description = f"🔄 Cycle {battle.cycle_number}\n{_turn_order_line(battle)}"

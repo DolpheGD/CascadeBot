@@ -409,6 +409,60 @@ ARTIFACT_SKILLS: list[dict] = [
         "effect": {"kind": "true_damage_percent_max_hp", "percent": 12},
     },
     {
+        # ------------------------------------------------------------------
+        # Abilities carrying effect kinds that had no ability using them.
+        # Each of these existed as engine plumbing with nothing wired to
+        # it -- in particular damage_and_self_taunt, which meant the
+        # ENEMY half of the taunt mechanic (an enemy forcing you to deal
+        # with it before you could reach the healer behind it) was
+        # unreachable content. See bot/game/combat/enemies.py for the
+        # templates that now use them.
+        # ------------------------------------------------------------------
+        "id": "guardian_challenge",
+        "name": "Guardian's Challenge",
+        "min_rarity": Rarity.RARE,
+        "resource_cost": 22,
+        "resource_type": "mana",
+        "cooldown": 3,
+        "description": "Deal 110% ATK damage and force every enemy to attack you for 2 turns.",
+        "effect": {"kind": "damage_and_self_taunt", "damage_percent": 110,
+                   "damage_stat": "attack", "duration": 2},
+    },
+    {
+        "id": "corrosive_mark",
+        "name": "Corrosive Mark",
+        "min_rarity": Rarity.RARE,
+        "resource_cost": 20,
+        "resource_type": "mana",
+        "cooldown": 2,
+        "description": "Deal 95% ELE damage and destabilise the target -- damage-over-time on it deals 20% more (stacks up to 3x).",
+        "effect": {"kind": "damage_and_dot_amplify", "damage_percent": 95,
+                   "damage_stat": "elemental", "percent_per_stack": 20, "max_stacks": 3},
+    },
+    {
+        "id": "blight_cloud",
+        "name": "Blight Cloud",
+        "min_rarity": Rarity.EPIC,
+        "resource_cost": 30,
+        "resource_type": "mana",
+        "cooldown": 3,
+        "description": "Deal 70% ELE damage to all enemies, with a 50% chance to destabilise each -- damage-over-time on them deals 18% more.",
+        "effect": {"kind": "aoe_damage_chance_dot_amplify", "damage_percent": 70,
+                   "damage_stat": "elemental", "amplify_chance_percent": 50,
+                   "percent_per_stack": 18, "max_stacks": 3},
+    },
+    {
+        "id": "rallying_bulwark",
+        "name": "Rallying Bulwark",
+        "min_rarity": Rarity.EPIC,
+        "resource_cost": 28,
+        "resource_type": "mana",
+        "cooldown": 4,
+        "description": "Shield your whole side for 25% of each member's max HP and raise their DEF by 25% for 3 turns.",
+        "effect": {"kind": "team_shield_and_buff", "shield_percent": 25,
+                   "buff_stat": "defense", "buff_percent": 25, "duration": 3},
+    },
+    {
         # Was "EMP Burst" (damage_and_resource_drain) -- energy/mana
         # drain was removed from the game entirely; see the block at the
         # top of bot/game/combat/effects.py for why. Same disruptive

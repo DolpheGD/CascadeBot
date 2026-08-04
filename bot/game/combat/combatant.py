@@ -59,7 +59,26 @@ class Combatant:
     dots: list = field(default_factory=list)        # list[DamageOverTime]
     heals: list = field(default_factory=list)       # list[HealOverTime]
     vulnerabilities: list = field(default_factory=list)  # list[Vulnerability]
-    pending_intent: dict | None = None  # {"ability": dict|None, "target": Combatant} -- see Battle._decide_enemy_intent
+    # QUEUE of this combatant's decided-but-not-yet-executed actions for
+    # the current cycle, in order -- each {"ability": dict|None,
+    # "target": Combatant}. See Battle.peek_enemy_intent_schedule.
+    #
+    # A queue rather than a single intent because the battle screen
+    # telegraphs the WHOLE rest of the cycle, and every move it shows has
+    # to be the move that actually happens. Deciding a later slot fresh
+    # at display time can't achieve that: the decision is random, so it
+    # would re-roll on every re-render and disagree with whatever the
+    # real turn eventually rolled (measured at ~45% agreement). Deciding
+    # once and popping from the front makes every telegraphed move
+    # binding, however far ahead it was shown.
+    pending_intents: list = field(default_factory=list)
+
+    @property
+    def pending_intent(self) -> dict | None:
+        """The next queued action, or None. Kept as a read-only alias so
+        the older single-intent call sites and saves keep reading
+        correctly."""
+        return self.pending_intents[0] if self.pending_intents else None
 
     stunned_turns: int = 0
 
@@ -287,7 +306,9 @@ class Combatant:
         self.break_turns = duration
         self.break_tick_armed = False
         self.break_count += 1
-        self.pending_intent = None
+        # Breaking cancels EVERY queued move, not just the next one --
+        # that cancellation is the whole point of the mechanic.
+        self.pending_intents = []
         self.guarding = False
 
     def recover_from_break(self) -> None:
@@ -343,7 +364,27 @@ class Combatant:
                 stacks = self.stacks.get(ability["id"], 0)
                 percent_total += effect["percent_per_stack"] * stacks
 
-        return round(max(0.0, base * (1 + percent_total / 100)), 2)
+        value = max(0.0, base * (1 + percent_total / 100))
+
+        # Stat conversion: gain a percentage of one stat as another (e.g.
+        # Refender turning DEF into ATK). Added AFTER percent modifiers so
+        # it converts the stat's real current value, which is the whole
+        # point -- buffing the source stat should feed the converted one.
+        #
+        # Reads the SOURCE stat's base plus its own modifiers rather than
+        # calling effective_stat recursively, which two mutually
+        # converting passives would turn into infinite recursion.
+        for ability in self.passive_abilities:
+            effect = ability["effect"]
+            if effect["kind"] != "stat_conversion" or effect["to_stat"] != stat:
+                continue
+            src = effect["from_stat"]
+            src_base = self.base_stats.get(src, 0)
+            src_percent = sum(m.percent for m in self.modifiers if m.stat == src)
+            src_value = max(0.0, src_base * (1 + src_percent / 100))
+            value += src_value * effect["percent"] / 100
+
+        return round(value, 2)
 
     def take_raw_hp_loss(self, amount: float) -> int:
         """Reduce HP by an already-computed damage amount. Returns actual loss."""

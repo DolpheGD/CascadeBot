@@ -483,7 +483,7 @@ class Battle:
             effects.resolve_guard(actor, self.log)
         elif action == "attack":
             defender_allies = [o for o in opponents if o is not target and o.is_alive()]
-            effects.resolve_basic_attack(actor, target, self.rng, self.log, defender_allies=defender_allies)
+            effects.resolve_basic_attack(actor, target, self.rng, self.log, defender_allies=defender_allies, attacker_allies=allies)
         elif action == "ability":
             ability = self._find_active_ability(actor, ability_id)
             if ability is None or not actor.ability_ready(ability):
@@ -611,49 +611,119 @@ class Battle:
         instead of re-rolling, so this is intentionally not side-effect
         free the way preview_turn_order is."""
         return [
-            (enemy, intent)
-            for enemy, intent, imminent, _repeat in self.peek_enemy_intent_schedule()
-            if imminent
+            (row["enemy"], row["intent"])
+            for row in self.peek_enemy_intent_schedule()
+            if row["imminent"] and row["slot"] == 0
         ]
 
-    def peek_enemy_intent_schedule(self, max_entries: int = 8) -> list[tuple[Combatant, dict | None, bool, bool]]:
-        """The full enemy plan for the rest of the CURRENT cycle, not just
-        the enemies queued before your next turn.
+    def _projected_intent(self, enemy: Combatant, sim: dict) -> dict:
+        """Decide what `enemy` does on a FUTURE slot, against simulated
+        resource state rather than its live state.
 
-        Returns (enemy, intent, imminent, is_repeat) tuples:
-          * `imminent` is True for the enemies that will act the moment
-            you submit this turn's action (everything before the next
-            party member in the queue) -- i.e. exactly what
-            peek_upcoming_enemy_intents used to return on its own.
-          * `is_repeat` marks an enemy's SECOND-or-later queued slot this
-            cycle (an actions_per_cycle >= 2 boss). Those deliberately
-            carry intent None.
+        `sim` carries the enemy's projected cooldowns and energy after the
+        moves already predicted for it earlier in this cycle. Without
+        this, predicting a multi-action enemy's second slot would just
+        re-run the same decision against its CURRENT state and confidently
+        show an ability it will actually have on cooldown by then -- which
+        is worse than showing nothing.
 
-        WHY the lookahead exists: intents previously only became visible
-        once the enemy was already next in line, so a telegraphed heavy
-        hit showed up with a single party turn left to answer it. Guard
-        and poise-breaking are both decisions you want to make a turn or
-        two out, and you can't plan against information you don't have
-        yet.
+        Mirrors _decide_enemy_intent's preference order exactly; the only
+        difference is where it reads readiness from."""
+        def ready(ability: dict) -> bool:
+            if sim["cooldowns"].get(ability["id"], 0) > 0:
+                return False
+            if ability["resource_type"] == "energy":
+                return sim["energy"] >= ability["resource_cost"]
+            return True  # enemies are never mana-constrained (see factory)
 
-        WHY repeats carry no intent (this is the accuracy fix): an intent
-        is LOCKED IN when it's shown and reused verbatim at execution, so
-        anything shown must still be valid when its turn arrives. A
-        multi-action enemy's second slot isn't predictable yet -- its
-        first action may put the chosen ability on cooldown or spend the
-        energy its ultimate needs, at which point take_enemy_turn would
-        have to silently fall back to a basic attack and the UI would have
-        lied. Locking exactly ONE intent per enemy at a time means every
-        move shown is a move that actually happens; the later slot is
-        shown as "acts again" instead of a guess."""
+        target = self._pick_party_target()
+        ult = enemy.ultimate_ability
+        if ult is not None and ready(ult) and self.rng.random() < ENEMY_ULTIMATE_USE_CHANCE:
+            return {"ability": ult, "target": target}
+        usable = [a for a in enemy.active_abilities if ready(a)]
+        if usable and self.rng.random() < 0.95:
+            return {"ability": self.rng.choice(usable), "target": target}
+        return {"ability": None, "target": target}
+
+    def _sim_for(self, enemy: Combatant, sims: dict) -> dict:
+        """Projected cooldown/energy state for `enemy`, built once per
+        peek: its LIVE state, advanced through every move already sitting
+        in its queue. So a slot decided now correctly accounts for what
+        its own earlier slots will have spent by the time it arrives --
+        without which a two-action boss would be shown using the same
+        cooldown-bound ability twice."""
+        sim = sims.get(id(enemy))
+        if sim is not None:
+            return sim
+        sim = {
+            "cooldowns": dict(enemy.cooldowns),
+            "energy": enemy.energy,
+            "max_energy": enemy.max_energy,
+        }
+        for queued in enemy.pending_intents:
+            self._advance_sim(sim, queued)
+        sims[id(enemy)] = sim
+        return sim
+
+    @staticmethod
+    def _advance_sim(sim: dict, intent: dict) -> None:
+        """Apply one predicted action to the simulated state: tick
+        cooldowns down a turn, charge the action's energy, then spend
+        whatever the chosen move costs."""
+        for key in list(sim["cooldowns"]):
+            if sim["cooldowns"][key] > 0:
+                sim["cooldowns"][key] -= 1
+        sim["energy"] = min(sim["max_energy"], sim["energy"] + ENEMY_ENERGY_PER_ACTION)
+        ability = intent.get("ability")
+        if ability is None:
+            return
+        if ability["resource_type"] == "energy":
+            sim["energy"] -= ability["resource_cost"]
+        sim["cooldowns"][ability["id"]] = ability.get("cooldown", 0)
+
+    def peek_enemy_intent_schedule(self, max_entries: int = 8) -> list[dict]:
+        """Every enemy action queued for the rest of the CURRENT cycle,
+        with the actual move for each one.
+
+        Returns a list of dicts:
+            {"enemy", "intent", "imminent", "locked", "slot"}
+          * `imminent` -- resolves the instant you submit this turn's
+            action (everything before the next party member in the queue).
+          * `locked`   -- this exact move is guaranteed; it's stored on
+            Combatant.pending_intent and reused verbatim at execution.
+          * `slot`     -- 0 for an enemy's next action, 1+ for its later
+            actions this cycle (an actions_per_cycle >= 2 boss).
+
+        LOOKAHEAD. Intents used to become visible only once the enemy was
+        already next in line, so a telegraphed heavy hit arrived with a
+        single party turn left to answer it. Guard, taunting and
+        poise-breaking are all decisions you want to make two or three
+        turns out, and you cannot plan against information you don't have
+        yet -- so the whole rest of the cycle is shown.
+
+        LOCKED vs PROJECTED. An enemy's NEXT action is decided once and
+        pinned (pending_intent), so it cannot change. Its later actions
+        this cycle are PROJECTED against simulated cooldown/energy state
+        (see _projected_intent) rather than pinned, because the player is
+        expected to interfere with them -- breaking the enemy cancels its
+        move outright, and killing it removes the slot entirely. Showing
+        them is still far more useful than hiding them: a projected
+        ultimate two slots away is exactly the thing worth building a
+        turn around, and if you change it, you changed it on purpose.
+
+        Should a projected move somehow become unavailable anyway, the
+        enemy falls back to a basic attack rather than doing nothing --
+        see take_enemy_turn."""
         candidates: list[Combatant] = []
         if self._current_actor is not None and self._current_actor in self.enemies and self._current_actor.is_alive():
             candidates.append(self._current_actor)
         candidates.extend(self.cycle_order)
 
-        result: list[tuple[Combatant, dict | None, bool, bool]] = []
-        seen: set[int] = set()
-        imminent = True  # everything up to the first party member resolves immediately
+        result: list[dict] = []
+        sims: dict[int, dict] = {}
+        slot_of: dict[int, int] = {}
+        imminent = True
+
         for c in candidates:
             if len(result) >= max_entries:
                 break
@@ -663,17 +733,30 @@ class Battle:
                 imminent = False
                 continue
 
-            if id(c) in seen:
-                result.append((c, None, imminent, True))
-                continue
-            seen.add(id(c))
+            slot = slot_of.get(id(c), 0)
+            slot_of[id(c)] = slot + 1
 
+            # A broken or stunned enemy loses this slot entirely.
             if c.stunned_turns > 0 or c.is_broken():
-                result.append((c, None, imminent, False))
+                result.append({"enemy": c, "intent": None, "imminent": imminent,
+                               "locked": False, "slot": slot})
                 continue
-            if c.pending_intent is None:
-                c.pending_intent = self._decide_enemy_intent(c)
-            result.append((c, c.pending_intent, imminent, False))
+
+            # Decide-once-and-pin, for EVERY slot rather than just the
+            # next one. The decision is random, so re-deciding a later
+            # slot on each render would both jitter between re-renders
+            # and disagree with the eventual real roll -- measured at
+            # ~45% agreement before this. Appending to the queue makes
+            # every telegraphed move binding no matter how far ahead it
+            # was shown, which is what lets the UI commit to it.
+            if slot >= len(c.pending_intents):
+                sim = self._sim_for(c, sims)
+                c.pending_intents.append(self._projected_intent(c, sim))
+                self._advance_sim(sim, c.pending_intents[-1])
+
+            intent = c.pending_intents[slot]
+            result.append({"enemy": c, "intent": intent, "imminent": imminent,
+                           "locked": True, "slot": slot})
         return result
 
     def take_enemy_turn(self) -> None:
@@ -684,8 +767,13 @@ class Battle:
         if enemy not in self.enemies or not enemy.is_alive():
             return
 
-        intent = enemy.pending_intent or self._decide_enemy_intent(enemy)
-        enemy.pending_intent = None
+        # Pop the front of the queue -- the move the UI already showed.
+        # Falls back to deciding fresh only when nothing was queued (an
+        # enemy acting before anything rendered).
+        if enemy.pending_intents:
+            intent = enemy.pending_intents.pop(0)
+        else:
+            intent = self._decide_enemy_intent(enemy)
 
         target = intent["target"]
         if not target.is_alive():
@@ -702,20 +790,21 @@ class Battle:
             effects.resolve_active_ability(enemy, target, ability, self.rng, self.log, allies=allies, opponents=opponents)
         else:
             # Basic attack -- either that was the decided intent, or the
-            # decided ability/ultimate is no longer usable. The latter
-            # should now be unreachable: peek_enemy_intent_schedule locks
-            # exactly one intent per enemy at a time and take_enemy_turn
-            # clears it on use, so nothing can invalidate a shown move
-            # between telegraph and execution. Kept as a guard, but it is
-            # LOGGED when it fires -- a silent fallback here is precisely
-            # what made the telegraph untrustworthy before, and a
-            # mismatch should be visible rather than quietly papered over.
+            # decided ability is no longer usable by the time its turn
+            # arrived (a resource or cooldown moved under it).
+            #
+            # Falling back to a plain attack is the DELIBERATE behaviour
+            # here rather than an error path: an enemy that can't afford
+            # its planned move should still act, not forfeit its turn.
+            # Logged in-fiction rather than as a warning, because from
+            # the player's side this is just a thing that happened --
+            # often something they caused.
             if ability is not None:
                 self.log.append(
-                    f"⚠️ {enemy.name} couldn't follow through with {ability['name']} and attacks instead."
+                    f"{enemy.name} can't muster {ability['name']} and lashes out instead."
                 )
             defender_allies = [o for o in opponents if o is not target and o.is_alive()]
-            effects.resolve_basic_attack(enemy, target, self.rng, self.log, defender_allies=defender_allies)
+            effects.resolve_basic_attack(enemy, target, self.rng, self.log, defender_allies=defender_allies, attacker_allies=allies)
 
         # Enemies charge toward their ultimate on EVERY action, not just
         # basic attacks -- see ENEMY_ENERGY_PER_ACTION. Granted after the

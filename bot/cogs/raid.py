@@ -270,6 +270,34 @@ def _advance_raid_battle(battle) -> bool:
 # Handlers
 # ----------------------------------------------------------------------
 
+async def _resume_raid_attack(interaction: discord.Interaction, db, player, battle) -> None:
+    """Re-render an attack that's already in progress.
+
+    A raid attack is shown in an EPHEMERAL message, and dismissing an
+    ephemeral message is a completely ordinary thing to do -- but the
+    battle lives on in raid_service._ACTIVE_BATTLES, so before this
+    existed the player was simply locked out: `/raid` -> Attack raised
+    "you're already in the middle of a raid attack", with no surface
+    anywhere to finish it, retreat from it, or clear it. The attack had
+    already been debited too, so it cost them a charge as well.
+
+    Domains already handled exactly this case (see `/domains`); raids
+    just never got the equivalent."""
+    over = _advance_raid_battle(battle)
+    embed = embedder.combat_embed(battle, avatar_url=interaction.user.display_avatar.url)
+    if over:
+        result = raid_service.resolve_attack(db, player)
+        await interaction.response.send_message(
+            content="Your raid attack had already finished.", embed=embed, ephemeral=True
+        )
+        await interaction.followup.send(embed=embedder.raid_attack_result_embed(result))
+        return
+    await interaction.response.send_message(
+        content="Picking up your raid attack where you left off.",
+        embed=embed, view=_build_raid_combat_view(battle, player.id), ephemeral=True,
+    )
+
+
 async def _handle_raid_attack(interaction: discord.Interaction):
     if await _reject_dm(interaction):
         return
@@ -278,6 +306,13 @@ async def _handle_raid_attack(interaction: discord.Interaction):
         player = get_player(db, interaction.user.id)
         if player is None:
             await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            return
+
+        # Already mid-attack (usually: they dismissed the ephemeral combat
+        # message). Resume rather than refusing -- refusing was a dead end.
+        existing = raid_service.get_active_battle(player.id)
+        if existing is not None:
+            await _resume_raid_attack(interaction, db, player, existing)
             return
 
         expedition = dungeon_service.get_active_expedition(db, player.id)
@@ -497,6 +532,15 @@ class Raids(commands.Cog):
         try:
             player = get_player(db, ctx.user.id)
             if not await require_player(ctx, player):
+                return
+
+            # An attack still open in memory takes priority over the raid
+            # board -- otherwise `/raid` shows a board whose Attack button
+            # can only refuse, which is the dead end this resume path
+            # exists to close. See _resume_raid_attack.
+            existing = raid_service.get_active_battle(player.id)
+            if existing is not None:
+                await _resume_raid_attack(ctx, db, player, existing)
                 return
 
             raid = raid_service.get_active_raid(db, ctx.guild_id)

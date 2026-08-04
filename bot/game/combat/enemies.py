@@ -1569,6 +1569,232 @@ ENEMY_TEMPLATES: list[dict] = [
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "static_discharge")],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "voidstorm"),
     },
+
+    # ==================================================================
+    # ROSTER EXPANSION -- "enemies that use the player's mechanics".
+    #
+    # Two problems this fixes at once.
+    #
+    # 1. COVERAGE. The roster was heavily front-loaded: Glacier 15 (the
+    #    starting region) had 17 normal enemies while Abyssnia (the
+    #    endgame) had 8, so the region a player spends the most time in
+    #    repeated itself the most. The additions below are weighted to
+    #    the late regions.
+    #
+    # 2. DEAD MECHANICS. Several effect kinds existed in the engine with
+    #    nothing using them -- most importantly damage_and_self_taunt,
+    #    which meant the ENEMY half of the taunt system was unreachable.
+    #    Taunt was only ever something the player did TO enemies; an
+    #    enemy that forces you to chew through it before you can reach
+    #    the healer behind it never existed. The bodyguard/warden
+    #    templates below are that fight, and they're deliberately paired
+    #    with support enemies worth protecting -- a taunter guarding
+    #    nothing is just a durable enemy.
+    #
+    # Stat blocks are set against the per-region medians for their role
+    # (combat ~50-62 HP, elite ~180-235, boss ~450) rather than invented,
+    # so these slot into existing encounter difficulty rather than
+    # spiking it.
+    # ==================================================================
+
+    # --- Taunting bodyguards. The counterpart to the player's tank. ---
+    {
+        "name": "Bulwark Sentinel",
+        "role": "combat",
+        "regions": ["Glacier 15", "The Wastelands"],
+        "base_stats": {"attack": 7, "defense": 11, "elemental": 2, "speed": 6,
+                       "max_hp": 78, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 12},
+        "level_scale_percent": 8,
+        # Introduced early and cheaply on purpose: this is where a player
+        # first meets forced targeting, on an enemy slow and weak enough
+        # that learning the rule costs them very little.
+        "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "guardian_challenge")],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "iron_skin")],
+    },
+    {
+        "name": "Ashplate Warden",
+        "role": "elite",
+        "regions": ["The Hotlands", "Voidcrest Desert"],
+        "base_stats": {"attack": 15, "defense": 16, "elemental": 6, "speed": 9,
+                       "max_hp": 240, "max_mana": 999, "crit_rate": 8, "crit_damage": 160, "recharge": 15},
+        "level_scale_percent": 8,
+        "max_poise": 14,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "guardian_challenge"),
+            get_ability_by_id(ARTIFACT_SKILLS, "rallying_bulwark"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "adaptive_plating")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "aegis_protocol"),
+    },
+    {
+        "name": "Abyssal Custodian",
+        "role": "elite",
+        "regions": ["Abyssnia"],
+        "base_stats": {"attack": 19, "defense": 18, "elemental": 9, "speed": 14,
+                       "max_hp": 265, "max_mana": 999, "crit_rate": 9, "crit_damage": 165, "recharge": 16},
+        "level_scale_percent": 8,
+        "max_poise": 16,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "guardian_challenge"),
+            get_ability_by_id(ARTIFACT_SKILLS, "rallying_bulwark"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "provoking_aura")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "last_stand"),
+    },
+
+    # --- Support enemies: the reason a bodyguard is worth killing. ---
+    {
+        "name": "Wastes Fieldmedic",
+        "role": "combat",
+        "regions": ["The Wastelands", "The Hotlands"],
+        "base_stats": {"attack": 6, "defense": 5, "elemental": 8, "speed": 10,
+                       "max_hp": 46, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 14},
+        "level_scale_percent": 8,
+        # Low HP and high value -- exactly the target a player wants to
+        # burst, which is what makes a taunter standing in front of it a
+        # real problem rather than a stat check.
+        "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "healing_light")],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "regen_field_generator")],
+    },
+    {
+        "name": "Choir of Ledgers",
+        "role": "combat",
+        "regions": ["Abyssnia"],
+        "base_stats": {"attack": 11, "defense": 9, "elemental": 14, "speed": 12,
+                       "max_hp": 70, "max_mana": 999, "crit_rate": 7, "crit_damage": 160, "recharge": 16},
+        "level_scale_percent": 8,
+        "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "rallying_bulwark")],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "support_matrix")],
+    },
+
+    # --- Corrosion line: enemy-side DoT amplification. ---
+    {
+        "name": "Rustlung Crawler",
+        "role": "combat",
+        "regions": ["The Wastelands", "Voidcrest Desert"],
+        "base_stats": {"attack": 9, "defense": 4, "elemental": 11, "speed": 12,
+                       "max_hp": 52, "max_mana": 999, "crit_rate": 6, "crit_damage": 155, "recharge": 14},
+        "level_scale_percent": 8,
+        "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "corrosive_mark")],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "accelerant_coating")],
+    },
+    {
+        "name": "Blightspire Adept",
+        "role": "elite",
+        "regions": ["Voidcrest Desert", "Abyssnia"],
+        "base_stats": {"attack": 14, "defense": 9, "elemental": 21, "speed": 18,
+                       "max_hp": 215, "max_mana": 999, "crit_rate": 10, "crit_damage": 170, "recharge": 18},
+        "level_scale_percent": 8,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "blight_cloud"),
+            get_ability_by_id(ARTIFACT_SKILLS, "corrosive_mark"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "accelerant_coating")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "cataclysm"),
+    },
+
+    # --- Break-focused enemies: pressure the player's own poise plan. ---
+    {
+        "name": "Concussion Drone",
+        "role": "combat",
+        "regions": ["Glacier 15", "The Hotlands"],
+        "base_stats": {"attack": 10, "defense": 5, "elemental": 4, "speed": 13,
+                       "max_hp": 44, "max_mana": 999, "crit_rate": 6, "crit_damage": 150, "recharge": 15},
+        "level_scale_percent": 8,
+        "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "emp_burst")],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "static_discharge")],
+    },
+    {
+        "name": "Shatterjaw Reaver",
+        "role": "elite",
+        "regions": ["The Hotlands", "Voidcrest Desert"],
+        "base_stats": {"attack": 20, "defense": 8, "elemental": 6, "speed": 16,
+                       "max_hp": 200, "max_mana": 999, "crit_rate": 13, "crit_damage": 175, "recharge": 16},
+        "level_scale_percent": 8,
+        "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "jamming_array")],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "executioner")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "storm_of_blades"),
+    },
+
+    # --- Late-region filler, plain but distinct, to thin out repeats. ---
+    {
+        "name": "Duneglass Stalker",
+        "role": "combat",
+        "regions": ["Voidcrest Desert"],
+        "base_stats": {"attack": 12, "defense": 4, "elemental": 6, "speed": 17,
+                       "max_hp": 48, "max_mana": 999, "crit_rate": 12, "crit_damage": 170, "recharge": 14},
+        "level_scale_percent": 8,
+        "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "flurry_slash")],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "momentum")],
+    },
+    {
+        "name": "Hollow Auditor",
+        "role": "combat",
+        "regions": ["Abyssnia"],
+        "base_stats": {"attack": 15, "defense": 9, "elemental": 8, "speed": 11,
+                       "max_hp": 68, "max_mana": 999, "crit_rate": 8, "crit_damage": 160, "recharge": 15},
+        "level_scale_percent": 8,
+        "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "power_strike")],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "retaliation_plating")],
+    },
+    {
+        "name": "Nullwrit Enforcer",
+        "role": "combat",
+        "regions": ["Abyssnia"],
+        "base_stats": {"attack": 16, "defense": 11, "elemental": 6, "speed": 8,
+                       "max_hp": 82, "max_mana": 999, "crit_rate": 7, "crit_damage": 160, "recharge": 13},
+        "level_scale_percent": 8,
+        "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "guardian_challenge")],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "iron_skin")],
+    },
+    {
+        "name": "Cinderveil Acolyte",
+        "role": "combat",
+        "regions": ["The Hotlands", "Abyssnia"],
+        "base_stats": {"attack": 10, "defense": 6, "elemental": 15, "speed": 12,
+                       "max_hp": 58, "max_mana": 999, "crit_rate": 8, "crit_damage": 160, "recharge": 16},
+        "level_scale_percent": 8,
+        "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "arcane_burst")],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "focused_lens")],
+    },
+
+    # --- A boss built entirely around the new mechanics. ---
+    {
+        # Fights as a protected backline: the Lector itself is a fragile,
+        # high-output caster that permanently taunts through its own
+        # escorts. The intended solution is the mechanic the player has
+        # by now -- break the wardens to drop the taunt, or bring AOE,
+        # which taunt explicitly does not redirect.
+        "name": "The Lector of Ledgers",
+        "role": "boss",
+        "region_roles": {"Voidcrest Desert": "regular", "Abyssnia": "regular"},
+        "base_stats": {"attack": 26, "defense": 12, "elemental": 30, "speed": 15,
+                       "max_hp": 430, "max_mana": 999, "crit_rate": 12, "crit_damage": 175, "recharge": 20},
+        "level_scale_percent": 8,
+        "actions_per_cycle": 2,
+        "max_poise": 18,
+        "escorts": ["Ledger Warden", "Ledger Warden"],
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "blight_cloud"),
+            get_ability_by_id(ARTIFACT_SKILLS, "corrosive_mark"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "arcane_battery")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "cataclysm"),
+    },
+    {
+        "name": "Ledger Warden",
+        "role": "boss_group_member",
+        "regions": [],
+        "base_stats": {"attack": 13, "defense": 17, "elemental": 5, "speed": 10,
+                       "max_hp": 190, "max_mana": 999, "crit_rate": 6, "crit_damage": 155, "recharge": 14},
+        "level_scale_percent": 8,
+        "max_poise": 12,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "guardian_challenge"),
+            get_ability_by_id(ARTIFACT_SKILLS, "rallying_bulwark"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "iron_skin")],
+    },
 ]
 
 # Named multi-enemy boss encounters. Each entry is a list of template names

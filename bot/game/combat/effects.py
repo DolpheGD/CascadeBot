@@ -257,6 +257,227 @@ def total_poise_damage_bonus(attacker: Combatant) -> int:
 DOT_VULNERABILITY_STAT = "dot"
 
 
+# ----------------------------------------------------------------------
+# KIT REACTIONS -- passives that fire off what a character DOES.
+#
+# Character passives used to be drawn from a small pool of generic gear
+# passives: 10 of 24 characters shared an effect kind with someone else
+# (three separate crit_damage_bonus carriers, three stacking_buff, two
+# damage_reduction, two shield_regen), and even the unique ones were
+# borrowed wholesale -- lifesteal, damage_reflect, prevent_death -- so a
+# passive told you nothing about the character it was attached to and
+# never interacted with their own skill or ultimate.
+#
+# A kit reaction instead triggers on the ACTION the character's kit is
+# built around. A healer's passive fires when she heals; a shielder's
+# when he shields; a break specialist's when she breaks something. That
+# makes the passive a reason to build INTO the kit rather than a flat
+# stat rider, and it's why every one of them can now be unique.
+#
+# One dispatcher rather than a branch per character: the passive names
+# an `event` and a flat `reward`, so adding a new reaction is data, not
+# code. Rewards are deliberately a small closed set -- every one of them
+# helps the TEAM as well as the caster, which is the other half of the
+# design brief.
+# ----------------------------------------------------------------------
+KIT_EVENTS = frozenset({
+    "heal", "shield", "buff", "debuff", "dot", "break", "cleanse", "ultimate", "sacrifice",
+    # Fires when the actor damages an enemy that is ALREADY debuffed.
+    # Raised from _resolve_hit rather than from the ability dispatcher,
+    # because it's a property of the TARGET at the moment of the hit, not
+    # of the ability being used. Exists for kits built to EXPLOIT debuffs
+    # rather than apply them -- Arkiver's whole identity is
+    # damage_bonus_if_debuffed, so keying his passive to "debuff" (as it
+    # first was) meant it could never fire: he consumes debuffs, he
+    # doesn't create them.
+    "hit_debuffed",
+    # Fires when the actor lands a killing blow. Distinct from the older
+    # on_kill_restore passive KIND, which is self-only; this is the
+    # team-facing version.
+    "kill",
+})
+
+# Which events an ability raises, keyed off its effect kind. Derived from
+# the kind rather than hand-tagged on each ability so a new ability can't
+# ship silently failing to trigger the passives it should -- the author
+# only has to get the effect kind right, which they already must.
+_EVENT_KINDS: dict[str, set[str]] = {
+    "heal": {
+        "heal_lowest_ally_percent_max_hp", "team_heal_percent_max_hp", "heal_percent_max_hp",
+        "cleanse_ally_and_heal", "cleanse_self_and_heal", "damage_and_heal_self",
+        "heal_and_self_buff", "team_heal_and_buff", "team_regen_over_time",
+        "sacrifice_hp_heal_lowest_ally_percent_max_hp", "sacrifice_hp_heal_team_percent_max_hp",
+        "damage_execute_heal",
+    },
+    "shield": {
+        "self_shield_percent_max_hp", "team_shield_percent_max_hp", "shield_ally_percent_max_hp",
+        "team_shield_and_buff", "team_shield_and_cleanse", "taunt_and_shield",
+        "taunt_and_team_shield",
+    },
+    "buff": {
+        "team_buff", "team_double_buff", "team_buff_and_resource", "ally_buff",
+        "self_buff_debuff", "heal_and_self_buff", "sacrifice_hp_team_buff",
+        "team_shield_and_buff", "team_heal_and_buff",
+    },
+    "debuff": {
+        "damage_and_debuff", "damage_and_double_debuff", "team_debuff",
+        "aoe_damage_chance_debuff", "apply_vulnerability_stack",
+    },
+    "dot": {"damage_and_dot", "aoe_damage_chance_dot"},
+    "cleanse": {"cleanse_ally_and_heal", "cleanse_self_and_heal", "team_shield_and_cleanse"},
+    "sacrifice": {
+        "sacrifice_hp_heal_lowest_ally_percent_max_hp",
+        "sacrifice_hp_heal_team_percent_max_hp", "sacrifice_hp_team_buff",
+    },
+}
+
+
+def kit_events_for(ability: dict) -> list[str]:
+    """Every kit event this ability raises. An ability can raise several
+    -- Evz's cleanse-and-heal is both a "cleanse" and a "heal", and a
+    Sustain ultimate is additionally an "ultimate"."""
+    kind = ability.get("effect", {}).get("kind")
+    events = [event for event, kinds in _EVENT_KINDS.items() if kind in kinds]
+    if ability.get("is_ultimate"):
+        events.append("ultimate")
+    return events
+
+
+def buff_multiplier(caster: Combatant) -> float:
+    """How much stronger this combatant's outgoing BUFFS are, from any
+    `buff_amplifier` passive. The Amplifier class's answer to Bee Jee's
+    shield_amplifier: it makes a support character better at the thing
+    their kit already does, rather than handing them a flat stat, and it
+    scales with the buffs they were going to cast anyway."""
+    mult = 1.0
+    for passive in caster.find_passive("buff_amplifier"):
+        mult *= 1 + passive["effect"]["percent"] / 100
+    return mult
+
+
+def _buffed(caster: Combatant, percent: float) -> float:
+    """A buff percentage after the caster's buff_amplifier. Rounded so
+    the number the player reads in the Info panel isn't 27.000000000004."""
+    return round(percent * buff_multiplier(caster), 1)
+
+
+def trigger_kit_event(
+    actor: Combatant,
+    event: str,
+    log: list,
+    allies: list[Combatant] | None = None,
+    target: Combatant | None = None,
+) -> None:
+    """Fire any `kit_reaction` passive on `actor` listening for `event`.
+
+    `target` is whoever the triggering action affected (the healed ally,
+    the broken enemy...), used by target-scoped rewards. `allies` is the
+    caster's living side, used by team-scoped ones.
+
+    Silent when nothing listens, which is the overwhelmingly common case
+    -- this is called from several points in the ability dispatcher and
+    must stay cheap."""
+    allies = [a for a in (allies or []) if a.is_alive()]
+    for passive in actor.find_passive("kit_reaction"):
+        effect = passive["effect"]
+        if effect.get("event") != event:
+            continue
+        _apply_kit_reward(actor, passive, effect, log, allies, target)
+
+
+def _apply_kit_reward(actor, passive, effect, log, allies, target) -> None:
+    """The reward half of a kit reaction. Flat shapes only -- nesting a
+    full effect dict here would mean re-entering the whole ability
+    dispatcher from inside a passive, which is a recursion hazard for no
+    expressive gain."""
+    reward = effect.get("reward")
+    team = [actor] + allies
+    name = passive["name"]
+
+    if reward == "team_buff":
+        for member in team:
+            member.modifiers.append(StatModifier(
+                stat=effect["buff_stat"], percent=effect["buff_percent"],
+                duration=effect.get("duration", 2), source=name,
+            ))
+        log.append(f"🧬 {name}: the squad gains +{effect['buff_percent']:g}% {effect['buff_stat']}.")
+
+    elif reward == "self_buff":
+        actor.modifiers.append(StatModifier(
+            stat=effect["buff_stat"], percent=effect["buff_percent"],
+            duration=effect.get("duration", 2), source=name,
+        ))
+        log.append(f"🧬 {name}: {actor.name} gains +{effect['buff_percent']:g}% {effect['buff_stat']}.")
+
+    elif reward == "target_buff" and target is not None and target.is_alive():
+        target.modifiers.append(StatModifier(
+            stat=effect["buff_stat"], percent=effect["buff_percent"],
+            duration=effect.get("duration", 2), source=name,
+        ))
+        log.append(f"🧬 {name}: {target.name} gains +{effect['buff_percent']:g}% {effect['buff_stat']}.")
+
+    elif reward == "target_shield" and target is not None and target.is_alive():
+        gained = grant_shield(actor, target, effect["percent"])
+        if gained:
+            log.append(f"🧬 {name}: {target.name} gains a {round(gained)} HP shield.")
+
+    elif reward == "team_shield":
+        for member in team:
+            grant_shield(actor, member, effect["percent"])
+        log.append(f"🧬 {name}: the squad is shielded.")
+
+    elif reward == "team_energy":
+        for member in team:
+            member.energy = min(member.max_energy, member.energy + effect["amount"])
+        log.append(f"🧬 {name}: the squad gains {effect['amount']} energy.")
+
+    elif reward == "team_heal":
+        for member in team:
+            member.heal(member.max_hp * effect["percent"] / 100)
+        log.append(f"🧬 {name}: the squad recovers {effect['percent']:g}% HP.")
+
+    elif reward == "self_heal":
+        healed = actor.heal(actor.max_hp * effect["percent"] / 100)
+        if healed:
+            log.append(f"🧬 {name}: {actor.name} recovers {healed} HP.")
+
+    elif reward == "team_cleanse":
+        # Strips the squad's debuffs and DoTs. Distinct from a healer's
+        # single-target cleanse by being team-wide and free -- it rides
+        # on an action the character was taking anyway.
+        removed = 0
+        for member in team:
+            removed += len([m for m in member.modifiers if m.percent < 0]) + len(member.dots)
+            member.modifiers = [m for m in member.modifiers if m.percent >= 0]
+            member.dots = []
+        if removed:
+            log.append(f"🧬 {name}: the squad shakes off {removed} negative effect(s).")
+
+    elif reward == "mark_vulnerable" and target is not None and target.is_alive():
+        # Reuses status.Vulnerability rather than inventing a second
+        # "takes more damage" mechanism -- it already stacks per source,
+        # caps, serializes and shows up in the Info panel. This is the
+        # team-facing shape: the debuffer marks, and EVERY squad member's
+        # hits of that damage type cash it in.
+        stat = effect.get("damage_stat", "attack")
+        existing = next(
+            (v for v in target.vulnerabilities
+             if v.damage_stat == stat and v.source == name), None
+        )
+        if existing is not None:
+            existing.stacks = min(existing.max_stacks, existing.stacks + 1)
+        else:
+            target.vulnerabilities.append(Vulnerability(
+                damage_stat=stat, percent_per_stack=effect["percent_per_stack"],
+                stacks=1, max_stacks=effect.get("max_stacks", 3), source=name,
+            ))
+        log.append(
+            f"🧬 {name}: {target.name} takes +"
+            f"{target.total_vulnerability_percent(stat):g}% {stat} damage."
+        )
+
+
+
 def grant_shield(caster: Combatant, target: Combatant, percent_max_hp: float) -> float:
     """Shields `target` for `percent_max_hp`% of the TARGET's max HP,
     scaled up by any `shield_amplifier` passives the CASTER carries.
@@ -379,13 +600,15 @@ def poise_damage_for(ability: dict | None) -> int:
 def resolve_basic_attack(
     attacker: Combatant, defender: Combatant, rng: random.Random, log: list,
     defender_allies: list[Combatant] | None = None,
+    attacker_allies: list[Combatant] | None = None,
 ) -> None:
     """`defender_allies` is every OTHER living combatant on defender's own
     side -- only used by defender-reactive team-oriented passives (e.g.
     on_hit_team_buff, see _resolve_hit). Safe to omit; those passives
     simply won't have anyone else to buff if it's left out."""
     defender_allies = defender_allies or []
-    _resolve_hit(attacker, defender, damage_percent=100, damage_stat="attack", rng=rng, log=log, defender_allies=defender_allies)
+    _resolve_hit(attacker, defender, damage_percent=100, damage_stat="attack", rng=rng, log=log,
+                 defender_allies=defender_allies, attacker_allies=attacker_allies or [])
     energy_gained, mana_gained = attacker.gain_energy_and_mana()
     if energy_gained or mana_gained:
         log.append(f"{attacker.name} gains {energy_gained} energy and {mana_gained} SP.")
@@ -603,6 +826,10 @@ def resolve_active_ability(
 
     def _hit(*args, **kwargs):
         kwargs.setdefault("poise_damage", _ability_poise)
+        # Also injects the caster's own side, which _resolve_hit needs
+        # for team-scoped kit reactions (a break passive that rewards the
+        # squad). Done here rather than on ~20 individual _hit calls.
+        kwargs.setdefault("attacker_allies", allies)
         return _resolve_hit(*args, **kwargs)
 
     if kind == "damage_multiplier":
@@ -695,7 +922,7 @@ def resolve_active_ability(
                 break
             _hit(attacker, defender, effect["damage_percent_per_hit"],
                          effect.get("damage_stat", "attack"), rng, log, suppress_kill_log=True, defender_allies=defender_allies)
-        _trigger_on_kill_if_dead(attacker, defender, log)
+        _trigger_on_kill_if_dead(attacker, defender, log, allies)
 
     elif kind == "damage_and_heal_self":
         hit = _hit(attacker, defender, effect["damage_percent"],
@@ -983,7 +1210,7 @@ def resolve_active_ability(
         # garnish.
         for member in [attacker] + [a for a in allies if a.is_alive()]:
             member.modifiers.append(StatModifier(
-                stat=effect["buff_stat"], percent=effect["buff_percent"],
+                stat=effect["buff_stat"], percent=_buffed(attacker, effect["buff_percent"]),
                 duration=effect["duration"], source=ability["name"],
             ))
             energy_gained = min(member.max_energy - member.energy, effect.get("energy_amount", 0))
@@ -1006,7 +1233,7 @@ def resolve_active_ability(
         for member in [attacker] + [a for a in allies if a.is_alive()]:
             for stat_key, pct_key in (("buff_stat_1", "buff_percent_1"), ("buff_stat_2", "buff_percent_2")):
                 member.modifiers.append(StatModifier(
-                    stat=effect[stat_key], percent=effect[pct_key],
+                    stat=effect[stat_key], percent=_buffed(attacker, effect[pct_key]),
                     duration=effect["duration"], source=ability["name"],
                 ))
         log.append(
@@ -1023,7 +1250,7 @@ def resolve_active_ability(
         for member in [attacker] + [a for a in allies if a.is_alive()]:
             gained = grant_shield(attacker, member, effect["shield_percent"])
             member.modifiers.append(StatModifier(
-                stat=effect["buff_stat"], percent=effect["buff_percent"],
+                stat=effect["buff_stat"], percent=_buffed(attacker, effect["buff_percent"]),
                 duration=effect["duration"], source=ability["name"],
             ))
             if gained:
@@ -1041,7 +1268,7 @@ def resolve_active_ability(
         for member in [attacker] + [a for a in allies if a.is_alive()]:
             healed = member.heal(member.max_hp * effect["heal_percent"] / 100)
             member.modifiers.append(StatModifier(
-                stat=effect["buff_stat"], percent=effect["buff_percent"],
+                stat=effect["buff_stat"], percent=_buffed(attacker, effect["buff_percent"]),
                 duration=effect["duration"], source=ability["name"],
             ))
             if healed:
@@ -1185,7 +1412,7 @@ def resolve_active_ability(
             log.append(f"⚡ {attacker.name}'s {ability['name']} strikes again!")
             _hit(attacker, defender, effect["damage_percent"],
                          effect.get("damage_stat", "attack"), rng, log, suppress_kill_log=True, defender_allies=defender_allies)
-        _trigger_on_kill_if_dead(attacker, defender, log)
+        _trigger_on_kill_if_dead(attacker, defender, log, allies)
 
     elif kind == "aoe_damage":
         # Support DPS AOE kind (Combat Overhaul role shift) -- hits every
@@ -1267,11 +1494,24 @@ def resolve_active_ability(
     else:
         log.append(f"({ability['name']} has no combat effect implemented yet)")
 
+    # Kit reactions fire AFTER the ability has fully resolved, so a
+    # passive that grants a shield off a heal can't be undone by the heal
+    # it's reacting to, and so the log reads in causal order. One dispatch
+    # point driven by the effect kind (see kit_events_for) rather than a
+    # call inside each of ~20 branches.
+    #
+    # `chosen_ally` doubles as the reaction target: for every single-ally
+    # kind it IS the recipient, and for team/self kinds a target-scoped
+    # reward is meaningless anyway, so None is correct there.
+    for event in kit_events_for(ability):
+        trigger_kit_event(attacker, event, log, allies=allies, target=chosen_ally or attacker)
+
 
 def _resolve_hit(attacker: Combatant, defender: Combatant, damage_percent: float,
                   damage_stat: str, rng: random.Random, log: list,
                   suppress_kill_log: bool = False,
                   defender_allies: list[Combatant] | None = None,
+                  attacker_allies: list[Combatant] | None = None,
                   poise_damage: int = POISE_DAMAGE_BASIC) -> bool:
     """Resolves one hit. Always lands -- there is no dodge/miss chance in
     this game. Returns True (kept as a return value so callers that guard
@@ -1333,10 +1573,20 @@ def _resolve_hit(attacker: Combatant, defender: Combatant, damage_percent: float
         if absorbed:
             log.append(f"🔷 {defender.name}'s shield absorbs {round(absorbed)} damage.")
 
+    was_debuffed = any(m.percent < 0 for m in defender.modifiers)
+
     dealt = defender.take_raw_hp_loss(damage)
     crit_tag = " (💥 CRIT!)" if is_crit else ""
     guard_tag = " (🛡️ guarded)" if defender.guarding else ""
     log.append(f"{attacker.name} hits {defender.name} for {dealt} damage{crit_tag}{guard_tag}.")
+
+    # Checked BEFORE the hit resolved (above) so a debuff this same hit
+    # applies doesn't count -- the event means "you struck something that
+    # was already weakened", which is the setup-then-exploit pattern it
+    # exists to reward.
+    if was_debuffed:
+        trigger_kit_event(attacker, "hit_debuffed", log,
+                          allies=attacker_allies or [], target=defender)
 
     # Being hit builds a little energy -- see the PLAYER ENERGY ECONOMY
     # block. Without this, an action-based rule alone would leave the
@@ -1361,6 +1611,10 @@ def _resolve_hit(attacker: Combatant, defender: Combatant, damage_percent: float
             f"💫 **{defender.name}'s guard is BROKEN!** Its move is cancelled and it "
             f"takes +{_break_damage_percent(attacker)}% damage for {BREAK_DURATION_TURNS} turns."
         )
+        # "break" fires on an actual break rather than on casting a
+        # break-ish ability, so a break-reaction passive pays out exactly
+        # when the thing it's named for happens.
+        trigger_kit_event(attacker, "break", log, allies=attacker_allies or [], target=defender)
 
     for passive in attacker.find_passive("lifesteal"):
         healed = attacker.heal(dealt * passive["effect"]["percent"] / 100)
@@ -1387,13 +1641,26 @@ def _resolve_hit(attacker: Combatant, defender: Combatant, damage_percent: float
 
     if not defender.is_alive() and not suppress_kill_log:
         _trigger_on_kill(attacker, log)
+        # The main kill path -- basic attacks and every damaging ability
+        # route through here, so "kill" kit reactions have to fire here
+        # too, not only from the ability dispatcher's own check.
+        _trigger_kill_reactions(attacker, log, attacker_allies)
 
     return True
 
 
-def _trigger_on_kill_if_dead(attacker: Combatant, defender: Combatant, log: list) -> None:
+def _trigger_on_kill_if_dead(attacker: Combatant, defender: Combatant, log: list,
+                             attacker_allies: list[Combatant] | None = None) -> None:
     if not defender.is_alive():
         _trigger_on_kill(attacker, log)
+        _trigger_kill_reactions(attacker, log, attacker_allies)
+
+
+def _trigger_kill_reactions(killer: Combatant, log: list, allies: list[Combatant] | None = None) -> None:
+    """Kit reactions listening for "kill". Separate from _trigger_on_kill
+    (which handles the older on_kill_restore passive kind) so the two
+    don't have to share a payload shape."""
+    trigger_kit_event(killer, "kill", log, allies=allies or [])
 
 
 def _trigger_on_kill(killer: Combatant, log: list) -> None:

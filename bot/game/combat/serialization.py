@@ -181,35 +181,48 @@ def battle_to_dict(battle: Battle) -> dict:
 
 
 def _intents_to_dict(all_combatants: list[Combatant]) -> dict:
-    intents: dict[str, dict] = {}
+    """{combatant index: [queued intent, ...]} -- the WHOLE queue, not
+    just the next one, since the battle screen telegraphs every move in
+    it and each one is binding (see Combatant.pending_intents)."""
+    intents: dict[str, list] = {}
     for i, c in enumerate(all_combatants):
-        if c.pending_intent is None:
-            continue
-        target = c.pending_intent.get("target")
-        target_index = next(
-            (j for j, other in enumerate(all_combatants) if other is target), None
-        )
-        if target_index is None:
-            continue  # target isn't in this battle any more; re-decide on load
-        intents[str(i)] = {
-            "ability": _ability_to_json(c.pending_intent.get("ability")),
-            "target_index": target_index,
-        }
+        queue = []
+        for pending in c.pending_intents:
+            target = pending.get("target")
+            target_index = next(
+                (j for j, other in enumerate(all_combatants) if other is target), None
+            )
+            if target_index is None:
+                break  # target left the battle; drop this and everything after it
+            queue.append({
+                "ability": _ability_to_json(pending.get("ability")),
+                "target_index": target_index,
+            })
+        if queue:
+            intents[str(i)] = queue
     return intents
 
 
 def _intents_from_dict(data: dict, all_combatants: list[Combatant]) -> None:
-    for index_str, intent in (data.get("pending_intents") or {}).items():
+    for index_str, queue in (data.get("pending_intents") or {}).items():
         index = int(index_str)
         if index >= len(all_combatants):
             continue
-        target_index = intent.get("target_index")
-        if target_index is None or target_index >= len(all_combatants):
-            continue
-        all_combatants[index].pending_intent = {
-            "ability": intent.get("ability"),
-            "target": all_combatants[target_index],
-        }
+        # Saves from before the queue was introduced stored a single
+        # intent dict rather than a list; accept both so an in-flight
+        # battle survives the upgrade.
+        if isinstance(queue, dict):
+            queue = [queue]
+        restored = []
+        for intent in queue:
+            target_index = intent.get("target_index")
+            if target_index is None or target_index >= len(all_combatants):
+                break
+            restored.append({
+                "ability": intent.get("ability"),
+                "target": all_combatants[target_index],
+            })
+        all_combatants[index].pending_intents = restored
 
 
 def battle_from_dict(data: dict, rng: random.Random | None = None) -> Battle:

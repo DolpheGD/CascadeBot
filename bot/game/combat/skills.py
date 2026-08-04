@@ -690,136 +690,199 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
 # since a couple of characters share a passive shape but not a name/flavor.
 # ---------------------------------------------------------------------
 CHARACTER_PASSIVE_MAP: dict[str, dict] = {
+    # ------------------------------------------------------------------
+    # UNIQUE KIT PASSIVES.
+    #
+    # Every passive here is unique to its character AND keyed to that
+    # character's own skill/ultimate, so it tells you how to build them.
+    # Before this pass, 10 of the 24 shared an effect kind with someone
+    # else (three crit_damage_bonus carriers, three stacking_buff, two
+    # damage_reduction, two shield_regen) and the rest were generic gear
+    # passives borrowed wholesale -- a passive said nothing about the
+    # character wearing it and never touched their own kit.
+    #
+    # Most are `kit_reaction`s (see effects.trigger_kit_event): they fire
+    # on the ACTION the character's kit is built around -- a healer's on
+    # healing, a shielder's on shielding, a break specialist's on
+    # breaking -- and every reward reaches the TEAM as well as the
+    # carrier, so a passive is a reason to run that character alongside
+    # others rather than a private stat bonus.
+    # ------------------------------------------------------------------
+
     # --- 3-star ---
-    "lily_lovelace_passive": _sustain_passive(
-        "lily_lovelace_passive", "Comfort Food",
-        "At the start of every turn, keeps the whole team fed and healed for 3% of their own max HP.",
+    "lily_lovelace_passive": _passive(
+        "lily_lovelace_passive", "Comfort Food", "on_heal",
+        "A good meal does more than mend: every ally she heals also hits 14% harder for 2 turns.",
+        # Turns her spammable single-target heal into a soft damage buff,
+        # so healing the right person is an offensive decision too.
+        {"kind": "kit_reaction", "event": "heal", "reward": "target_buff",
+         "buff_stat": "attack", "buff_percent": 14, "duration": 2},
     ),
     "nexus_passive": _passive(
-        "nexus_passive", "Clout Chaser", "always",
-        "Going viral hits different: her own critical hits deal an additional 15% damage.",
-        {"kind": "crit_damage_bonus", "percent": 15},
+        "nexus_passive", "Clout Chaser", "on_buff",
+        "Every buff he lands trends harder -- the squad also gains 12% Crit DMG for 2 turns.",
+        # His kit is pure crit-rate buffing; this closes the loop by
+        # supplying the crit DAMAGE those crits need to matter.
+        {"kind": "kit_reaction", "event": "buff", "reward": "team_buff",
+         "buff_stat": "crit_damage", "buff_percent": 12, "duration": 2},
     ),
     "fax_passive": _passive(
         "fax_passive", "Frequent Flyer", "always",
-        "Once he's drawn blood, he doesn't let up: landing a killing blow earns him another turn immediately.",
+        "Once he's drawn blood he doesn't let up: a killing blow earns him another turn immediately.",
         {"kind": "extra_turn_on_kill"},
     ),
-    "arkiver_passive": _dps_passive(
-        "arkiver_passive", "Elemental Momentum",
-        "Gains 4% ATK per turn (max 5 stacks) -- his gauntlets build charge the longer he fights.",
+    "arkiver_passive": _passive(
+        "arkiver_passive", "Elemental Momentum", "on_hit_debuffed",
+        "His gauntlets feed on weakness: every hit he lands on an already-weakened enemy gives the squad 10% ELE for 2 turns.",
+        # Keyed to "hit_debuffed", NOT "debuff" -- his kit CONSUMES
+        # debuffs (damage_bonus_if_debuffed), it never applies one, so a
+        # debuff-triggered passive on him could never fire at all. This
+        # version makes the squad's setup pay the squad back: whoever
+        # debuffs, Arkiver converts it into team-wide elemental power.
+        {"kind": "kit_reaction", "event": "hit_debuffed", "reward": "team_buff",
+         "buff_stat": "elemental", "buff_percent": 10, "duration": 2},
     ),
     "slikrz_passive": _passive(
-        "slikrz_passive", "Empty Static", "always",
-        "Whatever's left of his focus makes every connecting hit count: critical hits deal an additional 12% damage.",
-        {"kind": "crit_damage_bonus", "percent": 12},
+        "slikrz_passive", "Empty Static", "on_dot",
+        "Whatever's left of his focus goes into the burn: applying a bleed shields him for 7% of max HP.",
+        # His kit is AOE bleed; each application sustains him, which is
+        # what lets a fragile Support DPS keep casting into a crowd.
+        {"kind": "kit_reaction", "event": "dot", "reward": "target_shield", "percent": 7},
     ),
     "evz_passive": _passive(
-        "evz_passive", "Old Habits", "on_turn_start",
-        "Steady hands, calm voice -- she never runs dry mid-operation: restores 10 mana at the start of every turn.",
-        {"kind": "resource_regen", "resource_type": "mana", "amount": 10},
+        "evz_passive", "Old Habits", "on_cleanse",
+        "Field triage never really stops: an ally she cleanses also leaves with a shield worth 12% of their max HP.",
+        {"kind": "kit_reaction", "event": "cleanse", "reward": "target_shield", "percent": 12},
     ),
     "caandy_passive": _passive(
-        "caandy_passive", "HUD Uplink", "on_turn_start",
-        "Her own reflexes sharpen further each turn her visor runs: gains 4% SPD per turn (max 5 stacks).",
-        {"kind": "stacking_buff", "buff_stat": "speed", "percent_per_stack": 4, "max_stacks": 5},
+        "caandy_passive", "HUD Uplink", "on_buff",
+        "Her visor shares the firing solution: every buff she casts also feeds the squad 8 energy.",
+        # Buff + resource is exactly her kit's shape, and energy is worth
+        # far more now that ultimates actually fire.
+        {"kind": "kit_reaction", "event": "buff", "reward": "team_energy", "amount": 8},
     ),
     "axel_passive": _passive(
-        "axel_passive", "Predator's Focus", "always",
-        "Her void-powered augments feed on the fight itself: heals for 12% of damage dealt on every hit.",
-        {"kind": "lifesteal", "percent": 12},
+        "axel_passive", "Predator's Focus", "on_debuff",
+        "His augments feed on the wound: every debuff he inflicts heals him for 8% of max HP.",
+        # His skill applies TWO debuffs at once, so this is deliberately
+        # his highest-uptime sustain source and rewards leading with it.
+        {"kind": "kit_reaction", "event": "debuff", "reward": "self_heal", "percent": 8},
     ),
     "ih_passive": _passive(
         "ih_passive", "Loadout Sync", "always",
-        "A frontline motivator to the last: whenever he takes a hit, the whole squad feels the surge -- gain 6% ATK for 2 turns.",
+        "A frontline motivator to the last: whenever he takes a hit, the whole squad gains 6% ATK for 2 turns.",
         {"kind": "on_hit_team_buff", "buff_stat": "attack", "buff_percent": 6, "duration": 2},
     ),
 
     # --- 4-star ---
     "bee_jee_passive": _passive(
         "bee_jee_passive", "Emergency Protocol", "always",
-        # Reworked from a self-only shield_regen (which duplicated
-        # Jofrog's and Virtual's passive exactly) into the thing that
-        # makes her a SHIELDER rather than a character who happens to
-        # cast shields: every shield she grants is bigger. It's the
-        # shield-side counterpart to Blueflame's dot_amplifier.
         "Her shielding tech is simply better calibrated: every shield she grants absorbs 30% more damage.",
         {"kind": "shield_amplifier", "percent": 30},
     ),
     "sader_vorae_passive": _passive(
-        "sader_vorae_passive", "Glacier-Trained Reflexes", "always",
-        "Years of surviving Glacier 15 taught her to turn a hit right back around: reflects 15% of damage taken back at the attacker.",
-        {"kind": "damage_reflect", "percent": 15},
+        "sader_vorae_passive", "Glacier-Trained Reflexes", "on_debuff",
+        "She reads a target once and the whole flight knows: marked enemies take +8% ATK damage per mark (max 3).",
+        # Her skill already marks for ELE; this adds the ATK half, so her
+        # mark now sets up the ENTIRE squad rather than only elemental
+        # carries -- the clearest "build around me" passive in the roster.
+        {"kind": "kit_reaction", "event": "debuff", "reward": "mark_vulnerable",
+         "damage_stat": "attack", "percent_per_stack": 8, "max_stacks": 3},
     ),
     "nebula_passive": _passive(
         "nebula_passive", "Terrain Advantage", "always",
-        "Knows how to use the terrain to her advantage: reduces all incoming damage by 6%.",
-        {"kind": "damage_reduction", "percent": 6},
+        "She picks the ground before the fight starts: every buff she casts is 25% stronger.",
+        # Amplifier-defining. Multiplies her own SPD/DEF ultimate and
+        # makes her the pick when the squad already has buffs to scale.
+        {"kind": "buff_amplifier", "percent": 25},
     ),
     "andy_passive": _passive(
-        "andy_passive", "Squadron Discipline", "always",
-        "Years of commanding a squadron under fire taught him to hold the line: reduces all incoming damage by 8%.",
-        {"kind": "damage_reduction", "percent": 8},
+        "andy_passive", "Squadron Discipline", "on_debuff",
+        "A squadron under fire holds formation: every debuff he lands shakes ALL negative effects off the squad.",
+        # Originally a second mark_vulnerable, which made him a reskin of
+        # Sader Vorae -- and marking is HER kit, not his. A commander
+        # restoring order fits his bio better and gives the roster its
+        # only repeatable team-wide cleanse, which is real utility
+        # against the DoT and debuff enemies added to the roster.
+        {"kind": "kit_reaction", "event": "debuff", "reward": "team_cleanse"},
     ),
     "star_passive": _passive(
-        "star_passive", "Cruise Control", "always",
-        "He never rushes a swing -- when it finally lands, it lands harder. Critical hits deal an additional 18% damage.",
-        {"kind": "crit_damage_bonus", "percent": 18},
+        "star_passive", "Cruise Control", "on_kill",
+        "When it lands, there's nothing left to argue with: every enemy he finishes gives the squad 16 energy.",
+        # Keyed to KILLS, not to his ultimate. Measured over 40 fights, a
+        # single-target DPS this heavy only gets ~3.8 turns before the
+        # fight is already over, and reached his ultimate in 3 of 40 --
+        # so an ultimate-triggered passive on him was near-dead content.
+        # Kills are the thing he does constantly, and his execute
+        # ultimate makes him better at them than anyone.
+        {"kind": "kit_reaction", "event": "kill", "reward": "team_energy", "amount": 16},
     ),
     "kotori_passive": _passive(
-        "kotori_passive", "Bloodgift", "on_turn_start",
-        "At the start of every turn, sacrifices 2% of her own max HP to heal the rest of the team for 4% of their own max HP each.",
-        {"kind": "aura_team_regen_self_sacrifice", "self_cost_percent": 2, "percent": 4},
+        "kotori_passive", "Bloodgift", "on_sacrifice",
+        "Every drop she spends is worth more than her own: sacrificing HP gives the squad 18% ATK for 2 turns.",
+        # Both her buttons pay HP, so this fires constantly and converts
+        # her self-harm identity into the squad's damage window.
+        {"kind": "kit_reaction", "event": "sacrifice", "reward": "team_buff",
+         "buff_stat": "attack", "buff_percent": 18, "duration": 2},
     ),
     "jofrog_passive": _passive(
-        "jofrog_passive", "Steady Supply", "on_turn_start",
-        "An old bodyguard instinct dies hard: keeps his own plating charged, gaining a shield equal to 9% of max HP (capped at 45%).",
-        # Bumped from 5%/25% now that he's the dedicated tank -- he's the
-        # one character deliberately standing in front of everything, so
-        # his self-sustain has to keep pace with taking every hit.
-        {"kind": "shield_regen", "percent": 9, "cap_percent": 45},
+        "jofrog_passive", "Bodyguard Protocol", "on_shield",
+        "Standing in front is the whole job: every shield he grants also hardens its holder by 20% DEF.",
+        # His kit is taunt + shields; the DEF rider makes those shields
+        # last through the hits he's deliberately pulling onto himself.
+        {"kind": "kit_reaction", "event": "shield", "reward": "team_buff",
+         "buff_stat": "defense", "buff_percent": 20, "duration": 2},
     ),
     "aura_passive": _passive(
         "aura_passive", "Steady Hands", "on_low_hp",
-        "She refuses to go down while someone still needs her: the first fatal hit in a fight instead leaves her at 1 HP.",
+        "She refuses to go down while someone still needs her: the first fatal hit in a fight leaves her at 1 HP.",
         {"kind": "prevent_death", "charges_per_combat": 1},
-    ),
-
-    # --- 5-star ---
-    "josh_passive": _passive(
-        "josh_passive", "Unfinished Business", "on_kill",
-        "Every kill fuels him further: restores 20% max HP and 25 mana the instant he finishes an enemy.",
-        {"kind": "on_kill_restore", "hp_percent": 20, "mana": 25},
-    ),
-    "refender_passive": _passive(
-        "refender_passive", "Refense Doctrine", "always",
-        "The harder he's hit, the sturdier he becomes: reduces incoming damage by 6%, plus up to 18% more the lower his own HP is.",
-        {"kind": "damage_reduction_scales_with_missing_hp", "base_percent": 6, "bonus_percent_at_zero_hp": 18},
-    ),
-    "dolphe_passive": _amplifier_passive(
-        "dolphe_passive", "Leader's Wavelength",
-        "At the start of every turn, keeps the whole team synced and supplied: 6 energy and 8 SP each.",
-        energy_amount=12, mana_amount=15,
-    ),
-    "caliper_passive": _support_dps_passive(
-        "caliper_passive", "Dead Aim",
-        "Gains 4% Crit Rate per turn (max 5 stacks) -- there isn't a shot she can't eventually thread.",
-        percent_per_stack=4,
-    ),
-    "nyrvite_passive": _passive(
-        "nyrvite_passive", "Ghost Protocol", "always",
-        "Unseen and unheard, she's already gone before an attacker can follow through: 25% chance to stun an attacker for 1 turn whenever she's hit.",
-        {"kind": "chance_stun_attacker", "percent": 25, "duration": 1},
-    ),
-    "virtual_passive": _passive(
-        "virtual_passive", "Engineering Corps", "on_turn_start",
-        "A personal drone escort reinforces him every turn: gains a shield equal to 5% of max HP (capped at 25%).",
-        {"kind": "shield_regen", "percent": 5, "cap_percent": 25},
     ),
     "blueflame_passive": _passive(
         "blueflame_passive", "Slow Burn", "always",
         "Every fire he starts burns hotter than the last: DoTs he applies deal 25% increased damage.",
         {"kind": "dot_amplifier", "percent": 25},
+    ),
+
+    # --- 5-star ---
+    "josh_passive": _passive(
+        "josh_passive", "Unfinished Business", "on_kill",
+        "Every kill fuels him further: restores 20% max HP and 25 SP the instant he finishes an enemy.",
+        {"kind": "on_kill_restore", "hp_percent": 20, "mana": 25},
+    ),
+    "refender_passive": _passive(
+        "refender_passive", "Refense Doctrine", "always",
+        "Offense and defense are the same thing: he gains ATK equal to 60% of his DEF.",
+        # Makes DEF his damage stat, so his own team DEF buff (and
+        # Nebula's, and Bee Jee's) scales his damage -- a build direction
+        # no other character has.
+        {"kind": "stat_conversion", "from_stat": "defense", "to_stat": "attack", "percent": 60},
+    ),
+    "dolphe_passive": _passive(
+        "dolphe_passive", "Leader's Wavelength", "on_turn_start",
+        "He keeps the whole team synced and supplied: 12 energy and 15 SP to everyone, every turn.",
+        {"kind": "aura_team_resource_regen", "energy_amount": 12, "mana_amount": 15},
+    ),
+    "caliper_passive": _passive(
+        "caliper_passive", "Dead Aim", "on_ultimate",
+        "She only needs the line once: her ultimate leaves the squad with 25% Crit Rate for 3 turns.",
+        {"kind": "kit_reaction", "event": "ultimate", "reward": "team_buff",
+         "buff_stat": "crit_rate", "buff_percent": 25, "duration": 3},
+    ),
+    "nyrvite_passive": _passive(
+        "nyrvite_passive", "Ghost Protocol", "on_break",
+        "She works the seams: every enemy she breaks feeds the squad 15 energy.",
+        # Her entire kit is poise damage, so this is the payoff for the
+        # thing she is already doing -- and it makes a break specialist
+        # worth bringing for the TEAM, not just for the break.
+        {"kind": "kit_reaction", "event": "break", "reward": "team_energy", "amount": 15},
+    ),
+    "virtual_passive": _passive(
+        "virtual_passive", "Engineering Corps", "on_buff",
+        "His drones follow every order he gives: each buff he casts also shields the squad for 10% of max HP.",
+        # Buff-plus-shield is his drone-support flavour, and pairs his
+        # Amplifier kit with a defensive layer no other Amplifier has.
+        {"kind": "kit_reaction", "event": "buff", "reward": "team_shield", "percent": 10},
     ),
 }
 

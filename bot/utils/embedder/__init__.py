@@ -68,6 +68,8 @@ from bot.utils.embedder.combat import (
     combat_embed,
     dungeon_map_graph_embed,
     expedition_summary_embed,
+    info_page_count,
+    info_page_targets,
 )
 from bot.utils.embedder.inventory import (
     ITEMS_PER_LIST_PAGE,
@@ -163,6 +165,8 @@ __all__ = [
     "gacha_pull_embed",
     "gacha_rates_embed",
     "general_inventory_embed",
+    "info_page_count",
+    "info_page_targets",
     "inventory_list_embed",
     "item_detail_embed",
     "lootbox_detail_embed",
