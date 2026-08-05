@@ -79,6 +79,22 @@ def _check_maps() -> list[str]:
         if len({len(row) for row in grid}) != 1:
             failures.append(f"area '{area_id}': rows are not all the same length")
 
+        # The rendered grid goes into ONE embed field, and Discord
+        # truncates a field over 1024 characters without complaining --
+        # which on a map means invisible walls rather than a visible
+        # error. Measured against the widest glyph any tile can draw.
+        widest = max(
+            [len(mc.EMOJI_WALL), len(mc.EMOJI_FLOOR), len(mc.EMOJI_PLAYER),
+             len(mc.EMOJI_DONE), len(mc.EMOJI_LOCKED)]
+            + [len(e.get("emoji", "")) for e in (area.get("legend") or {}).values()]
+        )
+        rendered = height * (width * widest + 1)
+        if rendered > mc.MAX_FIELD_CHARS:
+            failures.append(
+                f"area '{area_id}': renders to ~{rendered} chars, over Discord's "
+                f"{mc.MAX_FIELD_CHARS}-char field limit -- it would be silently truncated"
+            )
+
         # Spawn
         spawns = sum(row.count(mc.SPAWN_CHAR) for row in grid)
         if spawns != 1:

@@ -237,6 +237,106 @@ CHAPTERS: list[dict] = [
             },
 
             # ==========================================================
+            # P2B -- quests, and the prologue's first joke.
+            #
+            # Tonally this is the release valve. P1 is a cover-up and
+            # four hundred missing names, P2 is a medic telling you that
+            # you'll be hurt; if the whole prologue plays at that pitch
+            # the serious parts stop landing, because nothing contrasts
+            # with them. Nexus is genuinely useful (he wrote the quest
+            # board) and genuinely ridiculous (he wrote it for the
+            # engagement), and the joke never costs the premise anything.
+            # ==========================================================
+            {
+                "id": "p2b_the_corkboard",
+                "name": "Content Strategy",
+                "summary": "Nexus has a corkboard and a plan. Mostly a corkboard.",
+                "beats": [
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Nexus",
+                        "text": (
+                            "Hey — hey. You're the new one. Don't move, the light's good.\n\n"
+                            "*He photographs you before you can answer.*"
+                        ),
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Nexus",
+                        "text": (
+                            "So Dolphe won't let me post about any of this, which, "
+                            "creatively? Devastating. Four hundred people vanish and I'm "
+                            "sitting on the biggest story of the decade with the engagement "
+                            "of a soup recipe.\n\n"
+                            "But she *did* say I could organise the board. So I organised "
+                            "the board."
+                        ),
+                    },
+                    {
+                        "kind": "choice",
+                        "prompt": "The corkboard is enormous. Some of it is colour-coded.",
+                        "options": [
+                            {
+                                "id": "impressed",
+                                "label": "📌 Tell him it's actually well organised",
+                                "text": (
+                                    "\"THANK you.\" He gestures at a column of index cards. "
+                                    "\"Nobody says that. Bee Jee called it a crime scene.\""
+                                ),
+                                "sets": {"humoured_nexus": True},
+                            },
+                            {
+                                "id": "concerned",
+                                "label": "🧶 Ask why there's so much string",
+                                "text": (
+                                    "\"The string is *load-bearing*.\" He says this with "
+                                    "total confidence. \"Also it films well.\""
+                                ),
+                                "sets": {"questioned_nexus": True},
+                            },
+                            {
+                                "id": "business",
+                                "label": "📋 Ask what's actually on it",
+                                "text": (
+                                    "He straightens up, and for a second the performance "
+                                    "drops. \"Everything we still need someone to do. "
+                                    "It's longer than it should be.\""
+                                ),
+                                "sets": {"all_business": True},
+                            },
+                        ],
+                    },
+                    {
+                        "kind": "unlock",
+                        "feature": "quests",
+                        "text": (
+                            "**`/quests` is open.**\n\n"
+                            "Standing objectives that pay out as you play — some are one-off, "
+                            "some reset. You don't go *do* quests; you do the game, and the "
+                            "quests notice.\n\n"
+                            "Check it when you've been away a while. Things accumulate."
+                        ),
+                    },
+                    {
+                        "kind": "reward",
+                        "text": "He shoves a battered lootbox at you off the bottom shelf.",
+                        "grant": {"gold": 120, "reroll_tokens": 3},
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Nexus",
+                        "text": (
+                            "Look — I know what I sound like. I do it on purpose, it's easier "
+                            "than the alternative.\n\n"
+                            "My sister's on that board. Third column, second row. So when I "
+                            "say I want this to reach people, I'm not joking about that part."
+                        ),
+                    },
+                ],
+                "rewards": {"gold": 100},
+            },
+
+            # ==========================================================
             # P3 -- the roster. A guided pull, then a squad. This is the
             # mission that turns "a character" into "your team".
             # ==========================================================
@@ -448,7 +548,295 @@ CHAPTERS: list[dict] = [
                     },
                 ],
                 "rewards": {"gold": 500, "reroll_tokens": 10},
-                # Finishing this finishes the prologue.
+            },
+
+            # ==========================================================
+            # P5 -- the base. Virtual is the game's engineer, so the HQ
+            # and the daily loop arrive in her voice rather than in a
+            # tooltip's.
+            # ==========================================================
+            {
+                "id": "p5_the_signal_room",
+                "name": "The Signal Room",
+                "summary": "Virtual has been running Cascade off a car battery.",
+                "beats": [
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Virtual",
+                        "text": (
+                            "Mind the cable. Mind *that* cable. That one's fine, it's "
+                            "decorative.\n\n"
+                            "You're the one from the lane. Josh said you didn't run. He says "
+                            "that about maybe four people, so try not to let it go to your "
+                            "head."
+                        ),
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Virtual",
+                        "text": (
+                            "This is what's left of Team Cascade's infrastructure: one "
+                            "basement, one antenna, and whatever I can build out of what you "
+                            "bring back.\n\n"
+                            "It is not much. It is, however, *ours*, which is more than the "
+                            "last three places we tried this."
+                        ),
+                    },
+                    {
+                        "kind": "unlock",
+                        "feature": "base",
+                        "text": (
+                            "**`/hq` is open**, along with `/shrines`, `/harvesters` and "
+                            "`/shop`.\n\n"
+                            "Your HQ levels up and unlocks the rest. Harvesters generate "
+                            "materials while you're offline, shrines give permanent stat "
+                            "bonuses, and the shop trades in materials rather than gear.\n\n"
+                            "None of it needs babysitting. Set it up, go do something else, "
+                            "come back richer."
+                        ),
+                    },
+                    {
+                        "kind": "unlock",
+                        "feature": "daily",
+                        "text": (
+                            "**`/daily` is open.**\n\n"
+                            "One claim a day. Streaks pay better, so the cheapest way to get "
+                            "stronger in this game is to show up."
+                        ),
+                    },
+                    {
+                        "kind": "choice",
+                        "prompt": "Virtual watches you take in the room.",
+                        "options": [
+                            {
+                                "id": "offer_help",
+                                "label": "🔧 Offer to help build",
+                                "text": (
+                                    "\"Noted. I'll hold you to it — I hold everyone to it, "
+                                    "it's why the antenna works.\""
+                                ),
+                                "sets": {"offered_virtual_help": True},
+                            },
+                            {
+                                "id": "ask_cost",
+                                "label": "💭 Ask what it cost to build",
+                                "text": (
+                                    "She doesn't look up. \"Two years and a friend. Next "
+                                    "question.\""
+                                ),
+                                "sets": {"asked_virtual_cost": True},
+                            },
+                        ],
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Virtual",
+                        "text": (
+                            "Sader's at the map table and she's been waiting on you for an "
+                            "hour, which for her is roughly a geological era.\n\n"
+                            "Go. I have a car battery to lie to."
+                        ),
+                    },
+                ],
+                "rewards": {"gold": 250, "wood": 60, "stone": 60},
+            },
+
+            # ==========================================================
+            # P6 -- domains. Sader Vorae flew at Glacier 15 and got out,
+            # same as Josh, and she is the counterweight to him: he wants
+            # to go back, she wants you to be ready first. That
+            # disagreement is the prologue's actual argument.
+            # ==========================================================
+            {
+                "id": "p6_the_map_table",
+                "name": "The Map Table",
+                "summary": "Sader Vorae would like a word about preparation.",
+                "beats": [
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Sader Vorae",
+                        "text": (
+                            "You're the one Josh is planning around. Sit.\n\n"
+                            "I flew the evac at Glacier 15. I got eleven people out and I "
+                            "have counted them every night since, which is a thing I'm "
+                            "telling you so you understand I'm not being dramatic when I say: "
+                            "he wants to go back too early."
+                        ),
+                    },
+                    {
+                        "kind": "choice",
+                        "prompt": "She turns the map around so it's facing you.",
+                        "options": [
+                            {
+                                "id": "trust_josh",
+                                "label": "🤝 Say Josh knows what he's doing",
+                                "text": (
+                                    "\"He does. That's the problem — he knows exactly what "
+                                    "he's doing and he's going to do it anyway.\""
+                                ),
+                                "sets": {"sided_with_josh": True},
+                            },
+                            {
+                                "id": "agree",
+                                "label": "🧭 Agree that you're not ready",
+                                "text": (
+                                    "\"Good.\" Something unclenches in her shoulders. "
+                                    "\"Then we have somewhere to start.\""
+                                ),
+                                "sets": {"sided_with_sader": True},
+                            },
+                            {
+                                "id": "ask_glacier",
+                                "label": "❄️ Ask what she saw up there",
+                                "text": (
+                                    "A long pause. \"Lights under the ice that shouldn't "
+                                    "have been on. I'll tell you the rest when telling you "
+                                    "helps.\""
+                                ),
+                                "sets": {"asked_sader_glacier": True},
+                            },
+                        ],
+                    },
+                    {
+                        "kind": "unlock",
+                        "feature": "domains",
+                        "text": (
+                            "**`/domains` is open.**\n\n"
+                            "Single fights against a known enemy for direct rewards — no run "
+                            "to commit to, no route to survive. They cost Energy, which "
+                            "refills over time, so this is where a spare five minutes goes.\n\n"
+                            "Tiers unlock as you clear regions and as your roster levels."
+                        ),
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Sader Vorae",
+                        "text": (
+                            "Run them until the numbers stop scaring you. Then run them "
+                            "again.\n\n"
+                            "I am not trying to slow you down. I am trying to make sure that "
+                            "when you *do* go north, I only have to count you once."
+                        ),
+                    },
+                ],
+                "rewards": {"gold": 300, "reroll_tokens": 5},
+            },
+
+            # ==========================================================
+            # P7 -- the close. No new mechanic, on purpose: the prologue
+            # has handed over eight systems and the last thing it should
+            # do is hand over a ninth. This one only does the story job
+            # -- names the enemy, sets the destination, and lets the
+            # player answer for themselves one more time.
+            #
+            # THIS is what completes the prologue.
+            # ==========================================================
+            {
+                "id": "p7_what_we_do_now",
+                "name": "What We Do Now",
+                "summary": "Everyone in the room has already decided. They're waiting on you.",
+                "beats": [
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Dolphe",
+                        "text": (
+                            "Sit down. All of you.\n\n"
+                            "The two in the lane weren't muscle for hire. They were on a "
+                            "payroll, and the payroll has a name on it: **Xender**. Which "
+                            "would be a small story, except Xender is the company that "
+                            "certified Glacier 15 as empty."
+                        ),
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Dolphe",
+                        "text": (
+                            "They signed a piece of paper that said nobody was there. Then "
+                            "they sent people to make sure nobody went and looked.\n\n"
+                            "That's not a cover-up any more. That's a schedule."
+                        ),
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Josh",
+                        "text": (
+                            "I've been saying this for two years to a room that kept telling "
+                            "me I was grieving.\n\n"
+                            "*He looks at you, not at her.* You're the first person who came "
+                            "to the lane instead of the funeral."
+                        ),
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Bee Jee",
+                        "text": (
+                            "And you came back off it standing, which I'd like on the record "
+                            "as partly my doing.\n\n"
+                            "*She's smiling. She's also already restocking your kit.*"
+                        ),
+                    },
+                    {
+                        "kind": "choice",
+                        "prompt": "Dolphe puts a hand flat on the table. \"So. What do we do now?\"",
+                        "options": [
+                            {
+                                "id": "north",
+                                "label": "❄️ \"We go to Glacier 15.\"",
+                                "text": (
+                                    "Josh exhales like he's been holding it since the lane. "
+                                    "Sader says nothing, which from Sader is a vote.\n\n"
+                                    "\"Then we go north,\" Dolphe says. \"Properly. "
+                                    "Not tonight.\""
+                                ),
+                                "sets": {"chose_north": True},
+                            },
+                            {
+                                "id": "proof",
+                                "label": "📰 \"We prove it first.\"",
+                                "text": (
+                                    "\"Spoken like someone who's worked for me for a day,\" "
+                                    "Dolphe says, and it's almost warm.\n\n"
+                                    "Josh doesn't argue. He also doesn't agree."
+                                ),
+                                "sets": {"chose_proof": True},
+                            },
+                            {
+                                "id": "people",
+                                "label": "🫂 \"We find who's still alive.\"",
+                                "text": (
+                                    "The room goes quiet in a way the other answers wouldn't "
+                                    "have caused.\n\n"
+                                    "\"Four hundred and six,\" Dolphe says softly. \"I've "
+                                    "never let myself say *still*.\""
+                                ),
+                                "sets": {"chose_survivors": True},
+                            },
+                        ],
+                    },
+                    {
+                        "kind": "reward",
+                        "text": "Dolphe slides a field advance across the table. It's most of what's left.",
+                        "grant": {"gold": 600, "shards": 120, "reroll_tokens": 8},
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Dolphe",
+                        "text": (
+                            "Then that's what we do.\n\n"
+                            "Go get strong enough to survive being right. `/adventure` for "
+                            "runs, `/domains` when you've got five minutes, `/hq` to build "
+                            "something that lasts. Come back to `/story` when you're ready "
+                            "for the north.\n\n"
+                            "**Welcome to Cascade.**"
+                        ),
+                    },
+                ],
+                "rewards": {"gold": 400},
+                # THIS finishes the prologue -- moved off P4 when the
+                # safehouse missions were added. A feature with no unlock
+                # beat of its own opens here (see story_service), so
+                # moving this marker also moves the Forge, the Lab, raids,
+                # gifting and the Echo Exchange.
                 "completes_prologue": True,
             },
         ],

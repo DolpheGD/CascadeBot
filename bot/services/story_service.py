@@ -278,6 +278,23 @@ def start_mission(db, player, mission_id: str) -> dict:
             "You're already partway through a mission. Finish or abandon it first."
         )
 
+    # A CLEARED MISSION CANNOT BE REPLAYED.
+    #
+    # Replays used to be allowed at a quarter rewards, on the theory that
+    # re-running a set-piece you liked is harmless. It isn't: story
+    # missions hand out fixed, authored payouts and their fights are
+    # tuned to be winnable, so the optimal play was to stand on one tile
+    # and re-clear the same battle forever. That's a worse grind than
+    # /adventure and it hollows out the thing story mode exists to be.
+    #
+    # Repeatable content belongs in expeditions, domains and raids, which
+    # are randomised and balanced for it. A mission is a thing that
+    # happened to you; it doesn't happen twice.
+    if has_completed(story, mission_id) and not mission.get("repeatable"):
+        raise StoryError(
+            f"**{mission['name']}** is already done. That one's behind you."
+        )
+
     story.active_mission = mission_id
     story.beat_index = 0
     story.combat_state = None
@@ -346,9 +363,13 @@ def advance(db, player, choice_id: str | None = None) -> dict:
 
 
 def _finish_mission(db, player, mission: dict) -> dict:
-    """Pay out and close the mission. A REPLAY pays a fraction -- see
-    REPLAY_REWARD_FRACTION -- so re-fighting a set-piece you liked is
-    possible without story becoming the best farm in the game."""
+    """Pay out and close the mission.
+
+    A mission marked `repeatable` still pays a fraction on re-clears, but
+    nothing in the script is marked that way -- see the block in
+    start_mission for why. The fraction is kept so that a genuinely
+    repeatable mission (a training-hall type) can exist later without
+    also being a money printer."""
     story = get_or_create(db, player)
     replay = has_completed(story, mission["id"])
 

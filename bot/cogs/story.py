@@ -129,13 +129,34 @@ class StoryMenuView(OwnedView):
 # grid ever will.
 # ----------------------------------------------------------------------
 
+# Discord packs buttons LEFT within a row, so a d-pad written as
+# up / left-interact-right / down comes out as a left-justified staircase
+# rather than a cross. There's no alignment property to set; the only way
+# to centre a control is to occupy the cells beside it.
+#
+# So rows 0 and 2 carry a disabled, blank-labelled spacer on either side
+# of the arrow. They're inert by construction -- disabled, zero-width
+# label, no callback that does anything -- and they cost 4 of the 25
+# components a view gets, which is affordable at 11 total.
+_SPACER_LABEL = "\u200b"  # zero-width space: Discord requires a non-empty label
+
+
+class _Spacer(discord.ui.Button):
+    def __init__(self, row: int):
+        super().__init__(label=_SPACER_LABEL, style=discord.ButtonStyle.secondary,
+                         disabled=True, row=row)
+
+    async def callback(self, interaction: discord.Interaction):  # pragma: no cover
+        return
+
+
 class MapView(OwnedView):
-    """A d-pad and an interact button.
+    """A d-pad and an interact button, laid out as an actual cross.
 
     Directions that would walk into a wall are DISABLED rather than
     missing: a button that moves position between renders is a button
-    you misclick. Same reason the layout is a fixed cross even when
-    only one direction is legal.
+    you misclick. Same reason the cross is fixed even when only one
+    direction is legal.
     """
 
     def __init__(self, state: dict, owner_id: int | None = None):
@@ -149,6 +170,27 @@ class MapView(OwnedView):
         # live button that always answers "nothing here" trains the
         # player to stop pressing it.
         self.interact_button.disabled = state.get("content") is None
+
+        # Inserted rather than declared so they sit either side of the
+        # arrow: decorator order fixes position within a row.
+        self.add_item(_Spacer(row=0))
+        self.add_item(_Spacer(row=0))
+        self.add_item(_Spacer(row=2))
+        self.add_item(_Spacer(row=2))
+        self._centre_row(0, self.north_button)
+        self._centre_row(2, self.south_button)
+
+    def _centre_row(self, row: int, control: discord.ui.Button) -> None:
+        """Reorder `row` to spacer / control / spacer."""
+        in_row = [item for item in self.children if getattr(item, "row", None) == row]
+        others = [item for item in self.children if getattr(item, "row", None) != row]
+        spacers = [item for item in in_row if item is not control]
+        ordered = others + [spacers[0], control, spacers[1]] if len(spacers) >= 2 else None
+        if ordered is None:
+            return
+        self.clear_items()
+        for item in ordered:
+            self.add_item(item)
 
     @discord.ui.button(label="⬆️", style=discord.ButtonStyle.secondary, row=0)
     async def north_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -278,7 +320,7 @@ async def _interact(interaction: discord.Interaction):
             await interaction.response.send_message("There's nothing here.", ephemeral=True)
             return
 
-        if kind == "locked":
+        if kind in ("locked", "done"):
             await interaction.response.send_message(result["text"], ephemeral=True)
             return
 

@@ -303,6 +303,21 @@ def interact(db, story) -> dict:
         }
 
     if kind == "mission":
+        mission = sc.get_mission(content["mission"]) or {}
+        if state["done"] and not mission.get("repeatable"):
+            # Refused HERE as well as in start_mission. The service call
+            # is the real guard; this one exists so the UI can say
+            # something specific instead of surfacing an exception, and
+            # so the button can be disabled before it's ever pressed.
+            return {
+                "kind": "done",
+                "name": content.get("name", "Something here"),
+                "text": (
+                    f"**{mission.get('name', 'That')}** is already behind you.\n\n"
+                    "Story missions run once. If you want to fight something again, "
+                    "that's what `/adventure`, `/domains` and `/raid` are for."
+                ),
+            }
         return {
             "kind": "mission",
             "name": content.get("name", "Something here"),
