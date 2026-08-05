@@ -138,6 +138,7 @@ bot/game/combat/factory.py resolves all three into a built Combatant.
 from __future__ import annotations
 
 from bot.database.models.enums import CharacterClass
+from bot.game.combat.combatant import ULTIMATE_COOLDOWN
 
 # ---------------------------------------------------------------------
 # Avatar class kits -- what "You" gets while playing each of the 4 roles.
@@ -159,7 +160,7 @@ CLASS_KIT_MAP: dict[CharacterClass, dict[str, dict]] = {
         },
         "ultimate": {
             "id": "avatar_dps_ultimate", "name": "Devastation",
-            "resource_type": "energy", "resource_cost": 50, "cooldown": 0, "is_ultimate": True,
+            "resource_type": "energy", "resource_cost": 50, "cooldown": ULTIMATE_COOLDOWN, "is_ultimate": True,
             "description": "Strike the target 4 times for 75% ATK damage each.",
             "effect": {"kind": "multi_hit", "hits": 4, "damage_percent_per_hit": 75, "damage_stat": "attack"},
         },
@@ -184,7 +185,7 @@ CLASS_KIT_MAP: dict[CharacterClass, dict[str, dict]] = {
         },
         "ultimate": {
             "id": "avatar_support_dps_ultimate", "name": "Coordinated Barrage",
-            "resource_type": "energy", "resource_cost": 50, "cooldown": 0, "is_ultimate": True,
+            "resource_type": "energy", "resource_cost": 50, "cooldown": ULTIMATE_COOLDOWN, "is_ultimate": True,
             "description": "Deal 140% ATK damage to all enemies and reduce each of their DEF by 20% for 2 turns.",
             "effect": {"kind": "aoe_damage_chance_debuff", "damage_percent": 140, "damage_stat": "attack",
                        "debuff_chance_percent": 100, "debuff_stat": "defense", "debuff_percent": -20, "duration": 2},
@@ -204,7 +205,7 @@ CLASS_KIT_MAP: dict[CharacterClass, dict[str, dict]] = {
         },
         "ultimate": {
             "id": "avatar_amplifier_ultimate", "name": "Overdrive",
-            "resource_type": "energy", "resource_cost": 50, "cooldown": 0, "is_ultimate": True,
+            "resource_type": "energy", "resource_cost": 50, "cooldown": ULTIMATE_COOLDOWN, "is_ultimate": True,
             # Buffs BOTH offensive stats so the avatar Amplifier is a
             # universal fit for either an ATK squad or an ELE squad -- it's
             # the one Amplifier a player can't choose not to have.
@@ -214,8 +215,8 @@ CLASS_KIT_MAP: dict[CharacterClass, dict[str, dict]] = {
         },
         "passive": {
             "id": "avatar_amplifier_passive", "name": "Unshakeable Resolve", "trigger": "on_turn_start",
-            "description": "At the start of every turn, restores 4 energy and 6 SP to the whole team.",
-            "effect": {"kind": "aura_team_resource_regen", "energy_amount": 4, "mana_amount": 6},
+            "description": "At the start of every turn, restores 3 energy and 4 SP to the whole team.",
+            "effect": {"kind": "aura_team_resource_regen", "energy_amount": 3, "mana_amount": 4},
         },
     },
     CharacterClass.SUSTAIN: {
@@ -227,14 +228,14 @@ CLASS_KIT_MAP: dict[CharacterClass, dict[str, dict]] = {
         },
         "ultimate": {
             "id": "avatar_sustain_ultimate", "name": "Sanctuary",
-            "resource_type": "energy", "resource_cost": 50, "cooldown": 0, "is_ultimate": True,
-            "description": "Heal the whole team for 40% of each member's max HP.",
-            "effect": {"kind": "team_heal_percent_max_hp", "percent": 40},
+            "resource_type": "energy", "resource_cost": 50, "cooldown": ULTIMATE_COOLDOWN, "is_ultimate": True,
+            "description": "Heal the whole team for 24% of each member's max HP.",
+            "effect": {"kind": "team_heal_percent_max_hp", "percent": 24},
         },
         "passive": {
             "id": "avatar_sustain_passive", "name": "Second Wind", "trigger": "on_turn_start",
-            "description": "At the start of every turn, the whole team regenerates 3% of their own max HP.",
-            "effect": {"kind": "aura_team_regen", "percent": 3},
+            "description": "At the start of every turn, the whole team regenerates 1% of their own max HP.",
+            "effect": {"kind": "aura_team_regen", "percent": 1},
         },
     },
 }
@@ -246,8 +247,11 @@ def _skill(cid, name, cost, cd, desc, effect):
 
 
 def _ultimate(cid, name, desc, effect):
+    # cooldown is ULTIMATE_COOLDOWN, not 0 -- see the block in
+    # combatant.py. Every character ultimate goes through this helper, so
+    # the floor on ultimate frequency is set in exactly one place.
     return {"id": cid, "name": name, "resource_type": "energy", "resource_cost": 50,
-            "cooldown": 0, "is_ultimate": True, "description": desc, "effect": effect}
+            "cooldown": ULTIMATE_COOLDOWN, "is_ultimate": True, "description": desc, "effect": effect}
 
 
 def _passive(cid, name, trigger, desc, effect):
@@ -270,7 +274,7 @@ def _support_dps_passive(cid, name, desc, percent_per_stack=3, max_stacks=5):
                       "percent_per_stack": percent_per_stack, "max_stacks": max_stacks})
 
 
-def _amplifier_passive(cid, name, desc, energy_amount=9, mana_amount=12):
+def _amplifier_passive(cid, name, desc, energy_amount=4, mana_amount=5):
     # Bumped from 4 energy / 6 SP. That aura was near-worthless when it
     # was written, because energy did almost nothing -- ultimates were
     # effectively uncastable (see the PLAYER ENERGY ECONOMY block in
@@ -282,7 +286,7 @@ def _amplifier_passive(cid, name, desc, energy_amount=9, mana_amount=12):
                      {"kind": "aura_team_resource_regen", "energy_amount": energy_amount, "mana_amount": mana_amount})
 
 
-def _sustain_passive(cid, name, desc, percent=3):
+def _sustain_passive(cid, name, desc, percent=1):
     return _passive(cid, name, "on_turn_start", desc,
                      {"kind": "aura_team_regen", "percent": percent})
 
@@ -339,8 +343,8 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     ),
     "lily_lovelace_ultimate": _ultimate(
         "lily_lovelace_ultimate", "Feast for the Brave",
-        "Heal the whole team for 35% of each member's max HP.",
-        {"kind": "team_heal_percent_max_hp", "percent": 35},
+        "Heal the whole team for 22% of each member's max HP.",
+        {"kind": "team_heal_percent_max_hp", "percent": 22},
     ),
     "nexus_skill": _skill(
         "nexus_skill", "Trending Now", 20, 2,
@@ -417,9 +421,9 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     # Crit Rate buff (team_buff_and_resource).
     "caandy_skill": _skill(
         "caandy_skill", "Visor Sync", 20, 2,
-        "Feed the squad live targeting data: +18% Crit Rate for 2 turns, and restore 10 energy and 14 SP to each of them.",
+        "Feed the squad live targeting data: +32% Crit Rate for 3 turns, and restore 8 energy and 10 SP to each of them.",
         {"kind": "team_buff_and_resource", "buff_stat": "crit_rate", "buff_percent": 32,
-         "duration": 3, "energy_amount": 14, "mana_amount": 18},
+         "duration": 3, "energy_amount": 8, "mana_amount": 10},
     ),
     "caandy_ultimate": _ultimate(
         "caandy_ultimate", "AI Overclock",
@@ -470,8 +474,8 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     ),
     "bee_jee_ultimate": _ultimate(
         "bee_jee_ultimate", "Antidote Protocol",
-        "Shield the whole team for 40% of each member's max HP and purge every negative effect from them.",
-        {"kind": "team_shield_and_cleanse", "shield_percent": 40},
+        "Shield the whole team for 28% of each member's max HP and purge every negative effect from them.",
+        {"kind": "team_shield_and_cleanse", "shield_percent": 28},
     ),
     "sader_vorae_skill": _skill(
         "sader_vorae_skill", "Wide Strafing Pass", 20, 1,
@@ -570,8 +574,8 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     ),
     "aura_ultimate": _ultimate(
         "aura_ultimate", "Triage Surge",
-        "Heal the whole team for 45% of each member's max HP.",
-        {"kind": "team_heal_percent_max_hp", "percent": 45},
+        "Heal the whole team for 28% of each member's max HP.",
+        {"kind": "team_heal_percent_max_hp", "percent": 28},
     ),
 
     # --- 5-star ---
@@ -600,8 +604,8 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     ),
     "refender_ultimate": _ultimate(
         "refender_ultimate", "Perfect Balance",
-        "Heal the whole team for 40% of each member's max HP and raise their DEF by 35% for 3 turns.",
-        {"kind": "team_heal_and_buff", "heal_percent": 40,
+        "Heal the whole team for 24% of each member's max HP and raise their DEF by 35% for 3 turns.",
+        {"kind": "team_heal_and_buff", "heal_percent": 24,
          "buff_stat": "defense", "buff_percent": 35, "duration": 3},
     ),
     "dolphe_skill": _skill(
@@ -652,9 +656,9 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     # partner for the elemental DPS characters.
     "virtual_skill": _skill(
         "virtual_skill", "Drone Resupply", 24, 2,
-        "Support drones prime the squad's tech: +25% ELE for 2 turns, and restore 12 energy and 16 SP to each of them.",
+        "Support drones prime the squad's tech: +42% ELE for 3 turns, and restore 9 energy and 11 SP to each of them.",
         {"kind": "team_buff_and_resource", "buff_stat": "elemental", "buff_percent": 42,
-         "duration": 3, "energy_amount": 16, "mana_amount": 20},
+         "duration": 3, "energy_amount": 9, "mana_amount": 11},
     ),
     "virtual_ultimate": _ultimate(
         "virtual_ultimate", "Full Swarm Protocol",
@@ -679,6 +683,73 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         "Deal 105% ELE damage to all enemies and set each of them ablaze for 15% ELE per turn over 3 turns.",
         {"kind": "aoe_damage_chance_dot", "damage_percent": 105, "damage_stat": "elemental",
          "dot_chance_percent": 100, "dot_stat": "elemental", "dot_percent": 15, "duration": 3},
+    ),
+    # ==================================================================
+    # ROSTER EXPANSION -- five characters, each built on a mechanic no
+    # existing character owns, so they add options rather than variants.
+    #
+    #   Blastix   -- the only kit that pays for AOE with SELF-damage.
+    #   Gostley   -- the only DPS that heals off executions.
+    #   Daffysam. -- the only 3-star with a team cleanse.
+    #   Chary     -- the only Amplifier that buffs by DEBUFFING the enemy.
+    #   Aizer     -- the only character who scales off the enemy's missing
+    #                health rather than their own.
+    # ==================================================================
+    "blastix_skill": _skill(
+        "blastix_skill", "Overpressure Round", 22, 1,
+        "Deal 105% ATK damage to all enemies, at the cost of 8% of your own max HP.",
+        {"kind": "damage_all_and_debuff_self", "damage_percent": 105, "damage_stat": "attack",
+         "self_cost_percent": 8, "debuff_stat": "defense", "debuff_percent": -10, "duration": 2},
+    ),
+    "blastix_ultimate": _ultimate(
+        "blastix_ultimate", "Total Detonation",
+        "Deal 210% ATK damage to every enemy and chip 4 Poise from each of them.",
+        {"kind": "aoe_damage_chance_poise_strike", "damage_percent": 210, "damage_stat": "attack",
+         "poise_chance_percent": 100, "bonus_poise": 4},
+    ),
+    "gostley_skill": _skill(
+        "gostley_skill", "Grave Tithe", 20, 1,
+        "Deal 165% ATK damage. If it kills, heal yourself for 25% of your max HP.",
+        {"kind": "damage_execute_heal", "damage_percent": 165, "damage_stat": "attack",
+         "heal_percent": 25},
+    ),
+    "gostley_ultimate": _ultimate(
+        "gostley_ultimate", "Last Rites",
+        "Execute the target outright below 22% HP; otherwise deal 250% ATK damage.",
+        {"kind": "execute_below_threshold", "damage_percent": 250, "damage_stat": "attack",
+         "hp_threshold_percent": 22},
+    ),
+    "daffysamlake_skill": _skill(
+        "daffysamlake_skill", "Lakeside Rinse", 20, 2,
+        "Purge every negative effect from one ally and heal them for 22% of their max HP.",
+        {"kind": "cleanse_ally_and_heal", "heal_percent": 22},
+    ),
+    "daffysamlake_ultimate": _ultimate(
+        "daffysamlake_ultimate", "High Water",
+        "Shield the whole team for 26% of each member's max HP and purge every negative effect from them.",
+        {"kind": "team_shield_and_cleanse", "shield_percent": 26},
+    ),
+    "chary_skill": _skill(
+        "chary_skill", "Confidence Trick", 22, 2,
+        "Strip 24% DEF from every enemy for 3 turns.",
+        {"kind": "team_debuff", "debuff_stat": "defense", "debuff_percent": -24, "duration": 3},
+    ),
+    "chary_ultimate": _ultimate(
+        "chary_ultimate", "House Always Wins",
+        "Boost the whole team's ATK and Crit DMG by 55% for 4 turns.",
+        {"kind": "team_double_buff", "buff_stat_1": "attack", "buff_percent_1": 55,
+         "buff_stat_2": "crit_damage", "buff_percent_2": 55, "duration": 4},
+    ),
+    "aizer_skill": _skill(
+        "aizer_skill", "Closing Argument", 20, 1,
+        "Deal 120% ATK damage, rising to 240% against a target that has already lost most of its health.",
+        {"kind": "damage_scales_with_missing_hp", "base_damage_percent": 120,
+         "bonus_damage_percent_at_zero_hp": 120, "damage_stat": "attack"},
+    ),
+    "aizer_ultimate": _ultimate(
+        "aizer_ultimate", "Verdict",
+        "Strike four times for 80% ATK damage each.",
+        {"kind": "multi_hit", "hits": 4, "damage_percent_per_hit": 80, "damage_stat": "attack"},
     ),
 }
 
@@ -860,8 +931,8 @@ CHARACTER_PASSIVE_MAP: dict[str, dict] = {
     ),
     "dolphe_passive": _passive(
         "dolphe_passive", "Leader's Wavelength", "on_turn_start",
-        "He keeps the whole team synced and supplied: 12 energy and 15 SP to everyone, every turn.",
-        {"kind": "aura_team_resource_regen", "energy_amount": 12, "mana_amount": 15},
+        "He keeps the whole team synced and supplied: 5 energy and 6 SP to everyone, every turn.",
+        {"kind": "aura_team_resource_regen", "energy_amount": 5, "mana_amount": 6},
     ),
     "caliper_passive": _passive(
         "caliper_passive", "Dead Aim", "on_ultimate",
@@ -883,6 +954,44 @@ CHARACTER_PASSIVE_MAP: dict[str, dict] = {
         # Buff-plus-shield is his drone-support flavour, and pairs his
         # Amplifier kit with a defensive layer no other Amplifier has.
         {"kind": "kit_reaction", "event": "buff", "reward": "team_shield", "percent": 10},
+    ),
+
+    # --- roster expansion ---
+    "blastix_passive": _passive(
+        "blastix_passive", "Blast Tolerance", "always",
+        "He runs on his own blood: 14% of all damage he deals comes back as health.",
+        # Closes the loop his SKILL opens. Overpressure Round costs 8% of
+        # his max HP per cast, which with no sustain would make his own
+        # best button unusable twice in a row; lifesteal turns that cost
+        # into a rhythm -- spend health to hit everything, take it back off
+        # the things you hit. An engine kind that already exists, rather
+        # than a new hook invented for one character.
+        {"kind": "lifesteal", "percent": 14},
+    ),
+    "gostley_passive": _passive(
+        "gostley_passive", "Collector's Due", "on_kill",
+        "Each life he takes feeds the squad: every kill restores 8% max HP to the whole team.",
+        {"kind": "kit_reaction", "event": "kill", "reward": "team_heal", "percent": 8},
+    ),
+    "daffysamlake_passive": _passive(
+        "daffysamlake_passive", "Still Waters", "on_cleanse",
+        "Every effect he washes away leaves the team steadier -- +16% DEF for 2 turns.",
+        {"kind": "kit_reaction", "event": "cleanse", "reward": "team_buff",
+         "buff_stat": "defense", "buff_percent": 16, "duration": 2},
+    ),
+    "chary_passive": _passive(
+        "chary_passive", "Reading the Room", "on_debuff",
+        "She turns every weakness she finds into an opening: each debuff she lands gives the squad 13% Crit Rate for 2 turns.",
+        # The pivot that makes her an Amplifier rather than a Support DPS:
+        # her buttons debuff the ENEMY, and this is what converts that into
+        # offence for her own side.
+        {"kind": "kit_reaction", "event": "debuff", "reward": "team_buff",
+         "buff_stat": "crit_rate", "buff_percent": 13, "duration": 2},
+    ),
+    "aizer_passive": _passive(
+        "aizer_passive", "No Further Questions", "always",
+        "He never stops closing: +6% ATK every turn, stacking up to 6 times.",
+        {"kind": "stacking_buff", "buff_stat": "attack", "percent_per_stack": 6, "max_stacks": 6},
     ),
 }
 

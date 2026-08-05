@@ -64,7 +64,7 @@ def _profile_overview_page(player, character, equipped_items, avatar_url, db=Non
     embed.add_field(name="⭐ Char. Level", value=f"{character.level}/{LEVEL_CAP}", inline=True)
     embed.add_field(name="✨ XP", value=f"{character.xp} / {character.xp_to_next_level()}", inline=True)
     embed.add_field(name="🪙 Gold", value=str(player.gold), inline=True)
-    embed.add_field(name="💎 Shards", value=str(player.shards), inline=True)
+    embed.add_field(name="<:shard:1534383382924890192> Shards", value=str(player.shards), inline=True)
     embed.add_field(name="🎭 Class", value=CLASS_DISPLAY_NAME[character.effective_class()], inline=True)
 
     base_stats = base_character_stats(character)
@@ -164,4 +164,141 @@ def _profile_abilities_page(player, character, equipped_items, avatar_url) -> di
     embed.add_field(name="🛡️ Passives (from Armor/Accessory)", value=lines, inline=False)
 
     embed.set_footer(text="Basic Attack always builds Energy + SP by your Recharge stat.")
+    return embed
+
+
+# ----------------------------------------------------------------------
+# ACCOUNT PROFILE
+#
+# /profile used to be a per-character sheet, which duplicated what
+# /characters is now for. It's the ACCOUNT view instead: one screen
+# answering "how far along am I", with nothing on it that belongs to a
+# single character.
+# ----------------------------------------------------------------------
+
+def account_profile_embed(player, summary: dict, avatar_url: str | None = None) -> discord.Embed:
+    """The account overview. `summary` comes from
+    account_service.account_summary -- the embed does no querying of its
+    own, so the same numbers can back a leaderboard or an achievement
+    check without being recomputed differently."""
+    from bot.services.currency_service import format_currency
+
+    level = summary["level"]
+    embed = discord.Embed(
+        title=f"{player.username}",
+        color=discord.Color.blurple(),
+    )
+    if avatar_url:
+        embed.set_thumbnail(url=avatar_url)
+
+    if summary["maxed"]:
+        progress_line = f"**Account Level {level}** — max"
+    else:
+        filled = int(summary["fraction"] * 12)
+        bar = "█" * filled + "░" * (12 - filled)
+        progress_line = (
+            f"**Account Level {level}**\n"
+            f"{bar}  {summary['into']}/{summary['needed']} to level {level + 1}"
+        )
+    embed.description = (
+        f"{progress_line}\n"
+        f"*Account level comes from your total character levels "
+        f"({summary['total_levels']:,}) — the same measure domains and raids gate on.*"
+    )
+
+    embed.add_field(
+        name="👥 Roster",
+        value=(
+            f"**{summary['characters_owned']}/{summary['characters_total']}** characters collected\n"
+            f"Highest character: **Lv{summary['highest_character']}**\n"
+            f"Fully resonated: **{summary['resonance_maxed']}**"
+        ),
+        inline=True,
+    )
+    embed.add_field(
+        name="⚔️ Power",
+        value=(
+            f"Squad power: **{summary['squad_power']:,}**\n"
+            f"Items owned: **{summary['items_owned']:,}**\n"
+            f"Cascade HQ: **Lv{summary['hq_level']}**"
+        ),
+        inline=True,
+    )
+    embed.add_field(
+        name="💰 Currencies",
+        value=(
+            f"{format_currency('gold', player.gold)} · {format_currency('shards', player.shards)}\n"
+            f"{format_currency('echoes', player.echoes)} · "
+            f"{format_currency('reroll_tokens', player.reroll_tokens)}"
+        ),
+        inline=False,
+    )
+    embed.set_footer(text="/characters for per-character stats · /stash for materials")
+    return embed
+
+
+# ----------------------------------------------------------------------
+# GIFTS
+# ----------------------------------------------------------------------
+
+def gift_sent_embed(gift, recipient_mention: str, sends_left: int) -> discord.Embed:
+    from bot.services.currency_service import format_currency
+
+    embed = discord.Embed(
+        title="🎁 Gift sent",
+        description=f"On its way to {recipient_mention}. They collect it with `/gifts`.",
+        color=discord.Color.green(),
+    )
+    embed.add_field(
+        name="Contents",
+        value="\n".join(format_currency(c, a) for c, a in gift.contents.items()),
+        inline=False,
+    )
+    if gift.note:
+        embed.add_field(name="Your note", value=gift.note, inline=False)
+    embed.set_footer(text=f"{sends_left} gift(s) left to send today.")
+    return embed
+
+
+def gift_inbox_embed(player, pending: list) -> discord.Embed:
+    """What's waiting to be collected. Shows the SENDER for each package
+    rather than merging everything into one total -- a gift is from
+    somebody, and stripping that out would make it indistinguishable from
+    a system payout."""
+    from bot.services.currency_service import format_currency
+
+    embed = discord.Embed(title="🎁 Your Gifts", color=discord.Color.green())
+    if not pending:
+        embed.description = "Nothing waiting right now."
+        return embed
+
+    embed.description = f"**{len(pending)}** package(s) waiting."
+    for gift in pending[:10]:
+        sender = gift.sender.username if gift.sender else str(gift.sender_id)
+        contents = " · ".join(format_currency(c, a) for c, a in (gift.contents or {}).items())
+        value = contents or "*empty*"
+        if gift.note:
+            value += f"\n*“{gift.note}”*"
+        embed.add_field(name=f"From {sender}", value=value, inline=False)
+    if len(pending) > 10:
+        embed.set_footer(text=f"...and {len(pending) - 10} more. Collect to see them all.")
+    return embed
+
+
+def gift_collected_embed(result: dict) -> discord.Embed:
+    from bot.services.currency_service import format_currency
+
+    totals = result["totals"]
+    embed = discord.Embed(
+        title="🎁 Gifts collected",
+        description=f"Collected **{len(result['gifts'])}** package(s).",
+        color=discord.Color.gold(),
+    )
+    embed.add_field(
+        name="Received",
+        value="\n".join(format_currency(c, a) for c, a in totals.items()) or "*Nothing.*",
+        inline=False,
+    )
+    senders = sorted({(g.sender.username if g.sender else str(g.sender_id)) for g in result["gifts"]})
+    embed.set_footer(text="Thanks to: " + ", ".join(senders[:8]))
     return embed

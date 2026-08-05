@@ -34,7 +34,7 @@ def _lootbox_line(tiers: list[str]) -> str:
 
 def _reward_lines(reward: dict) -> str:
     lines = [
-        f"💎 **{format_currency('shards', reward['shards'])}**",
+        f"**{format_currency('shards', reward['shards'])}**",
         f"🪙 {format_currency('gold', reward['gold'])}",
         f"🎲 {format_currency('reroll_tokens', reward['reroll_tokens'])}",
     ]

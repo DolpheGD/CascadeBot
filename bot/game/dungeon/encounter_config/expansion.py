@@ -1,0 +1,836 @@
+"""
+Encounter expansion -- the variety pass.
+
+WHY THIS FILE EXISTS. The pool was 51 encounters spread across seven room
+types, which sounds like plenty until you notice a run visits eight or
+nine rooms: Shrine had four options total, Puzzle five. Players were
+seeing the same handful of set-pieces every single run, and an encounter
+you've already solved isn't an encounter, it's a menu.
+
+This roughly doubles the pool. Every encounter here is NEW WORLD rather
+than a new payout table -- a different situation to be in, so the variety
+is in what's happening rather than in the numbers attached.
+
+----------------------------------------------------------------------
+THE RISK BAND, and why these sit low in it
+----------------------------------------------------------------------
+None of these have art. The existing cast were ported from the old JS
+bot with their original images; there is no source art for a scavenger
+crew or a frozen relay that never existed before, and inventing a
+half-illustrated tier would look worse than a clean text encounter.
+
+So they're deliberately tuned as the LOW-RISK, LOW-REWARD end of the
+pool: high success chances, small-to-moderate gains, and failure states
+that cost a little HP or nothing at all. That isn't an apology for the
+missing art -- it's what makes them work as the common case. A run should
+be mostly small, safe, texture-building moments punctuated by the
+occasional big illustrated set-piece, not a slot machine every room.
+
+THE EXCEPTIONS are deliberate and marked with a HIGH STAKES comment:
+`collapsed_vault`, `entrospire_paymaster` and `the_long_dark` each carry
+a real chance of a real loss and pay accordingly. Without a few of those,
+"low risk low reward" collapses into "nothing here matters".
+
+Reward scale, for anyone retuning: these sit at roughly 60-75% of a
+comparable illustrated encounter's payout, and shards only ever appear as
+a low-chance `bonus` rider -- never a guaranteed `gain` -- per the rule in
+this package's __init__ docstring.
+"""
+
+from __future__ import annotations
+
+EXPANSION_ENCOUNTERS: list[dict] = [
+
+    # ==================================================================
+    # STORY
+    # ==================================================================
+    {
+        "id": "scavenger_crew",
+        "name": "Scavenger Crew",
+        "image_url": None,
+        "room_types": ["story"],
+        "intros": [
+            "Four scavengers are arguing over a half-stripped chassis. They stop when they see you.",
+            "A scavenging crew has claimed this stretch of corridor. Their leader raises an empty hand -- not a threat, yet.",
+            "You've walked into somebody else's salvage operation. Nobody reaches for a weapon, which is something.",
+        ],
+        "choices": [
+            {
+                "id": "trade_notes",
+                "label": "🗺️ Trade route information",
+                "description": "Tell them what's ahead. They'll tell you what's behind.",
+                "action": "risk",
+                "style": "primary",
+                "success_chance": 0.9,
+                "success_text": "You swap notes. Their map of the lower levels is worth more than they realise.",
+                "on_success": {"gain": {"gold": [30, 60], "material_tier": 1, "amount": [6, 14]}},
+                "fail_text": "They listen, nod, and tell you nothing useful in return.",
+                "on_fail": {},
+            },
+            {
+                "id": "buy_salvage",
+                "label": "🔧 Buy their salvage (80 gold)",
+                "description": "They'd rather have the coin than carry it.",
+                "action": "trade",
+                "style": "success",
+                "cost": {"gold": 80},
+                "success_chance": 0.95,
+                "success_text": "They hand over the lot, visibly relieved not to haul it any further.",
+                "on_success": {"gain": {"material_tier": 2, "amount": [5, 12]},
+                               "bonus": {"chance": 0.07, "gain": {"lootbox": "common"}}},
+                "fail_text": "Half of what they sold you turns out to be slag.",
+                "on_fail": {"gain": {"material_tier": 0, "amount": [4, 8]}},
+            },
+            {
+                "id": "let_them_work",
+                "label": "🚶 Leave them to it",
+                "description": "Not your salvage, not your problem.",
+                "action": "leave",
+                "style": "secondary",
+                "text": "You step around the argument and carry on. Behind you, it resumes.",
+            },
+        ],
+    },
+    {
+        "id": "field_medic_post",
+        "name": "Abandoned Aid Post",
+        "image_url": None,
+        "room_types": ["story", "secret"],
+        "intros": [
+            "A field aid post, hastily abandoned. The cots are stripped but the cabinets weren't emptied.",
+            "Someone ran a triage station out of this room. The floor still shows where the stretchers went.",
+        ],
+        "choices": [
+            {
+                "id": "use_supplies",
+                "label": "💊 Use the remaining supplies",
+                "description": "Patch the squad up with what's left.",
+                "action": "risk",
+                "style": "success",
+                "success_chance": 0.92,
+                "success_text": "Expired, but serviceable. Everyone comes out of it better than they went in.",
+                "on_success": {"heal": 35},
+                "fail_text": "Every ampoule you find has already turned. Nothing usable.",
+                "on_fail": {},
+            },
+            {
+                "id": "strip_cabinets",
+                "label": "📦 Strip the cabinets",
+                "description": "Take the supplies rather than use them.",
+                "action": "risk",
+                "style": "primary",
+                "success_chance": 0.88,
+                "success_text": "You clear the cabinets into your packs.",
+                "on_success": {"gain": {"gold": [25, 55], "material_tier": 1, "amount": [5, 11]},
+                               "bonus": {"chance": 0.06, "gain": {"shards": 1}}},
+                "fail_text": "The cabinets were emptied before you got here. Of course they were.",
+                "on_fail": {},
+            },
+        ],
+    },
+    {
+        "id": "mianot_broadcast",
+        "name": "MianotAI's Broadcast",
+        "image_url": None,
+        "room_types": ["story"],
+        "intros": [
+            "A speaker crackles. \"GREETINGS. I AM AN ARTIFICIAL INTELLIGENCE.\" The voice is very obviously a person.",
+            "\"MY PROCESSORS HAVE CALCULATED YOUR ARRIVAL,\" says a man doing a robot voice, badly.",
+        ],
+        "choices": [
+            {
+                "id": "play_along",
+                "label": "🤖 Play along",
+                "description": "Address the machine with appropriate reverence.",
+                "action": "risk",
+                "style": "primary",
+                "success_chance": 0.9,
+                "success_text": "Delighted, he grants you 'ADMINISTRATIVE ACCESS' -- which is to say, he opens a locker for you.",
+                "on_success": {"gain": {"gold": [40, 75], "reroll_tokens": [1, 3]}},
+                "fail_text": "You overdo it. He goes quiet, wounded, and refuses to continue the bit.",
+                "on_fail": {},
+            },
+            {
+                "id": "call_it_out",
+                "label": "🗣️ Point out he's a guy",
+                "description": "Some things need saying.",
+                "action": "risk",
+                "style": "danger",
+                "success_chance": 0.45,
+                "success_text": "A long pause. \"...Fine. Yeah.\" He respects it enough to pay you for the honesty.",
+                "on_success": {"gain": {"gold": [70, 130], "material_tier": 2, "amount": [3, 8]},
+                               "bonus": {"chance": 0.08, "gain": {"lootbox": "rare"}}},
+                "fail_text": "\"ERROR. ERROR.\" He cuts the feed and locks the door on the way out.",
+                "on_fail": {"hp_damage_percent": 8},
+            },
+        ],
+    },
+    {
+        "id": "frozen_relay",
+        "name": "Frozen Relay Station",
+        "image_url": None,
+        "room_types": ["story", "puzzle"],
+        "intros": [
+            "A comms relay, iced over solid. Its status light still blinks somewhere under the frost.",
+            "The relay is buried in ice but drawing power. Someone, somewhere, is still listening to it.",
+        ],
+        "choices": [
+            {
+                "id": "thaw_carefully",
+                "label": "🔥 Thaw it carefully",
+                "description": "Slow, patient, unlikely to break anything.",
+                "action": "risk",
+                "style": "success",
+                "success_chance": 0.93,
+                "success_text": "The relay comes back online and dumps a cache of intercepted supply manifests.",
+                "on_success": {"gain": {"gold": [35, 65], "material_tier": 1, "amount": [7, 15]}},
+                "fail_text": "The ice comes away clean. The relay under it does not.",
+                "on_fail": {},
+            },
+            {
+                "id": "crack_it_open",
+                "label": "🔨 Crack it open",
+                "description": "Faster. Harder on the hardware.",
+                "action": "risk",
+                "style": "primary",
+                "success_chance": 0.65,
+                "success_text": "You get to the core before the cold does. The components inside are pristine.",
+                "on_success": {"gain": {"material_tier": 2, "amount": [6, 13], "gold": [40, 80]},
+                               "bonus": {"chance": 0.09, "gain": {"lootbox": "uncommon"}}},
+                "fail_text": "The casing shatters and takes the boards with it. Freezing shrapnel everywhere.",
+                "on_fail": {"hp_damage_percent": 10},
+            },
+        ],
+    },
+    {
+        "id": "josh_hater_convention",
+        "name": "An Unfriendly Reception",
+        "image_url": None,
+        "room_types": ["story"],
+        "intros": [
+            "Someone has spray-painted a very detailed opinion about Josh across the entire wall.",
+            "A small group is workshopping chants. All of them are about Josh. None of them scan.",
+        ],
+        "choices": [
+            {
+                "id": "defend_josh",
+                "label": "🛡️ Defend the man",
+                "description": "Say something nice about Josh. Out loud. Here.",
+                "action": "risk",
+                "style": "danger",
+                "success_chance": 0.5,
+                "success_text": "The room turns on you, then -- grudgingly -- concedes the point. Someone buys you a drink.",
+                "on_success": {"gain": {"gold": [60, 110], "reroll_tokens": [2, 4]},
+                               "bonus": {"chance": 0.08, "gain": {"shards": [1, 2]}}},
+                "fail_text": "They throw things. Some of the things are heavy.",
+                "on_fail": {"hp_damage_percent": 12},
+            },
+            {
+                "id": "sell_them_merch",
+                "label": "💰 Sell them anti-Josh merchandise",
+                "description": "A captive market is still a market.",
+                "action": "risk",
+                "style": "primary",
+                "success_chance": 0.9,
+                "success_text": "You sell out inside four minutes. Business is business.",
+                "on_success": {"gain": {"gold": [55, 95]}},
+                "fail_text": "They accuse you of being a profiteer. Which, yes.",
+                "on_fail": {},
+            },
+            {
+                "id": "walk_past",
+                "label": "🚶 Keep walking",
+                "description": "Do not engage.",
+                "action": "leave",
+                "style": "secondary",
+                "text": "You keep your opinions to yourself and your pace steady.",
+            },
+        ],
+    },
+
+    # ==================================================================
+    # TREASURE
+    # ==================================================================
+    {
+        "id": "supply_drop",
+        "name": "Mislabelled Supply Drop",
+        "image_url": None,
+        "room_types": ["treasure"],
+        "intros": [
+            "A supply crate, dropped by someone who got the coordinates wrong. Their loss.",
+            "The crate's manifest is stencilled on the side and matches nothing about its actual weight.",
+        ],
+        "choices": [
+            {
+                "id": "open_it",
+                "label": "📦 Open it",
+                "description": "Whatever's inside, it's yours now.",
+                "action": "risk",
+                "style": "success",
+                "success_chance": 0.95,
+                "success_text": "Standard-issue field supplies. Unglamorous and extremely useful.",
+                "on_success": {"gain": {"material_tier": 1, "amount": [9, 18], "gold": [30, 55]},
+                               "bonus": {"chance": 0.08, "gain": {"lootbox": "common"}}},
+                "fail_text": "Packing foam. The entire crate is packing foam.",
+                "on_fail": {},
+            },
+        ],
+    },
+    {
+        "id": "collapsed_vault",
+        "name": "The Collapsed Vault",
+        "image_url": None,
+        "room_types": ["treasure", "secret"],
+        # HIGH STAKES -- one of the three deliberate exceptions to this
+        # module's low-risk rule. A vault under a partial collapse should
+        # be worth real money and should be able to hurt you; a version
+        # of this that couldn't would be a treasure chest with extra text.
+        "intros": [
+            "Half the ceiling has come down across the vault door. The half that hasn't is creaking.",
+            "The vault survived the collapse. Getting into it means going under what's left of the roof.",
+        ],
+        "choices": [
+            {
+                "id": "squeeze_through",
+                "label": "⛏️ Go under the collapse",
+                "description": "High risk. The vault is intact and full.",
+                "action": "risk",
+                "style": "danger",
+                "success_chance": 0.55,
+                "success_text": "You get in, clear the shelves, and get out before the rest comes down.",
+                "on_success": {"gain": {"material_tier": 3, "amount": [4, 10], "gold": [180, 320],
+                                        "item": "natural"},
+                               "bonus": {"chance": 0.12, "gain": {"lootbox": "epic"}}},
+                "fail_text": "The ceiling finishes what it started. You get clear, but not cleanly.",
+                "on_fail": {"hp_damage_percent": 25},
+            },
+            {
+                "id": "shore_it_up",
+                "label": "🪵 Shore it up first (30 wood, 20 metal)",
+                "description": "Slower, safer, and you still get in.",
+                "action": "trade",
+                "style": "primary",
+                "cost": {"wood": 30, "metal": 20},
+                "success_chance": 0.93,
+                "success_text": "The props hold. You empty the vault at your leisure.",
+                "on_success": {"gain": {"material_tier": 2, "amount": [8, 16], "gold": [120, 210]},
+                               "bonus": {"chance": 0.1, "gain": {"lootbox": "rare"}}},
+                "fail_text": "The props hold. The floor doesn't.",
+                "on_fail": {"hp_damage_percent": 10},
+            },
+            {
+                "id": "not_worth_it",
+                "label": "🚶 Not worth it",
+                "description": "There'll be other vaults.",
+                "action": "leave",
+                "style": "secondary",
+                "text": "You back out from under the creaking and take the long way round.",
+            },
+        ],
+    },
+    {
+        "id": "vending_machine",
+        "name": "Improbable Vending Machine",
+        "image_url": None,
+        "room_types": ["treasure", "story"],
+        "intros": [
+            "A vending machine. Here. Powered. Fully stocked.",
+            "Someone has hauled a working vending machine into the middle of a warzone and plugged it in.",
+        ],
+        "choices": [
+            {
+                "id": "buy_something",
+                "label": "🥤 Buy something (40 gold)",
+                "description": "It takes coins. Somehow.",
+                "action": "trade",
+                "style": "success",
+                "cost": {"gold": 40},
+                "success_chance": 0.9,
+                "success_text": "It dispenses something restorative and faintly radioactive. The squad feels better.",
+                "on_success": {"heal": 30, "bonus": {"chance": 0.07, "gain": {"lootbox": "common"}}},
+                "fail_text": "It takes your money and dispenses nothing. Of course it does.",
+                "on_fail": {},
+            },
+            {
+                "id": "shake_it",
+                "label": "🤜 Shake it",
+                "description": "The traditional approach.",
+                "action": "risk",
+                "style": "danger",
+                "success_chance": 0.6,
+                "success_text": "Three things fall out at once. You take all three.",
+                "on_success": {"gain": {"gold": [50, 90], "material_tier": 1, "amount": [4, 10]}},
+                "fail_text": "It falls on you.",
+                "on_fail": {"hp_damage_percent": 12},
+            },
+        ],
+    },
+
+    # ==================================================================
+    # TRAP
+    # ==================================================================
+    {
+        "id": "tripwire_corridor",
+        "name": "Tripwire Corridor",
+        "image_url": None,
+        "room_types": ["trap"],
+        "intros": [
+            "The corridor ahead is threaded with wire at three different heights. Someone was thorough.",
+            "Monofilament, strung corner to corner. Whoever laid this wanted the room to themselves.",
+        ],
+        "choices": [
+            {
+                "id": "disarm_slowly",
+                "label": "✂️ Disarm it, wire by wire",
+                "description": "Slow and careful. Very likely to work.",
+                "action": "risk",
+                "style": "success",
+                "success_chance": 0.9,
+                "success_text": "You clear every wire and recover the charges they were rigged to.",
+                "on_success": {"gain": {"material_tier": 1, "amount": [6, 13], "gold": [20, 45]}},
+                "fail_text": "The last wire wasn't a wire. Something goes off down the hall.",
+                "on_fail": {"hp_damage_percent": 10},
+            },
+            {
+                "id": "sprint",
+                "label": "🏃 Just run it",
+                "description": "Fast. Stupid. Occasionally correct.",
+                "action": "risk",
+                "style": "danger",
+                "success_chance": 0.5,
+                "success_text": "You come through the other side untouched and faintly amazed.",
+                "on_success": {"gain": {"gold": [45, 85]}},
+                "fail_text": "You make it about four metres.",
+                "on_fail": {"hp_damage_percent": 20},
+            },
+        ],
+    },
+    {
+        "id": "spy_camera_nest",
+        "name": "Spy Camera Nest",
+        "image_url": None,
+        "room_types": ["trap", "secret"],
+        "intros": [
+            "A dozen Xender spy cameras, all tracking you at once. None of them are armed. All of them are watching.",
+            "The ceiling is a nest of camera housings. They swivel together to face you.",
+        ],
+        "choices": [
+            {
+                "id": "smash_them",
+                "label": "🔨 Smash the lot",
+                "description": "Loud, satisfying, and full of salvageable optics.",
+                "action": "risk",
+                "style": "primary",
+                "success_chance": 0.88,
+                "success_text": "You clear the nest and pocket the lenses. Somebody, somewhere, is now blind here.",
+                "on_success": {"gain": {"material_tier": 2, "amount": [4, 9]},
+                               "bonus": {"chance": 0.07, "gain": {"reroll_tokens": [2, 4]}}},
+                "fail_text": "One of them was armed after all.",
+                "on_fail": {"hp_damage_percent": 12},
+            },
+            {
+                "id": "feed_them_garbage",
+                "label": "🎭 Feed them false footage",
+                "description": "Let whoever's watching see what you want.",
+                "action": "risk",
+                "style": "success",
+                "success_chance": 0.85,
+                "success_text": "Whoever was watching reroutes a patrol away from you. The road ahead is quieter.",
+                "on_success": {"heal": 20, "gain": {"gold": [25, 50]}},
+                "fail_text": "They don't buy it. The cameras keep watching.",
+                "on_fail": {},
+            },
+        ],
+    },
+    {
+        "id": "false_floor",
+        "name": "False Floor",
+        "image_url": None,
+        "room_types": ["trap"],
+        "intros": [
+            "The floor plating here rings hollow. All of it.",
+            "Someone has replaced this entire section of floor with something considerably thinner.",
+        ],
+        "choices": [
+            {
+                "id": "edge_around",
+                "label": "🧗 Edge around the wall",
+                "description": "Slow, but the wall is real.",
+                "action": "risk",
+                "style": "success",
+                "success_chance": 0.94,
+                "success_text": "You work your way around and drop back down past the whole thing.",
+                "on_success": {"gain": {"gold": [18, 40]}},
+                "fail_text": "The wall fitting gives out and you go through anyway.",
+                "on_fail": {"hp_damage_percent": 12},
+            },
+            {
+                "id": "drop_through",
+                "label": "🕳️ Drop through on purpose",
+                "description": "Whatever's under a false floor is usually worth having.",
+                "action": "risk",
+                "style": "danger",
+                "success_chance": 0.6,
+                "success_text": "You land in a cache somebody went to real trouble to hide.",
+                "on_success": {"gain": {"material_tier": 2, "amount": [6, 12], "gold": [60, 110]},
+                               "bonus": {"chance": 0.1, "gain": {"lootbox": "uncommon"}}},
+                "fail_text": "There's nothing under the floor but more floor, further down.",
+                "on_fail": {"hp_damage_percent": 18},
+            },
+        ],
+    },
+
+    # ==================================================================
+    # SHRINE
+    # ==================================================================
+    {
+        "id": "cairn_of_names",
+        "name": "The Cairn of Names",
+        "image_url": None,
+        "room_types": ["shrine"],
+        "intros": [
+            "A cairn of stones, each one scratched with a name. It's a long cairn.",
+            "Someone has been adding a stone for every person lost out here. They ran out of room and started a second pile.",
+        ],
+        "choices": [
+            {
+                "id": "add_a_stone",
+                "label": "🪨 Add a stone",
+                "description": "Cost nothing. Means something.",
+                "action": "risk",
+                "style": "success",
+                "success_chance": 1.0,
+                "success_text": "You set your stone on the pile. The squad stands quiet for a moment, then moves on steadier.",
+                "on_success": {"heal": 25},
+                "fail_text": "",
+                "on_fail": {},
+            },
+            {
+                "id": "read_the_names",
+                "label": "📖 Read the names",
+                "description": "All of them.",
+                "action": "risk",
+                "style": "primary",
+                "success_chance": 0.85,
+                "success_text": "Halfway down you find a name you know, and a cache the person who wrote it left behind.",
+                "on_success": {"gain": {"gold": [40, 80], "material_tier": 1, "amount": [5, 12]},
+                               "bonus": {"chance": 0.06, "gain": {"shards": [1, 2]}}},
+                "fail_text": "You don't recognise a single one. Somehow that's worse.",
+                "on_fail": {},
+            },
+        ],
+    },
+    {
+        "id": "cold_spring",
+        "name": "The Cold Spring",
+        "image_url": None,
+        "room_types": ["shrine", "campfire"],
+        "intros": [
+            "Meltwater surfaces here, painfully clean and painfully cold.",
+            "A spring runs out of the rock, clear enough to see the bottom of.",
+        ],
+        "choices": [
+            {
+                "id": "drink",
+                "label": "💧 Drink and refill",
+                "description": "Simple. Reliable.",
+                "action": "risk",
+                "style": "success",
+                "success_chance": 0.97,
+                "success_text": "It's the best water any of you have had in weeks.",
+                "on_success": {"heal": 40},
+                "fail_text": "It's fouled further up. You spot it in time, barely.",
+                "on_fail": {},
+            },
+            {
+                "id": "dive_for_it",
+                "label": "🤿 Dive the spring",
+                "description": "Something's glinting down there.",
+                "action": "risk",
+                "style": "danger",
+                "success_chance": 0.62,
+                "success_text": "You come up with a handful of something somebody dropped a very long time ago.",
+                "on_success": {"gain": {"material_tier": 2, "amount": [5, 11], "gold": [50, 95]}},
+                "fail_text": "The cold nearly takes you. You surface with nothing but a lesson.",
+                "on_fail": {"hp_damage_percent": 14},
+            },
+        ],
+    },
+
+    # ==================================================================
+    # PUZZLE
+    # ==================================================================
+    {
+        "id": "billboard_override",
+        "name": "Billboard Override Panel",
+        "image_url": None,
+        "room_types": ["puzzle"],
+        "intros": [
+            "A false-advertising billboard looms over the corridor, cycling claims that get less plausible each time.",
+            "The billboard's maintenance panel is unlocked. Whoever serviced it last was in a hurry.",
+        ],
+        "choices": [
+            {
+                "id": "rewrite_the_ad",
+                "label": "✍️ Rewrite the copy",
+                "description": "Turn their sign into your sign.",
+                "action": "risk",
+                "style": "primary",
+                "success_chance": 0.87,
+                "success_text": "Within the hour a small crowd has gathered to buy things you don't have. You take deposits.",
+                "on_success": {"gain": {"gold": [55, 100]},
+                               "bonus": {"chance": 0.07, "gain": {"reroll_tokens": [2, 5]}}},
+                "fail_text": "The panel locks you out and reports the attempt.",
+                "on_fail": {},
+            },
+            {
+                "id": "strip_the_panel",
+                "label": "🔩 Strip the panel for parts",
+                "description": "Less clever. More reliable.",
+                "action": "risk",
+                "style": "success",
+                "success_chance": 0.93,
+                "success_text": "Display drivers, power regulators, a great deal of copper.",
+                "on_success": {"gain": {"material_tier": 1, "amount": [8, 16], "gold": [20, 45]}},
+                "fail_text": "It's all surface-mounted and shatters as you pry it.",
+                "on_fail": {},
+            },
+        ],
+    },
+    {
+        "id": "pressure_door",
+        "name": "The Pressure Door",
+        "image_url": None,
+        "room_types": ["puzzle"],
+        "intros": [
+            "A pressure door, sealed, with a manual override that needs two people and a great deal of patience.",
+            "The door's hydraulics are dead. The manual crank is not.",
+        ],
+        "choices": [
+            {
+                "id": "crank_it",
+                "label": "⚙️ Work the crank",
+                "description": "Everyone takes a turn. Nobody enjoys it.",
+                "action": "risk",
+                "style": "success",
+                "success_chance": 0.91,
+                "success_text": "The door grinds open onto a storeroom nobody has reached in years.",
+                "on_success": {"gain": {"material_tier": 2, "amount": [5, 11], "gold": [35, 70]},
+                               "bonus": {"chance": 0.08, "gain": {"lootbox": "common"}}},
+                "fail_text": "The crank shears off in your hands at about the halfway point.",
+                "on_fail": {"hp_damage_percent": 6},
+            },
+            {
+                "id": "blow_the_hinges",
+                "label": "💥 Blow the hinges (25 metal)",
+                "description": "Faster. Louder. Costs materials.",
+                "action": "trade",
+                "style": "danger",
+                "cost": {"metal": 25},
+                "success_chance": 0.8,
+                "success_text": "The door comes off clean. The storeroom behind it is untouched.",
+                "on_success": {"gain": {"material_tier": 2, "amount": [8, 15], "gold": [60, 110]},
+                               "bonus": {"chance": 0.1, "gain": {"lootbox": "uncommon"}}},
+                "fail_text": "The charge goes early. The door stays shut and you don't.",
+                "on_fail": {"hp_damage_percent": 16},
+            },
+        ],
+    },
+
+    # ==================================================================
+    # SECRET
+    # ==================================================================
+    {
+        "id": "the_long_dark",
+        "name": "The Long Dark",
+        "image_url": None,
+        "room_types": ["secret"],
+        # HIGH STAKES -- exception two. A maintenance shaft with no light
+        # and no map is exactly the situation that should be able to go
+        # badly, and it pays like it.
+        "intros": [
+            "A maintenance shaft runs off into complete darkness. Your lights reach maybe six metres.",
+            "The shaft goes further than any of you want to think about. Something down there is still drawing power.",
+        ],
+        "choices": [
+            {
+                "id": "go_deep",
+                "label": "🔦 Follow it all the way down",
+                "description": "No map. No light past your own. Whatever's at the bottom is untouched.",
+                "action": "risk",
+                "style": "danger",
+                "success_chance": 0.5,
+                "success_text": "At the bottom is a sealed cache, and nobody has ever opened it.",
+                "on_success": {"gain": {"material_tier": 3, "amount": [5, 11], "gold": [150, 280],
+                                        "item": "natural"},
+                               "bonus": {"chance": 0.13, "gain": {"lootbox": "epic"}}},
+                "fail_text": "You lose the thread of the shaft in the dark and spend hours finding your way back.",
+                "on_fail": {"hp_damage_percent": 22},
+            },
+            {
+                "id": "go_partway",
+                "label": "🚶 Go as far as your lights reach",
+                "description": "Whatever's in the first stretch, and no further.",
+                "action": "risk",
+                "style": "success",
+                "success_chance": 0.92,
+                "success_text": "You clear the first stretch and come back with what was in it.",
+                "on_success": {"gain": {"material_tier": 1, "amount": [7, 15], "gold": [30, 60]}},
+                "fail_text": "The first stretch has already been picked clean.",
+                "on_fail": {},
+            },
+        ],
+    },
+    {
+        "id": "smugglers_cache",
+        "name": "Smuggler's Cache",
+        "image_url": None,
+        "room_types": ["secret"],
+        "intros": [
+            "A cache tucked behind a false panel, packed by someone who intended to come back for it.",
+            "The panel swings out on oiled hinges. Recently oiled hinges.",
+        ],
+        "choices": [
+            {
+                "id": "take_it_all",
+                "label": "🎒 Take all of it",
+                "description": "They're not coming back. Probably.",
+                "action": "risk",
+                "style": "primary",
+                "success_chance": 0.86,
+                "success_text": "You clear the cache and are gone before anyone checks on it.",
+                "on_success": {"gain": {"material_tier": 2, "amount": [6, 13], "gold": [65, 120]},
+                               "bonus": {"chance": 0.09, "gain": {"lootbox": "uncommon"}}},
+                "fail_text": "It was watched. You get out with your life and not much else.",
+                "on_fail": {"hp_damage_percent": 10},
+            },
+            {
+                "id": "take_a_share",
+                "label": "🤝 Take a share and reseal it",
+                "description": "Leave enough that nobody comes looking.",
+                "action": "risk",
+                "style": "success",
+                "success_chance": 0.96,
+                "success_text": "You take a reasonable cut and close the panel behind you. Nobody will ever know.",
+                "on_success": {"gain": {"material_tier": 1, "amount": [6, 12], "gold": [35, 65]}},
+                "fail_text": "You misjudge 'reasonable'. The panel won't close on what's left.",
+                "on_fail": {},
+            },
+        ],
+    },
+
+    # ==================================================================
+    # MERCHANT
+    # ==================================================================
+    {
+        "id": "entrospire_paymaster",
+        "name": "Entrospire Paymaster",
+        "image_url": None,
+        "room_types": ["merchant"],
+        # HIGH STAKES -- exception three, and the only one on a MERCHANT.
+        # Merchant trades are normally guaranteed (see the package
+        # docstring); this one is explicitly a mercenary contract rather
+        # than a shop, and a contract you can lose is a different thing
+        # from a price tag.
+        "intros": [
+            "An Entrospire paymaster with a strongbox and a list of people who owe him work.",
+            "\"You're not on my list,\" the paymaster says, already reaching for the strongbox. \"You could be.\"",
+        ],
+        "choices": [
+            {
+                "id": "sell_salvage",
+                "label": "⚖️ Sell salvage (40 metal)",
+                "description": "A fair price, paid immediately.",
+                "action": "trade",
+                "style": "success",
+                "cost": {"metal": 40},
+                "success_chance": 1.0,
+                "success_text": "He weighs it, pays it, and doesn't haggle. A professional.",
+                "on_success": {"gain": {"gold": [180, 240]}},
+                "fail_text": "",
+                "on_fail": {},
+            },
+            {
+                "id": "buy_contract",
+                "label": "📜 Buy a contract (250 gold)",
+                "description": "Payable on completion. If it completes.",
+                "action": "trade",
+                "style": "danger",
+                "cost": {"gold": 250},
+                "success_chance": 0.55,
+                "success_text": "The contract pays out several times over. Entrospire honours its paper.",
+                "on_success": {"gain": {"material_tier": 3, "amount": [4, 9], "gold": [400, 650]},
+                               "bonus": {"chance": 0.11, "gain": {"lootbox": "rare"}}},
+                "fail_text": "The contract was written against an account that no longer exists.",
+                "on_fail": {},
+            },
+            {
+                "id": "decline",
+                "label": "🚶 Decline",
+                "description": "Nothing here you need.",
+                "action": "leave",
+                "style": "secondary",
+                "text": "He shrugs and goes back to his ledger. You were never on the list anyway.",
+            },
+        ],
+    },
+    {
+        "id": "field_quartermaster",
+        "name": "Field Quartermaster",
+        "image_url": None,
+        "room_types": ["merchant"],
+        "intros": [
+            "A quartermaster running a supply point out of the back of a hauler. Everything is priced and nothing is negotiable.",
+            "\"Fixed prices,\" she says before you've opened your mouth. \"Don't waste your breath or my time.\"",
+        ],
+        "choices": [
+            {
+                "id": "buy_materials",
+                "label": "🪵 Buy bulk materials (120 gold)",
+                "description": "Common stock, fair rate.",
+                "action": "trade",
+                "style": "success",
+                "cost": {"gold": 120},
+                "success_chance": 1.0,
+                "success_text": "She counts it out onto the tailgate without looking up.",
+                "on_success": {"gain": {"material_tier": 1, "amount": [16, 22]}},
+                "fail_text": "",
+                "on_fail": {},
+            },
+            {
+                "id": "buy_tokens",
+                "label": "🎲 Buy reroll tokens (200 gold)",
+                "description": "She has a box of attunement chits nobody else wants.",
+                "action": "trade",
+                "style": "primary",
+                "cost": {"gold": 200},
+                "success_chance": 1.0,
+                "success_text": "\"Take the whole box, they're cluttering the shelf.\"",
+                "on_success": {"gain": {"reroll_tokens": [8, 12]}},
+                "fail_text": "",
+                "on_fail": {},
+            },
+            {
+                "id": "buy_medkit",
+                "label": "💊 Buy a field medkit (90 gold)",
+                "description": "Patches up the whole squad.",
+                "action": "trade",
+                "style": "success",
+                "cost": {"gold": 90},
+                "success_chance": 1.0,
+                "success_text": "Proper supplies, properly packed. Everyone gets patched.",
+                "on_success": {"heal": 45},
+                "fail_text": "",
+                "on_fail": {},
+            },
+            {
+                "id": "browse",
+                "label": "🚶 Just browsing",
+                "description": "Look, don't buy.",
+                "action": "leave",
+                "style": "secondary",
+                "text": "\"Then move along.\" She's already serving someone else.",
+            },
+        ],
+    },
+]

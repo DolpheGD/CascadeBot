@@ -156,6 +156,36 @@ def refresh_item_abilities(db, dry_run: bool) -> dict:
     return stats
 
 
+def drop_retired_tables(db, dry_run: bool) -> list[str]:
+    """Drop tables for systems that no longer exist.
+
+    Currently just `player_mailboxes`: the mailbox was replaced by the
+    Research Lab and the Forge (it was a wait-then-collect building,
+    which is what harvesters already are). create_all never drops
+    anything, so without this the table lingers forever holding rows for
+    a feature with no code behind it.
+
+    Deliberately the ONLY destructive step in this script, and it only
+    touches a table whose feature is gone -- no player-facing data is
+    lost, since mailbox level didn't feed anything else."""
+    from sqlalchemy import inspect, text
+
+    retired = ["player_mailboxes"]
+    dropped = []
+    inspector = inspect(db.get_bind())
+    existing = set(inspector.get_table_names())
+    for table in retired:
+        if table not in existing:
+            continue
+        dropped.append(table)
+        print(f"     dropping retired table '{table}'")
+        if not dry_run:
+            db.execute(text(f"DROP TABLE {table}"))
+    if not dropped:
+        print("     nothing to drop")
+    return dropped
+
+
 def clear_stale_combat_state(db, dry_run: bool) -> int:
     """Drop any in-progress battle. Those saves embed both the old ability
     dicts and enemy stat blocks built under the pre-cap percent scaling,
@@ -204,8 +234,8 @@ def main() -> int:
     # works -- the exact opposite of what a dry run is for.
     import bot.database.models  # noqa: F401
     from bot.database.models import (  # noqa: F401
-        character_model, economy_model, equipment_model, expedition_model,
-        hq_model, player_model, quest_model, raid_model,
+        base_building_model, character_model, economy_model, equipment_model,
+        expedition_model, gift_model, hq_model, player_model, quest_model, raid_model,
     )
     from bot.database.db_init import init_db
     from bot.database.session import SessionLocal
@@ -238,7 +268,10 @@ def main() -> int:
         print(f"   {stats['checked']} abilities checked · {stats['refreshed']} refreshed · "
               f"{stats['orphaned']} orphaned/cleared · {stats['unchanged']} already current")
 
-        print("\n4. Clear in-progress battles")
+        print("\n4. Drop retired tables")
+        drop_retired_tables(db, args.dry_run)
+
+        print("\n5. Clear in-progress battles")
         cleared = clear_stale_combat_state(db, args.dry_run)
         print(f"   {cleared} in-progress battle(s) cleared")
 

@@ -74,18 +74,35 @@ def grant_relic(db, expedition, relic_id: str) -> dict | None:
     return relic
 
 
-def offer_relics(expedition, rng: random.Random | None = None, size: int = OFFER_SIZE) -> list[dict]:
+def offer_relics(expedition, rng: random.Random | None = None, size: int = OFFER_SIZE,
+                 db=None, player=None, allow_cursed: bool = True) -> list[dict]:
     """`size` distinct relics to choose between, excluding anything
-    already held this run."""
+    already held this run.
+
+    The Research Lab's Fieldwork branch (relic_offer_size) widens the
+    draft -- more choices means a run is less likely to hand you three
+    relics your squad can't use, which is the single most valuable thing
+    research can do for expedition variety."""
     rng = rng or random.Random()
-    return roll_offer(rng, exclude_ids=set(held_ids(expedition)), size=size)
+    if db is not None and player is not None:
+        from bot.services import research_service
+        size += int(research_service.perk_value(db, player.id, "relic_offer_size"))
+    return roll_offer(rng, exclude_ids=set(held_ids(expedition)), size=size,
+                      allow_cursed=allow_cursed)
 
 
 def grant_random_relic(db, expedition, rng: random.Random | None = None) -> dict | None:
     """Grants ONE weighted-random relic outright, no choice offered -- the
     boss-clear and elite-victory drop path. Returns the relic, or None if
-    the player somehow already holds the entire catalog."""
-    offer = offer_relics(expedition, rng=rng, size=1)
+    the player somehow already holds the entire catalog.
+
+    POSITIVE RELICS ONLY (allow_cursed=False). Nobody should be handed a
+    drawback they never agreed to: a cursed relic trades one stat away
+    for another, which is an interesting decision at a campfire draft and
+    simply a punishment for winning when it arrives unasked after a boss
+    fight. Cursed relics still exist and are still strong -- they're just
+    reachable only where you can say no."""
+    offer = offer_relics(expedition, rng=rng, size=1, allow_cursed=False)
     if not offer:
         return None
     return grant_relic(db, expedition, offer[0]["id"])

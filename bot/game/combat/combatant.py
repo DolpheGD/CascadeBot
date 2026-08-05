@@ -18,6 +18,28 @@ STAT_KEYS = [
     "crit_rate", "crit_damage", "recharge",
 ]
 
+# ----------------------------------------------------------------------
+# ULTIMATE COOLDOWN -- the visible replacement for the energy throttle.
+#
+# Energy income is now uncapped (see gain_energy below), which on its own
+# means a squad stacking energy gear reaches one ultimate roughly every
+# turn: measured at 1.4 turns per ultimate for an ordinary squad and 0.9
+# for a support-stacked one, i.e. most of the fight is ultimate
+# animations.
+#
+# A cooldown solves that where the player can SEE it. "💥 Ultimate (ready
+# in 2t)" on the button is a fact they can plan a turn around; an energy
+# gain that silently stopped counting was not. It also can't be
+# out-stacked -- no amount of gear shortens it -- so the ceiling on
+# ultimate frequency is a design number again rather than an emergent
+# property of somebody's inventory.
+#
+# At 2, each character ultimates at most every third turn. Energy still
+# matters enormously: the cooldown sets the FLOOR on the gap, and a squad
+# with no energy investment is nowhere near hitting it.
+# ----------------------------------------------------------------------
+ULTIMATE_COOLDOWN = 2
+
 
 @dataclass
 class Combatant:
@@ -33,6 +55,14 @@ class Combatant:
     # back to the right owned character afterward.
     character_id: int | None = None
     character_class: str | None = None  # display only (CharacterClass.value)
+
+    # A shorter label for width-limited views (turn order, telegraph
+    # lines). Empty means "the full name is already short enough" -- see
+    # bot/utils/names.py and enemies.ENEMY_SHORT_NAMES. Carried on the
+    # Combatant rather than looked up at render time so a saved battle
+    # renders identically to a live one without the renderer needing
+    # access to the template catalog.
+    short_name: str = ""
 
     mana: int = 0
     max_mana: int = 0
@@ -232,40 +262,32 @@ class Combatant:
     ramp_percent_per_turn: float = 0.0
     ramp_stacks: int = 0
 
-    # Anti-softlock diminishing returns on enemy self-healing (sibling
-    # mechanism to the attack ramp above, same philosophy applied to heals
-    # instead of damage). Enemy weapon/artifact/innate healing kits are
-    # built from the exact same effect catalog the player's gear uses
-    # (heal_percent_max_hp, team_heal_percent_max_hp, HealOverTime regen,
-    # etc.), so we can't nerf a "kind" of heal without nerfing the
-    # player's copy of the same ability. Instead this counts every
-    # *effective* (non-zero) heal a given enemy Combatant receives over
-    # the course of the battle and makes each successive one weaker -- see
-    # ENEMY_HEAL_DECAY_PER_STACK / ENEMY_HEAL_MIN_MULTIPLIER in heal()
-    # below. Stays at 0 (no effect) for players. Never resets mid-battle,
-    # same as ramp_stacks, so stalling doesn't reset the clock.
-    enemy_heal_stacks: int = 0
-
-    # Tuning for the diminishing-returns curve above. Each stack multiplies
-    # heal effectiveness by roughly 1 / (1 + DECAY * stacks): stack 0 is
-    # full strength, stack ~5 is around half strength, stack ~20+ is down
-    # near the floor. The floor keeps a healer enemy "a healer" (it still
-    # does something) without letting it stonewall a fight forever.
-    ENEMY_HEAL_DECAY_PER_STACK = 0.3
-    ENEMY_HEAL_MIN_MULTIPLIER = 0.2
-
-    # Same idea, applied to shield generation instead of healing (see
-    # gain_shield() below) -- self_shield_percent_max_hp,
-    # team_shield_percent_max_hp, and the shield_regen passive all funnel
-    # through it. Deliberately STEEPER than the heal curve above: a shield
-    # never costs the caster anything to grant (no HP is spent the way a
-    # heal implies) and fully no-sells whatever damage it soaks, so an
-    # enemy leaning on shields is a harder stall than one leaning on heals
-    # and gets reined in harder for it -- half the decay tolerance and a
-    # lower floor.
-    enemy_shield_stacks: int = 0
-    ENEMY_SHIELD_DECAY_PER_STACK = 0.4
-    ENEMY_SHIELD_MIN_MULTIPLIER = 0.15
+    # ------------------------------------------------------------------
+    # NO HIDDEN DIMINISHING RETURNS. (Removed: enemy_heal_stacks,
+    # enemy_shield_stacks, player_heal_stacks, heal_fatigue_stacks, and
+    # the per-turn energy throttle.)
+    #
+    # Sustain used to be reined in by four separate invisible curves --
+    # every heal a combatant received made the next one weaker, shields
+    # decayed the same way, healing weakened globally past cycle 12, and
+    # energy income was silently capped per turn. They worked, in that the
+    # numbers came out fine. The problem is that none of them were
+    # LEGIBLE: a player watching a 40%-of-max-HP team heal restore 14% had
+    # no way to find out why, and no decision they could make about it.
+    # A balance mechanism a player can't see is one they can only
+    # experience as the game being broken.
+    #
+    # Everything that limits sustain now lives on the ability card the
+    # player is already reading: SP cost, cooldown, and the fact that SP
+    # comes only from basic attacks. Those are numbers you can plan
+    # around. See ability_ready() and the RESOURCE ECONOMY block in
+    # effects.py.
+    #
+    # The attack ramp above deliberately STAYS. It's the anti-softlock
+    # floor of last resort, it applies to both sides, it's an offence
+    # buff rather than a stealth nerf to the player's own abilities, and
+    # it's surfaced in the Info panel.
+    # ------------------------------------------------------------------
 
     def is_alive(self) -> bool:
         return self.current_hp > 0
@@ -394,54 +416,49 @@ class Combatant:
         return actual
 
     def heal(self, amount: float) -> int:
-        """Applies healing, in HP. This is the single choke point every
-        heal effect in the game routes through (heal_percent_max_hp,
-        team heals, HealOverTime regen ticks, lifesteal, etc. -- see
-        bot/game/combat/effects.py and battle.py), which is what lets us
-        temper enemy healing here, once, without touching any individual
-        ability definition or the player's copy of the same ability."""
-        if not self.is_player and amount > 0:
-            multiplier = max(
-                self.ENEMY_HEAL_MIN_MULTIPLIER,
-                1.0 / (1.0 + self.ENEMY_HEAL_DECAY_PER_STACK * self.enemy_heal_stacks),
-            )
-            amount *= multiplier
+        """Applies healing, in HP, and returns what actually landed.
 
+        Still the single choke point every heal effect routes through
+        (heal_percent_max_hp, team heals, HealOverTime regen ticks,
+        lifesteal -- see bot/game/combat/effects.py and battle.py), but it
+        no longer TOUCHES the amount. A heal that says 40% of max HP heals
+        40% of max HP, every time, for both sides.
+
+        The choke point is kept even though it currently does no
+        arithmetic: it's what makes "heal for real" a single call rather
+        than 20 copies of `current_hp = min(max_hp, current_hp + n)`
+        scattered through the effect dispatcher, and it's where the
+        overheal clamp lives."""
         amount = max(0, int(round(amount)))
         healed = min(self.max_hp - self.current_hp, amount)
         self.current_hp += healed
-
-        # Only ramp on heals that actually did something -- an enemy
-        # topped off on HP casting a heal anyway shouldn't "spend" a stack
-        # for free, since nothing was gained toward stalling the fight.
-        if not self.is_player and healed > 0:
-            self.enemy_heal_stacks += 1
-
         return healed
 
     def gain_shield(self, amount: float) -> float:
-        """Adds to this combatant's shield pool. Sibling choke point to
-        heal() above -- every shield effect in the game
-        (self_shield_percent_max_hp, team_shield_percent_max_hp, and the
-        shield_regen passive; see bot/game/combat/effects.py) routes
-        through here, so enemy shielding can be tempered in one place
-        without touching any ability definition or the player's copy of
-        the same ability. Returns the actual amount added (post-
-        diminishing-returns for enemies), so callers can log the real
-        number rather than the requested one."""
-        if not self.is_player and amount > 0:
-            multiplier = max(
-                self.ENEMY_SHIELD_MIN_MULTIPLIER,
-                1.0 / (1.0 + self.ENEMY_SHIELD_DECAY_PER_STACK * self.enemy_shield_stacks),
-            )
-            amount *= multiplier
-
+        """Adds to this combatant's shield pool -- sibling choke point to
+        heal(), and likewise no longer scaled. Returns the amount added so
+        callers can log the real number."""
         amount = max(0.0, amount)
-        if not self.is_player and amount > 0:
-            self.enemy_shield_stacks += 1
-
         self.shield += amount
         return amount
+
+    def gain_energy(self, amount: float) -> int:
+        """The single choke point every energy gain routes through --
+        basic attacks, ability use, being hit, guarding, team restores,
+        auras and kit reactions alike. Returns the amount actually
+        granted, which is limited only by the pool's own ceiling.
+
+        The per-turn throttle that used to live here is gone. Stacking
+        energy gear now does exactly what it says: more energy, faster.
+        What stops that from becoming one ultimate every turn is the
+        ultimate's own COOLDOWN, which the player can see on the button
+        -- see ULTIMATE_COOLDOWN in effects.py."""
+        amount = max(0, int(round(amount)))
+        granted = min(amount, self.max_energy - self.energy)
+        if granted <= 0:
+            return 0
+        self.energy += granted
+        return granted
 
     def gain_energy_and_mana(self, percent: float | None = None) -> tuple[int, int]:
         """Called after a basic attack: the default attack builds both
@@ -456,12 +473,15 @@ class Combatant:
         pct = percent if percent is not None else self.effective_stat("recharge")
         pct = max(0.0, pct)
 
-        before_energy, before_mana = self.energy, self.mana
-        energy_gain = int(round(self.max_energy * pct / 100))
+        before_mana = self.mana
+        # Energy routes through the throttle (see gain_energy); mana does
+        # not, because mana is spent on skills every turn rather than
+        # banked toward one big payoff, so a mana surplus doesn't compound
+        # into the same runaway loop.
+        energy_gained = self.gain_energy(self.max_energy * pct / 100)
         mana_gain = int(round(self.max_mana * pct / 100))
-        self.energy = min(self.max_energy, self.energy + energy_gain)
         self.mana = min(self.max_mana, self.mana + mana_gain)
-        return self.energy - before_energy, self.mana - before_mana
+        return energy_gained, self.mana - before_mana
 
     def find_passive(self, effect_kind: str) -> list:
         return [a for a in self.passive_abilities if a["effect"]["kind"] == effect_kind]

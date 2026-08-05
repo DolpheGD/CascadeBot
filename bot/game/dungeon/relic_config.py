@@ -422,17 +422,28 @@ def roll_offer(
     rng: random.Random,
     exclude_ids: set[str] | None = None,
     size: int = OFFER_SIZE,
+    allow_cursed: bool = True,
 ) -> list[dict]:
     """Rolls `size` DISTINCT relics to choose between, weighted by rarity
     and skipping anything in `exclude_ids` (normally the relics already
     held this run -- a duplicate offer is a wasted choice, and stacking
     identical relics isn't supported by the effect application anyway).
 
+    `allow_cursed=False` removes the cursed tier entirely. A cursed relic
+    is a TRADE -- more of one thing for less of another -- and a trade is
+    only a good design when someone agrees to it. Handed over
+    unrequested, as the boss and elite drops used to do, it isn't a
+    decision at all; it's the game deciding to make your squad worse and
+    telling you afterwards. So: drafts (where you pick one of several)
+    keep them, and every unchosen drop rolls from the positive relics
+    only. See grant_random_relic in bot/services/relic_service.py.
+
     Falls back to however many are left if the pool runs dry late in a
     long run, and returns an empty list only if the player somehow holds
     everything."""
     exclude_ids = exclude_ids or set()
-    pool = [r for r in RELICS if r["id"] not in exclude_ids]
+    pool = [r for r in RELICS if r["id"] not in exclude_ids
+            and (allow_cursed or r["rarity"] != "cursed")]
     offer: list[dict] = []
 
     while pool and len(offer) < size:

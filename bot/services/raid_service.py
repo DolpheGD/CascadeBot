@@ -41,22 +41,33 @@ from bot.game.combat.battle import Battle
 from bot.game.combat.enemies import get_template_by_name
 from bot.game.combat.factory import build_enemy_combatant, build_party_combatants
 from bot.game.economy.raid_config import (
-    ATTACK_COOLDOWN,
-    MAX_ATTACKS_PER_PLAYER,
-    RAID_DURATION,
+    DEFAULT_RAID_DIFFICULTY,
     RAID_TIERS,
+    attack_cooldown,
+    attacks_per_player,
+    boss_hp_multiplier,
     contribution_tier,
+    get_difficulty,
     get_tier,
+    lootbox_for,
     pool_hp_for,
+    raid_boss_level,
+    raid_duration,
+    rewards_for,
 )
 from bot.services import base_service, character_service, combat_service
 from bot.services.currency_service import add_currency
-from bot.utils.time_utils import as_utc
+from bot.utils.time_utils import as_utc, describe_wait
 
 # player_id -> Battle, and player_id -> raid_id. In-memory only; see the
 # module docstring.
 _ACTIVE_BATTLES: dict[int, Battle] = {}
 _ACTIVE_RAID_ID: dict[int, int] = {}
+# player_id -> the difficulty id chosen for the attack in progress. Held
+# alongside the battle (not on it) for the same reason _ACTIVE_RAID_ID is:
+# the contribution multiplier is raid bookkeeping, not combat state, and
+# Battle has no business knowing about it.
+_ACTIVE_DIFFICULTY: dict[int, str] = {}
 
 
 class RaidError(Exception):
@@ -130,7 +141,7 @@ def start_raid(db, player, guild_id: int, tier_id: str, rng: random.Random | Non
         status="active",
         tier=tier["id"],
         started_at=now,
-        ends_at=now + RAID_DURATION,
+        ends_at=now + raid_duration(tier),
     )
     db.add(raid)
     db.commit()
@@ -160,10 +171,17 @@ def _get_or_create_participant(db, raid: GuildRaid, player) -> RaidParticipant:
     return row
 
 
+def max_attacks_for(raid: GuildRaid) -> int:
+    """How many attacks one player gets on THIS raid. Per-tier, so the
+    starter raid can be a 4-attack sprint while the endgame one stays a
+    10-attack marathon -- see the PACING block in raid_config."""
+    return attacks_per_player(get_tier(raid.tier))
+
+
 def attacks_remaining(db, raid: GuildRaid, player) -> int:
     row = get_participant(db, raid.id, player.id)
     used = row.attacks_used if row else 0
-    return max(0, MAX_ATTACKS_PER_PLAYER - used)
+    return max(0, max_attacks_for(raid) - used)
 
 
 def time_until_next_attack(db, raid: GuildRaid, player) -> dt.timedelta | None:
@@ -171,7 +189,7 @@ def time_until_next_attack(db, raid: GuildRaid, player) -> dt.timedelta | None:
     row = get_participant(db, raid.id, player.id)
     if row is None or row.last_attack_at is None:
         return None
-    ready_at = as_utc(row.last_attack_at) + ATTACK_COOLDOWN
+    ready_at = as_utc(row.last_attack_at) + attack_cooldown(get_tier(raid.tier))
     now = dt.datetime.now(dt.timezone.utc)
     return None if ready_at <= now else ready_at - now
 
@@ -193,34 +211,47 @@ def get_active_battle(player_id: int) -> Battle | None:
     return _ACTIVE_BATTLES.get(player_id)
 
 
-def start_attack(db, player, raid: GuildRaid) -> Battle:
+def start_attack(db, player, raid: GuildRaid, difficulty_id: str = DEFAULT_RAID_DIFFICULTY) -> Battle:
     """Spends one attack and opens an in-memory battle against the raid
-    boss. The attack is debited HERE, before a single blow is struck --
-    a player who bails on a bad opening cannot re-roll the fight for
-    free."""
+    boss at the chosen DIFFICULTY. The attack is debited HERE, before a
+    single blow is struck -- a player who bails on a bad opening cannot
+    re-roll the fight for free.
+
+    `difficulty_id` rebuilds the boss at an offset level and sets the
+    multiplier this attack's damage is credited at (see
+    raid_config.RAID_DIFFICULTIES). It's per-ATTACK rather than per-raid
+    so one shared boss can be fought by a whole server's worth of
+    differently-geared players."""
     if player.id in _ACTIVE_BATTLES:
         raise RaidError("You're already in the middle of a raid attack.")
     if raid.status != "active":
         raise RaidError("That raid is already over.")
 
+    difficulty = get_difficulty(difficulty_id)
+    if difficulty is None:
+        raise RaidError("No such raid difficulty.")
+
     row = _get_or_create_participant(db, raid, player)
-    if row.attacks_used >= MAX_ATTACKS_PER_PLAYER:
+    allowance = max_attacks_for(raid)
+    if row.attacks_used >= allowance:
         raise RaidError(
-            f"You've used all {MAX_ATTACKS_PER_PLAYER} of your attacks on this raid. "
+            f"You've used all {allowance} of your attacks on this raid. "
             "Someone else will have to finish it."
         )
 
     remaining_cooldown = time_until_next_attack(db, raid, player)
     if remaining_cooldown is not None:
-        minutes = int(remaining_cooldown.total_seconds() // 60) + 1
-        raise RaidError(f"You're still regrouping -- {minutes} more minute(s) before your next attack.")
+        raise RaidError(
+            f"You're still regrouping -- {describe_wait(remaining_cooldown)} "
+            "before your next attack."
+        )
 
     squad = character_service.get_squad(db, player)
     if not squad:
         raise RaidError("You need at least one character in your squad first.")
 
     # Every raid attack starts on full HP. The attack itself is the scarce
-    # resource here (MAX_ATTACKS_PER_PLAYER), so HP attrition on top would
+    # resource here (the per-tier attack allowance), so HP attrition would
     # be a second, hidden limit -- and one that punishes exactly the
     # players a co-op raid wants participating, since a weaker squad both
     # takes more damage and has fewer ways to heal it. See
@@ -228,10 +259,20 @@ def start_attack(db, player, raid: GuildRaid) -> Battle:
     combat_service.restore_squad_to_full_hp(db, squad)
 
     equipped_by_char = character_service.get_equipped_items_by_character(db, [pc.id for pc in squad])
-    party = build_party_combatants(squad, equipped_by_char)
+    from bot.services import research_service
+    party = build_party_combatants(squad, equipped_by_char,
+        starting_energy=research_service.perk_value(db, player.id, "starting_energy"))
     base_service.apply_shrine_bonuses(db, player, party)
 
-    boss = build_enemy_combatant(get_template_by_name(raid.boss_name), level=raid.boss_level)
+    tier = get_tier(raid.tier)
+    boss = build_enemy_combatant(
+        get_template_by_name(raid.boss_name),
+        level=raid_boss_level(raid.boss_level, difficulty),
+        # A raid boss gets a raid-sized health bar -- see the BOSS HP
+        # MULTIPLIER block in raid_config for why an unscaled one made
+        # every raid above the starter tier impossible to finish.
+        hp_multiplier=boss_hp_multiplier(tier),
+    )
 
     row.attacks_used += 1
     row.last_attack_at = dt.datetime.now(dt.timezone.utc)
@@ -240,6 +281,7 @@ def start_attack(db, player, raid: GuildRaid) -> Battle:
     battle = Battle(party, [boss])
     _ACTIVE_BATTLES[player.id] = battle
     _ACTIVE_RAID_ID[player.id] = raid.id
+    _ACTIVE_DIFFICULTY[player.id] = difficulty["id"]
     return battle
 
 
@@ -304,16 +346,26 @@ def resolve_attack(db, player) -> dict:
         raise RaidError("You're not in a raid attack right now.")
 
     raid = db.get(GuildRaid, _ACTIVE_RAID_ID[player.id])
-    damage = damage_dealt_in(battle)
+    difficulty = get_difficulty(_ACTIVE_DIFFICULTY.get(player.id, DEFAULT_RAID_DIFFICULTY))
+
+    raw_damage = damage_dealt_in(battle)
+    # The difficulty multiplier is applied to the CREDITED damage, not to
+    # the damage the boss took -- see raid_config's block on why this has
+    # to be explicit. Rounded once here so the pool only ever moves by
+    # whole numbers.
+    credited = int(round(raw_damage * difficulty["contribution_multiplier"]))
 
     # HP is deliberately NOT written back -- same reasoning as domains
     # (see domain_service.resolve_challenge). The scarce resource for a
     # raid is the attack count, not HP, and every attack starts fresh.
     _ACTIVE_BATTLES.pop(player.id, None)
     _ACTIVE_RAID_ID.pop(player.id, None)
+    _ACTIVE_DIFFICULTY.pop(player.id, None)
 
-    result = record_attack_damage(db, player, raid, damage)
+    result = record_attack_damage(db, player, raid, credited)
     result["won"] = battle.result == "won"
+    result["difficulty"] = difficulty
+    result["raw_damage"] = raw_damage
     return result
 
 
@@ -356,13 +408,19 @@ def claim_reward(db, player, raid: GuildRaid) -> dict:
     share = contribution_share(db, raid, row)
     multiplier, label = contribution_tier(share)
 
-    reward_lines = []
-    for currency, base_amount in tier["rewards"].items():
-        amount = int(round(base_amount * multiplier))
-        if amount <= 0:
-            continue
+    payout = reward_preview(tier, multiplier)
+    for currency, amount in payout["currencies"].items():
         add_currency(db, player, currency, amount)
-        reward_lines.append(f"+{amount} {currency.replace('_', ' ')}")
+
+    box = payout["lootbox"]
+    if box:
+        # The catalog is seeded lazily by the economy cog, so a player
+        # claiming a raid before ever opening /stash would otherwise hit
+        # "no lootbox template for tier X". Cheap and idempotent.
+        from bot.services import lootbox_service
+
+        lootbox_service.ensure_lootbox_templates_seeded(db)
+        lootbox_service.grant_lootbox(db, player, box[0], box[1])
 
     row.reward_claimed = True
     db.commit()
@@ -371,9 +429,28 @@ def claim_reward(db, player, raid: GuildRaid) -> dict:
         "share": share,
         "label": label,
         "multiplier": multiplier,
-        "reward_lines": reward_lines,
+        "reward_lines": payout["lines"],
         "damage_dealt": row.damage_dealt,
     }
+
+
+def reward_preview(tier: dict, multiplier: float) -> dict:
+    """What a participant at `multiplier` gets: the raw currency dict, the
+    lootbox (if any) and display-ready lines.
+
+    Exists so the UI can SHOW a payout without granting it, and -- more
+    importantly -- so the number shown and the number granted come from
+    one computation. claim_reward calls this too; a preview that computes
+    its own amounts is a preview that eventually disagrees with reality."""
+    currencies = rewards_for(tier, multiplier)
+    box = lootbox_for(tier, multiplier)
+
+    lines = [f"+{amount:,} {currency.replace('_', ' ')}" for currency, amount in currencies.items()]
+    if box:
+        plural = "es" if box[1] != 1 else ""
+        lines.append(f"+{box[1]} {box[0]} lootbox{plural}")
+
+    return {"currencies": currencies, "lootbox": box, "lines": lines}
 
 
 def claimable_raids(db, player, guild_id: int) -> list[GuildRaid]:

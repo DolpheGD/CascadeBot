@@ -30,6 +30,24 @@ def utcnow() -> dt.datetime:
     return dt.datetime.now(dt.timezone.utc)
 
 
+def describe_wait(delta: dt.timedelta) -> str:
+    """A short human phrase for "how long until this is ready".
+
+    Exists because the raid cooldown message was hardcoded to minutes
+    ("2 more minute(s)"), which was fine at a 10-minute cooldown and
+    nonsense at 45 seconds -- every wait rounded up to "1 more minute(s)",
+    telling the player to come back roughly 15 seconds after they already
+    could have."""
+    seconds = max(0, int(delta.total_seconds()))
+    if seconds < 60:
+        return f"{max(1, seconds)}s"
+    minutes, remainder = divmod(seconds, 60)
+    if minutes < 60:
+        return f"{minutes}m" if remainder < 10 else f"{minutes}m {remainder}s"
+    hours, minutes = divmod(minutes, 60)
+    return f"{hours}h" if minutes == 0 else f"{hours}h {minutes}m"
+
+
 def as_utc(value: dt.datetime | None) -> dt.datetime | None:
     """Returns `value` guaranteed timezone-aware in UTC. A naive value is
     assumed to already be UTC and simply tagged as such; an aware value is

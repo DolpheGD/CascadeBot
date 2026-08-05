@@ -23,9 +23,16 @@ from discord import app_commands
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
 from bot.services import domain_service, dungeon_service, leaderboard_service, raid_service
-from bot.game.economy.raid_config import RAID_TIERS
+from bot.game.economy.raid_config import (
+    DEFAULT_RAID_DIFFICULTY,
+    RAID_DIFFICULTIES,
+    RAID_TIERS,
+    get_tier as get_raid_tier,
+    raid_boss_level,
+)
 from bot.utils import combat_ui, embedder
 from bot.utils.guild_decorator import guild_decorator
+from bot.utils.time_utils import describe_wait
 from bot.utils.ui_guard import OwnedView, check_message_owner, require_player
 
 
@@ -124,7 +131,7 @@ class RaidActionView(OwnedView):
 
     @discord.ui.button(label="⚔️ Attack", style=discord.ButtonStyle.danger, custom_id="cascade_raid_attack")
     async def attack_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await _handle_raid_attack(interaction)
+        await _handle_choose_difficulty(interaction)
 
     @discord.ui.button(label="🎁 Claim Rewards", style=discord.ButtonStyle.success, custom_id="cascade_raid_claim")
     async def claim_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -134,14 +141,63 @@ class RaidActionView(OwnedView):
     async def refresh_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await _handle_raid_refresh(interaction)
 
-    @discord.ui.button(label="📊 Reward Tiers", style=discord.ButtonStyle.secondary, custom_id="cascade_raid_tiers")
+    @discord.ui.button(label="📊 Rewards", style=discord.ButtonStyle.secondary, custom_id="cascade_raid_tiers")
     async def tiers_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message(embed=embedder.raid_tiers_help_embed(), ephemeral=True)
+        """Shows the real payout per band for the raid actually running,
+        falling back to bare multipliers only if there's somehow no raid
+        (e.g. a stale message from a raid that has since expired)."""
+        tier = None
+        if interaction.guild_id is not None:
+            db = SessionLocal()
+            try:
+                raid = raid_service.get_active_raid(db, interaction.guild_id)
+                if raid is not None:
+                    tier = get_raid_tier(raid.tier)
+            finally:
+                db.close()
+        await interaction.response.send_message(
+            embed=embedder.raid_tiers_help_embed(tier), ephemeral=True
+        )
 
 
 # ----------------------------------------------------------------------
 # Raid combat views (mirrors domains.py -- see the module docstring)
 # ----------------------------------------------------------------------
+
+class RaidDifficultySelect(discord.ui.Select):
+    """Difficulty picker, shown ephemerally when Attack is pressed.
+
+    Per-ATTACK rather than per-raid: one shared boss is fought by a whole
+    server's worth of differently-geared players, so a single level is
+    either unbeatable for the weakest or trivial for the strongest. See
+    the block in bot/game/economy/raid_config.py."""
+
+    def __init__(self, raid):
+        options = []
+        for d in RAID_DIFFICULTIES:
+            level = raid_boss_level(raid.boss_level, d)
+            options.append(discord.SelectOption(
+                label=f"{d['name']} — Lv.{level} · {d['contribution_multiplier']}x credit",
+                value=d["id"],
+                emoji=d["emoji"],
+                description=d["description"][:100],
+                default=(d["id"] == DEFAULT_RAID_DIFFICULTY),
+            ))
+        super().__init__(placeholder="Choose your difficulty...", options=options,
+                         min_values=1, max_values=1)
+
+    async def callback(self, interaction: discord.Interaction):
+        await _handle_raid_attack(interaction, self.values[0])
+
+
+class RaidDifficultyView(discord.ui.View):
+    """Short-lived and ephemeral -- it's a one-shot prompt, so there's
+    nothing worth surviving a restart."""
+
+    def __init__(self, raid):
+        super().__init__(timeout=120)
+        self.add_item(RaidDifficultySelect(raid))
+
 
 class RaidAbilitySelect(discord.ui.Select):
     def __init__(self, options: list[discord.SelectOption]):
@@ -176,14 +232,20 @@ class RaidCombatView(OwnedView):
         ultimate_exists: bool = False,
         ultimate_energy: int = 0,
         ultimate_cost: int = 50,
+        ultimate_label: str | None = None,
         owner_id: int | None = None,
         ally_options: list[discord.SelectOption] | None = None,
     ):
         super().__init__(timeout=None, owner_id=owner_id)
         self.ultimate_button.disabled = not ultimate_ready
         if ultimate_exists:
-            status = "Ready!" if ultimate_ready else f"{ultimate_energy}/{ultimate_cost} EN"
-            self.ultimate_button.label = f"💥 Ultimate ({status})"
+            # ultimate_label is built by combat_ui.ultimate_button_label,
+            # which knows about the ultimate COOLDOWN as well as energy.
+            # The energy-only fallback is for the persistent-view rebuild
+            # path, which has no actor to ask.
+            self.ultimate_button.label = ultimate_label or (
+                f"💥 Ultimate ({'Ready!' if ultimate_ready else f'{ultimate_energy}/{ultimate_cost} EN'})"
+            )
         else:
             self.remove_item(self.ultimate_button)
         if ability_options:
@@ -253,6 +315,7 @@ def _build_raid_combat_view(battle, owner_id: int) -> RaidCombatView:
         ultimate_exists=actor.ultimate_ability is not None,
         ultimate_energy=actor.energy,
         ultimate_cost=actor.ultimate_ability["resource_cost"] if actor.ultimate_ability else 50,
+        ultimate_label=combat_ui.ultimate_button_label(actor),
         owner_id=owner_id,
         ally_options=ally_options or None,
     )
@@ -298,7 +361,60 @@ async def _resume_raid_attack(interaction: discord.Interaction, db, player, batt
     )
 
 
-async def _handle_raid_attack(interaction: discord.Interaction):
+async def _handle_choose_difficulty(interaction: discord.Interaction):
+    """Attack now opens a difficulty prompt rather than starting the fight
+    directly. Every guard the attack itself would apply is checked here
+    too, so a player is told they're out of attacks (or on cooldown)
+    BEFORE picking a difficulty rather than after."""
+    if await _reject_dm(interaction):
+        return
+    db = SessionLocal()
+    try:
+        player = get_player(db, interaction.user.id)
+        if player is None:
+            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            return
+
+        existing = raid_service.get_active_battle(player.id)
+        if existing is not None:
+            await _resume_raid_attack(interaction, db, player, existing)
+            return
+
+        raid = raid_service.get_active_raid(db, interaction.guild_id)
+        if raid is None:
+            await interaction.response.send_message("There's no raid running right now.", ephemeral=True)
+            return
+
+        left = raid_service.attacks_remaining(db, raid, player)
+        if left <= 0:
+            await interaction.response.send_message(
+                "You've used all your attacks on this raid. Someone else will have to finish it.",
+                ephemeral=True,
+            )
+            return
+        cooldown = raid_service.time_until_next_attack(db, raid, player)
+        if cooldown is not None:
+            await interaction.response.send_message(
+                f"You're still regrouping -- {describe_wait(cooldown)} before your next attack.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_message(
+            content=(
+                f"**{raid.boss_name}** — pick how hard you want to fight it.\n"
+                "Higher difficulty means a stronger boss but more contribution credit; "
+                "lower means an easier fight that still counts.\n"
+                f"*{left} attack(s) left.*"
+            ),
+            view=RaidDifficultyView(raid),
+            ephemeral=True,
+        )
+    finally:
+        db.close()
+
+
+async def _handle_raid_attack(interaction: discord.Interaction, difficulty_id: str = DEFAULT_RAID_DIFFICULTY):
     if await _reject_dm(interaction):
         return
     db = SessionLocal()
@@ -328,7 +444,7 @@ async def _handle_raid_attack(interaction: discord.Interaction):
             return
 
         try:
-            battle = raid_service.start_attack(db, player, raid)
+            battle = raid_service.start_attack(db, player, raid, difficulty_id)
         except raid_service.RaidError as exc:
             await interaction.response.send_message(str(exc), ephemeral=True)
             return

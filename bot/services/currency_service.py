@@ -8,7 +8,7 @@ from __future__ import annotations
 from bot.database.models.enums import MATERIAL_EMOJI as _MATERIAL_EMOJI
 
 VALID_CURRENCIES = {
-    "gold", "shards", "reroll_tokens",
+    "gold", "shards", "reroll_tokens", "echoes",
     "wood", "stone", "metal", "crystal",
     "xendium", "permafrost_ore", "void", "entropy",
 }
@@ -20,10 +20,18 @@ VALID_CURRENCIES = {
 # of drifting into ad hoc "50 gold" text in some places and an emoji in
 # others. Materials reuse enums.MATERIAL_EMOJI (the same emoji already used
 # for MaterialType) so there's one definition per material, not two.
+# The custom guild emoji for Shards. Shards and Crystal were BOTH 💎,
+# which made "💎 40" ambiguous in every shop line, reward list and cost
+# label in the game -- and they're used for completely different things
+# (gacha pulls vs gear upgrades), so guessing wrong was expensive.
+# Crystal keeps 💎 (see enums.MATERIAL_EMOJI); Shards get their own mark.
+SHARD_EMOJI = "<:shard:1534383382924890192>"
+
 CURRENCY_EMOJI: dict[str, str] = {
     "gold": "🪙",
-    "shards": "💎",
+    "shards": SHARD_EMOJI,
     "reroll_tokens": "🎲",
+    "echoes": "✴️",
     **{material.value: emoji for material, emoji in _MATERIAL_EMOJI.items()},
 }
 

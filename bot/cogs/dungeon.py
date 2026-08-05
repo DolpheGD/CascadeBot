@@ -171,6 +171,7 @@ class CombatView(OwnedView):
         ultimate_exists: bool = False,
         ultimate_energy: int = 0,
         ultimate_cost: int = 100,
+        ultimate_label: str | None = None,
         owner_id: int | None = None,
         ally_options: list[discord.SelectOption] | None = None,
     ):
@@ -178,8 +179,13 @@ class CombatView(OwnedView):
         self.attack_button.disabled = False
         self.ultimate_button.disabled = not ultimate_ready
         if ultimate_exists:
-            status = "Ready!" if ultimate_ready else f"{ultimate_energy}/{ultimate_cost} EN"
-            self.ultimate_button.label = f"💥 Ultimate ({status})"
+            # ultimate_label is built by combat_ui.ultimate_button_label,
+            # which knows about the ultimate COOLDOWN as well as energy.
+            # The energy-only fallback is for the persistent-view rebuild
+            # path, which has no actor to ask.
+            self.ultimate_button.label = ultimate_label or (
+                f"💥 Ultimate ({'Ready!' if ultimate_ready else f'{ultimate_energy}/{ultimate_cost} EN'})"
+            )
         else:
             self.ultimate_button.label = "💥 No Ultimate"
         if not ultimate_exists:
@@ -345,6 +351,7 @@ def _build_combat_view(battle, owner_id: int) -> CombatView:
         ultimate_exists=actor.ultimate_ability is not None,
         ultimate_energy=actor.energy,
         ultimate_cost=actor.ultimate_ability["resource_cost"] if actor.ultimate_ability else 100,
+        ultimate_label=combat_ui.ultimate_button_label(actor),
         owner_id=owner_id,
         ally_options=ally_options or None,
     )

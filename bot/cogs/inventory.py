@@ -3,6 +3,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
+from bot.utils import names
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
 from bot.services import character_service, dungeon_service, inventory_service, item_upgrade_service, lootbox_service
@@ -433,9 +434,11 @@ async def _render_list_page(db, player, page: int):
     options = []
     for i, entry in enumerate(page_entries, start=start + 1):
         item = entry.obj
-        label = f"{i}. {item.display_name}"[:100]
+        # The index leads, so it survives; the item name is what gets
+        # shortened, and by whole words rather than mid-word.
+        label = names.fit_suffix(f"{i}.", item.display_name, 100)
         emoji = embedder.RARITY_EMOJI.get(item.rarity.value, "⚪")
-        options.append(discord.SelectOption(label=label[:100], value=entry.entry_id, emoji=emoji))
+        options.append(discord.SelectOption(label=label, value=entry.entry_id, emoji=emoji))
 
     select = InventorySelectEntry(options or None)
     page_buttons = [
@@ -548,7 +551,9 @@ async def _handle_equip_toggle(interaction: discord.Interaction, item_id: int):
             discord.SelectOption(
                 # effective_class(), not template.character_class -- see
                 # the same fix in bot/cogs/squad.py::_character_label.
-                label=f"{pc.display_name} (Lv{pc.level}, {CLASS_DISPLAY_NAME[pc.effective_class()]})"[:100],
+                label=names.fit_suffix(
+                    pc.display_name,
+                    f"(Lv{pc.level}, {CLASS_DISPLAY_NAME[pc.effective_class()]})", 100),
                 description="In your active squad" if pc.id in squad_ids else "Not in your squad",
                 value=str(pc.id),
             )
@@ -701,7 +706,7 @@ async def _handle_open_lootbox(interaction: discord.Interaction, tier: str):
             names = ", ".join(f"**{i.display_name}** ({i.rarity.value})" for i in rewards["items"])
             message += f"\n🪙 {rewards['gold']} gold"
             if rewards["shards"]:
-                message += f", 💎 {rewards['shards']} shards"
+                message += f", <:shard:1534383382924890192> {rewards['shards']} shards"
             message += f"\nItems: {names}"
 
         embed, view = await _render_stash(db, player)

@@ -428,7 +428,7 @@ def _apply_kit_reward(actor, passive, effect, log, allies, target) -> None:
 
     elif reward == "team_energy":
         for member in team:
-            member.energy = min(member.max_energy, member.energy + effect["amount"])
+            member.gain_energy(effect["amount"])
         log.append(f"🧬 {name}: the squad gains {effect['amount']} energy.")
 
     elif reward == "team_heal":
@@ -582,7 +582,7 @@ def grant_action_energy(actor: Combatant, log: list, multiplier: float = 1.0) ->
     gained = int(round(actor.max_energy * pct / 100))
     if gained <= 0:
         return
-    actor.energy = min(actor.max_energy, actor.energy + gained)
+    actor.gain_energy(gained)
 
 
 def poise_damage_for(ability: dict | None) -> int:
@@ -1150,7 +1150,7 @@ def resolve_active_ability(
         )
         energy_gained = min(target.max_energy - target.energy, effect.get("energy_amount", 0))
         mana_gained = min(target.max_mana - target.mana, effect.get("mana_amount", 0))
-        target.energy += energy_gained
+        energy_gained = target.gain_energy(energy_gained)
         target.mana += mana_gained
         if energy_gained or mana_gained:
             log.append(f"🔋 {target.name} gains {energy_gained} energy and {mana_gained} SP from {attacker.name}'s {ability['name']}.")
@@ -1215,7 +1215,7 @@ def resolve_active_ability(
             ))
             energy_gained = min(member.max_energy - member.energy, effect.get("energy_amount", 0))
             mana_gained = min(member.max_mana - member.mana, effect.get("mana_amount", 0))
-            member.energy += energy_gained
+            energy_gained = member.gain_energy(energy_gained)
             member.mana += mana_gained
         log.append(
             f"📡 {attacker.name}'s {ability['name']} boosts the team's {effect['buff_stat']} "
@@ -1285,7 +1285,7 @@ def resolve_active_ability(
         for member in [attacker] + [a for a in allies if a.is_alive()]:
             energy_gained = min(member.max_energy - member.energy, effect.get("energy_amount", 0))
             mana_gained = min(member.max_mana - member.mana, effect.get("mana_amount", 0))
-            member.energy += energy_gained
+            energy_gained = member.gain_energy(energy_gained)
             member.mana += mana_gained
             if energy_gained or mana_gained:
                 log.append(f"🔋 {member.name} gains {energy_gained} energy and {mana_gained} SP from {ability['name']}.")
@@ -1594,14 +1594,14 @@ def _resolve_hit(attacker: Combatant, defender: Combatant, damage_percent: float
     # is precisely backwards for Sustain/tank kits. Applied to enemies
     # too, for the same symmetry reason ENEMY_ENERGY_PER_ACTION exists.
     if dealt > 0 and defender.is_alive():
-        defender.energy = min(defender.max_energy, defender.energy + ENERGY_ON_TAKING_HIT)
+        defender.gain_energy(ENERGY_ON_TAKING_HIT)
 
     # Guarding paid off -- a hit actually landed while it was up, so the
     # defender banks energy toward their ultimate. Reading a telegraph
     # correctly should accelerate you, not merely cost you less.
     if defender.guarding:
         before = defender.energy
-        defender.energy = min(defender.max_energy, defender.energy + GUARD_ENERGY_ON_HIT)
+        defender.gain_energy(GUARD_ENERGY_ON_HIT)
         if defender.energy > before:
             log.append(f"🛡️ {defender.name} holds firm and builds {defender.energy - before} energy.")
 
@@ -1715,7 +1715,7 @@ def trigger_on_turn_start(combatant: Combatant, log: list, allies: list[Combatan
             if effect["resource_type"] == "mana":
                 combatant.mana = min(combatant.max_mana, combatant.mana + effect["amount"])
             else:
-                combatant.energy = min(combatant.max_energy, combatant.energy + effect["amount"])
+                combatant.gain_energy(effect["amount"])
             log.append(f"🔋 {combatant.name} restores {effect['amount']} {effect['resource_type']} from {passive['name']}.")
 
         elif effect["kind"] == "shield_regen":
@@ -1747,7 +1747,7 @@ def trigger_on_turn_start(combatant: Combatant, log: list, allies: list[Combatan
             for member in [combatant] + [a for a in allies if a.is_alive()]:
                 energy_gained = min(member.max_energy - member.energy, effect.get("energy_amount", 0))
                 mana_gained = min(member.max_mana - member.mana, effect.get("mana_amount", 0))
-                member.energy += energy_gained
+                energy_gained = member.gain_energy(energy_gained)
                 member.mana += mana_gained
                 if energy_gained or mana_gained:
                     log.append(f"🔋 {member.name} gains {energy_gained} energy and {mana_gained} SP from {combatant.name}'s {passive['name']}.")

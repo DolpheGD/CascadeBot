@@ -44,9 +44,18 @@ STAR_WEIGHTS: dict[int, float] = {
     5: 4.0,
 }
 
-SINGLE_PULL_COST_SHARDS = 150
+SINGLE_PULL_COST_SHARDS = 120
 MULTI_PULL_COUNT = 10
-MULTI_PULL_COST_SHARDS = 1350  # 10% discount vs 10x single pulls
+# Exactly 10x the single cost -- no bulk discount.
+#
+# The discount was pushing every player toward the 10x button for a
+# reason that had nothing to do with what they wanted: with pity
+# counters running continuously across both (see the PITY block
+# below), a 10x is already the strictly better way to bank progress,
+# and paying less for it as well made the single pull pointless.
+# Same price per pull means 10x is a convenience, not a tax on
+# pulling one at a time.
+MULTI_PULL_COST_SHARDS = SINGLE_PULL_COST_SHARDS * MULTI_PULL_COUNT
 
 # ---------------------------------------------------------------------
 # Pity tuning. At 150 shards a pull, a 50-pull hard ceiling is 7,500
@@ -82,6 +91,7 @@ def roll_star_rating(
     rng: random.Random,
     pulls_since_five_star: int = 0,
     pulls_since_four_star: int = 0,
+    hard_pity: int | None = None,
 ) -> int:
     """Rolls one pull's star rating, honouring both pity counters. The
     counters passed in are the state BEFORE this pull; the caller is
@@ -93,7 +103,10 @@ def roll_star_rating(
     only then the ordinary weighted 3/4 split. A 5-star must be able to
     pre-empt the 4-star guarantee, or the guaranteed-4-star pull would
     be the one pull where a 5-star is impossible."""
-    if pulls_since_five_star + 1 >= FIVE_STAR_HARD_PITY:
+    # `hard_pity` is per-player: the Research Lab can shorten it (see
+    # character_gacha_service._pity_threshold). Defaults to the global
+    # value for callers that don't have a player in hand.
+    if pulls_since_five_star + 1 >= (hard_pity or FIVE_STAR_HARD_PITY):
         return 5
 
     if rng.random() * 100 < five_star_chance_percent(pulls_since_five_star):

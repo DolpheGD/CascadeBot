@@ -67,8 +67,11 @@ class CascadeBot(commands.Bot):
             HarvesterActionButton,
             HarvesterCollectAllButton,
             HQUpgradeButton,
-            MailboxCollectButton,
-            MailboxUpgradeButton,
+            ForgeCraftButton,
+            ForgeUpgradeButton,
+            LabUpgradeButton,
+            ResearchCollectButton,
+            ResearchStartButton,
             ShopBuyButton,
             ShopCategoryButton,
             ShrineActionButton,
@@ -95,7 +98,10 @@ class CascadeBot(commands.Bot):
         )
         self.add_dynamic_items(HarvesterActionButton, HarvesterCollectAllButton)
         self.add_dynamic_items(HQUpgradeButton, ShrineActionButton, ShopBuyButton, ShopCategoryButton)
-        self.add_dynamic_items(MailboxCollectButton, MailboxUpgradeButton)
+        self.add_dynamic_items(
+            ResearchStartButton, ResearchCollectButton, LabUpgradeButton,
+            ForgeUpgradeButton, ForgeCraftButton,
+        )
         self.add_dynamic_items(RollQuestButton)
         # Raids: the action view is timeout=None and must survive restarts
         # (a raid runs for a week -- see raid_config.RAID_DURATION, which

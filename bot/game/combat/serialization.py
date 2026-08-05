@@ -33,6 +33,7 @@ def combatant_to_dict(c: Combatant) -> dict:
         "max_hp": c.max_hp,
         "character_id": c.character_id,
         "character_class": c.character_class,
+        "short_name": c.short_name,
         "mana": c.mana,
         "max_mana": c.max_mana,
         "energy": c.energy,
@@ -62,8 +63,12 @@ def combatant_to_dict(c: Combatant) -> dict:
         "shield": c.shield,
         "ramp_percent_per_turn": c.ramp_percent_per_turn,
         "ramp_stacks": c.ramp_stacks,
-        "enemy_heal_stacks": c.enemy_heal_stacks,
-        "enemy_shield_stacks": c.enemy_shield_stacks,
+        # NOTE: the five heal/shield/energy decay counters that used to be
+        # persisted here are gone with the mechanics that read them (see
+        # the NO HIDDEN DIMINISHING RETURNS block in combatant.py). Saves
+        # written before this still CARRY those keys; from_dict simply
+        # ignores them, so an in-progress battle resumes fine and just
+        # stops being quietly throttled.
         "max_poise": c.max_poise,
         "poise": c.poise,
         "break_turns": c.break_turns,
@@ -87,6 +92,10 @@ def combatant_from_dict(data: dict) -> Combatant:
         max_hp=data["max_hp"],
         character_id=data.get("character_id"),
         character_class=data.get("character_class"),
+        # Absent on saves from before short names existed -- an empty
+        # string just means "use the full name", which is what those
+        # battles already did.
+        short_name=data.get("short_name", ""),
         mana=data["mana"],
         max_mana=data["max_mana"],
         energy=data["energy"],
@@ -112,8 +121,6 @@ def combatant_from_dict(data: dict) -> Combatant:
         shield=data.get("shield", 0.0),
         ramp_percent_per_turn=data.get("ramp_percent_per_turn", 0.0),
         ramp_stacks=data.get("ramp_stacks", 0),
-        enemy_heal_stacks=data.get("enemy_heal_stacks", 0),
-        enemy_shield_stacks=data.get("enemy_shield_stacks", 0),
         # Saves from before the poise system have no poise keys. Defaulting
         # max_poise to 0 leaves those enemies unbreakable rather than
         # crashing or silently full-poise; the next battle built from a

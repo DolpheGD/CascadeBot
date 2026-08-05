@@ -36,6 +36,17 @@ HQ_LEVEL_CONFIG: dict[int, dict] = {
         "building_level_cap": 14,
         "upgrade_cost": {"gold": 18000, "metal": 700, "crystal": 250},
     },
+    # Levels 5-6 exist so the top domain-energy caps and the Legendary /
+    # Mythic crates are actually reachable -- an unlock gated behind an
+    # HQ level that cannot be reached is dead content.
+    5: {
+        "building_level_cap": 18,
+        "upgrade_cost": {"gold": 40000, "crystal": 600, "xendium": 200},
+    },
+    6: {
+        "building_level_cap": 22,
+        "upgrade_cost": {"gold": 90000, "xendium": 500, "permafrost_ore": 350, "void": 100},
+    },
 }
 
 
@@ -151,16 +162,15 @@ SHRINE_TEMPLATES: list[dict] = [
 #
 # WHAT CHANGED AND WHY.
 #
-# 1. Gear and lootbox listings are GONE. The shop used to sell specific
-#    InventoryItems ("Runic Robe Bundle", item level 8) and lootbox
-#    crates. Both were dead purchases: a player reaches the shop's gear
-#    through ordinary adventuring long before they've banked the gold for
-#    it, and buying loot competes with the dungeon -- which is the part of
-#    the game the loot is supposed to pull you back into. The "item" and
-#    "lootbox" listing KINDS still work in base_service.purchase_listing;
-#    there just aren't any authored anymore. (base_service's seeder
-#    actively retires listings dropped from this catalog, so removing them
-#    here is enough -- no migration, no orphan rows.)
+# 1. Named GEAR listings are gone; lootbox CRATES are back. Selling a
+#    specific item ("Runic Robe Bundle", item level 8) competes directly
+#    with adventuring for that item, which is the part of the game the
+#    loot is meant to pull you back into -- and a player out-levels the
+#    shop's gear long before banking the gold for it. A crate is a
+#    different purchase: its contents still come from the normal loot
+#    tables, so it complements the dungeon rather than replacing it, and
+#    it gives late-game gold a sink once every building is maxed. See the
+#    LOOTBOX CRATES block further down.
 #
 # 2. Every material is now both BUYABLE and SELLABLE, from HQ level 1.
 #    Previously only wood and stone could be sold and only wood/stone/
@@ -265,6 +275,38 @@ def _material_market_listings() -> list[dict]:
 
 SHOP_LISTINGS: list[dict] = _material_market_listings() + [
     # ------------------------------------------------------------------
+    # REROLL TOKEN TRADES.
+    #
+    # Duplicate character pulls used to be where tokens came from; they
+    # now pay Resonance and Echoes instead (resonance_config), which left
+    # the substat-reroll economy with no dependable source at all. These
+    # two are the dependable one: a gold sink the player controls,
+    # daily-limited so it stays a steady trickle rather than a way to
+    # convert a fortune into a perfectly-rolled item in one sitting.
+    # ------------------------------------------------------------------
+    {
+        "name": "Attunement Contract",
+        "description": "The quartermaster will part with a few reroll tokens for gold.",
+        "kind": "exchange",
+        "unlock_hq_level": 1,
+        "cost_currency": "gold",
+        "cost_amount": 900,
+        "reward_currency": "reroll_tokens",
+        "reward_amount": 6,
+        "daily_limit": 4,
+    },
+    {
+        "name": "Bulk Attunement Contract",
+        "description": "A standing order for reroll tokens, priced for volume.",
+        "kind": "exchange",
+        "unlock_hq_level": 4,
+        "cost_currency": "crystal",
+        "cost_amount": 40,
+        "reward_currency": "reroll_tokens",
+        "reward_amount": 45,
+        "daily_limit": 2,
+    },
+    # ------------------------------------------------------------------
     # REFINERIES -- convert a material into one of the tier above. These
     # are the shop's actual depth, and the reason to keep levelling HQ:
     # a tier-3 material is worth ~43x a tier-0 one, so the ability to
@@ -340,8 +382,89 @@ SHOP_LISTINGS: list[dict] = _material_market_listings() + [
         "daily_limit": 3,
     },
 
+
     # ------------------------------------------------------------------
-    # SPECIAL -- the only non-material trade left in the shop. Kept
+    # LOOTBOX CRATES. Deliberately back after the gear listings were cut:
+    # a crate isn't the same purchase as a specific item. Buying a named
+    # weapon competes directly with adventuring for it, which is why that
+    # was removed -- a crate is a gamble whose contents still come from
+    # the normal loot tables, so it complements the dungeon instead of
+    # replacing it, and it gives late-game gold somewhere to go once
+    # every building is maxed.
+    #
+    # Each tier unlocks a level apart and costs steeply more, so crates
+    # are the clearest ongoing payoff for pushing HQ higher. Daily limits
+    # keep them a steady drip rather than a way to convert a gold pile
+    # into an instant armoury.
+    # ------------------------------------------------------------------
+    {
+        "name": "Common Supply Crate",
+        "description": "A sealed Cascade supply crate. Contents unknown.",
+        "kind": "lootbox",
+        "unlock_hq_level": 1,
+        "cost_currency": "gold",
+        "cost_amount": 450,
+        "lootbox_tier": "common",
+        "lootbox_quantity": 1,
+        "daily_limit": 5,
+    },
+    {
+        "name": "Uncommon Supply Crate",
+        "description": "A reinforced crate. Better odds inside.",
+        "kind": "lootbox",
+        "unlock_hq_level": 2,
+        "cost_currency": "gold",
+        "cost_amount": 1100,
+        "lootbox_tier": "uncommon",
+        "lootbox_quantity": 1,
+        "daily_limit": 4,
+    },
+    {
+        "name": "Rare Vault Crate",
+        "description": "A sealed Cascade vault crate. Only the well-established get one.",
+        "kind": "lootbox",
+        "unlock_hq_level": 3,
+        "cost_currency": "gold",
+        "cost_amount": 2600,
+        "lootbox_tier": "rare",
+        "lootbox_quantity": 1,
+        "daily_limit": 3,
+    },
+    {
+        "name": "Epic Coffer",
+        "description": "An ornate Cascade coffer, humming faintly.",
+        "kind": "lootbox",
+        "unlock_hq_level": 4,
+        "cost_currency": "gold",
+        "cost_amount": 5800,
+        "lootbox_tier": "epic",
+        "lootbox_quantity": 1,
+        "daily_limit": 2,
+    },
+    {
+        "name": "Legendary Reliquary",
+        "description": "Requisitioned from the deep vaults. Nobody signs for these twice.",
+        "kind": "lootbox",
+        "unlock_hq_level": 5,
+        "cost_currency": "gold",
+        "cost_amount": 12000,
+        "lootbox_tier": "legendary",
+        "lootbox_quantity": 1,
+        "daily_limit": 1,
+    },
+    {
+        "name": "Mythic Cache",
+        "description": "The quartermaster pretends not to know where this came from.",
+        "kind": "lootbox",
+        "unlock_hq_level": 6,
+        "cost_currency": "gold",
+        "cost_amount": 26000,
+        "lootbox_tier": "mythic",
+        "lootbox_quantity": 1,
+        "daily_limit": 1,
+    },
+    # ------------------------------------------------------------------
+    # SPECIAL -- non-material trades. Kept
     # because Shards are the gacha currency and a gold sink for them is
     # the main thing stopping late-game gold from becoming meaningless
     # once the player owns every harvester and shrine.

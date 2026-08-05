@@ -51,8 +51,106 @@ left alone.
 from __future__ import annotations
 
 from bot.database.models.enums import Rarity
+from bot.game.combat.combatant import ULTIMATE_COOLDOWN
 
 WEAPON_SKILLS: list[dict] = [
+    # ==================================================================
+    # ROSTER EXPANSION -- weapon skills.
+    # Weapons are the damage pool, so most of these are damage shapes the
+    # pool was thin on: multi-hit, execute, missing-HP scaling and
+    # debuff-exploit finishers. A few carry the newer poise/taunt kinds so
+    # a break or tank build can come from the weapon slot too.
+    # ==================================================================
+    {
+        "id": "hammerfall",
+        "name": "Hammerfall",
+        "min_rarity": Rarity.UNCOMMON,
+        "resource_cost": 18, "resource_type": "mana", "cooldown": 2,
+        "description": "Deal 165% ATK damage and chip 2 extra Poise.",
+        "effect": {"kind": "damage_and_poise_strike", "damage_percent": 165,
+                   "damage_stat": "attack", "bonus_poise": 2},
+    },
+    {
+        "id": "gutting_thrust",
+        "name": "Gutting Thrust",
+        "min_rarity": Rarity.RARE,
+        "resource_cost": 20, "resource_type": "mana", "cooldown": 2,
+        "description": "Deal 140% ATK damage, or 240% if the target is already weakened by a debuff.",
+        "effect": {"kind": "damage_bonus_if_debuffed", "damage_percent": 140,
+                   "bonus_damage_percent": 100, "damage_stat": "attack"},
+    },
+    {
+        "id": "reaping_arc",
+        "name": "Reaping Arc",
+        "min_rarity": Rarity.RARE,
+        "resource_cost": 24, "resource_type": "mana", "cooldown": 3,
+        "description": "Deal 95% ATK damage to all enemies.",
+        "effect": {"kind": "aoe_damage", "damage_percent": 95, "damage_stat": "attack"},
+    },
+    {
+        "id": "seven_cuts",
+        "name": "Seven Cuts",
+        "min_rarity": Rarity.EPIC,
+        "resource_cost": 28, "resource_type": "mana", "cooldown": 3,
+        "description": "Strike the target 5 times for 52% ATK damage each.",
+        "effect": {"kind": "multi_hit", "hits": 5, "damage_percent_per_hit": 52, "damage_stat": "attack"},
+    },
+    {
+        "id": "mercy_stroke",
+        "name": "Mercy Stroke",
+        "min_rarity": Rarity.EPIC,
+        "resource_cost": 26, "resource_type": "mana", "cooldown": 3,
+        "description": "Deal 200% ATK damage, or 360% if the target is below 35% HP.",
+        "effect": {"kind": "execute_below_threshold", "damage_percent": 200,
+                   "execute_damage_percent": 360, "hp_threshold_percent": 35, "damage_stat": "attack"},
+    },
+    {
+        "id": "desperate_swing",
+        "name": "Desperate Swing",
+        "min_rarity": Rarity.RARE,
+        "resource_cost": 22, "resource_type": "mana", "cooldown": 2,
+        "description": "Deal 130% ATK damage, plus up to 130% more the lower YOUR own HP is.",
+        "effect": {"kind": "damage_scales_with_missing_hp", "base_damage_percent": 130,
+                   "bonus_damage_percent_at_zero_hp": 130, "damage_stat": "attack"},
+    },
+    {
+        "id": "glacier_cleaver",
+        "name": "Glacier Cleaver",
+        "min_rarity": Rarity.EPIC,
+        "resource_cost": 26, "resource_type": "mana", "cooldown": 3,
+        "description": "Deal 150% ELE damage and reduce the target's SPD by 20% for 2 turns.",
+        "effect": {"kind": "damage_and_debuff", "damage_percent": 150, "damage_stat": "elemental",
+                   "debuff_stat": "speed", "debuff_percent": -20, "duration": 2},
+    },
+    {
+        "id": "bulwark_slam",
+        "name": "Bulwark Slam",
+        "min_rarity": Rarity.RARE,
+        "resource_cost": 22, "resource_type": "mana", "cooldown": 3,
+        "description": "Deal 95% DEF damage and force every enemy to attack you for 2 turns.",
+        "effect": {"kind": "damage_and_self_taunt", "damage_percent": 95,
+                   "damage_stat": "defense", "duration": 2},
+    },
+    {
+        "id": "riposte_chain",
+        "name": "Riposte Chain",
+        "min_rarity": Rarity.UNCOMMON,
+        "resource_cost": 16, "resource_type": "mana", "cooldown": 2,
+        "description": "Deal 120% ATK damage with a 40% chance to strike a second time.",
+        "effect": {"kind": "chance_double_hit", "damage_percent": 120,
+                   "damage_stat": "attack", "chance_percent": 40},
+    },
+    {
+        "id": "sunder_the_weak",
+        "name": "Sunder the Weak",
+        "min_rarity": Rarity.LEGENDARY,
+        "resource_cost": 30, "resource_type": "mana", "cooldown": 3,
+        "description": "Deal 175% ATK damage and reduce the target's ATK and DEF by 18% each for 2 turns.",
+        "effect": {"kind": "damage_and_double_debuff", "damage_percent": 175, "damage_stat": "attack",
+                   "debuff_stat_1": "attack", "debuff_percent_1": -18,
+                   "debuff_stat_2": "defense", "debuff_percent_2": -18, "duration": 2},
+    },
+
     {
         "id": "power_strike",
         "name": "Power Strike",
@@ -335,6 +433,116 @@ WEAPON_SKILLS: list[dict] = [
 ]
 
 ARTIFACT_SKILLS: list[dict] = [
+    # ==================================================================
+    # ROSTER EXPANSION -- artifact skills.
+    # Artifacts are the utility pool: support, setup and control. Weighted
+    # toward the shapes characters can now react to (heals, shields,
+    # buffs, marks) so an artifact can trigger a kit passive the wearer
+    # already has.
+    # ==================================================================
+    {
+        "id": "guardian_ward",
+        "name": "Guardian Ward",
+        "min_rarity": Rarity.UNCOMMON,
+        "resource_cost": 18, "resource_type": "mana", "cooldown": 2,
+        "description": "Shield one ally for 22% of their max HP.",
+        "effect": {"kind": "shield_ally_percent_max_hp", "percent": 22},
+    },
+    {
+        "id": "bulwark_chorus",
+        "name": "Bulwark Chorus",
+        "min_rarity": Rarity.EPIC,
+        "resource_cost": 28, "resource_type": "mana", "cooldown": 4,
+        "description": "Shield the squad for 16% of max HP each and raise their DEF by 20% for 3 turns.",
+        "effect": {"kind": "team_shield_and_buff", "shield_percent": 16,
+                   "buff_stat": "defense", "buff_percent": 20, "duration": 3},
+    },
+    {
+        "id": "rally_standard",
+        "name": "Rally Standard",
+        "min_rarity": Rarity.RARE,
+        "resource_cost": 22, "resource_type": "mana", "cooldown": 3,
+        "description": "Boost the whole squad's ATK by 22% for 3 turns.",
+        "effect": {"kind": "team_buff", "buff_stat": "attack", "buff_percent": 22, "duration": 3},
+    },
+    {
+        "id": "quickening_field",
+        "name": "Quickening Field",
+        "min_rarity": Rarity.RARE,
+        "resource_cost": 22, "resource_type": "mana", "cooldown": 3,
+        "description": "Boost the whole squad's SPD by 25% for 3 turns.",
+        "effect": {"kind": "team_buff", "buff_stat": "speed", "buff_percent": 25, "duration": 3},
+    },
+    {
+        "id": "twin_current",
+        "name": "Twin Current",
+        "min_rarity": Rarity.LEGENDARY,
+        "resource_cost": 32, "resource_type": "mana", "cooldown": 4,
+        "description": "Boost the whole squad's ATK by 30% and ELE by 30% for 3 turns.",
+        "effect": {"kind": "team_double_buff", "buff_stat_1": "attack", "buff_percent_1": 30,
+                   "buff_stat_2": "elemental", "buff_percent_2": 30, "duration": 3},
+    },
+    {
+        "id": "restoration_wave",
+        "name": "Restoration Wave",
+        "min_rarity": Rarity.RARE,
+        "resource_cost": 24, "resource_type": "mana", "cooldown": 3,
+        "description": "Heal the whole squad for 14% of each member's max HP.",
+        "effect": {"kind": "team_heal_percent_max_hp", "percent": 14},
+    },
+    {
+        "id": "mending_tide",
+        "name": "Mending Tide",
+        "min_rarity": Rarity.EPIC,
+        "resource_cost": 26, "resource_type": "mana", "cooldown": 3,
+        "description": "Heal the squad for 13% of max HP and raise their DEF by 20% for 3 turns.",
+        "effect": {"kind": "team_heal_and_buff", "heal_percent": 13,
+                   "buff_stat": "defense", "buff_percent": 20, "duration": 3},
+    },
+    {
+        "id": "hunters_mark",
+        "name": "Hunter's Mark",
+        "min_rarity": Rarity.EPIC,
+        "resource_cost": 22, "resource_type": "mana", "cooldown": 2,
+        "description": "Deal 90% ATK damage and mark the target, increasing ATK damage it takes by 9% per stack (max 4).",
+        "effect": {"kind": "apply_vulnerability_stack", "damage_percent": 90, "damage_stat": "attack",
+                   "vulnerable_damage_stat": "attack", "percent_per_stack": 9, "max_stacks": 4},
+    },
+    {
+        "id": "creeping_rot",
+        "name": "Creeping Rot",
+        "min_rarity": Rarity.RARE,
+        "resource_cost": 20, "resource_type": "mana", "cooldown": 2,
+        "description": "Deal 110% ELE damage and inflict rot for 16% ELE per turn over 3 turns.",
+        "effect": {"kind": "damage_and_dot", "damage_percent": 110, "damage_stat": "elemental",
+                   "dot_stat": "elemental", "dot_percent": 16, "duration": 3},
+    },
+    {
+        "id": "reserve_tap",
+        "name": "Reserve Tap",
+        "min_rarity": Rarity.UNCOMMON,
+        "resource_cost": 14, "resource_type": "mana", "cooldown": 3,
+        "description": "Restore 10 energy and 12 SP to the whole squad.",
+        "effect": {"kind": "team_resource_restore", "energy_amount": 10, "mana_amount": 12},
+    },
+    {
+        "id": "sanctuary_bell",
+        "name": "Sanctuary Bell",
+        "min_rarity": Rarity.LEGENDARY,
+        "resource_cost": 30, "resource_type": "mana", "cooldown": 4,
+        "description": "Shield the squad for 30% of max HP each and purge every negative effect from them.",
+        "effect": {"kind": "team_shield_and_cleanse", "shield_percent": 30},
+    },
+    {
+        "id": "iron_vigil",
+        "name": "Iron Vigil",
+        "min_rarity": Rarity.EPIC,
+        "resource_cost": 24, "resource_type": "mana", "cooldown": 3,
+        "description": "Shield yourself for 30% of max HP, gain 35% DEF, and force every enemy to attack you for 2 turns.",
+        "effect": {"kind": "taunt_and_shield", "shield_percent": 30, "duration": 2,
+                   "buff_stat": "defense", "buff_percent": 35},
+    },
+
     {
         "id": "healing_light",
         "name": "Healing Light",
@@ -458,8 +666,8 @@ ARTIFACT_SKILLS: list[dict] = [
         "resource_cost": 28,
         "resource_type": "mana",
         "cooldown": 4,
-        "description": "Shield your whole side for 25% of each member's max HP and raise their DEF by 25% for 3 turns.",
-        "effect": {"kind": "team_shield_and_buff", "shield_percent": 25,
+        "description": "Shield your whole side for 18% of each member's max HP and raise their DEF by 25% for 3 turns.",
+        "effect": {"kind": "team_shield_and_buff", "shield_percent": 18,
                    "buff_stat": "defense", "buff_percent": 25, "duration": 3},
     },
     {
@@ -524,8 +732,8 @@ ARTIFACT_SKILLS: list[dict] = [
         "resource_cost": 30,
         "resource_type": "mana",
         "cooldown": 4,
-        "description": "Instantly restore 15 energy and 20 mana to your whole side.",
-        "effect": {"kind": "team_resource_restore", "energy_amount": 15, "mana_amount": 20},
+        "description": "Instantly restore 11 energy and 13 SP to your whole side.",
+        "effect": {"kind": "team_resource_restore", "energy_amount": 11, "mana_amount": 13},
     },
     {
         "id": "regenerative_field",
@@ -534,8 +742,8 @@ ARTIFACT_SKILLS: list[dict] = [
         "resource_cost": 32,
         "resource_type": "mana",
         "cooldown": 5,
-        "description": "Your whole side regenerates 8% max HP at the start of each of their turns for 3 turns.",
-        "effect": {"kind": "team_regen_over_time", "percent_max_hp_per_turn": 8, "duration": 3},
+        "description": "Your whole side regenerates 4% max HP at the start of each of their turns for 3 turns.",
+        "effect": {"kind": "team_regen_over_time", "percent_max_hp_per_turn": 4, "duration": 3},
     },
     {
         # filler -- cheap Common-tier bolt, the artifact-side equivalent
@@ -598,8 +806,8 @@ ARTIFACT_SKILLS: list[dict] = [
         "resource_cost": 38,
         "resource_type": "mana",
         "cooldown": 5,
-        "description": "Shield your whole side, each member absorbing damage equal to 25% of their own max HP.",
-        "effect": {"kind": "team_shield_percent_max_hp", "percent": 25},
+        "description": "Shield your whole side, each member absorbing damage equal to 18% of their own max HP.",
+        "effect": {"kind": "team_shield_percent_max_hp", "percent": 18},
     },
     {
         # unique -- the artifact-side aoe_damage_chance_debuff (Support
@@ -639,8 +847,8 @@ ARTIFACT_SKILLS: list[dict] = [
         "resource_cost": 40,
         "resource_type": "mana",
         "cooldown": 5,
-        "description": "Heal your whole side for 30% of each member's own max HP.",
-        "effect": {"kind": "team_heal_percent_max_hp", "percent": 30},
+        "description": "Heal your whole side for 19% of each member's own max HP.",
+        "effect": {"kind": "team_heal_percent_max_hp", "percent": 19},
     },
     {
         # unique -- new ally_buff kind on gear: buffs whichever ally needs
@@ -800,8 +1008,8 @@ ARTIFACT_SKILLS: list[dict] = [
         "resource_cost": 46,
         "resource_type": "mana",
         "cooldown": 5,
-        "description": "Heal your whole side for 45% of each member's own max HP.",
-        "effect": {"kind": "team_heal_percent_max_hp", "percent": 45},
+        "description": "Heal your whole side for 27% of each member's own max HP.",
+        "effect": {"kind": "team_heal_percent_max_hp", "percent": 27},
     },
     {
         # unique -- brings apply_vulnerability_stack (previously only
@@ -834,6 +1042,10 @@ ARTIFACT_SKILLS: list[dict] = [
     },
 ]
 
+# Gear-granted ultimates. All ULTIMATE_COOLDOWN, same as character
+# ultimates -- an ultimate rolled off a weapon is still an ultimate,
+# and letting gear dodge the cooldown would just make gear ultimates
+# strictly better. See combatant.py.
 ULTIMATE_ABILITIES: list[dict] = [
     {
         "id": "meteor_ultimate",
@@ -841,7 +1053,7 @@ ULTIMATE_ABILITIES: list[dict] = [
         "min_rarity": Rarity.UNCOMMON,
         "resource_cost": 50,
         "resource_type": "energy",
-        "cooldown": 0,
+        "cooldown": ULTIMATE_COOLDOWN,
         "description": "Unleash a meteor for 320% ELE damage.",
         "effect": {"kind": "damage_multiplier", "damage_percent": 320, "damage_stat": "elemental"},
     },
@@ -851,7 +1063,7 @@ ULTIMATE_ABILITIES: list[dict] = [
         "min_rarity": Rarity.RARE,
         "resource_cost": 50,
         "resource_type": "energy",
-        "cooldown": 0,
+        "cooldown": ULTIMATE_COOLDOWN,
         "description": "Deal 280% ATK damage; if this kills the target, restore 30% max HP.",
         "effect": {"kind": "damage_execute_heal", "damage_percent": 280, "damage_stat": "attack",
                    "heal_percent_on_kill": 30},
@@ -862,7 +1074,7 @@ ULTIMATE_ABILITIES: list[dict] = [
         "min_rarity": Rarity.RARE,
         "resource_cost": 50,
         "resource_type": "energy",
-        "cooldown": 0,
+        "cooldown": ULTIMATE_COOLDOWN,
         "description": "Restore 50% max HP and gain 30% ATK for 3 turns.",
         "effect": {"kind": "heal_and_self_buff", "heal_percent": 50, "buff_stat": "attack",
                    "buff_percent": 30, "duration": 3},
@@ -873,7 +1085,7 @@ ULTIMATE_ABILITIES: list[dict] = [
         "min_rarity": Rarity.EPIC,
         "resource_cost": 50,
         "resource_type": "energy",
-        "cooldown": 0,
+        "cooldown": ULTIMATE_COOLDOWN,
         "description": "Strike the target 4 times for 70% ATK damage each.",
         "effect": {"kind": "multi_hit", "hits": 4, "damage_percent_per_hit": 70, "damage_stat": "attack"},
     },
@@ -883,7 +1095,7 @@ ULTIMATE_ABILITIES: list[dict] = [
         "min_rarity": Rarity.LEGENDARY,
         "resource_cost": 50,
         "resource_type": "energy",
-        "cooldown": 0,
+        "cooldown": ULTIMATE_COOLDOWN,
         "description": "Deal 420% ELE damage and reduce the target's DEF by 30% for 2 turns.",
         "effect": {"kind": "damage_and_debuff", "damage_percent": 420, "damage_stat": "elemental",
                    "debuff_stat": "defense", "debuff_percent": -30, "duration": 2},
@@ -894,7 +1106,7 @@ ULTIMATE_ABILITIES: list[dict] = [
         "min_rarity": Rarity.MYTHIC,
         "resource_cost": 50,
         "resource_type": "energy",
-        "cooldown": 0,
+        "cooldown": ULTIMATE_COOLDOWN,
         "description": "Deal 500% ATK damage to the target.",
         "effect": {"kind": "damage_multiplier", "damage_percent": 500, "damage_stat": "attack"},
     },
@@ -904,7 +1116,7 @@ ULTIMATE_ABILITIES: list[dict] = [
         "min_rarity": Rarity.EPIC,
         "resource_cost": 50,
         "resource_type": "energy",
-        "cooldown": 0,
+        "cooldown": ULTIMATE_COOLDOWN,
         "description": "Deal 150% ELE damage, increased by up to 150% more the lower the target's HP is.",
         "effect": {"kind": "damage_scales_with_missing_hp", "base_damage_percent": 150,
                    "bonus_damage_percent_at_zero_hp": 150, "damage_stat": "elemental"},
@@ -918,7 +1130,7 @@ ULTIMATE_ABILITIES: list[dict] = [
         "min_rarity": Rarity.UNCOMMON,
         "resource_cost": 50,
         "resource_type": "energy",
-        "cooldown": 0,
+        "cooldown": ULTIMATE_COOLDOWN,
         "description": "Restore 35% max HP and gain 20% ATK for 3 turns.",
         "effect": {"kind": "heal_and_self_buff", "heal_percent": 35, "buff_stat": "attack",
                    "buff_percent": 20, "duration": 3},
@@ -932,7 +1144,7 @@ ULTIMATE_ABILITIES: list[dict] = [
         "min_rarity": Rarity.RARE,
         "resource_cost": 50,
         "resource_type": "energy",
-        "cooldown": 0,
+        "cooldown": ULTIMATE_COOLDOWN,
         "description": "Deal damage equal to 700% of your SPD stat to the target.",
         "effect": {"kind": "damage_multiplier", "damage_percent": 700, "damage_stat": "speed"},
     },
@@ -945,7 +1157,7 @@ ULTIMATE_ABILITIES: list[dict] = [
         "min_rarity": Rarity.EPIC,
         "resource_cost": 50,
         "resource_type": "energy",
-        "cooldown": 0,
+        "cooldown": ULTIMATE_COOLDOWN,
         "description": "Deal 240% ATK damage, or 440% ATK damage if the target is already weakened by a debuff.",
         "effect": {"kind": "damage_bonus_if_debuffed", "damage_percent": 240,
                    "bonus_damage_percent": 200, "damage_stat": "attack"},
@@ -959,9 +1171,9 @@ ULTIMATE_ABILITIES: list[dict] = [
         "min_rarity": Rarity.LEGENDARY,
         "resource_cost": 50,
         "resource_type": "energy",
-        "cooldown": 0,
-        "description": "Shield your whole side, each member absorbing damage equal to 45% of their own max HP.",
-        "effect": {"kind": "team_shield_percent_max_hp", "percent": 45},
+        "cooldown": ULTIMATE_COOLDOWN,
+        "description": "Shield your whole side, each member absorbing damage equal to 30% of their own max HP.",
+        "effect": {"kind": "team_shield_percent_max_hp", "percent": 30},
     },
     {
         # unique -- ultimate-scale aoe_damage: the "lighter AoE ultimate"
@@ -973,7 +1185,7 @@ ULTIMATE_ABILITIES: list[dict] = [
         "min_rarity": Rarity.RARE,
         "resource_cost": 50,
         "resource_type": "energy",
-        "cooldown": 0,
+        "cooldown": ULTIMATE_COOLDOWN,
         "description": "Deal 220% ATK damage to all enemies.",
         "effect": {"kind": "aoe_damage", "damage_percent": 220, "damage_stat": "attack"},
     },
@@ -986,7 +1198,7 @@ ULTIMATE_ABILITIES: list[dict] = [
         "min_rarity": Rarity.MYTHIC,
         "resource_cost": 50,
         "resource_type": "energy",
-        "cooldown": 0,
+        "cooldown": ULTIMATE_COOLDOWN,
         "description": "Deal 300% ELE damage to all enemies.",
         "effect": {"kind": "aoe_damage", "damage_percent": 300, "damage_stat": "elemental"},
     },
@@ -1055,8 +1267,8 @@ ARMOR_PASSIVES: list[dict] = [
         "name": "Arcane Battery",
         "min_rarity": Rarity.MYTHIC,
         "trigger": "on_turn_start",
-        "description": "Restore 10 mana at the start of every turn.",
-        "effect": {"kind": "resource_regen", "resource_type": "mana", "amount": 10},
+        "description": "Restore 4 SP at the start of every turn.",
+        "effect": {"kind": "resource_regen", "resource_type": "mana", "amount": 4},
     },
     {
         "id": "undying_will",
@@ -1079,16 +1291,16 @@ ARMOR_PASSIVES: list[dict] = [
         "name": "Support Matrix",
         "min_rarity": Rarity.EPIC,
         "trigger": "on_turn_start",
-        "description": "At the start of every turn, restore 5 energy and 8 mana to your whole side.",
-        "effect": {"kind": "aura_team_resource_regen", "energy_amount": 5, "mana_amount": 8},
+        "description": "At the start of every turn, restore 3 energy and 4 SP to your whole side.",
+        "effect": {"kind": "aura_team_resource_regen", "energy_amount": 3, "mana_amount": 4},
     },
     {
         "id": "regen_field_generator",
         "name": "Regen Field Generator",
         "min_rarity": Rarity.MYTHIC,
         "trigger": "on_turn_start",
-        "description": "At the start of every turn, heal your whole side for 4% of their own max HP.",
-        "effect": {"kind": "aura_team_regen", "percent": 4},
+        "description": "At the start of every turn, heal your whole side for 1.5% of their own max HP.",
+        "effect": {"kind": "aura_team_regen", "percent": 1.5},
     },
     {
         # filler -- a cheaper, Common-tier Iron Skin variant so early-game
@@ -1278,6 +1490,240 @@ ARMOR_PASSIVES: list[dict] = [
         "trigger": "always",
         "description": "Every hit you land chips 2 extra Poise.",
         "effect": {"kind": "poise_damage_bonus", "amount": 2},
+    },
+
+    # ==================================================================
+    # KIT-SYNERGY PASSIVES.
+    #
+    # Gear that is clearly FOR something. Characters now have unique
+    # kit-reaction passives (see bot/game/combat/skills.py), but gear had
+    # almost nothing that keyed off the same mechanics -- no
+    # buff_amplifier at all, no stat_conversion, no gear kit_reactions --
+    # so "building" a character meant stacking their main stat and
+    # nothing else. These give each archetype a right answer to chase:
+    # an Amplifier wants Conductor's Baton, Refender wants Aegis Core,
+    # a break squad wants the poise line, and so on.
+    #
+    # They're deliberately gated high (Epic+ mostly). A build-defining
+    # passive found at Common would flatten the progression these exist
+    # to create.
+    # ==================================================================
+    {
+        # Amplifier-defining. Stacks multiplicatively with Nebula's own
+        # Terrain Advantage, which is the single strongest support
+        # combination available.
+        "id": "conductors_baton",
+        "name": "Conductor's Baton",
+        "min_rarity": Rarity.EPIC,
+        "trigger": "always",
+        "description": "Every buff you cast is 20% stronger.",
+        "effect": {"kind": "buff_amplifier", "percent": 20},
+    },
+    {
+        "id": "grand_maestro_score",
+        "name": "Grand Maestro's Score",
+        "min_rarity": Rarity.DIVINE,
+        "trigger": "always",
+        "description": "Every buff you cast is 40% stronger.",
+        "effect": {"kind": "buff_amplifier", "percent": 40},
+    },
+    {
+        # Built for Refender, whose own passive already converts DEF into
+        # ATK -- this doubles down on the only DEF-as-damage build in the
+        # game. Also quietly excellent on any Sustain running DEF buffs.
+        "id": "aegis_core",
+        "name": "Aegis Core",
+        "min_rarity": Rarity.LEGENDARY,
+        "trigger": "always",
+        "description": "Gain Attack equal to 35% of your Defense.",
+        "effect": {"kind": "stat_conversion", "from_stat": "defense", "to_stat": "attack", "percent": 35},
+    },
+    {
+        # The mirror: turns an offensive stat into survivability, for a
+        # DPS who wants to stop dying without giving up damage rolls.
+        "id": "warded_edge",
+        "name": "Warded Edge",
+        "min_rarity": Rarity.EPIC,
+        "trigger": "always",
+        "description": "Gain Defense equal to 25% of your Attack.",
+        "effect": {"kind": "stat_conversion", "from_stat": "attack", "to_stat": "defense", "percent": 25},
+    },
+    {
+        # For the elemental characters (Arkiver, Axel, Blueflame,
+        # Nyrvite) -- lets an ELE build lean entirely on one stat.
+        "id": "resonance_prism",
+        "name": "Resonance Prism",
+        "min_rarity": Rarity.LEGENDARY,
+        "trigger": "always",
+        "description": "Gain Attack equal to 30% of your Elemental.",
+        "effect": {"kind": "stat_conversion", "from_stat": "elemental", "to_stat": "attack", "percent": 30},
+    },
+    {
+        "id": "kinetic_converter",
+        "name": "Kinetic Converter",
+        "min_rarity": Rarity.EPIC,
+        "trigger": "always",
+        "description": "Gain Elemental equal to 30% of your Attack.",
+        "effect": {"kind": "stat_conversion", "from_stat": "attack", "to_stat": "elemental", "percent": 30},
+    },
+
+    # --- Gear kit-reactions: the same event system character passives
+    # --- use, so gear can reinforce a character's own trigger.
+    {
+        "id": "medics_covenant",
+        "name": "Medic's Covenant",
+        "min_rarity": Rarity.RARE,
+        "trigger": "on_heal",
+        "description": "Whenever you heal an ally, they also gain a shield worth 8% of their max HP.",
+        "effect": {"kind": "kit_reaction", "event": "heal", "reward": "target_shield", "percent": 8},
+    },
+    {
+        "id": "bastion_link",
+        "name": "Bastion Link",
+        "min_rarity": Rarity.EPIC,
+        "trigger": "on_shield",
+        "description": "Whenever you grant a shield, the whole squad gains 10% DEF for 2 turns.",
+        "effect": {"kind": "kit_reaction", "event": "shield", "reward": "team_buff",
+                   "buff_stat": "defense", "buff_percent": 10, "duration": 2},
+    },
+    {
+        "id": "warcallers_horn",
+        "name": "Warcaller's Horn",
+        "min_rarity": Rarity.EPIC,
+        "trigger": "on_buff",
+        "description": "Whenever you buff the squad, they also gain 6 energy each.",
+        "effect": {"kind": "kit_reaction", "event": "buff", "reward": "team_energy", "amount": 6},
+    },
+    {
+        # Break-squad payoff. Pairs directly with Nyrvite, and with the
+        # poise_damage_bonus line above.
+        "id": "shatterglass_charm",
+        "name": "Shatterglass Charm",
+        "min_rarity": Rarity.LEGENDARY,
+        "trigger": "on_break",
+        "description": "Every enemy you Break gives the whole squad 12% ATK for 2 turns.",
+        "effect": {"kind": "kit_reaction", "event": "break", "reward": "team_buff",
+                   "buff_stat": "attack", "buff_percent": 12, "duration": 2},
+    },
+    {
+        "id": "plaguebearers_totem",
+        "name": "Plaguebearer's Totem",
+        "min_rarity": Rarity.EPIC,
+        "trigger": "on_dot",
+        "description": "Whenever you apply a damage-over-time effect, you recover 6% of max HP.",
+        "effect": {"kind": "kit_reaction", "event": "dot", "reward": "self_heal", "percent": 6},
+    },
+    {
+        "id": "vultures_instinct",
+        "name": "Vulture's Instinct",
+        "min_rarity": Rarity.RARE,
+        "trigger": "on_kill",
+        "description": "Every enemy you finish gives the squad 10 energy.",
+        "effect": {"kind": "kit_reaction", "event": "kill", "reward": "team_energy", "amount": 10},
+    },
+    {
+        "id": "executioners_ledger",
+        "name": "Executioner's Ledger",
+        "min_rarity": Rarity.LEGENDARY,
+        "trigger": "on_kill",
+        "description": "Every enemy you finish gives the squad 15% Crit DMG for 3 turns.",
+        "effect": {"kind": "kit_reaction", "event": "kill", "reward": "team_buff",
+                   "buff_stat": "crit_damage", "buff_percent": 15, "duration": 3},
+    },
+    {
+        # Rewards the setup-then-exploit pattern Arkiver is built around.
+        "id": "opportunists_lens",
+        "name": "Opportunist's Lens",
+        "min_rarity": Rarity.EPIC,
+        "trigger": "on_hit_debuffed",
+        "description": "Hitting an already-weakened enemy gives you 8% ATK for 2 turns.",
+        "effect": {"kind": "kit_reaction", "event": "hit_debuffed", "reward": "self_buff",
+                   "buff_stat": "attack", "buff_percent": 8, "duration": 2},
+    },
+    {
+        "id": "martyrs_brand",
+        "name": "Martyr's Brand",
+        "min_rarity": Rarity.EPIC,
+        "trigger": "on_sacrifice",
+        "description": "Whenever you spend your own HP, the squad recovers 6% of their max HP.",
+        "effect": {"kind": "kit_reaction", "event": "sacrifice", "reward": "team_heal", "percent": 6},
+    },
+    {
+        "id": "purifiers_censer",
+        "name": "Purifier's Censer",
+        "min_rarity": Rarity.LEGENDARY,
+        "trigger": "on_cleanse",
+        "description": "Whenever you cleanse an ally, the whole squad gains a shield worth 10% of max HP.",
+        "effect": {"kind": "kit_reaction", "event": "cleanse", "reward": "team_shield", "percent": 10},
+    },
+    {
+        "id": "finishers_creed",
+        "name": "Finisher's Creed",
+        "min_rarity": Rarity.EPIC,
+        "trigger": "on_ultimate",
+        "description": "Landing your ultimate gives the squad 12% ATK for 3 turns.",
+        "effect": {"kind": "kit_reaction", "event": "ultimate", "reward": "team_buff",
+                   "buff_stat": "attack", "buff_percent": 12, "duration": 3},
+    },
+
+    # --- Filler passives: plain, flexible, and common enough to actually
+    # --- show up early. Not every drop should be build-defining.
+    {
+        "id": "padded_lining",
+        "name": "Padded Lining",
+        "min_rarity": Rarity.COMMON,
+        "trigger": "always",
+        "description": "Reduce all incoming damage by 3%.",
+        "effect": {"kind": "damage_reduction", "percent": 3},
+    },
+    {
+        "id": "honed_grip",
+        "name": "Honed Grip",
+        "min_rarity": Rarity.UNCOMMON,
+        "trigger": "always",
+        "description": "Critical hits deal an additional 10% damage.",
+        "effect": {"kind": "crit_damage_bonus", "percent": 10},
+    },
+    {
+        "id": "leeching_barbs",
+        "name": "Leeching Barbs",
+        "min_rarity": Rarity.RARE,
+        "trigger": "always",
+        "description": "Heal for 8% of the damage you deal.",
+        "effect": {"kind": "lifesteal", "percent": 8},
+    },
+    {
+        "id": "spiked_carapace",
+        "name": "Spiked Carapace",
+        "min_rarity": Rarity.UNCOMMON,
+        "trigger": "always",
+        "description": "Reflect 10% of damage taken back at the attacker.",
+        "effect": {"kind": "damage_reflect", "percent": 10},
+    },
+    {
+        "id": "steady_cadence",
+        "name": "Steady Cadence",
+        "min_rarity": Rarity.RARE,
+        "trigger": "on_turn_start",
+        "description": "Restore 3 SP at the start of every turn.",
+        "effect": {"kind": "resource_regen", "resource_type": "mana", "amount": 3},
+    },
+    {
+        "id": "battle_rhythm",
+        "name": "Battle Rhythm",
+        "min_rarity": Rarity.RARE,
+        "trigger": "on_turn_start",
+        "description": "Gains 3% Speed per turn (max 5 stacks).",
+        "effect": {"kind": "stacking_buff", "buff_stat": "speed", "percent_per_stack": 3, "max_stacks": 5},
+    },
+    {
+        "id": "grim_resolve",
+        "name": "Grim Resolve",
+        "min_rarity": Rarity.EPIC,
+        "trigger": "always",
+        "description": "Reduce incoming damage by 4%, plus up to 14% more the lower your HP.",
+        "effect": {"kind": "damage_reduction_scales_with_missing_hp",
+                   "base_percent": 4, "bonus_percent_at_zero_hp": 14},
     },
 ]
 

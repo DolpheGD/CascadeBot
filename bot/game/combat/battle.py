@@ -99,6 +99,29 @@ ENEMY_ENERGY_PER_ACTION = 10
 # else keeps it from being perfectly clockwork.
 ENEMY_ULTIMATE_USE_CHANCE = 0.85
 
+# ----------------------------------------------------------------------
+# CYCLE LIMIT -- the honest replacement for battle fatigue.
+#
+# Two sides that can't finish each other used to be handled by silently
+# weakening healing until someone died. That worked, but the player
+# experienced it as their heals mysteriously failing. This is the same
+# guarantee stated out loud: a battle has a length, and when it runs out
+# the squad withdraws.
+#
+# It is also a genuine robustness fix, not only a balance one. A party
+# of four supports with no damage output CANNOT win and could not lose
+# either -- measured at 80+ cycles and still going, which in real play is
+# a player pressing buttons forever with no way out but Retreat.
+#
+# 40 is deliberately far above any real fight: an unsupported 4-DPS squad
+# finishes a hard boss in ~16 cycles and a support-heavy one in ~13, so
+# nothing that is actually progressing ever meets this. The UI starts
+# showing the cycle count at CYCLE_WARNING_THRESHOLD so it can never
+# arrive as a surprise.
+# ----------------------------------------------------------------------
+MAX_BATTLE_CYCLES = 40
+CYCLE_WARNING_THRESHOLD = 25
+
 
 class Battle:
     def __init__(self, party: list[Combatant], enemies: list[Combatant], rng: random.Random | None = None):
@@ -447,6 +470,12 @@ class Battle:
         elif not self.living_enemies():
             self.result = "won"
             self.log.append("🏆 Victory!")
+        elif self.cycle_number > MAX_BATTLE_CYCLES:
+            self.result = "lost"
+            self.log.append(
+                f"⏳ {MAX_BATTLE_CYCLES} cycles gone and neither side has broken -- "
+                "your squad is spent and pulls back."
+            )
 
     # ------------------------------------------------------------------
     # Party actions -- Attack (builds energy+mana), Ability (character
@@ -714,17 +743,47 @@ class Battle:
         Should a projected move somehow become unavailable anyway, the
         enemy falls back to a basic attack rather than doing nothing --
         see take_enemy_turn."""
-        candidates: list[Combatant] = []
+        candidates: list[tuple[Combatant, int]] = []
         if self._current_actor is not None and self._current_actor in self.enemies and self._current_actor.is_alive():
-            candidates.append(self._current_actor)
-        candidates.extend(self.cycle_order)
+            candidates.append((self._current_actor, 0))
+        candidates.extend((c, 0) for c in self.cycle_order)
+
+        # LOOK PAST THE END OF THE CYCLE.
+        #
+        # The queue above is only what REMAINS of the current cycle, and
+        # once the last enemy in it has acted there is nothing left to
+        # report -- so the Incoming panel simply emptied for the rest of
+        # the cycle and then repopulated wholesale when the next one
+        # began. Measured over 200 fights: 215 renders showed an empty
+        # panel with enemies alive and well.
+        #
+        # From the player's side that reads as the telegraph being broken,
+        # and it's worst exactly where it hurts most -- an enemy that
+        # acted early in the cycle is silent for the rest of it, then its
+        # next move appears with one turn's notice.
+        #
+        # Cycle order is deterministic given speed (_build_cycle_order
+        # with rng=None sorts by -speed then name), so future cycles can
+        # be projected exactly, the same way preview_turn_order already
+        # does for the turn-order line. Those projections get PINNED like
+        # any other slot, so a move telegraphed for next cycle is the move
+        # that actually resolves next cycle.
+        guard = 0
+        cycle_offset = 0
+        while len(candidates) < max_entries + len(self.party) and guard < 8:
+            living = [c for c in self.all_combatants() if c.is_alive()]
+            if not living or not any(c in self.enemies for c in living):
+                break
+            cycle_offset += 1
+            candidates.extend((c, cycle_offset) for c in self._build_cycle_order(living, rng=None))
+            guard += 1
 
         result: list[dict] = []
         sims: dict[int, dict] = {}
         slot_of: dict[int, int] = {}
         imminent = True
 
-        for c in candidates:
+        for c, offset in candidates:
             if len(result) >= max_entries:
                 break
             if not c.is_alive():
@@ -739,7 +798,7 @@ class Battle:
             # A broken or stunned enemy loses this slot entirely.
             if c.stunned_turns > 0 or c.is_broken():
                 result.append({"enemy": c, "intent": None, "imminent": imminent,
-                               "locked": False, "slot": slot})
+                               "locked": False, "slot": slot, "cycle_offset": offset})
                 continue
 
             # Decide-once-and-pin, for EVERY slot rather than just the
@@ -756,7 +815,7 @@ class Battle:
 
             intent = c.pending_intents[slot]
             result.append({"enemy": c, "intent": intent, "imminent": imminent,
-                           "locked": True, "slot": slot})
+                           "locked": True, "slot": slot, "cycle_offset": offset})
         return result
 
     def take_enemy_turn(self) -> None:
@@ -811,7 +870,7 @@ class Battle:
         # action resolves so an ultimate can't pay for itself on the same
         # turn it fires.
         if enemy.energy < enemy.max_energy:
-            enemy.energy = min(enemy.max_energy, enemy.energy + ENEMY_ENERGY_PER_ACTION)
+            enemy.gain_energy(ENEMY_ENERGY_PER_ACTION)
 
         self._maybe_grant_extra_turn(enemy, living_opponents_before)
         self._end_turn(enemy)

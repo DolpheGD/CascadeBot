@@ -36,11 +36,21 @@ def _pullable_templates(db) -> list[CharacterTemplate]:
     return db.query(CharacterTemplate).filter_by(is_player_avatar=False).all()
 
 
+def _pity_threshold(db, player) -> int:
+    """Hard 5-star pity for THIS player: the base threshold minus the
+    Research Lab's Expansion branch (gacha_pity_reduction). Floored well
+    above zero so research can shorten the guarantee, never remove it."""
+    from bot.services import research_service
+    reduction = int(research_service.perk_value(db, player.id, "gacha_pity_reduction"))
+    return max(20, FIVE_STAR_HARD_PITY - reduction)
+
+
 def _pull_one(db, player, templates_by_star: dict[int, list[CharacterTemplate]], rng: random.Random) -> dict:
     """One roll. Reads the player's pity counters, rolls against them,
     then updates them from the result BEFORE returning -- so consecutive
     calls within a 10-pull each see the state the previous roll left."""
-    was_hard_pity = player.pity_since_five_star + 1 >= FIVE_STAR_HARD_PITY
+    hard_pity = _pity_threshold(db, player)
+    was_hard_pity = player.pity_since_five_star + 1 >= hard_pity
     was_four_star_pity = (
         not was_hard_pity and player.pity_since_four_star + 1 >= FOUR_STAR_PITY
     )
@@ -49,6 +59,7 @@ def _pull_one(db, player, templates_by_star: dict[int, list[CharacterTemplate]],
         rng,
         pulls_since_five_star=player.pity_since_five_star,
         pulls_since_four_star=player.pity_since_four_star,
+        hard_pity=hard_pity,
     )
 
     # Counter updates. A 5-star resets BOTH counters -- it satisfies the

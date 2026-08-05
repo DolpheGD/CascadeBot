@@ -69,8 +69,45 @@ normal dungeon encounter.
 
 from __future__ import annotations
 
-MAX_DOMAIN_ENERGY = 120
+# ----------------------------------------------------------------------
+# Energy CAPACITY is an HQ upgrade.
+#
+# It used to be a flat 120 for everyone from the moment they started,
+# which made Cascade HQ irrelevant to the domain system and gave a brand
+# new player a bank of energy they had no unlocked tiers to spend it on.
+# Capacity now starts small and grows with HQ level, so upgrading the
+# base is what lets a player bank more attempts and take longer breaks
+# between sessions -- and domains become another reason to invest in HQ
+# rather than a parallel system that ignores it.
+#
+# The REGEN RATE is deliberately untouched by HQ: a bigger bar takes
+# proportionally longer to fill, so a higher cap means more stored
+# attempts, not faster income. Upgrading buys flexibility, not throughput.
+# ----------------------------------------------------------------------
+DOMAIN_ENERGY_BY_HQ_LEVEL: dict[int, int] = {
+    1: 40,
+    2: 60,
+    3: 85,
+    4: 110,
+    5: 140,
+}
+
+# Kept as the ceiling any code that can't see an HQ level should assume
+# (and the value the bar is drawn against for a maxed base).
+MAX_DOMAIN_ENERGY = max(DOMAIN_ENERGY_BY_HQ_LEVEL.values())
+
 ENERGY_REGEN_MINUTES_PER_POINT = 6
+
+
+def max_domain_energy(hq_level: int) -> int:
+    """Energy cap for a player whose Cascade HQ is at `hq_level`. Past the
+    highest configured level the last cap holds, same convention as
+    hq_config.building_level_cap."""
+    if hq_level in DOMAIN_ENERGY_BY_HQ_LEVEL:
+        return DOMAIN_ENERGY_BY_HQ_LEVEL[hq_level]
+    if hq_level < min(DOMAIN_ENERGY_BY_HQ_LEVEL):
+        return DOMAIN_ENERGY_BY_HQ_LEVEL[min(DOMAIN_ENERGY_BY_HQ_LEVEL)]
+    return DOMAIN_ENERGY_BY_HQ_LEVEL[max(DOMAIN_ENERGY_BY_HQ_LEVEL)]
 
 # Hard ceiling on a computed enemy level -- mirrors
 # character_model.LEVEL_CAP (imported lazily where needed rather than at
@@ -96,7 +133,7 @@ DOMAIN_DIFFICULTY_TIERS: list[dict] = [
         "id": "easy",
         "name": "Easy",
         "required_region": "Glacier 15",
-        "min_roster_levels": 40,
+        "min_roster_levels": 20,
         "energy_cost": 10,
         "level_offset": 2,
         "min_enemy_level": 10,
@@ -106,7 +143,7 @@ DOMAIN_DIFFICULTY_TIERS: list[dict] = [
         "id": "moderate",
         "name": "Moderate",
         "required_region": "The Wastelands",
-        "min_roster_levels": 120,
+        "min_roster_levels": 55,
         "energy_cost": 16,
         "level_offset": 6,
         "min_enemy_level": 25,
@@ -119,7 +156,7 @@ DOMAIN_DIFFICULTY_TIERS: list[dict] = [
         "id": "hard",
         "name": "Hard",
         "required_region": "The Hotlands",
-        "min_roster_levels": 250,
+        "min_roster_levels": 110,
         "energy_cost": 24,
         "level_offset": 10,
         "min_enemy_level": 45,
@@ -133,7 +170,7 @@ DOMAIN_DIFFICULTY_TIERS: list[dict] = [
         "id": "extreme",
         "name": "Extreme",
         "required_region": "Voidcrest Desert",
-        "min_roster_levels": 420,
+        "min_roster_levels": 190,
         "energy_cost": 34,
         "level_offset": 15,
         "min_enemy_level": 65,
@@ -147,7 +184,7 @@ DOMAIN_DIFFICULTY_TIERS: list[dict] = [
         "id": "nightmare",
         "name": "Nightmare",
         "required_region": "Abyssnia",
-        "min_roster_levels": 650,
+        "min_roster_levels": 300,
         "energy_cost": 50,
         "level_offset": 22,
         "min_enemy_level": 85,
@@ -210,7 +247,7 @@ DOMAIN_TYPES: list[dict] = [
     {
         "id": "shard",
         "name": "Shard Domain",
-        "icon": "💎",
+        "icon": "<:shard:1534383382924890192>",
         "description": "Shards -- the gacha currency.",
         "reward_kind": "currency",
         "rewards": {
@@ -265,6 +302,27 @@ DOMAIN_TYPES: list[dict] = [
             "hard": 3200,
             "extreme": 5500,
             "nightmare": 9500,
+        },
+    },
+    {
+        # Added when duplicate pulls stopped paying reroll tokens (see
+        # bot/game/economy/resonance_config.py). That removed the single
+        # biggest source in the game overnight, and tokens gate substat
+        # rerolling -- the main thing a player does with gear they've
+        # already got -- so it needed replacing with something REPEATABLE
+        # and on demand rather than another random drop.
+        "id": "attunement",
+        "name": "Attunement Domain",
+        "icon": "🎲",
+        "description": "Reroll tokens -- for re-rolling gear substats and adding new ones.",
+        "reward_kind": "currency",
+        "rewards": {
+            "trivial": {"reroll_tokens": 6},
+            "easy": {"reroll_tokens": 14},
+            "moderate": {"reroll_tokens": 28},
+            "hard": {"reroll_tokens": 50},
+            "extreme": {"reroll_tokens": 85},
+            "nightmare": {"reroll_tokens": 150},
         },
     },
 ]

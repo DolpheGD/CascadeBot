@@ -1795,6 +1795,539 @@ ENEMY_TEMPLATES: list[dict] = [
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "iron_skin")],
     },
+    # ==================================================================
+    # ROSTER EXPANSION.
+    #
+    # Twenty templates added in one pass, all of them built around a
+    # SHAPE rather than a stat spread -- the roster's real problem wasn't
+    # its size, it was that most encounters played identically once you'd
+    # seen them. Each of these does something a player has to answer
+    # differently: a glass cannon that must be killed this turn, a taunt
+    # wall that can't be ignored, a structure with no speed and enormous
+    # poise, a slow single-target hammer you break or eat.
+    #
+    # STRUCTURES (Revengeance Block, billboard, spy camera) share a
+    # deliberate profile: speed near zero, huge or tiny poise, and no
+    # ultimate. They're objects, and they should feel like objects.
+    # ==================================================================
+    {
+        # A person very loudly insisting they are an AI. Fights like
+        # someone who has read about fighting.
+        "name": "MianotAI",
+        "role": "elite",
+        "regions": ['Glacier 15', 'The Wastelands'],
+        "base_stats": {
+            "attack": 15, "defense": 7, "elemental": 12, "speed": 12,
+            "max_hp": 78, "max_mana": 999, "crit_rate": 8, "crit_damage": 160, "recharge": 20,
+        },
+        "level_scale_percent": 8,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "jamming_array"),
+            get_ability_by_id(ARTIFACT_SKILLS, "static_field"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "adaptive_plating")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "null_strike"),
+    },
+    {
+        "name": "Entrospire Soldier",
+        "role": "combat",
+        "regions": ['The Wastelands', 'The Hotlands'],
+        "base_stats": {
+            "attack": 13, "defense": 6, "elemental": 4, "speed": 9,
+            "max_hp": 44, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 14,
+        },
+        "level_scale_percent": 8,
+        "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "power_strike")],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "rallying_plate")],
+    },
+    {
+        # Requested as a boss. A duelist: few, enormous, precise strikes,
+        # and a counter-attack passive that punishes trading with him.
+        "name": "Samuel",
+        "role": "boss",
+        "regions": ['The Hotlands', 'Voidcrest Desert'],
+        "region_roles": {"The Hotlands": "regular"},
+        "actions_per_cycle": 2,
+        "base_stats": {
+            "attack": 26, "defense": 9, "elemental": 6, "speed": 19,
+            "max_hp": 265, "max_mana": 999, "crit_rate": 20, "crit_damage": 210, "recharge": 16,
+        },
+        "level_scale_percent": 8,
+        "max_poise": 16,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "seven_cuts"),
+            get_ability_by_id(WEAPON_SKILLS, "mercy_stroke"),
+            get_ability_by_id(WEAPON_SKILLS, "riposte_chain"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "retaliation_plating")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "storm_of_blades"),
+    },
+    {
+        # "Weak enemy with massive damage potential", as requested. 12 HP
+        # and no defence at all, paired with the highest attack of any
+        # non-boss on the roster: it dies to a stiff breeze and deletes a
+        # squad member if you let it act. The whole encounter is "kill it
+        # first", which is a decision, and the telegraph panel is what
+        # makes that decision fair.
+        "name": "67",
+        "role": "combat",
+        "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands', 'Voidcrest Desert'],
+        "base_stats": {
+            "attack": 46, "defense": 1, "elemental": 40, "speed": 21,
+            "max_hp": 12, "max_mana": 999, "crit_rate": 30, "crit_damage": 240, "recharge": 30,
+        },
+        "level_scale_percent": 8,
+        "max_poise": 2,
+        "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "desperate_swing")],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "executioner")],
+    },
+    {
+        # Ragebaiter. Requested with big health and defence AND a taunt --
+        # provoking_aura forces your single-target attacks onto him, so
+        # the answer is AOE (which ignores taunt) or breaking him.
+        "name": "Kiradmj",
+        "role": "elite",
+        "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands'],
+        "base_stats": {
+            "attack": 11, "defense": 22, "elemental": 5, "speed": 7,
+            "max_hp": 190, "max_mana": 999, "crit_rate": 4, "crit_damage": 140, "recharge": 12,
+        },
+        "level_scale_percent": 8,
+        "max_poise": 14,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "guardian_challenge"),
+            get_ability_by_id(WEAPON_SKILLS, "bulwark_slam"),
+        ],
+        "passive_abilities": [
+            get_ability_by_id(ARMOR_PASSIVES, "provoking_aura"),
+            get_ability_by_id(ARMOR_PASSIVES, "reinforced_barrier"),
+        ],
+    },
+    {
+        # A structure. No speed to speak of, no ultimate, and enormous
+        # poise -- you cannot break it out of its wind-up the way you can
+        # a person, so the answer is to out-damage it or guard through it.
+        "name": "The Revengeance Block",
+        "role": "elite",
+        "regions": ['Voidcrest Desert', 'Abyssnia'],
+        "base_stats": {
+            "attack": 21, "defense": 26, "elemental": 14, "speed": 3,
+            "max_hp": 230, "max_mana": 999, "crit_rate": 2, "crit_damage": 150, "recharge": 8,
+        },
+        "level_scale_percent": 8,
+        "max_poise": 30,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "cleave_smash"),
+            get_ability_by_id(ARTIFACT_SKILLS, "kinetic_feedback"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "spiked_carapace")],
+    },
+    {
+        "name": "Alan",
+        "role": "elite",
+        "regions": ['Glacier 15', 'The Hotlands'],
+        "base_stats": {
+            "attack": 18, "defense": 9, "elemental": 8, "speed": 14,
+            "max_hp": 92, "max_mana": 999, "crit_rate": 12, "crit_damage": 170, "recharge": 18,
+        },
+        "level_scale_percent": 8,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "sunder_the_weak"),
+            get_ability_by_id(ARTIFACT_SKILLS, "hunters_mark"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "opportunists_lens")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "executioners_reckoning"),
+    },
+    {
+        # Caliper's rogue creation. Acts three times a cycle and repairs
+        # itself -- the fight is a race against its own maintenance.
+        "name": "Bt03",
+        "role": "boss",
+        "regions": ['Glacier 15', 'Voidcrest Desert'],
+        "actions_per_cycle": 3,
+        "base_stats": {
+            "attack": 19, "defense": 13, "elemental": 17, "speed": 17,
+            "max_hp": 300, "max_mana": 999, "crit_rate": 9, "crit_damage": 175, "recharge": 20,
+        },
+        "level_scale_percent": 8,
+        "max_poise": 18,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "overclock_repair"),
+            get_ability_by_id(ARTIFACT_SKILLS, "emp_burst"),
+            get_ability_by_id(WEAPON_SKILLS, "twin_fracture_strike"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "capacitor_shell")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "cascade_barrage"),
+    },
+    {
+        # Thorns and mysterious substances, as specified. Hitting it is
+        # the problem: thornmail plus spiked carapace means a multi-hit
+        # squad shreds itself on it.
+        "name": "Romain's Body Pillow",
+        "role": "combat",
+        "regions": ['The Wastelands', 'The Hotlands'],
+        "base_stats": {
+            "attack": 8, "defense": 16, "elemental": 9, "speed": 5,
+            "max_hp": 70, "max_mana": 999, "crit_rate": 2, "crit_damage": 140, "recharge": 10,
+        },
+        "level_scale_percent": 8,
+        "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "creeping_rot")],
+        "passive_abilities": [
+            get_ability_by_id(ARMOR_PASSIVES, "thornmail"),
+            get_ability_by_id(ARMOR_PASSIVES, "spiked_carapace"),
+        ],
+    },
+    {
+        "name": "Xender Convoy",
+        "role": "elite",
+        "regions": ['The Wastelands', 'Voidcrest Desert'],
+        "actions_per_cycle": 2,
+        "base_stats": {
+            "attack": 16, "defense": 18, "elemental": 6, "speed": 8,
+            "max_hp": 175, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 14,
+        },
+        "level_scale_percent": 8,
+        "max_poise": 16,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "crossfire_salvo"),
+            get_ability_by_id(ARTIFACT_SKILLS, "rallying_bulwark"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "bulwark_protocol")],
+    },
+    {
+        "name": "Jynxzi",
+        "role": "elite",
+        "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands'],
+        "actions_per_cycle": 2,
+        "base_stats": {
+            "attack": 20, "defense": 8, "elemental": 10, "speed": 20,
+            "max_hp": 105, "max_mana": 999, "crit_rate": 22, "crit_damage": 185, "recharge": 26,
+        },
+        "level_scale_percent": 8,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "quickdraw_slash"),
+            get_ability_by_id(ARTIFACT_SKILLS, "rousing_signal"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "battle_rhythm")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "gale_ascendant"),
+    },
+    {
+        "name": "Xender Airship",
+        "role": "elite",
+        "regions": ['The Hotlands', 'Voidcrest Desert', 'Abyssnia'],
+        "base_stats": {
+            "attack": 22, "defense": 12, "elemental": 18, "speed": 11,
+            "max_hp": 160, "max_mana": 999, "crit_rate": 7, "crit_damage": 165, "recharge": 16,
+        },
+        "level_scale_percent": 8,
+        "max_poise": 13,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "sweeping_volley"),
+            get_ability_by_id(ARTIFACT_SKILLS, "meteor_shower"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "focused_lens")],
+    },
+    {
+        "name": "HHyper Airship",
+        "role": "elite",
+        "regions": ['Voidcrest Desert', 'Abyssnia'],
+        "base_stats": {
+            "attack": 25, "defense": 14, "elemental": 21, "speed": 13,
+            "max_hp": 185, "max_mana": 999, "crit_rate": 9, "crit_damage": 170, "recharge": 18,
+        },
+        "level_scale_percent": 8,
+        "max_poise": 13,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "arc_lightning"),
+            get_ability_by_id(ARTIFACT_SKILLS, "overcharged_bolt"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "static_discharge")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "voidstorm"),
+    },
+    {
+        # A structure that fights with debuffs rather than damage -- it
+        # barely hurts you, it just makes everything else hurt more.
+        # Ignoring it is a mistake; it is also the lowest-priority target
+        # on the field, which is the tension.
+        "name": "False Advertising Billboard",
+        "role": "combat",
+        "regions": ['Glacier 15', 'The Wastelands'],
+        "base_stats": {
+            "attack": 6, "defense": 12, "elemental": 12, "speed": 2,
+            "max_hp": 58, "max_mana": 999, "crit_rate": 1, "crit_damage": 130, "recharge": 10,
+        },
+        "level_scale_percent": 8,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "corrosive_mark"),
+            get_ability_by_id(ARTIFACT_SKILLS, "blight_cloud"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "plaguebearers_totem")],
+    },
+    {
+        "name": "Xender Aerial Soldier",
+        "role": "combat",
+        "regions": ['The Hotlands', 'Voidcrest Desert'],
+        "base_stats": {
+            "attack": 15, "defense": 6, "elemental": 8, "speed": 16,
+            "max_hp": 40, "max_mana": 999, "crit_rate": 10, "crit_damage": 160, "recharge": 20,
+        },
+        "level_scale_percent": 8,
+        "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "opportunist_strike")],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "accelerant_coating")],
+    },
+    {
+        "name": "Josh Hater",
+        "role": "combat",
+        "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands'],
+        "base_stats": {
+            "attack": 14, "defense": 7, "elemental": 5, "speed": 11,
+            "max_hp": 48, "max_mana": 999, "crit_rate": 8, "crit_damage": 155, "recharge": 16,
+        },
+        "level_scale_percent": 8,
+        "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "gutting_thrust")],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "grim_resolve")],
+    },
+    {
+        "name": "Refense Hater",
+        "role": "elite",
+        "regions": ['The Wastelands', 'The Hotlands', 'Voidcrest Desert'],
+        "base_stats": {
+            "attack": 19, "defense": 11, "elemental": 9, "speed": 13,
+            "max_hp": 112, "max_mana": 999, "crit_rate": 13, "crit_damage": 175, "recharge": 18,
+        },
+        "level_scale_percent": 8,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "guard_splitter"),
+            get_ability_by_id(ARTIFACT_SKILLS, "weakpoint_scanner"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "guard_breaker")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "cataclysm"),
+    },
+    {
+        # Requested as an EXTREMELY difficult final boss and raid boss.
+        # The hardest template in the file by a clear margin: four actions
+        # a cycle, the highest poise on the roster, and a kit that both
+        # denies turns and out-scales a long fight.
+        "name": "Rohan",
+        "role": "boss",
+        "regions": ['Abyssnia'],
+        "region_roles": {"Abyssnia": "final"},
+        "actions_per_cycle": 4,
+        "base_stats": {
+            "attack": 34, "defense": 22, "elemental": 34, "speed": 26,
+            "max_hp": 520, "max_mana": 999, "crit_rate": 24, "crit_damage": 220, "recharge": 24,
+        },
+        "level_scale_percent": 9,
+        "max_poise": 34,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "cataclysms_edge"),
+            get_ability_by_id(WEAPON_SKILLS, "apex_predator"),
+            get_ability_by_id(ARTIFACT_SKILLS, "astral_cascade"),
+            get_ability_by_id(ARTIFACT_SKILLS, "overmind_surge"),
+        ],
+        "passive_abilities": [
+            get_ability_by_id(ARMOR_PASSIVES, "undying_will"),
+            get_ability_by_id(ARMOR_PASSIVES, "momentum_core"),
+        ],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "world_ender"),
+    },
+    {
+        # Requested: single target, very hard hitting, but slow. Speed 4
+        # against a party averaging 11 means it acts roughly once for
+        # every two of your turns -- long enough to see the hit coming and
+        # do something about it, which is the entire encounter.
+        "name": "Frostblock",
+        "role": "elite",
+        "regions": ['Glacier 15', 'Abyssnia'],
+        "base_stats": {
+            "attack": 38, "defense": 17, "elemental": 24, "speed": 4,
+            "max_hp": 200, "max_mana": 999, "crit_rate": 6, "crit_damage": 200, "recharge": 12,
+        },
+        "level_scale_percent": 8,
+        "max_poise": 15,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "glacier_cleaver"),
+            get_ability_by_id(ARTIFACT_SKILLS, "absolute_zero"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "iron_skin")],
+    },
+    {
+        # Tiny, fragile, and entirely about marking someone for everything
+        # else in the room to hit harder.
+        "name": "Xender Spy Camera",
+        "role": "combat",
+        "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands', 'Voidcrest Desert'],
+        "base_stats": {
+            "attack": 4, "defense": 4, "elemental": 6, "speed": 18,
+            "max_hp": 18, "max_mana": 999, "crit_rate": 2, "crit_damage": 130, "recharge": 22,
+        },
+        "level_scale_percent": 8,
+        "max_poise": 3,
+        "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "weakpoint_marker")],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "focused_lens")],
+    },
+    # ==================================================================
+    # THE JOSH HATER ARMY -- a five-body boss group.
+    #
+    # All five are role="boss_group_member", so they're never rolled
+    # independently as a combat/elite/boss encounter; they exist only as
+    # this group (see BOSS_GROUPS below). That's what lets each one be
+    # individually weak -- the fight's difficulty is the NUMBER of them
+    # and how their jobs overlap, not any single statline.
+    #
+    # Five distinct jobs rather than five copies, because a five-enemy
+    # fight against one repeated template is just one enemy with more HP
+    # and a longer turn order. Here the party has an actual target-
+    # priority problem: the Ringleader taunts so your single-target
+    # damage can't reach anyone else, the Chant Leader makes the whole
+    # group hit harder every turn it lives, and the Quiet Hater is the
+    # one that will actually kill somebody. AOE (which ignores taunt) and
+    # breaking the Ringleader are both real answers.
+    # ==================================================================
+    {
+        # The loudest one. Taunts, and is built to survive doing it.
+        "name": "Hater Ringleader",
+        "role": "boss_group_member",
+        "base_stats": {
+            "attack": 14, "defense": 24, "elemental": 5, "speed": 8,
+            "max_hp": 235, "max_mana": 999, "crit_rate": 3, "crit_damage": 140, "recharge": 12,
+        },
+        "level_scale_percent": 8,
+        "max_poise": 12,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "guardian_challenge"),
+            get_ability_by_id(WEAPON_SKILLS, "bulwark_slam"),
+        ],
+        "passive_abilities": [
+            get_ability_by_id(ARMOR_PASSIVES, "provoking_aura"),
+            get_ability_by_id(ARMOR_PASSIVES, "reinforced_barrier"),
+        ],
+    },
+    {
+        # Buffs the other four. Left alive too long, the whole army
+        # becomes a real problem -- this is the kill-order puzzle.
+        "name": "Chant Leader",
+        "role": "boss_group_member",
+        "base_stats": {
+            "attack": 9, "defense": 11, "elemental": 6, "speed": 15,
+            "max_hp": 105, "max_mana": 999, "crit_rate": 4, "crit_damage": 145, "recharge": 22,
+        },
+        "level_scale_percent": 8,
+        "max_poise": 7,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "rally_standard"),
+            get_ability_by_id(ARTIFACT_SKILLS, "rousing_signal"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "warcallers_horn")],
+    },
+    {
+        # Debuffs. Doesn't hurt you; makes everything else hurt more.
+        "name": "Placard Bearer",
+        "role": "boss_group_member",
+        "base_stats": {
+            "attack": 10, "defense": 13, "elemental": 10, "speed": 10,
+            "max_hp": 115, "max_mana": 999, "crit_rate": 3, "crit_damage": 140, "recharge": 16,
+        },
+        "level_scale_percent": 8,
+        "max_poise": 8,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "corrosive_mark"),
+            get_ability_by_id(ARTIFACT_SKILLS, "weakpoint_scanner"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "plaguebearers_totem")],
+    },
+    {
+        # Hits everyone at once for a little. Chip damage that adds up
+        # while you're busy with the taunt wall.
+        "name": "Megaphone Guy",
+        "role": "boss_group_member",
+        "base_stats": {
+            "attack": 15, "defense": 9, "elemental": 13, "speed": 12,
+            "max_hp": 100, "max_mana": 999, "crit_rate": 6, "crit_damage": 150, "recharge": 18,
+        },
+        "level_scale_percent": 8,
+        "max_poise": 7,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "sweeping_volley"),
+            get_ability_by_id(ARTIFACT_SKILLS, "static_field"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "focused_lens")],
+    },
+    {
+        # Hasn't said a word. Will delete a squad member. The joke is
+        # that the dangerous one is the one not shouting, and the
+        # telegraph panel is what makes that discoverable rather than
+        # unfair.
+        "name": "The Quiet Hater",
+        "role": "boss_group_member",
+        "base_stats": {
+            "attack": 33, "defense": 8, "elemental": 24, "speed": 17,
+            "max_hp": 92, "max_mana": 999, "crit_rate": 22, "crit_damage": 205, "recharge": 20,
+        },
+        "level_scale_percent": 8,
+        "max_poise": 6,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "mercy_stroke"),
+            get_ability_by_id(WEAPON_SKILLS, "gutting_thrust"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "executioner")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "executioners_reckoning"),
+    },
+    # ==================================================================
+    # DORVE -- Xender's elite assistant, in a giant mech.
+    #
+    # Built as an ESCORTED boss (see the "escorts" pass in the module
+    # docstring) rather than one enormous statline, because a giant mech
+    # that is mechanically identical to a large man is a wasted premise.
+    # The gunpods are separate bodies with their own turns: you can shoot
+    # them off, and doing so measurably reduces the incoming damage, so
+    # the fight has a shape beyond "hit the boss".
+    #
+    # Sits just under Xender himself -- he's the assistant, and the
+    # numbers should say so.
+    # ==================================================================
+    {
+        "name": "Dorve",
+        "role": "boss",
+        "region_roles": {"Voidcrest Desert": "regular", "Abyssnia": "regular"},
+        "actions_per_cycle": 3,
+        "escorts": ["Mech Gunpod", "Mech Gunpod"],
+        "base_stats": {
+            "attack": 27, "defense": 20, "elemental": 25, "speed": 18,
+            "max_hp": 395, "max_mana": 999, "crit_rate": 15, "crit_damage": 195, "recharge": 20,
+        },
+        "level_scale_percent": 8,
+        "max_poise": 26,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "cleave_smash"),
+            get_ability_by_id(ARTIFACT_SKILLS, "meteor_shower"),
+            get_ability_by_id(ARTIFACT_SKILLS, "emp_burst"),
+            get_ability_by_id(ARTIFACT_SKILLS, "rallying_bulwark"),
+        ],
+        "passive_abilities": [
+            get_ability_by_id(ARMOR_PASSIVES, "bulwark_protocol"),
+            get_ability_by_id(ARMOR_PASSIVES, "adaptive_plating"),
+        ],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "cataclysm"),
+    },
+    {
+        # Hardpoint on Dorve's mech. Fragile on purpose -- destroying one
+        # is meant to be an achievable, visibly worthwhile decision
+        # mid-fight rather than a second health bar.
+        "name": "Mech Gunpod",
+        "role": "boss_group_member",
+        "base_stats": {
+            "attack": 20, "defense": 10, "elemental": 16, "speed": 13,
+            "max_hp": 72, "max_mana": 999, "crit_rate": 8, "crit_damage": 160, "recharge": 18,
+        },
+        "level_scale_percent": 8,
+        "max_poise": 6,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "crossfire_salvo"),
+            get_ability_by_id(ARTIFACT_SKILLS, "overcharged_bolt"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "focused_lens")],
+    },
 ]
 
 # Named multi-enemy boss encounters. Each entry is a list of template names
@@ -1804,6 +2337,12 @@ ENEMY_TEMPLATES: list[dict] = [
 BOSS_GROUPS: dict[str, list[str]] = {
     "eruptor_trio": ["Borehole", "Rupture", "Gatekeeper"],
     "acatrya_board": ["The Chairman", "The Auditor", "The Censor"],
+    # Five bodies -- the largest group in the game, and the only one where
+    # the difficulty is target priority rather than raw statlines.
+    "josh_hater_army": [
+        "Hater Ringleader", "Chant Leader", "Placard Bearer",
+        "Megaphone Guy", "The Quiet Hater",
+    ],
 }
 
 # Same idea as a solo boss template's "region_roles" field (see
@@ -1813,6 +2352,9 @@ BOSS_GROUPS: dict[str, list[str]] = {
 BOSS_GROUP_REGION_ROLES: dict[str, dict[str, str]] = {
     "eruptor_trio": {"Voidcrest Desert": "final"},
     "acatrya_board": {"Abyssnia": "regular"},
+    # A checkpoint boss in the two regions Josh is most disliked in,
+    # rather than a final -- it's a set-piece, not a wall.
+    "josh_hater_army": {"Glacier 15": "regular", "The Wastelands": "regular"},
 }
 
 # Chance that a BOSS room rolls one of the eligible BOSS_GROUPS instead of
@@ -1914,3 +2456,83 @@ def get_boss_encounter(
         return [get_template_by_name(n) for n in BOSS_GROUPS[group_name]]
 
     return _with_escorts(rng.choice(solo_candidates))
+
+
+# ----------------------------------------------------------------------
+# SHORT NAMES for width-limited views (turn order, telegraph lines).
+#
+# Kept as a lookup here rather than a key on each template so the roster
+# above stays readable, and so this reads as what it is: a display
+# concern, not a property of the enemy.
+#
+# Every entry drops the FACTION or QUALIFIER and keeps the distinctive
+# noun, because that's the part that tells two enemies apart. Automatic
+# shortening was tried first and produced "Glacial", "Permafrost" for two
+# DIFFERENT enemies, and "Lector of" -- which is exactly the ambiguity a
+# name is supposed to prevent. Where the automatic result was already
+# good it's simply written down here, so the rule is "look it up", with
+# no second guess about which names are handled and which aren't.
+#
+# tools/check_ui_labels.py asserts that every name longer than the turn
+# order budget has an entry, that no entry EXCEEDS that budget, and that
+# no two entries collide -- so this can't silently rot as the roster
+# grows.
+# ----------------------------------------------------------------------
+ENEMY_SHORT_NAMES: dict[str, str] = {
+    "Boss John's Driller Prototype": "Driller Proto.",
+    "Wasteland Colosseum Champion": "Colosseum Champ",
+    "Propaganda Broadcast Unit": "Broadcast Unit",
+    "Ocellios Failed Prototype": "Failed Proto.",
+    "Xendium Overcharge Drone": "Overcharge Drone",
+    "Corporate Security Mech": "Security Mech",
+    "H-Nation Border Trooper": "Border Trooper",
+    "Entropy Aura Generator": "Aura Generator",
+    "Acatrya Prime Enforcer": "Prime Enforcer",
+    "Tower Maintenance Bot": "Maintenance Bot",
+    "Corrupted Eris Sentry": "Eris Sentry",
+    "Corrupted Wastelander": "Wastelander",
+    "Sacrificial Construct": "Sacr. Construct",
+    "Ocellios Test Subject": "Test Subject",
+    "The Lector of Ledgers": "The Lector",
+    "Rogue Security Drone": "Security Drone",
+    "Glacial Exterminator": "Glacial Exterm.",
+    "Permafrost Automaton": "Frost Automaton",
+    "Xender Command Relay": "Command Relay",
+    "Acatrya Riot Trooper": "Riot Trooper",
+    "Acatrya Field Medic": "Field Medic",
+    "Undercity Scavenger": "Scavenger",
+    "Ad-Drone Swarm Unit": "Ad-Drone Swarm",
+    "Xendium Lab Soldier": "Lab Soldier",
+    "Acatrya Elite Guard": "Elite Guard",
+    "Permafrost Guardian": "Frost Guardian",
+    "Voidcrest Skitterer": "Skitterer",
+    "Voidwarp Construct": "Voidwarp Const.",
+    "Cinderveil Acolyte": "Acolyte",
+    "Voidcell Amplifier": "Voidcell Amp.",
+    "Skybridge Sentinel": "Sentinel",
+    "Xender Recon Scout": "Recon Scout",
+    "Abyssal Custodian": "Custodian",
+    "Blightspire Adept": "Adept",
+    "H-Nation Vanguard": "Vanguard",
+    "Wastes Fieldmedic": "Fieldmedic",
+    "Nullwrit Enforcer": "Enforcer",
+    "XG-23 Heavy Drone": "XG-23 Heavy",
+    "Shatterjaw Reaver": "Reaver",
+    "Duneglass Stalker": "Stalker",
+    "Stubby's Failsafe": "Failsafe",
+    "Wandering Vagrant": "Vagrant",
+    # --- roster expansion ---
+    "False Advertising Billboard": "Ad Billboard",
+    "Xender Aerial Soldier": "Aerial Soldier",
+    "The Revengeance Block": "Revenge Block",
+    "Romain's Body Pillow": "Body Pillow",
+    "Entrospire Soldier": "Entrospire Sol.",
+    "Xender Spy Camera": "Spy Camera",
+}
+
+
+def short_name_for(name: str) -> str:
+    """The display name to use where width is tight. Falls back to the
+    full name, which is correct for the 49 templates already short
+    enough to need no entry."""
+    return ENEMY_SHORT_NAMES.get(name, name)

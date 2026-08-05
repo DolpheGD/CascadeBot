@@ -145,6 +145,8 @@ from bot.game.dungeon.encounter_config.shrine import SHRINE_ENCOUNTERS
 from bot.game.dungeon.encounter_config.puzzle import PUZZLE_ENCOUNTERS
 from bot.game.dungeon.encounter_config.secret import SECRET_ENCOUNTERS
 from bot.game.dungeon.encounter_config.merchant import MERCHANT_ENCOUNTERS
+from bot.game.dungeon.encounter_config.expansion import EXPANSION_ENCOUNTERS
+from bot.game.dungeon.encounter_config.comedy import COMEDY_ENCOUNTERS
 
 # One flat list, in the order the modules are listed above. Nothing depends
 # on that order -- callers always filter by room type or look up by id.
@@ -156,6 +158,12 @@ ENCOUNTERS: list[dict] = [
     *PUZZLE_ENCOUNTERS,
     *SECRET_ENCOUNTERS,
     *MERCHANT_ENCOUNTERS,
+    # The variety pass -- see expansion.py's docstring for why these
+    # are deliberately the low-risk, low-reward end of the pool.
+    *EXPANSION_ENCOUNTERS,
+    # Written to be funny rather than to build world -- see
+    # comedy.py, which explains why the joke lives in the CHOICE.
+    *COMEDY_ENCOUNTERS,
 ]
 
 def get_encounter_by_id(encounter_id: str) -> dict | None:

@@ -14,7 +14,9 @@ from bot.database.session import SessionLocal
 from bot.database.models.hq_model import ShopListing, ShrineTemplate
 from bot.database.models.economy_model import HarvesterTemplate
 from bot.services.player_service import get_player
-from bot.services import base_service, dungeon_service, mailbox_service
+from bot.services import base_service, dungeon_service, forge_service, research_service
+from bot.game.economy import forge_config, research_config
+from bot.database.models.enums import EquipmentSlot, Rarity
 from bot.services.harvester_service import (
     ensure_harvester_templates_seeded,
     list_templates,
@@ -35,6 +37,20 @@ from bot.services.currency_service import format_currency
 from bot.utils.embedder._shared import fit_field
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils.ui_guard import OwnedView, check_message_owner, require_player
+
+
+PERK_LABELS = {
+    "loot_rarity_weight": "Loot rarity",
+    "relic_offer_size": "Relic choices",
+    "upgrade_cost_percent": "Upgrade discount %",
+    "domain_energy": "Domain energy",
+    "gacha_pity_reduction": "Pity reduction",
+    "character_xp_percent": "Character XP %",
+    "harvester_percent": "Harvester yield %",
+    "shop_discount_percent": "Shop discount %",
+    "forge_cost_percent": "Forge discount %",
+    "starting_energy": "Starting energy",
+}
 
 
 # ----------------------------------------------------------------------
@@ -90,8 +106,8 @@ def _build_hq_embed(db, player) -> discord.Embed:
         color=discord.Color.blurple(),
     )
     embed.description = (
-        "Your base of operations. Harvesters, shrines, the mailbox, and the shop "
-        "all grow with HQ level -- use `/harvesters`, `/base shrines`, `/base mailbox`, and `/base shop`."
+        "Your base of operations. Harvesters, shrines, the Research Lab, the Forge "
+        "and the shop all grow with HQ level -- use `/harvesters`, `/shrines`, `/lab`, `/forge` and `/shop`."
     )
 
     if is_max_hq_level(base.hq_level):
@@ -521,6 +537,7 @@ SHOP_CATEGORIES = [
     ("sell", "💰 Sell"),
     ("buy", "🛒 Buy"),
     ("refine", "⚗️ Refine"),
+    ("crates", "🎁 Crates"),
     ("special", "✨ Special"),
 ]
 DEFAULT_SHOP_CATEGORY = "sell"
@@ -537,6 +554,12 @@ def _shop_category_of(listing) -> str:
         = special.
     Inferring rather than storing means the bucketing can never disagree
     with the listing's actual arithmetic."""
+    # Crates first: they're identified by KIND rather than by what they
+    # trade, since a lootbox listing has no reward_currency at all and
+    # would otherwise fall through to "special".
+    if listing.kind in ("lootbox", "item"):
+        return "crates"
+
     cost_is_material = listing.cost_currency in _MATERIAL_CURRENCIES
     reward_is_material = listing.reward_currency in _MATERIAL_CURRENCIES
 
@@ -618,6 +641,7 @@ SHOP_CATEGORY_BLURB = {
     "sell": "Turn surplus materials into gold. Every material has a price.",
     "buy": "Buy any material outright -- costs more than harvesting it yourself.",
     "refine": "Convert materials into the tier above. Limited per day.",
+    "crates": "Sealed supply crates. Contents roll from the normal loot tables.",
     "special": "Everything that isn't a material trade.",
 }
 
@@ -678,10 +702,56 @@ def _build_shop_view(db, player, category: str = DEFAULT_SHOP_CATEGORY) -> ShopV
 # Mailbox
 # ----------------------------------------------------------------------
 
-class MailboxCollectButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade_mailbox_collect"):
-    def __init__(self, label: str = "...", style: discord.ButtonStyle = discord.ButtonStyle.success, disabled: bool = False):
+# ----------------------------------------------------------------------
+# Research Lab + Forge
+#
+# These replaced the mailbox. Both are one-per-player buildings, so their
+# views follow the HQ/mailbox shape (a couple of DynamicItem buttons that
+# re-derive state from the DB) rather than the harvester/shrine
+# template-list shape.
+# ----------------------------------------------------------------------
+
+class ResearchStartButton(discord.ui.DynamicItem[discord.ui.Button],
+                          template=r"cascade_research_start:(?P<project_id>[a-z_]+)"):
+    def __init__(self, project_id: str, label: str = "...", disabled: bool = False):
         super().__init__(discord.ui.Button(
-            label=label[:80], style=style, custom_id="cascade_mailbox_collect", disabled=disabled,
+            label=label[:80],
+            style=discord.ButtonStyle.primary if not disabled else discord.ButtonStyle.secondary,
+            custom_id=f"cascade_research_start:{project_id}", disabled=disabled,
+        ))
+        self.project_id = project_id
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match):
+        return cls(match["project_id"])
+
+    async def callback(self, interaction: discord.Interaction):
+        if not await check_message_owner(interaction):
+            return
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            if player is None:
+                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                return
+            try:
+                result = research_service.start_research(db, player, self.project_id)
+                message = f"🔬 Started **{result['project']['name']}**."
+            except research_service.ResearchError as exc:
+                message = str(exc)
+            await interaction.response.edit_message(
+                content=message, embed=_build_lab_embed(db, player), view=_build_lab_view(db, player),
+            )
+        finally:
+            db.close()
+
+
+class ResearchCollectButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade_research_collect"):
+    def __init__(self, label: str = "...", disabled: bool = False):
+        super().__init__(discord.ui.Button(
+            label=label[:80],
+            style=discord.ButtonStyle.success if not disabled else discord.ButtonStyle.secondary,
+            custom_id="cascade_research_collect", disabled=disabled,
         ))
 
     @classmethod
@@ -697,28 +767,25 @@ class MailboxCollectButton(discord.ui.DynamicItem[discord.ui.Button], template=r
             if player is None:
                 await interaction.response.send_message("Use `/start` first.", ephemeral=True)
                 return
-
-            expedition = dungeon_service.get_active_expedition(db, player.id)
-            if dungeon_service.is_in_combat(expedition):
-                await interaction.response.send_message(
-                    "You can't check the mailbox mid-battle -- finish the fight first!",
-                    ephemeral=True,
-                )
-                return
-
-            _, message, _ = mailbox_service.collect_mailbox(db, player)
-
-            embed = _build_mailbox_embed(db, player)
-            view = _build_mailbox_view(db, player)
-            await interaction.response.edit_message(content=message, embed=embed, view=view)
+            try:
+                unlocked = research_service.collect_research(db, player)
+                names = ", ".join(f"**{p['name']}**" for p in unlocked)
+                message = f"🔬 Research complete: {names}"
+            except research_service.ResearchError as exc:
+                message = str(exc)
+            await interaction.response.edit_message(
+                content=message, embed=_build_lab_embed(db, player), view=_build_lab_view(db, player),
+            )
         finally:
             db.close()
 
 
-class MailboxUpgradeButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade_mailbox_upgrade"):
-    def __init__(self, label: str = "...", style: discord.ButtonStyle = discord.ButtonStyle.primary, disabled: bool = False):
+class LabUpgradeButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade_lab_upgrade"):
+    def __init__(self, label: str = "...", disabled: bool = False):
         super().__init__(discord.ui.Button(
-            label=label[:80], style=style, custom_id="cascade_mailbox_upgrade", disabled=disabled,
+            label=label[:80],
+            style=discord.ButtonStyle.success if not disabled else discord.ButtonStyle.secondary,
+            custom_id="cascade_lab_upgrade", disabled=disabled,
         ))
 
     @classmethod
@@ -734,75 +801,260 @@ class MailboxUpgradeButton(discord.ui.DynamicItem[discord.ui.Button], template=r
             if player is None:
                 await interaction.response.send_message("Use `/start` first.", ephemeral=True)
                 return
-
-            expedition = dungeon_service.get_active_expedition(db, player.id)
-            if dungeon_service.is_in_combat(expedition):
-                await interaction.response.send_message(
-                    "You can't upgrade the mailbox mid-battle -- finish the fight first!",
-                    ephemeral=True,
-                )
-                return
-
-            ok, message = mailbox_service.upgrade_mailbox(db, player)
-
-            embed = _build_mailbox_embed(db, player)
-            view = _build_mailbox_view(db, player)
-            await interaction.response.edit_message(content=message, embed=embed, view=view)
+            _, message = research_service.upgrade_lab(db, player)
+            await interaction.response.edit_message(
+                content=message, embed=_build_lab_embed(db, player), view=_build_lab_view(db, player),
+            )
         finally:
             db.close()
 
 
-class MailboxView(OwnedView):
-    def __init__(self, collect_button: MailboxCollectButton, upgrade_button: MailboxUpgradeButton, owner_id: int | None = None):
+class LabView(OwnedView):
+    def __init__(self, buttons: list, owner_id: int | None = None):
         super().__init__(timeout=None, owner_id=owner_id)
-        self.add_item(collect_button)
-        self.add_item(upgrade_button)
+        for b in buttons:
+            self.add_item(b)
 
 
-def _build_mailbox_embed(db, player) -> discord.Embed:
-    mailbox = mailbox_service.get_or_create_mailbox(db, player)
-    embed = discord.Embed(title="Mailbox", color=discord.Color.dark_gold())
-    embed.description = "A small package of basic supplies arrives every 15min-30min. Upgrade for better packages."
+def _build_lab_embed(db, player) -> discord.Embed:
+    lab = research_service.get_or_create_lab(db, player)
+    done, total = research_service.research_progress(db, player.id)
+    slots = research_config.concurrent_slots(lab.level)
+    running = research_service.active_research(db, player.id)
 
-    if mailbox_service.is_ready(mailbox):
-        status = "A package is waiting for you!"
-    else:
-        remaining = mailbox_service.time_until_ready(mailbox)
-        minutes = max(1, int(remaining.total_seconds() // 60))
-        status = f"Next package in {minutes}m."
-    embed.add_field(name=f"Level {mailbox.level}", value=status, inline=False)
+    embed = discord.Embed(
+        title=f"🔬 Research Lab -- Level {lab.level}",
+        description=(
+            f"**{done}/{total}** projects complete · **{len(running)}/{slots}** slots in use\n"
+            "Research is permanent and account-wide."
+        ),
+        color=discord.Color.teal(),
+    )
 
-    cost = mailbox_service.get_mailbox_upgrade_cost(mailbox)
-    if cost:
-        cost_text = ", ".join(format_currency(currency, amount) for currency, amount in cost.items())
-        embed.add_field(name="Upgrade cost", value=cost_text, inline=False)
-    else:
-        embed.add_field(name="Upgrade cost", value="Mailbox is at max level.", inline=False)
+    if running:
+        lines = []
+        for row in running:
+            project = research_config.get_project(row.project_id)
+            if research_service.is_finished(row):
+                lines.append(f"✅ **{project['name']}** -- ready to collect")
+            else:
+                ts = int(row.finishes_at.timestamp())
+                lines.append(f"⏳ **{project['name']}** -- done <t:{ts}:R>")
+        embed.add_field(name="In progress", value="\n".join(lines), inline=False)
+
+    perks = research_service.perk_totals(db, player.id)
+    if perks:
+        embed.add_field(
+            name="Active bonuses",
+            value=fit_field([f"{PERK_LABELS.get(k, k)}: **+{v:g}**" for k, v in perks.items()]),
+            inline=False,
+        )
+
+    # Show only what's actionable plus a taste of what's next -- the full
+    # tree is 24 projects and would blow out the embed.
+    available, locked = [], []
+    for project in research_config.RESEARCH_PROJECTS:
+        state, reason = research_service.project_state(db, player, project)
+        if state == "available":
+            cost = ", ".join(format_currency(c, a) for c, a in project["cost"].items())
+            available.append(f"**{project['name']}** ({project['branch']}) — {cost}")
+        elif state == "locked" and len(locked) < 4:
+            locked.append(f"🔒 {project['name']} — {reason}")
+    if available:
+        embed.add_field(name="Available now", value=fit_field(available), inline=False)
+    if locked:
+        embed.add_field(name="Coming up", value=fit_field(locked), inline=False)
+
+    cost = research_config.lab_upgrade_cost(lab.level)
+    embed.set_footer(
+        text=("Lab at max level." if cost is None else
+              "Upgrade the Lab for more slots and faster research.")
+    )
     return embed
 
 
-def _build_mailbox_view(db, player) -> MailboxView:
-    mailbox = mailbox_service.get_or_create_mailbox(db, player)
-    ready = mailbox_service.is_ready(mailbox)
-    collect_button = MailboxCollectButton(
-        label="Collect Package" if ready else "Not ready yet",
-        style=discord.ButtonStyle.success if ready else discord.ButtonStyle.secondary,
+def _build_lab_view(db, player) -> LabView:
+    lab = research_service.get_or_create_lab(db, player)
+    buttons: list = []
+
+    ready = research_service.collectable(db, player.id)
+    buttons.append(ResearchCollectButton(
+        label=f"Collect {len(ready)} finished" if ready else "Nothing to collect",
         disabled=not ready,
+    ))
+
+    cost = research_config.lab_upgrade_cost(lab.level)
+    if cost is None:
+        buttons.append(LabUpgradeButton(label="Research Lab (MAX)", disabled=True))
+    else:
+        cost_text = "/".join(format_currency(c, a) for c, a in cost.items())
+        buttons.append(LabUpgradeButton(label=f"Upgrade Lab to Lv{lab.level + 1} ({cost_text})"))
+
+    # Up to 3 startable projects -- Discord caps components at 25 and the
+    # tree is far bigger than that, so the button list is the shortlist
+    # and the embed carries the full picture.
+    started = 0
+    for project in research_config.RESEARCH_PROJECTS:
+        if started >= 3:
+            break
+        state, _ = research_service.project_state(db, player, project)
+        if state == "available":
+            buttons.append(ResearchStartButton(project["id"], label=f"🔬 {project['name']}"))
+            started += 1
+
+    return LabView(buttons, owner_id=player.id)
+
+
+class ForgeUpgradeButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade_forge_upgrade"):
+    def __init__(self, label: str = "...", disabled: bool = False):
+        super().__init__(discord.ui.Button(
+            label=label[:80],
+            style=discord.ButtonStyle.success if not disabled else discord.ButtonStyle.secondary,
+            custom_id="cascade_forge_upgrade", disabled=disabled,
+        ))
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match):
+        return cls()
+
+    async def callback(self, interaction: discord.Interaction):
+        if not await check_message_owner(interaction):
+            return
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            if player is None:
+                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                return
+            _, message = forge_service.upgrade_forge(db, player)
+            await interaction.response.edit_message(
+                content=message, embed=_build_forge_embed(db, player), view=_build_forge_view(db, player),
+            )
+        finally:
+            db.close()
+
+
+class ForgeCraftButton(discord.ui.DynamicItem[discord.ui.Button],
+                       template=r"cascade_forge_craft:(?P<slot>\w+):(?P<rarity>\w+)"):
+    def __init__(self, slot: str, rarity: str, label: str = "..."):
+        super().__init__(discord.ui.Button(
+            label=label[:80], style=discord.ButtonStyle.primary,
+            custom_id=f"cascade_forge_craft:{slot}:{rarity}",
+        ))
+        self.slot = slot
+        self.rarity = rarity
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match):
+        return cls(match["slot"], match["rarity"])
+
+    async def callback(self, interaction: discord.Interaction):
+        if not await check_message_owner(interaction):
+            return
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            if player is None:
+                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                return
+            try:
+                item_obj = forge_service.craft_item(
+                    db, player, EquipmentSlot(self.slot), Rarity(self.rarity),
+                )
+                message = f"🔨 Forged **{item_obj.display_name}**!"
+            except forge_service.ForgeError as exc:
+                message = str(exc)
+            await interaction.response.edit_message(
+                content=message, embed=_build_forge_embed(db, player), view=_build_forge_view(db, player),
+            )
+        finally:
+            db.close()
+
+
+class ForgeSlotSelect(discord.ui.Select):
+    def __init__(self, current: str):
+        super().__init__(
+            placeholder="Which slot to forge...",
+            options=[
+                discord.SelectOption(label=s.value.title(), value=s.value, default=(s.value == current))
+                for s in EquipmentSlot
+            ],
+            custom_id="cascade_forge_slot", min_values=1, max_values=1,
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            if player is None:
+                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                return
+            await interaction.response.edit_message(
+                embed=_build_forge_embed(db, player, self.values[0]),
+                view=_build_forge_view(db, player, self.values[0]),
+            )
+        finally:
+            db.close()
+
+
+class ForgeView(OwnedView):
+    def __init__(self, buttons: list, slot: str, owner_id: int | None = None):
+        super().__init__(timeout=None, owner_id=owner_id)
+        self.add_item(ForgeSlotSelect(slot))
+        for b in buttons:
+            self.add_item(b)
+
+
+def _build_forge_embed(db, player, slot: str = "weapon") -> discord.Embed:
+    forge = forge_service.get_or_create_forge(db, player)
+    ceiling = forge_config.max_craft_rarity(forge.level)
+
+    embed = discord.Embed(
+        title=f"🔨 Forge -- Level {forge.level}",
+        description=(
+            "Craft gear in the slot and rarity you choose instead of waiting on a lucky drop.\n"
+            f"Currently forging up to **{ceiling.value.title()}**."
+        ),
+        color=discord.Color.dark_orange(),
     )
 
-    cost = mailbox_service.get_mailbox_upgrade_cost(mailbox)
+    lines = []
+    for rarity in forge_config.craftable_rarities(forge.level):
+        cost = forge_service.craft_cost(db, player, rarity)
+        mats = ", ".join(format_currency(c, a) for c, a in cost["materials"].items())
+        lines.append(f"**{rarity.value.title()}** — {format_currency('gold', cost['gold'])}, {mats}")
+    embed.add_field(name=f"Craft cost ({slot.title()})", value=fit_field(lines), inline=False)
+
+    unlocks = []
+    for op, level in forge_config.FORGE_UNLOCKS.items():
+        mark = "✅" if forge.level >= level else f"🔒 Lv{level}"
+        unlocks.append(f"{mark} {op.title()}")
+    embed.add_field(name="Operations", value="  ".join(unlocks), inline=False)
+
+    cost = forge_config.forge_upgrade_cost(forge.level)
+    embed.set_footer(
+        text=("Forge at max level." if cost is None else
+              "Upgrade the Forge to craft rarer gear and unlock reforge/transfer.")
+    )
+    return embed
+
+
+def _build_forge_view(db, player, slot: str = "weapon") -> ForgeView:
+    forge = forge_service.get_or_create_forge(db, player)
+    buttons: list = []
+
+    cost = forge_config.forge_upgrade_cost(forge.level)
     if cost is None:
-        upgrade_button = MailboxUpgradeButton(label="Mailbox (MAX)", style=discord.ButtonStyle.secondary, disabled=True)
+        buttons.append(ForgeUpgradeButton(label="Forge (MAX)", disabled=True))
     else:
-        cost_text = "/".join(format_currency(currency, amount) for currency, amount in cost.items())
-        upgrade_button = MailboxUpgradeButton(label=f"Upgrade Mailbox ({cost_text})", style=discord.ButtonStyle.primary)
+        cost_text = "/".join(format_currency(c, a) for c, a in cost.items())
+        buttons.append(ForgeUpgradeButton(label=f"Upgrade Forge to Lv{forge.level + 1} ({cost_text})"))
 
-    return MailboxView(collect_button, upgrade_button, owner_id=player.id)
+    for rarity in forge_config.craftable_rarities(forge.level):
+        buttons.append(ForgeCraftButton(slot, rarity.value, label=f"🔨 Forge {rarity.value.title()}"))
 
+    return ForgeView(buttons, slot, owner_id=player.id)
 
-# ----------------------------------------------------------------------
-# Cog
-# ----------------------------------------------------------------------
 
 @guild_decorator
 class Base(commands.GroupCog, name="base", description="Cascade HQ base-building commands."):
@@ -869,15 +1121,28 @@ class Base(commands.GroupCog, name="base", description="Cascade HQ base-building
             db.close()
         await ctx.response.send_message(embed=embed, view=view)
 
-    @app_commands.command(name="mailbox", description="Check your mailbox for a package of basic supplies.")
-    async def mailbox_cmd(self, ctx: discord.Interaction):
+    @app_commands.command(name="lab", description="Research permanent, account-wide upgrades.")
+    async def lab_cmd(self, ctx: discord.Interaction):
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
             if not await require_player(ctx, player):
                 return
-            embed = _build_mailbox_embed(db, player)
-            view = _build_mailbox_view(db, player)
+            embed = _build_lab_embed(db, player)
+            view = _build_lab_view(db, player)
+        finally:
+            db.close()
+        await ctx.response.send_message(embed=embed, view=view)
+
+    @app_commands.command(name="forge", description="Craft gear in the slot and rarity you choose.")
+    async def forge_cmd(self, ctx: discord.Interaction):
+        db = SessionLocal()
+        try:
+            player = get_player(db, ctx.user.id)
+            if not await require_player(ctx, player):
+                return
+            embed = _build_forge_embed(db, player)
+            view = _build_forge_view(db, player)
         finally:
             db.close()
         await ctx.response.send_message(embed=embed, view=view)

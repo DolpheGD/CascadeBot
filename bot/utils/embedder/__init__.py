@@ -41,6 +41,10 @@ from bot.utils.embedder._shared import (
     _bar,
 )
 from bot.utils.embedder.profile import (
+    gift_collected_embed,
+    gift_inbox_embed,
+    gift_sent_embed,
+    account_profile_embed,
     PROFILE_PAGE_COUNT,
     PROFILE_PAGE_TITLES,
     _profile_abilities_page,
@@ -80,9 +84,11 @@ from bot.utils.embedder.inventory import (
     lootbox_detail_embed,
 )
 from bot.utils.embedder.gacha import (
+    echo_exchange_embed,
     STAR_EMOJI,
     gacha_pull_embed,
     gacha_rates_embed,
+    resonance_embed,
 )
 from bot.utils.embedder.encounters import (
     encounter_embed,
@@ -162,8 +168,10 @@ __all__ = [
     "encyclopedia_list_embed",
     "entry_detail_embed",
     "expedition_summary_embed",
+    "echo_exchange_embed",
     "gacha_pull_embed",
     "gacha_rates_embed",
+    "resonance_embed",
     "general_inventory_embed",
     "info_page_count",
     "info_page_targets",
@@ -171,6 +179,10 @@ __all__ = [
     "item_detail_embed",
     "lootbox_detail_embed",
     "leaderboard_embed",
+    "account_profile_embed",
+    "gift_collected_embed",
+    "gift_inbox_embed",
+    "gift_sent_embed",
     "profile_embed",
     "raid_attack_result_embed",
     "raid_claim_embed",

@@ -55,14 +55,14 @@ class DomainMenuView(OwnedView):
 
 
 class TierButton(discord.ui.Button):
-    def __init__(self, domain_id: str, tier: dict, player, lock_reason: str | None = None):
+    def __init__(self, domain_id: str, tier: dict, player, lock_reason: str | None = None, current_energy: int = 0):
         """`lock_reason` comes from domain_service.tier_lock_reason and is
         resolved by the CALLER (which still has a live DB session), not
         here -- the unlock check needs to query expedition history and the
         character roster, and a view constructor is the wrong place to be
         opening a session."""
         unlocked = lock_reason is None
-        affordable = domain_service.get_current_energy(player) >= tier["energy_cost"]
+        affordable = current_energy >= tier["energy_cost"]
         label = f"{tier['name']} ({tier['energy_cost']}⚡)" if unlocked else f"🔒 {tier['name']}"
         style = discord.ButtonStyle.success if (unlocked and affordable) else discord.ButtonStyle.secondary
         super().__init__(
@@ -85,10 +85,10 @@ class BackToDomainsButton(discord.ui.Button):
 
 
 class DomainTierView(OwnedView):
-    def __init__(self, domain_id: str, player, lock_reasons: dict[str, str | None], owner_id: int | None = None):
+    def __init__(self, domain_id: str, player, lock_reasons: dict[str, str | None], current_energy: int = 0, owner_id: int | None = None):
         super().__init__(timeout=180, owner_id=owner_id)
         for tier in DOMAIN_DIFFICULTY_TIERS:
-            self.add_item(TierButton(domain_id, tier, player, lock_reasons.get(tier["id"])))
+            self.add_item(TierButton(domain_id, tier, player, lock_reasons.get(tier["id"]), current_energy))
         self.add_item(BackToDomainsButton())
 
 
@@ -140,6 +140,7 @@ class DomainCombatView(OwnedView):
         ultimate_exists: bool = False,
         ultimate_energy: int = 0,
         ultimate_cost: int = 100,
+        ultimate_label: str | None = None,
         owner_id: int | None = None,
         ally_options: list[discord.SelectOption] | None = None,
     ):
@@ -147,8 +148,13 @@ class DomainCombatView(OwnedView):
         self.attack_button.disabled = False
         self.ultimate_button.disabled = not ultimate_ready
         if ultimate_exists:
-            status = "Ready!" if ultimate_ready else f"{ultimate_energy}/{ultimate_cost} EN"
-            self.ultimate_button.label = f"💥 Ultimate ({status})"
+            # ultimate_label is built by combat_ui.ultimate_button_label,
+            # which knows about the ultimate COOLDOWN as well as energy.
+            # The energy-only fallback is for the persistent-view rebuild
+            # path, which has no actor to ask.
+            self.ultimate_button.label = ultimate_label or (
+                f"💥 Ultimate ({'Ready!' if ultimate_ready else f'{ultimate_energy}/{ultimate_cost} EN'})"
+            )
         else:
             self.ultimate_button.label = "💥 No Ultimate"
         if not ultimate_exists:
@@ -223,6 +229,7 @@ def _build_domain_combat_view(battle, owner_id: int) -> DomainCombatView:
         ultimate_exists=actor.ultimate_ability is not None,
         ultimate_energy=actor.energy,
         ultimate_cost=actor.ultimate_ability["resource_cost"] if actor.ultimate_ability else 100,
+        ultimate_label=combat_ui.ultimate_button_label(actor),
         owner_id=owner_id,
         ally_options=ally_options or None,
     )
@@ -247,7 +254,7 @@ async def _handle_show_menu(interaction: discord.Interaction):
         if player is None:
             await interaction.response.send_message("Use `/start` first.", ephemeral=True)
             return
-        embed = embedder.domain_menu_embed(player)
+        embed = embedder.domain_menu_embed(db, player)
         view = DomainMenuView(owner_id=player.id)
         await interaction.response.edit_message(embed=embed, view=view)
     finally:
@@ -272,8 +279,9 @@ async def _handle_show_tiers(interaction: discord.Interaction, domain_id: str):
             tier["id"]: domain_service.tier_lock_reason(db, player, tier)
             for tier in DOMAIN_DIFFICULTY_TIERS
         }
-        embed = embedder.domain_tier_embed(domain, player, lock_reasons)
-        view = DomainTierView(domain_id, player, lock_reasons, owner_id=player.id)
+        embed = embedder.domain_tier_embed(db, domain, player, lock_reasons)
+        view = DomainTierView(domain_id, player, lock_reasons,
+                              domain_service.get_current_energy(db, player), owner_id=player.id)
         await interaction.response.edit_message(embed=embed, view=view)
     finally:
         db.close()
@@ -401,7 +409,7 @@ async def _handle_forfeit(interaction: discord.Interaction):
             await interaction.response.send_message("You're not in a domain battle right now.", ephemeral=True)
             return
         domain_service.abandon_challenge(db, player)
-        embed = embedder.domain_menu_embed(player)
+        embed = embedder.domain_menu_embed(db, player)
         view = DomainMenuView(owner_id=player.id)
         await interaction.response.edit_message(
             content="You forfeit the domain challenge. No reward, but nothing further lost.",
@@ -448,7 +456,7 @@ class Domains(commands.Cog):
                 )
                 return
 
-            embed = embedder.domain_menu_embed(player)
+            embed = embedder.domain_menu_embed(db, player)
             view = DomainMenuView(owner_id=player.id)
         finally:
             db.close()

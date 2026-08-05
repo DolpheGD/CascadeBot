@@ -10,6 +10,8 @@ from __future__ import annotations
 import discord
 
 from bot.game.combat import effects
+from bot.utils import names
+from bot.game.combat.battle import CYCLE_WARNING_THRESHOLD, MAX_BATTLE_CYCLES
 from bot.game.combat.effects import BREAK_DAMAGE_BONUS_PERCENT
 from bot.database.models.enums import CLASS_DISPLAY_NAME, CharacterClass
 from bot.services.currency_service import format_currency
@@ -59,17 +61,23 @@ MAX_POISE_PIPS = 10
 # a third of the usable width on mobile; set_author costs one short line
 # and nothing horizontally, so names can breathe again and fewer of them
 # get clipped to an ambiguous "Corrupted Eri…".
-NAME_BUDGET = 18
-TURN_ORDER_NAME_BUDGET = 9
+# Both budgets live in bot/utils/names.py now, alongside the shortening
+# rules and the authored short names that keep them from ever biting.
+NAME_BUDGET = names.NAME_BUDGET
+TURN_ORDER_NAME_BUDGET = names.TURN_ORDER_BUDGET
 
 
 def _clip(name: str, budget: int = NAME_BUDGET) -> str:
-    """Truncates a combatant name to `budget` visible characters. Enemy
-    template names run long ("Xendium Overcharge Drone" is 24), and a
-    single one of those was enough to wrap every row it appeared on."""
-    if len(name) <= budget:
-        return name
-    return name[: budget - 1] + "…"
+    """Shorten a bare name STRING (not a Combatant) for the log tail.
+
+    Delegates to names.shorten, which drops whole words rather than
+    cutting mid-word -- the old version produced "Xendium Overc…" and, at
+    the turn-order budget, rendered two different Wasteland enemies
+    identically. Everywhere a Combatant is in hand, names.display_name is
+    used instead so the AUTHORED short name wins; this exists only for
+    log text, where all we have is the name already baked into a
+    sentence."""
+    return names.shorten(name, budget)
 
 
 def _short_num(value: float) -> str:
@@ -103,7 +111,7 @@ def _turn_order_line(battle, count: int = 5) -> str:
     parts = []
     for c in battle.preview_turn_order(count):
         icon = "🧑" if c.is_player else "👹"
-        parts.append(f"{icon}{_clip(c.name, TURN_ORDER_NAME_BUDGET)}")
+        parts.append(f"{icon}{names.display_name(c, TURN_ORDER_NAME_BUDGET)}")
     return " ▸ ".join(parts) if parts else "--"
 
 
@@ -141,19 +149,20 @@ def _recent_log_lines(battle, count: int = 5, char_limit: int = 900) -> str:
 
     # Log lines are full prose sentences, so a 24-character enemy name
     # ("Xendium Overcharge Drone") appearing twice in one line is enough
-    # to wrap it on its own. Clip long names to the same budget every
-    # other row in this view uses -- the point is consistency: the player
-    # reads "Xendium Overc…" on the enemy row and should see the same
-    # token here, not a different-length version of the same name.
+    # to wrap it on its own. Rewrite long names to the SAME short name the
+    # rows use -- the point is consistency: a player who reads "Eris
+    # Sentry" on the enemy row should see that same token in the log, not
+    # a second, differently-abbreviated version of it.
     # Longest-first so a name that's a prefix of another can't partially
     # rewrite it.
-    long_names = sorted(
-        (c.name for c in battle.all_combatants() if len(c.name) > NAME_BUDGET),
-        key=len, reverse=True,
+    replacements = sorted(
+        ((c.name, names.display_name(c)) for c in battle.all_combatants()),
+        key=lambda pair: len(pair[0]), reverse=True,
     )
     text = "\n".join(lines)
-    for name in long_names:
-        text = text.replace(name, _clip(name))
+    for full, short in replacements:
+        if short != full:
+            text = text.replace(full, short)
 
     if len(text) > char_limit:
         text = "…" + text[-char_limit:]
@@ -255,18 +264,29 @@ def _intent_lines(battle) -> str:
     if not schedule:
         return "*Nothing incoming right now.*"
 
-    now_lines, later_lines = [], []
+    now_lines, later_lines, next_cycle_lines = [], [], []
+
+    def bucket(row):
+        """Which of the three sections a row belongs in. Split three ways
+        rather than two because the panel now looks PAST the end of the
+        cycle (see peek_enemy_intent_schedule) -- lumping next cycle in
+        with "later this cycle" would misstate when the hit lands, which
+        is the one thing this panel exists to get right."""
+        if row["imminent"]:
+            return now_lines
+        return next_cycle_lines if row.get("cycle_offset", 0) > 0 else later_lines
+
     for row in schedule:
         enemy, intent = row["enemy"], row["intent"]
-        name = _clip(enemy.name)
+        name = names.display_name(enemy)
 
         if enemy.is_broken():
             state = f"**{name}** 💫 broken, won't act"
-            (now_lines if row["imminent"] else later_lines).append(state)
+            bucket(row).append(state)
             continue
         if intent is None:
             state = f"**{name}** 😵 stunned, won't act"
-            (now_lines if row["imminent"] else later_lines).append(state)
+            bucket(row).append(state)
             continue
 
         ability = intent["ability"]
@@ -290,7 +310,7 @@ def _intent_lines(battle) -> str:
         elif scope == "self":
             target_label = "itself"
         else:
-            target_label = _clip(intent["target"].name)
+            target_label = names.display_name(intent["target"])
 
         # No certainty marker: every move here is pinned and binding, no
         # matter how far ahead it was shown (see
@@ -304,12 +324,15 @@ def _intent_lines(battle) -> str:
         # breaks and loses the move it's telegraphing.
         counter = f" · break in {enemy.poise}" if enemy.can_be_broken() and row["imminent"] else ""
         line = f"**{name}**{repeat} ▸ {target_label}\n┗ {move}{counter}"
-        (now_lines if row["imminent"] else later_lines).append(line)
+        bucket(row).append(line)
 
-    parts = now_lines or ["*Nothing incoming right now.*"]
+    parts = now_lines or ["*Nothing until next cycle.*"]
     if later_lines:
         parts.append("*— later this cycle —*")
         parts.extend(later_lines)
+    if next_cycle_lines:
+        parts.append("*— next cycle —*")
+        parts.extend(next_cycle_lines)
     return "\n".join(parts)
 
 
@@ -329,7 +352,7 @@ def _party_line(battle, member) -> str:
     decision-relevant half). Flags collapse to bare emoji with no
     spacing."""
     acting = "🔸" if not battle.is_over() and member is battle.current_actor() else ""
-    name = _clip(member.name)
+    name = names.display_name(member)
     if not member.is_alive():
         return f"{acting}💀 ~~{name}~~"
 
@@ -367,7 +390,7 @@ def _enemy_line(battle, enemy, is_target: bool) -> str:
     a short HP bar because their max HP is not something the player has
     memorised the way they have their own squad's, so the proportion
     carries real information here that it doesn't there."""
-    name = _clip(enemy.name)
+    name = names.display_name(enemy)
     if not enemy.is_alive():
         return f"💀 ~~{name}~~"
 
@@ -431,16 +454,29 @@ def combat_embed(battle, avatar_url: str | None = None) -> discord.Embed:
         embed.title = None  # the author line already carries the label
 
     if not battle.is_over():
-        embed.description = f"🔄 Cycle {battle.cycle_number}\n{_turn_order_line(battle)}"
+        # Past the warning threshold the cycle counter turns into a
+        # countdown. A battle ends in a withdrawal at MAX_BATTLE_CYCLES
+        # (see the CYCLE LIMIT block in battle.py) and that has to be
+        # visible well before it lands -- a fight that simply stops is
+        # the same unexplained-mechanic problem this rework removed
+        # everywhere else.
+        if battle.cycle_number >= CYCLE_WARNING_THRESHOLD:
+            cycle_line = (
+                f"⏳ Cycle {battle.cycle_number}/{MAX_BATTLE_CYCLES} "
+                "— your squad withdraws if neither side breaks"
+            )
+        else:
+            cycle_line = f"🔄 Cycle {battle.cycle_number}"
+        embed.description = f"{cycle_line}\n{_turn_order_line(battle)}"
         # Forced targeting is called out above everything else: it changes
         # what the player's buttons will actually do, so burying it would
         # make Attack look broken rather than redirected.
         forced = battle.taunting_enemy()
         if forced is not None:
-            embed.description += f"\n🛑 **{_clip(forced.name)}** is taunting -- your attacks are forced onto it."
+            embed.description += f"\n🛑 **{names.display_name(forced)}** is taunting -- your attacks are forced onto it."
         drawing = battle.taunting_ally()
         if drawing is not None:
-            embed.description += f"\n🎯 **{_clip(drawing.name)}** is drawing all enemy attacks."
+            embed.description += f"\n🎯 **{names.display_name(drawing)}** is drawing all enemy attacks."
         embed.add_field(name="😈 Incoming", value=_intent_lines(battle), inline=False)
 
     party_lines = [_party_line(battle, m) for m in battle.party]
@@ -557,7 +593,16 @@ def _ability_lines(c) -> list[str]:
 
     if c.ultimate_ability:
         u = c.ultimate_ability
-        state = "✅ READY" if c.ultimate_ready() else f"{c.energy}/{u['resource_cost']} EN"
+        # Cooldown first, energy second -- a fully charged ultimate that
+        # still isn't usable has to say why, or "50/50 EN" next to a dead
+        # button reads as a bug rather than as a cooldown.
+        ultimate_cd = c.cooldowns.get(u["id"], 0)
+        if c.ultimate_ready():
+            state = "✅ READY"
+        elif ultimate_cd > 0:
+            state = f"⏳ {ultimate_cd}t"
+        else:
+            state = f"{c.energy}/{u['resource_cost']} EN"
         lines.append(f"💥 **{u['name']}** ({state})")
         lines.append(f"　{u['description']}")
     return lines or ["*No active abilities.*"]

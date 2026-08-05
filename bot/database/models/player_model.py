@@ -29,7 +29,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from bot.database.models.economy_model import PlayerHarvester
     from bot.database.models.equipment_model import InventoryItem
     from bot.database.models.expedition_model import Expedition
-    from bot.database.models.hq_model import PlayerBase, PlayerLootbox, PlayerMailbox, PlayerShrine
+    from bot.database.models.hq_model import PlayerBase, PlayerLootbox, PlayerShrine
     from bot.database.models.quest_model import PlayerQuest
 
 
@@ -50,6 +50,14 @@ class Player(Base):
     # to add a new substat slot beyond the 0-2 an item rolls with, up to a
     # max of 4. See bot/game/loot/rarity_config.py for exact costs.
     reroll_tokens: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Echoes: the duplicate currency (bot/game/economy/resonance_config.py).
+    # Paid out by every duplicate character pull, and spent in the echo
+    # exchange to buy a character OUTRIGHT. It exists so a gacha miss is
+    # deterministic progress toward a hit rather than a consolation prize
+    # of gold. Added by db_init._ensure_columns on an existing database,
+    # same as the pity counters below.
+    echoes: Mapped[int] = mapped_column(Integer, default=0)
 
     # Gear-upgrade materials, tiered common -> rare -> rarest. Spent
     # alongside gold to level up equipment (bot/game/loot/rarity_config.py).
@@ -148,9 +156,6 @@ class Player(Base):
         back_populates="player", cascade="all, delete-orphan"
     )
     base: Mapped["PlayerBase"] = relationship(
-        back_populates="player", uselist=False, cascade="all, delete-orphan"
-    )
-    mailbox: Mapped["PlayerMailbox"] = relationship(
         back_populates="player", uselist=False, cascade="all, delete-orphan"
     )
     shrines: Mapped[List["PlayerShrine"]] = relationship(

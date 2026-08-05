@@ -49,10 +49,11 @@ _PAGES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
                 "Your characters",
                 "`/start` — create your profile and your own avatar character\n"
                 "`/squad` — set your 4-character team (slot 1 is always your avatar)\n"
-                "`/characters` — every character you own\n"
+                
                 "`/class` — switch your avatar between DPS / Support DPS / Amplifier / Sustain\n"
                 "`/rename` — name your avatar\n"
-                "`/profile` — stats, equipment and abilities",
+                "`/profile` — your account: level, roster, power and currencies\n"
+                "`/characters` — any character's full stats, equipment and abilities",
             ),
             (
                 "Where to fight",
@@ -71,8 +72,9 @@ _PAGES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
                 "Your turn",
                 "⚔️ **Attack** — builds Energy **and** SP. The only source of SP.\n"
                 "🌀 **Skill** — costs SP. Also builds Energy.\n"
-                "💥 **Ultimate** — costs 50 Energy. Every action you take charges it, "
-                "and so does taking a hit.\n"
+                "💥 **Ultimate** — costs 50 Energy **and** has a 2-turn cooldown after use. "
+                "Every action you take charges it, and so does taking a hit — energy gear "
+                "gets you there faster, but nothing shortens the cooldown.\n"
                 "🛡️ **Guard** — halves incoming damage until your next turn and banks "
                 "extra Energy if a hit lands. Read the 😈 Incoming panel and guard whoever is being aimed at.",
             ),
@@ -88,7 +90,9 @@ _PAGES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
                 "never lies — what's shown is what resolves. An attack hitting everyone "
                 "says **ALL of you** rather than naming one target.\n"
                 "**ℹ️ Info** pages through every combatant: full stats with buffs applied, "
-                "their whole kit, and every effect on them. **📜 Log** is the full history.",
+                "their whole kit, and every effect on them. **📜 Log** is the full history.\n"
+                "A fight that reaches **40 cycles** ends in a withdrawal — the counter starts "
+                "showing from cycle 25, and no normal fight comes close.",
             ),
         ],
     ),
@@ -116,6 +120,10 @@ _PAGES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
                 "🔷 Shields & 💚 Healing",
                 "Shields absorb damage before HP and never expire — they just run out. "
                 "Dedicated shielders make every shield they grant bigger.\n"
+                "Healing is never secretly reduced: what an ability says it heals is what it "
+                "heals, every time. **Whole-team** heals are the expensive ones — smaller "
+                "percentages, higher SP, longer cooldowns — while single-target heals hit hard, "
+                "so who you heal is a real decision.\n"
                 "**HP carries between fights inside a run** and is only restored at campfires, "
                 "so damage taken is a real cost. Domains and raids always start you at full HP.",
             ),
@@ -146,8 +154,17 @@ _PAGES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
                 "`/pull` — spend Shards on characters (single or 10x)\n"
                 "`/pull_rates` — odds, costs, and your live pity progress\n"
                 "**Pity:** a 4★ or better is guaranteed every 10 pulls, and a 5★ is guaranteed "
-                "by pull 50 — with the odds climbing steadily from pull 30, so most land sooner. "
-                "Duplicates convert to gold and reroll tokens.",
+                "by pull 50 — with the odds climbing steadily from pull 30, so most land sooner.",
+            ),
+            (
+                "✴️ Duplicates, Resonance & Echoes",
+                "Pulling someone you already own is never a wasted pull.\n"
+                "`/resonance` — the first **5** copies of a character each permanently "
+                "upgrade them: bigger damage stat, a cheaper skill, more HP and DEF, a stronger "
+                "kit, and finally a shorter ultimate cooldown.\n"
+                "`/exchange` — every duplicate also pays **Echoes**, and copies past Resonance 5 "
+                "pay more than double. Save enough and you buy *exactly* the character you want — "
+                "no rates, no pity, no luck.",
             ),
             (
                 "✨ Relics (run-only)",
@@ -168,7 +185,8 @@ _PAGES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
                 "`/hq` — upgrade HQ; it gates everything else below\n"
                 "`/harvesters` — buy, upgrade and collect passive income\n"
                 "`/shrines` — permanent party-wide stat bonuses\n"
-                "`/mailbox` — a free package every 30-60 minutes",
+                "`/lab` — research permanent, account-wide upgrades\n"
+                "`/forge` — craft gear in the slot and rarity you choose",
             ),
             (
                 "Shop",
@@ -181,7 +199,7 @@ _PAGES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
                 "Income",
                 "`/daily` — daily reward with streak bonuses\n"
                 "`/vote` — vote on top.gg every 12h for the biggest Shard payout in the game\n"
-                "`/quests` — one-time beginner quests plus a rerollable repeating quest\n"
+                "`/quests` — one-time beginner quests (they retire once finished) plus rerollable repeating ones\n"
                 "`/open <tier>` — open all lootboxes of a tier",
             ),
         ],
@@ -198,6 +216,13 @@ _PAGES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
                 "fight or not** — a squad that can't beat the boss still contributes.\n"
                 "`/raid_claim` — collect your share once it's down. Rewards scale to how much "
                 "damage *you* did, so they never depend on who else turned up.",
+            ),
+            (
+                "🎁 Gifting",
+                "`/gift` — send another player materials or gold (3 gifts a day, "
+                "account level 4+). Shards and Echoes can't be gifted.\n"
+                "`/gifts` — collect what people have sent you. Gifts wait for you, "
+                "so someone can send one before you've even started.",
             ),
             (
                 "🏆 Leaderboards",

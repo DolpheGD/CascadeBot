@@ -2,7 +2,7 @@
 Pure config for the quest system -- no DB template table needed (quests
 are looked up by a fixed string id, snapshotted onto the PlayerQuest row
 at assignment time), same pattern as hq_config.HQ_LEVEL_CONFIG /
-mailbox_config.MAILBOX_REWARD_TABLE.
+the other economy configs.
 
 Each quest dict has:
   - "id": stable string key, also stored on PlayerQuest.quest_id

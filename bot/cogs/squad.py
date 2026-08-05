@@ -1,10 +1,17 @@
 """
 /squad -- view your roster and choose which characters ride along on
-expeditions. Slot 0 is always your own avatar (locked, can't be changed
-here -- it's who you are, though its name can be changed with /rename);
-slots 1-3 are any of your other owned characters, picked one dropdown per
-slot so re-rendering doesn't require juggling more than 3 selects on one
-message.
+expeditions.
+
+EVERY slot is free. Slot 0 used to be locked to your own avatar, which
+meant a player who had pulled four characters they preferred was still
+forced to field the avatar and effectively played with three slots. The
+avatar is still granted free and still auto-seated the first time you
+play (see character_service.ensure_avatar_character) -- it's a starter
+character now, not a mandatory one, and it can be benched like anyone
+else. The only rule left is that the squad can't be emptied completely.
+
+One dropdown per slot, four selects on one message (Discord allows five
+components, so this fits).
 """
 
 import discord
@@ -12,6 +19,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
+from bot.utils import names
 from bot.database.models.enums import CLASS_DISPLAY_NAME
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
@@ -19,7 +27,7 @@ from bot.services import character_service, dungeon_service
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils.ui_guard import OwnedView, require_player
 
-SLOT_LABELS = ["Slot 1 (Avatar -- locked)", "Slot 2", "Slot 3", "Slot 4"]
+SLOT_LABELS = ["Slot 1", "Slot 2", "Slot 3", "Slot 4"]
 
 
 def _character_label(pc) -> str:
@@ -30,7 +38,11 @@ def _character_label(pc) -> str:
     # current_class NULL, so this falls back to the template for them.
     stars = "★" * pc.template.star_rating
     class_label = CLASS_DISPLAY_NAME[pc.effective_class()]
-    return f"{pc.display_name} {stars} Lv{pc.level} ({class_label})"[:100]
+    # fit_suffix, not a raw slice: the metadata is always appended, so a
+    # plain [:100] would cut the CLASS off a long name -- or, for a
+    # 32-character /rename, the name itself. Dropping the parenthetical
+    # keeps the row identifiable, which is the whole job of a label.
+    return names.fit_suffix(pc.display_name, f"{stars} Lv{pc.level} ({class_label})", 100)
 
 
 def _build_squad_embed(db, player) -> discord.Embed:
@@ -40,14 +52,15 @@ def _build_squad_embed(db, player) -> discord.Embed:
         pc = by_slot[i]
         value = _character_label(pc) if pc else "*Empty*"
         embed.add_field(name=SLOT_LABELS[i], value=value, inline=False)
-    embed.set_footer(text="Bring up to 4 characters into every expedition. Use the dropdowns to change slots 2-4.")
+    embed.set_footer(text="Bring up to 4 characters into every expedition. Any character can go in any slot.")
     return embed
 
 
 class SquadSlotSelect(discord.ui.Select):
-    """One per changeable slot (1-3, i.e. slot_index 1-3). Fixed custom_id
-    per slot so re-rendering doesn't collide; options rebuilt fresh every
-    render from the player's current roster."""
+    """One per slot (0-3 -- every slot is changeable now that slot 0 is
+    no longer reserved for the avatar). Fixed custom_id per slot so
+    re-rendering doesn't collide; options rebuilt fresh every render from
+    the player's current roster."""
     def __init__(self, slot_index: int, options: list[discord.SelectOption]):
         super().__init__(
             placeholder=f"Slot {slot_index + 1}: choose a character...",
@@ -89,16 +102,25 @@ class SquadSlotSelect(discord.ui.Select):
 
 
 def _build_squad_view(db, player) -> discord.ui.View:
+    """All FOUR slots are editable and every owned character (avatar
+    included) is offered for every one of them.
+
+    Slot 0 used to be locked to the player's own avatar and excluded from
+    the pickers entirely, so a player who had pulled four characters they
+    preferred was still forced to field the avatar and effectively played
+    with three slots. The avatar is still free and still auto-seated on
+    first use -- it's a starter character now, not a mandatory one.
+
+    Discord allows at most 5 components per message and a select counts
+    as one, so four selects fit with room to spare."""
     owned = character_service.list_owned_characters(db, player)
     by_slot = character_service.get_squad_by_slot(db, player)
     view = OwnedView(timeout=180, owner_id=player.id)
 
-    for slot_index in (1, 2, 3):
+    for slot_index in range(4):
         current = by_slot[slot_index]
         options = [discord.SelectOption(label="Empty", value="empty", default=current is None)]
         for pc in owned:
-            if pc.template.is_player_avatar:
-                continue
             options.append(discord.SelectOption(
                 label=_character_label(pc), value=str(pc.id), default=(current is not None and current.id == pc.id),
             ))
@@ -113,8 +135,8 @@ class Squad(commands.Cog):
         self.bot = bot
 
     # COMMAND: /squad
-    # View your 4-character active squad and reassign slots 2-4 from your
-    # owned roster. Slot 1 is always your own avatar.
+    # View your 4-character active squad and reassign any slot from your
+    # owned roster.
     @app_commands.command(name="squad", description="View and manage your 4-character active squad.")
     async def squad(self, ctx: discord.Interaction):
         db = SessionLocal()
@@ -130,34 +152,10 @@ class Squad(commands.Cog):
 
         await ctx.response.send_message(embed=embed, view=view)
 
-    # COMMAND: /characters
-    # Lists every character you own, whether or not they're in your active squad.
-    @app_commands.command(name="characters", description="View every character you own.")
-    async def characters(self, ctx: discord.Interaction):
-        db = SessionLocal()
-        try:
-            player = get_player(db, ctx.user.id)
-            if not await require_player(ctx, player):
-                return
-
-            owned = character_service.list_owned_characters(db, player)
-            in_squad_ids = {pc.id for pc in character_service.get_squad(db, player)}
-
-            embed = discord.Embed(title=f"{player.username}'s Characters", color=discord.Color.dark_gold())
-            if not owned:
-                embed.description = "You don't own any characters yet -- try `/pull`!"
-            else:
-                lines = []
-                for pc in owned:
-                    squad_tag = " 🔹" if pc.id in in_squad_ids else ""
-                    dupe_tag = f" (x{pc.dupe_count})" if pc.dupe_count > 1 else ""
-                    lines.append(f"{_character_label(pc)}{dupe_tag}{squad_tag}")
-                embed.description = "\n".join(lines)
-                embed.set_footer(text="🔹 = currently in your squad. Use /squad to change your team.")
-        finally:
-            db.close()
-
-        await ctx.response.send_message(embed=embed)
+    # NOTE: /characters used to live here as a flat list of names and
+    # levels. It's now the full per-character sheet in bot/cogs/profile.py
+    # -- a list that can't tell you a character's stats isn't what anyone
+    # opens /characters to find out.
 
 
 async def setup(bot):

@@ -46,7 +46,7 @@ from bot.game.combat.factory import build_enemy_combatant, build_party_combatant
 from bot.game.economy.domain_config import (
     DOMAIN_DIFFICULTY_TIERS,
     ENERGY_REGEN_MINUTES_PER_POINT,
-    MAX_DOMAIN_ENERGY,
+    max_domain_energy,
     enemy_level_for,
     get_domain_type,
     get_tier,
@@ -69,23 +69,35 @@ class DomainChallengeError(Exception):
     as-is."""
 
 
-def get_current_energy(player) -> int:
+def energy_cap(db, player) -> int:
+    """This player's current energy ceiling, from their Cascade HQ level
+    (see domain_config.DOMAIN_ENERGY_BY_HQ_LEVEL). Looked up rather than
+    stored so an HQ upgrade takes effect immediately with nothing to
+    migrate."""
+    from bot.services import base_service, research_service
+    base = max_domain_energy(base_service.get_hq_level(db, player))
+    # Research Lab's Expansion branch raises the ceiling further.
+    return base + int(research_service.perk_value(db, player.id, "domain_energy"))
+
+
+def get_current_energy(db, player) -> int:
     """Read-only projection of current energy including any regen since
     domain_energy_updated_at -- does NOT write to the DB, safe to call
     anywhere just for display."""
-    if player.domain_energy >= MAX_DOMAIN_ENERGY:
-        return MAX_DOMAIN_ENERGY
+    cap = energy_cap(db, player)
+    if player.domain_energy >= cap:
+        return cap
     now = dt.datetime.now(dt.timezone.utc)
     last = as_utc(player.domain_energy_updated_at)
     elapsed_minutes = (now - last).total_seconds() / 60
     points_gained = int(elapsed_minutes // ENERGY_REGEN_MINUTES_PER_POINT)
-    return min(MAX_DOMAIN_ENERGY, player.domain_energy + points_gained)
+    return min(cap, player.domain_energy + points_gained)
 
 
-def time_until_next_energy_point(player) -> dt.timedelta | None:
+def time_until_next_energy_point(db, player) -> dt.timedelta | None:
     """None if already at the cap. Otherwise how long until the next
     single point of energy regenerates."""
-    if get_current_energy(player) >= MAX_DOMAIN_ENERGY:
+    if get_current_energy(db, player) >= energy_cap(db, player):
         return None
     now = dt.datetime.now(dt.timezone.utc)
     last = as_utc(player.domain_energy_updated_at)
@@ -95,7 +107,7 @@ def time_until_next_energy_point(player) -> dt.timedelta | None:
     return interval - remainder
 
 
-def _sync_energy(player) -> None:
+def _sync_energy(db, player) -> None:
     """Mutates player.domain_energy/domain_energy_updated_at in place to
     reflect regen since the last sync. ALWAYS normalizes the anchor to
     "now" whenever the result is at/above the cap (even if the stored
@@ -104,9 +116,13 @@ def _sync_energy(player) -> None:
     committing."""
     now = dt.datetime.now(dt.timezone.utc)
     last = as_utc(player.domain_energy_updated_at)
+    cap = energy_cap(db, player)
 
-    if player.domain_energy >= MAX_DOMAIN_ENERGY:
-        player.domain_energy = MAX_DOMAIN_ENERGY
+    # Also clamps DOWN: nothing stops a player from banking energy at a
+    # high cap, and the cap only ever rises, but clamping here keeps the
+    # invariant true regardless.
+    if player.domain_energy >= cap:
+        player.domain_energy = cap
         player.domain_energy_updated_at = now
         return
 
@@ -115,8 +131,8 @@ def _sync_energy(player) -> None:
     if points_gained <= 0:
         return
 
-    player.domain_energy = min(MAX_DOMAIN_ENERGY, player.domain_energy + points_gained)
-    if player.domain_energy >= MAX_DOMAIN_ENERGY:
+    player.domain_energy = min(cap, player.domain_energy + points_gained)
+    if player.domain_energy >= cap:
         player.domain_energy_updated_at = now
     else:
         player.domain_energy_updated_at = last + dt.timedelta(
@@ -210,7 +226,7 @@ def start_challenge(db, player, domain_id: str, tier_id: str) -> Battle:
     if lock_reason is not None:
         raise DomainChallengeError(f"{tier['name']} is still locked -- {lock_reason}.")
 
-    _sync_energy(player)
+    _sync_energy(db, player)
     if player.domain_energy < tier["energy_cost"]:
         db.commit()  # still save whatever regen was just synced, even though the attempt failed
         raise DomainChallengeError(
@@ -231,7 +247,9 @@ def start_challenge(db, player, domain_id: str, tier_id: str) -> Battle:
     combat_service.restore_squad_to_full_hp(db, squad)
 
     equipped_by_char = character_service.get_equipped_items_by_character(db, [pc.id for pc in squad])
-    party_combatants = build_party_combatants(squad, equipped_by_char)
+    from bot.services import research_service
+    party_combatants = build_party_combatants(squad, equipped_by_char,
+        starting_energy=research_service.perk_value(db, player.id, "starting_energy"))
     base_service.apply_shrine_bonuses(db, player, party_combatants)
 
     # Enemy level is derived from the squad actually walking in, not

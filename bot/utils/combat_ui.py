@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import discord
 
+from bot.utils import names
 from bot.game.combat import effects
 from bot.utils import embedder
 
@@ -49,7 +50,7 @@ class InfoPageView(discord.ui.View):
             side = "🧑" if c in battle.party else "👹"
             dead = " 💀" if not c.is_alive() else ""
             options.append(discord.SelectOption(
-                label=f"{side} {c.name}{dead}"[:100],
+                label=names.fit_suffix(f"{side} {c.name}", dead, 100),
                 value=str(i),
                 default=(i == self.page),
             ))
@@ -89,6 +90,30 @@ def info_response(battle, page: int = 0) -> tuple[discord.Embed, InfoPageView]:
 # Value used by the "let the game decide" entry in the ally selector.
 # Not an index, so it can't collide with a party position.
 AUTO_ALLY_VALUE = "auto"
+
+
+def ultimate_button_label(actor) -> str:
+    """The Ultimate button's label for `actor`.
+
+    Exists because ultimates now have a COOLDOWN (see ULTIMATE_COOLDOWN
+    in combatant.py) and that cooldown is the mechanism keeping a
+    resource-stacked squad from ultimate-ing every turn. A limit the
+    player can't see is exactly the kind of thing this rework removed
+    everywhere else, so a charged-but-cooling ultimate has to say so
+    rather than sitting there greyed out and unexplained.
+
+    Precedence is deliberate: cooldown is reported BEFORE energy, since a
+    character at 50/50 energy who still can't fire needs to know why, and
+    "50/50 EN" on a disabled button reads as a bug."""
+    ultimate = actor.ultimate_ability
+    if ultimate is None:
+        return "💥 Ultimate"
+    if actor.ultimate_ready():
+        return "💥 Ultimate (Ready!)"
+    cooldown = actor.cooldowns.get(ultimate["id"], 0)
+    if cooldown > 0:
+        return f"💥 Ultimate (ready in {cooldown}t)"
+    return f"💥 Ultimate ({actor.energy}/{ultimate['resource_cost']} EN)"
 
 
 def enemy_target_options(battle) -> list[discord.SelectOption]:

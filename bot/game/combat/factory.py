@@ -29,8 +29,12 @@ Ability resolution per character:
 
 from __future__ import annotations
 
+import math
+
 from bot.database.models.enums import ItemType
-from bot.game.combat.combatant import STAT_KEYS, Combatant
+from bot.game.combat.combatant import STAT_KEYS, ULTIMATE_COOLDOWN, Combatant
+from bot.game.combat.enemies import short_name_for
+from bot.game.economy.resonance_config import bonus_total, resonance_for
 from bot.game.combat.skills import (
     get_character_passive,
     get_character_skill,
@@ -268,6 +272,14 @@ def build_character_combatant(player_character, equipped_items: list) -> Combata
         ultimate_ability["source"] = "character"
         ultimate_ability["is_ultimate"] = True
 
+    # RESONANCE -- what duplicate copies of this character bought (see
+    # bot/game/economy/resonance_config.py). Applied HERE, after gear and
+    # before the Combatant is built, so every one of its effects lands on
+    # the final numbers and nothing downstream needs to know it exists.
+    resonance = resonance_for(getattr(player_character, "dupe_count", 1))
+    if resonance > 0:
+        _apply_resonance(resonance, final_stats, active_abilities, ultimate_ability)
+
     max_hp = round(final_stats["max_hp"])
     max_mana = round(final_stats["max_mana"])
 
@@ -313,20 +325,174 @@ def build_character_combatant(player_character, equipped_items: list) -> Combata
     )
 
 
-def build_party_combatants(squad: list, equipped_items_by_character: dict) -> list[Combatant]:
-    """`squad` is an ordered list of PlayerCharacter (slot 0 = avatar).
+# Effect keys carrying a MAGNITUDE that Resonance 4 scales.
+#
+# An explicit allowlist rather than "scale every number in the dict", and
+# the exclusions are the interesting part -- three kinds of key look like
+# magnitudes and must not be touched:
+#
+#   * COUNTS and DURATIONS (duration, hits, max_stacks). Scaling a
+#     3-turn buff to 3.54 turns is not the upgrade the level advertises,
+#     and `hits` decides how many times a multi-hit ability resolves.
+#   * CHANCES (debuff_chance_percent, dot_chance_percent,
+#     poise_chance_percent). Reliability is a different axis from power,
+#     and these can pass 100.
+#   * SELF-COSTS (self_cost_percent, hp_threshold_percent). Scaling these
+#     UP would make Resonance 4 a straight DOWNGRADE -- Bee Jee's
+#     sacrifice_hp_team_buff would cost her 17.7% of her HP instead of
+#     15% for the same buff.
+#
+# The allowlist was built by enumerating every numeric key actually used
+# across all 24 character kits, not by guessing: the first version of it
+# missed base_damage_percent and bonus_damage_percent_at_zero_hp, which
+# silently made R4 do NOTHING AT ALL for Josh -- a dead level on the
+# roster's flagship DPS, invisible unless someone diffed his skill
+# numbers before and after. tools/check_resonance.py now asserts every
+# character's R4 changes something.
+_KIT_MAGNITUDE_KEYS = (
+    # damage
+    "damage_percent", "damage_percent_per_hit", "base_damage_percent",
+    "bonus_damage_percent", "bonus_damage_percent_at_zero_hp",
+    "execute_damage_percent", "dot_percent",
+    # healing, shielding, and generic percent-of-max-HP effects
+    "percent", "heal_percent", "shield_percent", "percent_max_hp_per_turn",
+    # buffs and debuffs (debuffs are negative, so scaling deepens them)
+    "buff_percent", "buff_percent_1", "buff_percent_2",
+    "debuff_percent", "debuff_percent_1", "debuff_percent_2",
+    "percent_per_stack",
+    # resources handed to the team
+    "energy_amount", "mana_amount",
+)
+
+# Poise magnitudes, scaled by Resonance 4 like everything else but ROUNDED
+# UP rather than to two decimals.
+#
+# Poise is counted in whole hits, and these values are small -- Nyrvite's
+# ultimate chips 5. An 18% increase is 5.9, which as a fractional poise
+# chip is worth nothing the player can see. Ceiling makes it 6, an
+# actually-different number of hits.
+#
+# Nyrvite is the reason this exists at all: her ultimate deals NO damage,
+# healing, shielding or buffing -- it is pure poise -- so before this she
+# was the one character on the roster whose Resonance 4 had nothing to
+# scale, and the break specialist getting no benefit from "hits harder"
+# is exactly backwards.
+_KIT_POISE_KEYS = ("poise_damage", "bonus_poise")
+
+
+def _resonance_damage_stat(abilities: list[dict], ultimate: dict | None) -> str:
+    """Which stat Resonance 1 should boost: whichever one this character's
+    own kit actually scales from.
+
+    Reads the kit rather than the class because the two genuinely
+    disagree -- Arkiver, Axel, Blueflame and Nyrvite are ELE-scaled, and
+    Sader Vorae is deliberately split across both. Handing every DPS +12%
+    ATK would be a dead level for exactly the characters the elemental
+    pass was built for."""
+    for ability in list(abilities) + ([ultimate] if ultimate else []):
+        if (ability.get("effect") or {}).get("damage_stat") == "elemental":
+            return "elemental"
+    return "attack"
+
+
+def _scale_ability(ability: dict, percent: float) -> dict:
+    """A copy of `ability` with its magnitude numbers raised by `percent`.
+
+    Copied, never mutated: these dicts come straight out of the module-
+    level kit registries, so editing one in place would permanently buff
+    that ability for every character in the process."""
+    scaled = dict(ability)
+    effect = dict(scaled.get("effect") or {})
+    for key in _KIT_MAGNITUDE_KEYS:
+        value = effect.get(key)
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            effect[key] = round(value * (1 + percent / 100), 2)
+    for key in _KIT_POISE_KEYS:
+        value = effect.get(key)
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            effect[key] = math.ceil(value * (1 + percent / 100))
+    scaled["effect"] = effect
+    return scaled
+
+
+def _apply_resonance(resonance: int, stats: dict, abilities: list[dict],
+                     ultimate: dict | None) -> None:
+    """Applies every unlocked resonance level. Mutates `stats` and
+    `abilities` in place (both are already per-build copies)."""
+    damage_stat = _resonance_damage_stat(abilities, ultimate)
+
+    for stat, key in (
+        (damage_stat, "damage_stat_percent"),
+        ("max_hp", "max_hp_percent"),
+        ("defense", "defense_percent"),
+        ("crit_damage", "crit_damage_percent"),
+    ):
+        percent = bonus_total(resonance, key)
+        if percent:
+            stats[stat] = stats.get(stat, 0) * (1 + percent / 100)
+
+    # R2: the character SKILL specifically -- not weapon or artifact
+    # skills, which aren't part of who this character is.
+    cost_percent = bonus_total(resonance, "skill_cost_percent")
+    if cost_percent:
+        for i, ability in enumerate(abilities):
+            if ability.get("source") == "character":
+                cheaper = dict(ability)
+                cheaper["resource_cost"] = max(
+                    1, round(ability["resource_cost"] * (1 + cost_percent / 100))
+                )
+                abilities[i] = cheaper
+
+    # R4: skill and ultimate magnitudes.
+    magnitude = bonus_total(resonance, "kit_magnitude_percent")
+    if magnitude:
+        for i, ability in enumerate(abilities):
+            if ability.get("source") == "character":
+                abilities[i] = _scale_ability(ability, magnitude)
+        if ultimate is not None:
+            ultimate.update(_scale_ability(ultimate, magnitude))
+
+    # R5: a shorter ultimate cooldown. Floors at 0 rather than going
+    # negative, which ability_ready would read as permanently ready.
+    reduction = bonus_total(resonance, "ultimate_cooldown_reduction")
+    if reduction and ultimate is not None:
+        ultimate["cooldown"] = max(0, ultimate.get("cooldown", ULTIMATE_COOLDOWN) - int(reduction))
+
+
+def build_party_combatants(squad: list, equipped_items_by_character: dict,
+                           starting_energy: int = 0) -> list[Combatant]:
+    """`squad` is an ordered list of PlayerCharacter.
     `equipped_items_by_character` maps PlayerCharacter.id -> list of that
-    character's equipped InventoryItems."""
-    return [
+    character's equipped InventoryItems.
+
+    `starting_energy` is the Research Lab's Fieldwork perk -- the squad
+    begins each battle with energy already banked, so a researched
+    account reaches its first ultimate sooner."""
+    party = [
         build_character_combatant(pc, equipped_items_by_character.get(pc.id, []))
         for pc in squad
     ]
+    if starting_energy:
+        for combatant in party:
+            combatant.energy = min(combatant.max_energy, int(starting_energy))
+    return party
 
 
-def build_enemy_combatant(template: dict, level: int = 1) -> Combatant:
+def build_enemy_combatant(template: dict, level: int = 1, hp_multiplier: float = 1.0) -> Combatant:
     """`level` is typically the dungeon floor/expedition depth the enemy
     was encountered at -- higher floors produce tougher enemies from the
-    same template via level_scale_percent."""
+    same template via level_scale_percent.
+
+    `hp_multiplier` inflates ONLY the HP pool, leaving offence, defence
+    and speed exactly where the template put them. Raids are the reason it
+    exists (see raid_config.boss_hp_multiplier): a raid attack contributes
+    "damage dealt to the boss", which is silently ceilinged by the boss's
+    own max HP -- so against a normal template every attack caps out at
+    one kill's worth of damage no matter how strong the squad is, and a
+    raid pool sized above that is literally unclearable. A fatter HP bar
+    (rather than a fatter everything) also gives the raid fight room to
+    last long enough for a squad's kit to matter, without making the boss
+    hit harder than the tier intends."""
     # Magnitude stats take the full level curve; percent stats take a
     # fraction of it and are then capped -- see PERCENT_STAT_CAPS above
     # for why they can neither scale fully nor be frozen entirely.
@@ -340,7 +506,11 @@ def build_enemy_combatant(template: dict, level: int = 1) -> Combatant:
             base_stats[stat] = round(min(raw * percent_scale, PERCENT_STAT_CAPS[stat]))
         else:
             base_stats[stat] = round(raw * scale)
-    base_stats["max_hp"] = max(1, base_stats["max_hp"])
+    # Applied to base_stats, not just the Combatant fields, so that every
+    # percent-of-max-HP effect (self-heals, shields, execute thresholds)
+    # reads the inflated pool too rather than quietly working off the
+    # template's original number.
+    base_stats["max_hp"] = max(1, round(base_stats["max_hp"] * max(0.01, hp_multiplier)))
 
     role = template.get("role", "combat")
 
@@ -371,7 +541,10 @@ def build_enemy_combatant(template: dict, level: int = 1) -> Combatant:
         ultimate["is_ultimate"] = True
         ultimate.setdefault("resource_type", "energy")
         ultimate.setdefault("resource_cost", 50)
-        ultimate.setdefault("cooldown", 0)
+        # Enemies are held to the same ultimate cadence as the party --
+        # see ULTIMATE_COOLDOWN in combatant.py. setdefault, so a template
+        # that deliberately specifies its own cooldown still wins.
+        ultimate.setdefault("cooldown", ULTIMATE_COOLDOWN)
 
     # Balance pass -- attack ramp-up (replaces innate regen): a small,
     # PERMANENT per-turn attack/elemental bonus that accumulates every one
@@ -392,6 +565,7 @@ def build_enemy_combatant(template: dict, level: int = 1) -> Combatant:
 
     return Combatant(
         name=template["name"],
+        short_name=short_name_for(template["name"]),
         is_player=False,
         base_stats=base_stats,
         current_hp=base_stats["max_hp"],

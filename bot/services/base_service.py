@@ -104,6 +104,20 @@ def get_hq_level(db, player) -> int:
     return get_or_create_base(db, player).hq_level
 
 
+# From this HQ level onward, the Research Lab and Forge become mandatory
+# for further HQ upgrades -- see the block inside missing_hq_requirements.
+HQ_LEVEL_REQUIRING_NEW_BUILDINGS = 3
+
+# The gated buildings only ever need to be one level behind HQ, capped so
+# a maxed Lab/Forge is never the thing blocking the last HQ level.
+MAX_GATED_BUILDING_LEVEL = 5
+
+# How many completed research projects each HQ level demands. Kept well
+# under the tree's size so a player is never forced to finish a branch
+# they don't want -- only to have engaged with the Lab at all.
+RESEARCH_REQUIRED_BY_HQ: dict[int, int] = {3: 2, 4: 5, 5: 9, 6: 14}
+
+
 def missing_hq_requirements(db, player) -> list[str]:
     """Human-readable list of what's still standing between the player and
     their next HQ upgrade. Empty list means they're ready."""
@@ -135,6 +149,35 @@ def missing_hq_requirements(db, player) -> list[str]:
             missing.append(f"Build {template.name}")
         elif owned.level < target:
             missing.append(f"Upgrade {template.name} to level {target} (currently {owned.level})")
+
+    # ------------------------------------------------------------------
+    # Research Lab + Forge requirements, from HQ 3 onward.
+    #
+    # Deliberately NOT from level 1: a brand-new player should be able to
+    # reach HQ 3 on harvesters and shrines alone, which are the systems
+    # they already understand. From 3 up, both new buildings become
+    # mandatory -- that's what stops them being optional side content the
+    # way the mailbox was, and it's why they're gated on the BUILDING's
+    # level plus a research count rather than on finishing the whole tree
+    # (which would wall progression behind an overnight timer).
+    # ------------------------------------------------------------------
+    if base.hq_level >= HQ_LEVEL_REQUIRING_NEW_BUILDINGS:
+        from bot.services import forge_service, research_service
+
+        lab = research_service.get_or_create_lab(db, player)
+        forge = forge_service.get_or_create_forge(db, player)
+        target_level = min(base.hq_level - 1, MAX_GATED_BUILDING_LEVEL)
+        required_projects = RESEARCH_REQUIRED_BY_HQ.get(base.hq_level, 0)
+        completed, _total = research_service.research_progress(db, player.id)
+
+        if lab.level < target_level:
+            missing.append(f"Upgrade the Research Lab to level {target_level} (currently {lab.level})")
+        if forge.level < target_level:
+            missing.append(f"Upgrade the Forge to level {target_level} (currently {forge.level})")
+        if completed < required_projects:
+            missing.append(
+                f"Complete {required_projects} research projects (currently {completed})"
+            )
 
     return missing
 
@@ -371,8 +414,15 @@ def purchase_listing(db, player, listing_id: int, hq_level: int) -> tuple[bool, 
     else:
         purchase_row = None
 
-    if not spend_currency(db, player, listing.cost_currency, listing.cost_amount):
-        return False, f"Not enough {currency_emoji(listing.cost_currency)} -- need {format_currency(listing.cost_currency, listing.cost_amount)}."
+    # Research Lab's Logistics branch (shop_discount_percent).
+    from bot.services import research_service
+    discount = research_service.perk_value(db, player.id, "shop_discount_percent")
+    price = listing.cost_amount
+    if discount:
+        price = max(1, int(round(price * (1 - discount / 100))))
+
+    if not spend_currency(db, player, listing.cost_currency, price):
+        return False, f"Not enough {currency_emoji(listing.cost_currency)} -- need {format_currency(listing.cost_currency, price)}."
 
     if listing.kind == "exchange":
         add_currency(db, player, listing.reward_currency, listing.reward_amount)
@@ -396,7 +446,7 @@ def purchase_listing(db, player, listing_id: int, hq_level: int) -> tuple[bool, 
         lootbox_service.grant_lootbox(db, player, listing.lootbox_tier, quantity=listing.lootbox_quantity)
         result_text = f"Received {listing.lootbox_quantity}x {listing.lootbox_tier.title()} Lootbox!"
     else:
-        add_currency(db, player, listing.cost_currency, listing.cost_amount)
+        add_currency(db, player, listing.cost_currency, price)
         return False, f"{listing.name} has an unknown listing type."
 
     if purchase_row is not None:

@@ -75,7 +75,7 @@ class Admin(commands.Cog):
 
         summary = (
             f"🎁 **Booster kit granted to {user.mention}!**\n"
-            f"🪙 +{BOOSTER_GOLD:,} gold | 💎 +{BOOSTER_SHARDS:,} shards\n"
+            f"🪙 +{BOOSTER_GOLD:,} gold | <:shard:1534383382924890192> +{BOOSTER_SHARDS:,} shards\n"
             f"📦 +{BOOSTER_LOOTBOXES_PER_TIER} of each: "
             + ", ".join(tier.title() for tier in BOOSTER_LOOTBOX_TIERS) + " lootbox"
         )

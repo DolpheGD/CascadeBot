@@ -106,6 +106,12 @@ def collect_harvester(db, harvester: PlayerHarvester) -> int:
     rate = get_production_rate(template, harvester.level)
     amount = round(rate * elapsed_hours)
 
+    # Research Lab's Logistics branch (harvester_percent).
+    from bot.services import research_service
+    yield_bonus = research_service.perk_value(db, harvester.player_id, "harvester_percent")
+    if yield_bonus:
+        amount = int(round(amount * (1 + yield_bonus / 100)))
+
     harvester.last_collected_at = now
     db.commit()
 
@@ -117,7 +123,7 @@ def collect_harvester(db, harvester: PlayerHarvester) -> int:
             from bot.services import character_service, combat_service
 
             squad = character_service.get_squad(db, harvester.player)
-            combat_service.apply_character_xp(db, squad, amount)
+            combat_service.apply_character_xp(db, squad, amount, player=harvester.player)
         else:
             add_currency(db, harvester.player, template.currency, amount)
 

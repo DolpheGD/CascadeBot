@@ -4,10 +4,12 @@ from bot.database.models.base_model import Base
 # Import every model module so each table registers on Base.metadata before
 # create_all runs.
 from bot.database.models import (  # noqa: F401
+    base_building_model,
     character_model,
     economy_model,
     equipment_model,
     expedition_model,
+    gift_model,
     hq_model,
     player_model,
     quest_model,
@@ -52,6 +54,13 @@ def _ensure_columns(conn):
     # ambiguous situation (we have no pull history to reconstruct from).
     add_column("players", "pity_since_five_star", "INTEGER DEFAULT 0")
     add_column("players", "pity_since_four_star", "INTEGER DEFAULT 0")
+
+    # Echoes -- the duplicate currency (bot/game/economy/resonance_config.py).
+    # Existing players start at 0 rather than being paid retroactively for
+    # duplicates they already pulled; their RESONANCE, though, is derived
+    # from dupe_count and so applies immediately with no backfill at all
+    # (see resonance_config.resonance_for).
+    add_column("players", "echoes", "INTEGER DEFAULT 0")
 
 
 def init_db():

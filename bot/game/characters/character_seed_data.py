@@ -216,4 +216,33 @@ CHARACTER_TEMPLATES: list[dict] = [
     _char("Virtual", 5, CharacterClass.AMPLIFIER,
           "Team Cascade's director of all engineering operations. Happiest elbow-deep in a chassis, Virtual is always tinkering on a new drone -- especially the support models that keep everyone else's gear running.",
           "virtual_skill", "virtual_ultimate"),
+
+    # -----------------------------------------------------------------
+    # ROSTER EXPANSION. Each of these five owns a mechanic nobody else
+    # has -- see the block above their kits in bot/game/combat/skills.py.
+    # Stat overrides are deliberately small and pointed: they push each
+    # one toward the thing their kit is about (Blastix wants the HP to
+    # spend, Gostley wants the crit to secure executions, Aizer wants the
+    # speed to keep stacking) rather than making them flatly stronger.
+    # -----------------------------------------------------------------
+    _char("Blastix", 5, CharacterClass.DPS,
+          "Demolitions, enthusiastically. Blastix has never met a problem that couldn't be improved by standing slightly too close to the solution -- and carries the scar tissue to prove it.",
+          "blastix_skill", "blastix_ultimate",
+          base_hp=125, growth_hp=8.5, growth_attack=1.05),
+    _char("Gostley", 4, CharacterClass.DPS,
+          "A quiet collector who turns up wherever something is about to end. Nobody is sure whether he arrives before the death or because of it.",
+          "gostley_skill", "gostley_ultimate",
+          base_crit_rate=9, base_crit_damage=170),
+    _char("Daffysamlake", 3, CharacterClass.SUSTAIN,
+          "Runs the only clean water for four regions and will not shut up about it. Insufferable, and the reason half of Glacier 15 is still standing.",
+          "daffysamlake_skill", "daffysamlake_ultimate",
+          base_hp=110, growth_hp=7.0),
+    _char("Chary", 4, CharacterClass.AMPLIFIER,
+          "A card sharp who reads a battlefield the way she reads a table -- she has already worked out what the other side is holding, and has quietly stacked the deck against it.",
+          "chary_skill", "chary_ultimate",
+          base_mana=56, growth_mana=1.1),
+    _char("Aizer", 4, CharacterClass.DPS,
+          "Prosecutes fights the way he used to prosecute cases: patiently, relentlessly, and with a closing argument nobody survives.",
+          "aizer_skill", "aizer_ultimate",
+          base_speed=12, growth_speed=0.34),
 ]

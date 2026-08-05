@@ -23,12 +23,9 @@ gradually unlock better goods and lootbox tiers via `unlock_hq_level`.
 PlayerShopPurchase tracks per-player, per-listing daily purchase counts for
 listings with a `daily_limit`.
 
-The mailbox (PlayerMailbox) is simpler still and unique to each player (no
-template catalog needed) -- it's created automatically at level 1, always
-has exactly one package brewing, and rewards a small basic-supplies package
-30min-1hr after the last collection. Its level (and the reward table that
-comes with it -- see bot/game/economy/mailbox_config.py) can be upgraded for
-better packages; the *wait window* never changes with level.
+The MAILBOX was removed in favour of the Research Lab and the Forge (see
+bot/database/models/base_building_model.py) -- it was a wait-then-collect
+building, which is what harvesters already are.
 """
 
 from __future__ import annotations
@@ -61,25 +58,6 @@ class PlayerBase(Base):
     def __repr__(self) -> str:  # pragma: no cover
         return f"<PlayerBase player_id={self.player_id} hq_level={self.hq_level}>"
 
-
-class PlayerMailbox(Base):
-    __tablename__ = "player_mailboxes"
-
-    player_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("players.id", ondelete="CASCADE"), primary_key=True
-    )
-    level: Mapped[int] = mapped_column(Integer, default=1)
-    # When the currently-brewing package finishes. Set 30min-1hr out the
-    # moment the mailbox is created AND every time a package is collected
-    # -- see bot/services/mailbox_service.py.
-    next_package_at: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
-
-    player: Mapped["Player"] = relationship(back_populates="mailbox")
-
-    def __repr__(self) -> str:  # pragma: no cover
-        return f"<PlayerMailbox player_id={self.player_id} level={self.level}>"
 
 
 class ShrineTemplate(Base):

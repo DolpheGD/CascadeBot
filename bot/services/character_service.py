@@ -16,16 +16,15 @@ from bot.database.models.character_model import PlayerCharacter, SquadSlot
 from bot.database.models.enums import CLASS_DISPLAY_NAME, CharacterClass
 from bot.database.models.equipment_model import InventoryItem
 from bot.services.character_template_service import get_avatar_template
+from bot.game.economy import resonance_config
 from bot.services.currency_service import add_currency
 
-# Resources granted for pulling a duplicate of a character you already own,
-# scaled by star rating -- higher star dupes are worth more since they're
-# rarer to begin with. Tuned as a starting point; retune freely.
-DUPE_REWARDS_BY_STAR: dict[int, dict[str, int]] = {
-    3: {"gold": 200, "reroll_tokens": 5},
-    4: {"gold": 500, "reroll_tokens": 12},
-    5: {"gold": 1200, "reroll_tokens": 25},
-}
+# NOTE: DUPE_REWARDS_BY_STAR (gold + reroll tokens for a duplicate pull)
+# is gone. Duplicates now raise the character's Resonance and pay Echoes
+# instead -- see bot/game/economy/resonance_config.py and grant_character
+# below. The old rewards were the problem that system exists to fix: the
+# gacha's own currency arriving as a pile of gold is the least
+# interesting thing a pull can produce.
 
 # Rename validation -- matches PlayerCharacter.custom_name's column width
 # (String(32)). Deliberately conservative on allowed characters: letters,
@@ -103,12 +102,35 @@ def get_squad_by_slot(db, player) -> dict[int, PlayerCharacter | None]:
 
 
 def set_squad_slot(db, player, slot_index: int, character: PlayerCharacter | None) -> tuple[bool, str]:
+    """Seat (or clear) one squad slot.
+
+    ANY owned character may go in ANY slot, including slot 0. That slot
+    used to be reserved for the player's own avatar, which meant a player
+    who had pulled four characters they preferred was still forced to
+    field the avatar and effectively played with three slots. The avatar
+    is still granted for free and still seated automatically on first use
+    (see ensure_avatar_character) -- it's a starter character now, not a
+    mandatory one.
+
+    The one rule left is that the squad can't be emptied entirely: with
+    no characters there is nothing to build a battle from, and every
+    entry point (expedition, domain, raid) would have to special-case it.
+    Clearing the last occupied slot is refused rather than silently
+    allowed and then failing later at the point of a fight."""
     if not 0 <= slot_index <= 3:
         return False, "Squad slots are numbered 0-3."
-    if slot_index == 0 and character is not None and not character.template.is_player_avatar:
-        return False, "Slot 0 is reserved for your own avatar character."
     if character is not None and character.player_id != player.id:
         return False, "You don't own that character."
+
+    if character is None:
+        occupied = (
+            db.query(SquadSlot)
+            .filter(SquadSlot.player_id == player.id, SquadSlot.character_id.isnot(None))
+            .count()
+        )
+        currently = db.query(SquadSlot).filter_by(player_id=player.id, slot_index=slot_index).first()
+        if occupied <= 1 and currently is not None and currently.character_id is not None:
+            return False, "You need at least one character in your squad."
 
     if character is not None:
         # A character can only occupy one slot at a time -- bump it out of
@@ -155,23 +177,46 @@ def get_progression_level(db, player) -> int:
     return max((pc.level for pc in squad), default=1)
 
 
-def grant_character(db, player, template) -> tuple[PlayerCharacter, bool, dict[str, int] | None]:
+def grant_character(db, player, template) -> tuple[PlayerCharacter, bool, dict | None]:
     """Grants `template` to `player`. Returns (player_character, is_new,
-    dupe_reward). If the player already owns this template, no new row is
-    created -- dupe_count goes up and a resource reward is paid out instead
-    (per the 'duplicates grant resources' spec requirement)."""
+    dupe_result).
+
+    A duplicate no longer pays out gold and reroll tokens. It raises the
+    character's RESONANCE (up to 5, permanently strengthening them) and
+    pays ECHOES, which buy a character of the player's choosing -- see
+    bot/game/economy/resonance_config.py for why. `dupe_result` carries
+    everything a caller needs to describe what happened:
+
+        {"echoes": int, "resonance": int, "resonance_gained": bool,
+         "level": dict | None, "maxed": bool}
+
+    `level` is the RESONANCE_LEVELS entry just unlocked, so the pull
+    screen can name the upgrade rather than printing a number."""
     existing = (
         db.query(PlayerCharacter)
         .filter_by(player_id=player.id, template_id=template.id)
         .first()
     )
     if existing is not None:
+        before = resonance_config.resonance_for(existing.dupe_count)
         existing.dupe_count += 1
-        reward = dict(DUPE_REWARDS_BY_STAR.get(template.star_rating, {"gold": 150, "reroll_tokens": 3}))
-        for currency, amount in reward.items():
-            add_currency(db, player, currency, amount)
+        after = resonance_config.resonance_for(existing.dupe_count)
+
+        echoes = resonance_config.echoes_for_dupe(template.star_rating, existing.dupe_count)
+        add_currency(db, player, "echoes", echoes)
         db.commit()
-        return existing, False, reward
+
+        unlocked = next(
+            (entry for entry in resonance_config.RESONANCE_LEVELS if entry["level"] == after),
+            None,
+        ) if after > before else None
+        return existing, False, {
+            "echoes": echoes,
+            "resonance": after,
+            "resonance_gained": after > before,
+            "level": unlocked,
+            "maxed": resonance_config.is_maxed(existing.dupe_count),
+        }
 
     pc = PlayerCharacter(player_id=player.id, template_id=template.id, level=1)
     db.add(pc)

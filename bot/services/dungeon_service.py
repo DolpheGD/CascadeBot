@@ -918,7 +918,11 @@ def _apply_gain(
             # in-run drop. Usually Common/Uncommon, rarely much better --
             # this is the "possible but rare higher tier reward" path for
             # encounter-granted gear.
-            rarity = generator.roll_rarity(max_rarity=max_item_rarity)
+            from bot.services import research_service
+            rarity = generator.roll_rarity(
+                max_rarity=max_item_rarity,
+                rarity_weight_bonus=research_service.perk_value(db, player.id, "loot_rarity_weight"),
+            )
         elif item_spec is True:
             # True -> guaranteed Common, like a basic shop item.
             rarity = Rarity.COMMON

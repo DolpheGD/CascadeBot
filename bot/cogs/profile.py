@@ -3,11 +3,13 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
+from bot.utils import names
 from bot.database.models.enums import CLASS_EMOJI, CharacterClass
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_or_create_player, get_player
 from bot.services.currency_service import add_currency
-from bot.services import character_service, dungeon_service, inventory_service
+from bot.services import (account_service, character_service, dungeon_service,
+                          gift_service, inventory_service)
 from bot.utils.ui_guard import OwnedView, require_player
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils import embedder
@@ -31,7 +33,8 @@ class CharacterProfileSelect(discord.ui.Select):
     def __init__(self, page: int, current_character_id: int, owned: list):
         options = [
             discord.SelectOption(
-                label=f"{pc.display_name} (Lv{pc.level}, {pc.template.star_rating}★)"[:100],
+                label=names.fit_suffix(
+                    pc.display_name, f"(Lv{pc.level}, {pc.template.star_rating}★)", 100),
                 value=str(pc.id),
                 default=(pc.id == current_character_id),
             )
@@ -123,7 +126,7 @@ class Profile(commands.Cog):
 
         await ctx.response.send_message(
             f"Welcome to the Cascade, **{ctx.user.display_name}**. "
-            f"Your journey begins at level 1 with 🪙 {STARTING_GOLD} gold and 💎 {STARTING_SHARDS} shards to get started. "
+            f"Your journey begins at level 1 with 🪙 {STARTING_GOLD} gold and <:shard:1534383382924890192> {STARTING_SHARDS} shards to get started. "
             "Use `/profile` any time to check your stats, gear, and abilities."
         )
 
@@ -190,14 +193,20 @@ class Profile(commands.Cog):
 
         await ctx.response.send_message(message, ephemeral=not ok)
 
-    # COMMAND: /profile
-    # Displays the caller's CascadeBot profile across 3 pages: Overview,
-    # Equipment (every slot, empty or filled), and Abilities.
+    # COMMAND: /characters
+    # The full per-character sheet: Overview, Equipment (every slot, empty
+    # or filled) and Abilities, with a dropdown to switch character.
+    #
+    # This used to be /profile, and /characters was a flat one-line-per-
+    # character list. That split was backwards -- the list couldn't tell
+    # you anything about a character, and /profile could only ever show
+    # you one. Now /characters is where characters live, and /profile is
+    # the account (see below).
     @app_commands.command(
-        name="profile",
-        description="View your CascadeBot profile: stats, equipment, and abilities."
+        name="characters",
+        description="View any character you own: stats, equipment, and abilities."
     )
-    async def profile(self, ctx: discord.Interaction):
+    async def characters(self, ctx: discord.Interaction):
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
@@ -219,6 +228,114 @@ class Profile(commands.Cog):
             db.close()
 
         await ctx.response.send_message(embed=embed, view=view)
+
+    # COMMAND: /profile
+    # The ACCOUNT view -- account level, roster completion, power, and
+    # currencies. Deliberately holds nothing that belongs to a single
+    # character; that's what /characters is for.
+    @app_commands.command(
+        name="profile",
+        description="Your account: level, roster, power and currencies."
+    )
+    async def profile(self, ctx: discord.Interaction):
+        db = SessionLocal()
+        try:
+            player = get_player(db, ctx.user.id)
+            if not await require_player(ctx, player):
+                return
+            summary = account_service.account_summary(db, player)
+            embed = embedder.account_profile_embed(
+                player, summary, avatar_url=ctx.user.display_avatar.url
+            )
+        finally:
+            db.close()
+
+        await ctx.response.send_message(embed=embed)
+
+    # COMMAND: /gift
+    # Sends another player a package of materials or gold. See
+    # bot/services/gift_service.py for the caps and why they exist.
+    @app_commands.command(
+        name="gift",
+        description="Send another player some materials or gold."
+    )
+    @app_commands.describe(
+        player="Who to send it to.",
+        currency="What to send.",
+        amount="How much.",
+        note="Optional short message.",
+    )
+    @app_commands.choices(currency=[
+        app_commands.Choice(name=c.replace("_", " ").title(), value=c)
+        for c in gift_service.GIFTABLE
+    ])
+    async def gift(self, ctx: discord.Interaction, player: discord.User,
+                   currency: str, amount: int, note: str | None = None):
+        if player.bot:
+            await ctx.response.send_message("Bots have no use for materials.", ephemeral=True)
+            return
+        db = SessionLocal()
+        try:
+            sender = get_player(db, ctx.user.id)
+            if not await require_player(ctx, sender):
+                return
+            try:
+                sent = gift_service.send_gift(db, sender, player.id, {currency: amount}, note)
+            except gift_service.GiftError as exc:
+                await ctx.response.send_message(str(exc), ephemeral=True)
+                return
+            embed = embedder.gift_sent_embed(
+                sent, player.mention, gift_service.sends_remaining(db, sender.id)
+            )
+        finally:
+            db.close()
+
+        await ctx.response.send_message(embed=embed)
+
+    # COMMAND: /gifts
+    # The inbox. Shows what's waiting, then collects it all on a button.
+    @app_commands.command(name="gifts", description="See and collect gifts other players sent you.")
+    async def gifts(self, ctx: discord.Interaction):
+        db = SessionLocal()
+        try:
+            player = get_player(db, ctx.user.id)
+            if not await require_player(ctx, player):
+                return
+            pending = gift_service.pending_for(db, player.id)
+            embed = embedder.gift_inbox_embed(player, pending)
+            view = GiftCollectView(owner_id=player.id) if pending else None
+        finally:
+            db.close()
+
+        await ctx.response.send_message(embed=embed, view=view, ephemeral=True)
+
+
+class GiftCollectView(OwnedView):
+    """One button, owner-locked, short-lived. Deliberately NOT persistent:
+    collecting is idempotent-ish but a stale button from a week ago
+    re-collecting a fresh gift the player hadn't read yet is a worse
+    outcome than the button expiring."""
+
+    def __init__(self, owner_id: int | None = None):
+        super().__init__(timeout=300, owner_id=owner_id)
+
+    @discord.ui.button(label="🎁 Collect all", style=discord.ButtonStyle.success)
+    async def collect(self, interaction: discord.Interaction, button: discord.ui.Button):
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            if player is None:
+                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                return
+            try:
+                result = gift_service.collect_all(db, player)
+            except gift_service.GiftError as exc:
+                await interaction.response.edit_message(content=str(exc), embed=None, view=None)
+                return
+            embed = embedder.gift_collected_embed(result)
+        finally:
+            db.close()
+        await interaction.response.edit_message(embed=embed, view=None)
 
 
 async def setup(bot):

@@ -81,7 +81,9 @@ def start_battle(db, expedition, player, enemy_templates: list, level: int) -> B
     equipped_by_char = character_service.get_equipped_items_by_character(
         db, [pc.id for pc in squad]
     )
-    party_combatants = build_party_combatants(squad, equipped_by_char)
+    from bot.services import research_service
+    party_combatants = build_party_combatants(squad, equipped_by_char,
+        starting_energy=research_service.perk_value(db, player.id, "starting_energy"))
     base_service.apply_shrine_bonuses(db, player, party_combatants)
     # Run-scoped relics, applied after shrines so their percentages are
     # computed against the fully-equipped, fully-shrined stat line -- the
@@ -166,11 +168,18 @@ def restore_squad_to_full_hp(db, squad: list) -> None:
     db.commit()
 
 
-def apply_character_xp(db, squad: list, xp_reward: int) -> list[dict]:
+def apply_character_xp(db, squad: list, xp_reward: int, player=None) -> list[dict]:
     """Splits `xp_reward` evenly across every squad member (not just who
     landed the killing blow -- simpler and keeps off-action support/sustain
     characters from falling behind). Level cap is 100 per the leveling spec."""
     from bot.database.models.character_model import LEVEL_CAP
+
+    # Research Lab's Fieldwork branch (character_xp_percent).
+    if player is not None:
+        from bot.services import research_service
+        bonus = research_service.perk_value(db, player.id, "character_xp_percent")
+        if bonus:
+            xp_reward = int(round(xp_reward * (1 + bonus / 100)))
 
     summaries = []
     for pc in squad:
@@ -213,7 +222,16 @@ def apply_victory_rewards(
     drop_chance = ITEM_DROP_CHANCE.get(room_type, 0.4)
     if rng.random() < drop_chance:
         generator = LootGenerator(rng=rng)
-        rarity = generator.roll_rarity(max_rarity=difficulty["max_item_rarity"])
+        # Research Lab's Salvage branch (loot_rarity_weight) tilts the
+        # roll upward. Applied HERE rather than inside generate_item
+        # because these call sites pass rarity_override, which bypasses
+        # roll_rarity entirely -- putting it only in the generator would
+        # have made the perk silently do nothing on real drops.
+        from bot.services import research_service
+        rarity = generator.roll_rarity(
+            max_rarity=difficulty["max_item_rarity"],
+            rarity_weight_bonus=research_service.perk_value(db, player.id, "loot_rarity_weight"),
+        )
         template = item_template_service.pick_random_template(db, rng=rng, rarity=rarity)
         if template is not None:
             # Equipment always starts at level 1 -- the player levels it up

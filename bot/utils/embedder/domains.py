@@ -9,7 +9,7 @@ from __future__ import annotations
 import discord
 
 from bot.services import domain_service
-from bot.game.economy.domain_config import DOMAIN_DIFFICULTY_TIERS, DOMAIN_TYPES, MAX_DOMAIN_ENERGY
+from bot.game.economy.domain_config import DOMAIN_DIFFICULTY_TIERS, DOMAIN_TYPES
 from bot.services.currency_service import format_currency
 from bot.utils.embedder._shared import _bar
 
@@ -20,28 +20,32 @@ from bot.utils.embedder._shared import _bar
 # bot/services/domain_service.py and bot/game/economy/domain_config.py.
 # ----------------------------------------------------------------------
 
-def _energy_bar_line(player) -> str:
-    current = domain_service.get_current_energy(player)
-    bar = _bar(current, MAX_DOMAIN_ENERGY, length=12)
-    line = f"⚡ {current}/{MAX_DOMAIN_ENERGY} {bar}"
-    next_point = domain_service.time_until_next_energy_point(player)
+def _energy_bar_line(db, player) -> str:
+    """Energy cap is per-player now (it scales with Cascade HQ level --
+    see domain_config.DOMAIN_ENERGY_BY_HQ_LEVEL), so this needs a session
+    to look it up rather than reading a module constant."""
+    current = domain_service.get_current_energy(db, player)
+    cap = domain_service.energy_cap(db, player)
+    bar = _bar(current, cap, length=12)
+    line = f"⚡ {current}/{cap} {bar}"
+    next_point = domain_service.time_until_next_energy_point(db, player)
     if next_point is not None:
         minutes = int(next_point.total_seconds() // 60) + 1
         line += f"\n*Next point in {minutes}m*"
     return line
 
 
-def domain_menu_embed(player) -> discord.Embed:
+def domain_menu_embed(db, player) -> discord.Embed:
     """Top-level /domains screen: energy status + every domain type."""
     embed = discord.Embed(title="🌀 Domains", color=discord.Color.dark_purple())
-    embed.add_field(name="Energy", value=_energy_bar_line(player), inline=False)
+    embed.add_field(name="Energy", value=_energy_bar_line(db, player), inline=False)
     for domain in DOMAIN_TYPES:
         embed.add_field(name=f"{domain['icon']} {domain['name']}", value=domain["description"], inline=False)
     embed.set_footer(text="Pick a domain below to see its difficulty tiers.")
     return embed
 
 
-def domain_tier_embed(domain: dict, player, lock_reasons: dict[str, str | None] | None = None) -> discord.Embed:
+def domain_tier_embed(db, domain: dict, player, lock_reasons: dict[str, str | None] | None = None) -> discord.Embed:
     """Shown after picking a domain type: energy status + every
     difficulty tier for THIS domain, with its reward, unlock requirement,
     and energy cost. Locked tiers are still shown (so the player can see
@@ -56,7 +60,7 @@ def domain_tier_embed(domain: dict, player, lock_reasons: dict[str, str | None] 
         title=f"{domain['icon']} {domain['name']}", description=domain["description"],
         color=discord.Color.dark_purple(),
     )
-    embed.add_field(name="Energy", value=_energy_bar_line(player), inline=False)
+    embed.add_field(name="Energy", value=_energy_bar_line(db, player), inline=False)
 
     for tier in DOMAIN_DIFFICULTY_TIERS:
         reward = domain["rewards"][tier["id"]]

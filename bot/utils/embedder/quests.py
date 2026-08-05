@@ -22,26 +22,42 @@ def quest_board_embed(beginner_quests: list, basic_quests: list, cooldown_remain
     basic_quest_reroll_cooldown_remaining."""
     embed = discord.Embed(title="📋 Quests", color=discord.Color.teal())
 
-    descriptions_by_id = {q["id"]: q["description"] for q in BEGINNER_QUESTS}
-    beginner_lines = []
-    completed_count = 0
-    for quest in beginner_quests:
-        desc = descriptions_by_id.get(quest.quest_id, quest.quest_id)
-        if quest.is_completed:
-            completed_count += 1
-            beginner_lines.append(f"✅ ~~{desc}~~")
-        else:
-            beginner_lines.append(f"⬜ {desc} ({quest.progress}/{quest.goal_count})")
-    beginner_title = f"🌱 Beginner Quests ({completed_count}/{len(beginner_quests)})"
-    if player.beginner_quest_bonus_claimed:
-        beginner_title += " -- bonus claimed!"
-    embed.add_field(name=beginner_title, value="\n".join(beginner_lines), inline=False)
-    if not player.beginner_quest_bonus_claimed:
+    # BEGINNER QUESTS DISAPPEAR ONCE THEY'RE ALL DONE.
+    #
+    # They're one-time, and a finished set is a wall of struck-through
+    # text sitting above the quests the player actually opened the board
+    # to read. While any are still outstanding they're the most important
+    # thing here -- they're the new-player tutorial -- so they stay at the
+    # top; the moment the last one closes out, the section retires itself
+    # and the board becomes purely about basic quests.
+    #
+    # Keyed off "are any incomplete" rather than off
+    # beginner_quest_bonus_claimed, deliberately: the bonus is claimed by
+    # a separate action, and hiding the list before the player has
+    # collected it would hide the thing telling them to.
+    unfinished = [q for q in beginner_quests if not q.is_completed]
+    if unfinished:
+        descriptions_by_id = {q["id"]: q["description"] for q in BEGINNER_QUESTS}
+        beginner_lines = []
+        completed_count = 0
+        for quest in beginner_quests:
+            desc = descriptions_by_id.get(quest.quest_id, quest.quest_id)
+            if quest.is_completed:
+                completed_count += 1
+                beginner_lines.append(f"✅ ~~{desc}~~")
+            else:
+                beginner_lines.append(f"⬜ {desc} ({quest.progress}/{quest.goal_count})")
         embed.add_field(
-            name="🎁 Completion Bonus",
-            value=f"Finish every beginner quest above for {format_currency('shards', 900)}!",
+            name=f"🌱 Beginner Quests ({completed_count}/{len(beginner_quests)})",
+            value="\n".join(beginner_lines),
             inline=False,
         )
+        if not player.beginner_quest_bonus_claimed:
+            embed.add_field(
+                name="🎁 Completion Bonus",
+                value=f"Finish every beginner quest above for {format_currency('shards', 900)}!",
+                inline=False,
+            )
 
     if basic_quests:
         for quest in basic_quests:

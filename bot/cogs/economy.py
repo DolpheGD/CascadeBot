@@ -6,7 +6,8 @@ from discord.ext import commands
 from discord import app_commands
 
 from bot.database.session import SessionLocal
-from bot.services import dungeon_service, lootbox_service
+from bot.game.economy import resonance_config
+from bot.services import character_service, dungeon_service, echo_exchange_service, lootbox_service
 from bot.services.character_gacha_service import pull_multi, pull_single
 from bot.services.currency_service import format_currency
 from bot.services.daily_service import DailyOnCooldown, claim_daily
@@ -14,7 +15,8 @@ from bot.services.player_service import get_player
 from bot.utils import embedder
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils.logger import get_logger
-from bot.utils.ui_guard import require_player
+from bot.utils import names
+from bot.utils.ui_guard import OwnedView, check_message_owner, require_player
 
 logger = get_logger("economy")
 
@@ -74,11 +76,12 @@ class Economy(commands.Cog):
 
     # COMMAND: /pull
     # Spends shards on a gacha pull -- characters only. Pulling a character
-    # you already own converts to gold + reroll tokens instead.
+    # you already own raises their Resonance and pays Echoes instead
+    # (bot/game/economy/resonance_config.py).
     @app_commands.command(name="pull", description="Spend shards to pull a new character.")
     @app_commands.choices(count=[
         app_commands.Choice(name="Single Pull", value=1),
-        app_commands.Choice(name="10x Pull (10% off)", value=10),
+        app_commands.Choice(name="10x Pull", value=10),
     ])
     async def pull(self, ctx: discord.Interaction, count: int = 1):
         db = SessionLocal()
@@ -199,6 +202,161 @@ class Economy(commands.Cog):
             db.close()
 
         await ctx.response.send_message(embed=embed)
+
+
+    # COMMAND: /exchange
+    # Spends Echoes -- the duplicate currency -- on a character of the
+    # player's choosing. The deterministic counterpart to /pull.
+    @app_commands.command(
+        name="exchange",
+        description="Spend Echoes from duplicate pulls on any character you want.",
+    )
+    async def exchange(self, ctx: discord.Interaction):
+        db = SessionLocal()
+        try:
+            player = get_player(db, ctx.user.id)
+            if not await require_player(ctx, player):
+                return
+            offers = echo_exchange_service.offers(db, player)
+            embed = embedder.echo_exchange_embed(player, offers)
+            view = EchoExchangeView(offers, owner_id=player.id)
+        finally:
+            db.close()
+
+        await ctx.response.send_message(embed=embed, view=view)
+
+    # COMMAND: /resonance
+    # One character's duplicate-upgrade track. Separate from /profile
+    # because it's the screen a player reads while deciding whether to
+    # keep pulling, which is a different question from "how is this
+    # character equipped".
+    @app_commands.command(
+        name="resonance",
+        description="See what duplicate copies have unlocked for a character.",
+    )
+    async def resonance(self, ctx: discord.Interaction):
+        db = SessionLocal()
+        try:
+            player = get_player(db, ctx.user.id)
+            if not await require_player(ctx, player):
+                return
+            owned = character_service.list_owned_characters(db, player)
+            embed = embedder.resonance_embed(owned[0])
+            view = ResonancePickerView(owned, owned[0].id, owner_id=player.id)
+        finally:
+            db.close()
+
+        await ctx.response.send_message(embed=embed, view=view)
+
+
+# ----------------------------------------------------------------------
+# Echo exchange views
+#
+# Both are short-lived and owner-locked rather than persistent: they're
+# menus a player opens, acts on, and closes, and neither holds state
+# worth surviving a restart -- every callback re-reads the player and
+# their echo balance from the database, so a stale message can't spend
+# money that isn't there.
+# ----------------------------------------------------------------------
+
+class EchoExchangeSelect(discord.ui.Select):
+    def __init__(self, offers: list[dict]):
+        options = []
+        # Cheapest affordable first: the list is 24 characters against
+        # Discord's 25-option ceiling, and a player with few echoes wants
+        # to see what they can actually buy without scrolling past six
+        # 5-stars they can't.
+        for offer in sorted(offers, key=lambda o: (not o["affordable"], o["cost"])):
+            mark = "✅" if offer["affordable"] else "🔒"
+            owned = f" · R{offer['resonance']}" if offer["owned"] else " · NEW"
+            options.append(discord.SelectOption(
+                label=names.fit_suffix(
+                    f"{mark} {offer['name']}", f"— {offer['cost']:,} ✴️{owned}", 100),
+                value=str(offer["template_id"]),
+                description=("Raises their Resonance" if offer["owned"]
+                             else "You don't own this character yet")[:100],
+            ))
+        super().__init__(placeholder="Buy a character...", options=options[:25],
+                         min_values=1, max_values=1)
+
+    async def callback(self, interaction: discord.Interaction):
+        if not await check_message_owner(interaction):
+            return
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            if player is None:
+                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                return
+            try:
+                result = echo_exchange_service.purchase(db, player, int(self.values[0]))
+            except echo_exchange_service.ExchangeError as exc:
+                await interaction.response.send_message(str(exc), ephemeral=True)
+                return
+
+            # The purchase renders through the ordinary pull embed, so a
+            # bought character and a pulled one report themselves the same
+            # way -- including a duplicate purchase announcing the
+            # resonance level it just unlocked.
+            result_embed = embedder.gacha_pull_embed([result], player=player)
+            result_embed.title = f"✴️ Echo Exchange — {result['cost']:,} spent"
+
+            offers = echo_exchange_service.offers(db, player)
+            shop_embed = embedder.echo_exchange_embed(player, offers)
+            view = EchoExchangeView(offers, owner_id=player.id)
+        finally:
+            db.close()
+
+        await interaction.response.edit_message(embed=shop_embed, view=view)
+        await interaction.followup.send(embed=result_embed, ephemeral=True)
+
+
+class EchoExchangeView(OwnedView):
+    def __init__(self, offers: list[dict], owner_id: int | None = None):
+        super().__init__(timeout=300, owner_id=owner_id)
+        self.add_item(EchoExchangeSelect(offers))
+
+
+class ResonancePickerSelect(discord.ui.Select):
+    def __init__(self, owned: list, current_id: int):
+        options = [
+            discord.SelectOption(
+                label=names.fit_suffix(
+                    pc.display_name,
+                    f"— R{resonance_config.resonance_for(pc.dupe_count)}"
+                    f"/{resonance_config.MAX_RESONANCE}",
+                    100,
+                ),
+                value=str(pc.id),
+                default=(pc.id == current_id),
+            )
+            for pc in owned
+        ][:25]
+        super().__init__(placeholder="Switch character...", options=options,
+                         min_values=1, max_values=1)
+
+    async def callback(self, interaction: discord.Interaction):
+        if not await check_message_owner(interaction):
+            return
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            if player is None:
+                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                return
+            owned = character_service.list_owned_characters(db, player)
+            chosen = next((pc for pc in owned if pc.id == int(self.values[0])), owned[0])
+            embed = embedder.resonance_embed(chosen)
+            view = ResonancePickerView(owned, chosen.id, owner_id=player.id)
+        finally:
+            db.close()
+        await interaction.response.edit_message(embed=embed, view=view)
+
+
+class ResonancePickerView(OwnedView):
+    def __init__(self, owned: list, current_id: int, owner_id: int | None = None):
+        super().__init__(timeout=300, owner_id=owner_id)
+        self.add_item(ResonancePickerSelect(owned, current_id))
 
 
 async def setup(bot):
