@@ -61,8 +61,27 @@ def _check_maps() -> list[str]:
     from bot.game.story import map_config as mc
     from bot.game.story import story_config as sc
 
+    from bot.database.models.enums import Rarity
+    from bot.game.combat.enemies import ENEMY_TEMPLATES
+    from bot.services.currency_service import VALID_CURRENCIES
+
+    enemy_names = {t["name"] for t in ENEMY_TEMPLATES}
+    rarities = {r.value for r in Rarity}
     failures: list[str] = []
     placed: dict[str, list[str]] = {}
+
+    def check_grant(where: str, grant: dict) -> None:
+        """Map rewards use the same block shape as story rewards, so they
+        get the same validation -- a typo'd currency on a cache is exactly
+        as invisible as one on a mission."""
+        for key, value in (grant or {}).items():
+            if key == "item":
+                if value not in rarities:
+                    failures.append(f"{where}: item rarity {value!r} does not exist")
+            elif key == "character":
+                continue
+            elif key not in VALID_CURRENCIES:
+                failures.append(f"{where}: '{key}' is not a currency")
 
     for area_id, area in mc.AREAS.items():
         grid = area.get("grid") or []
@@ -119,6 +138,10 @@ def _check_maps() -> list[str]:
                 )
 
         # Contents
+        bonus = area.get("completion_bonus")
+        if bonus:
+            check_grant(f"area '{area_id}' completion_bonus", bonus)
+
         for char, content in legend.items():
             where = f"area '{area_id}' tile '{char}'"
             kind = content.get("kind")
@@ -140,6 +163,32 @@ def _check_maps() -> list[str]:
             elif kind == "note":
                 if not content.get("text"):
                     failures.append(f"{where}: note with no text")
+            elif kind == "cache":
+                if not content.get("grant"):
+                    failures.append(f"{where}: cache with nothing in it")
+                check_grant(where, content.get("grant") or {})
+            elif kind == "hunt":
+                enemies = content.get("enemies") or []
+                if not enemies:
+                    failures.append(f"{where}: hunt with no enemies")
+                if len(enemies) > 5:
+                    failures.append(f"{where}: {len(enemies)} enemies (engine allows 5)")
+                for enemy in enemies:
+                    if enemy not in enemy_names:
+                        failures.append(f"{where}: no enemy template named {enemy!r}")
+                if not isinstance(content.get("level"), int):
+                    failures.append(f"{where}: hunt needs an integer level")
+                if not content.get("grant"):
+                    failures.append(
+                        f"{where}: hunt with no reward -- an optional fight that pays "
+                        f"nothing is a trap, not a choice"
+                    )
+                check_grant(where, content.get("grant") or {})
+                if "Optional" not in (content.get("text") or ""):
+                    failures.append(
+                        f"{where}: hunt text must tell the player it's OPTIONAL and that "
+                        f"losing is free, or it reads as required content they can fail"
+                    )
             elif kind == "exit":
                 target = content.get("to_area")
                 destination = mc.AREAS.get(target)

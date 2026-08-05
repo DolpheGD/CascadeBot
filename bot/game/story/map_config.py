@@ -47,7 +47,7 @@ would silently give them the same dialogue.
 
 A legend entry is:
 
-    kind      "mission" | "note" | "exit"
+    kind      "mission" | "note" | "cache" | "hunt" | "exit"
     emoji     what's drawn on the grid (see EMOJI WIDTH below)
     name      shown when you're standing on it
 
@@ -71,6 +71,31 @@ A legend entry is:
     locked_text       what the player is told when it's locked. Always
                       say what would open it; a door that just says "no"
                       is a bug report waiting to happen.
+
+OPTIONAL CONTENT -- `cache` and `hunt`
+--------------------------------------
+Notes are worth reading for the story, and nothing else. That is fine for
+some tiles and a wasted opportunity for others: a player who explores
+every room should end up materially better off than one who walks the
+critical path, or exploring is a tax on people who like exploring.
+
+    cache   one-time optional loot. `grant` is the same reward block the
+            story uses. Claimed once, then it renders as empty.
+    hunt    an optional FIGHT, off the critical path and deliberately
+            harder than the mission fights around it. `enemies`, `level`
+            and `grant`. Losing costs nothing and touches no mission
+            progress -- an optional fight that could set you back would
+            just teach players to avoid optional fights.
+
+Both are tracked in PlayerStory.read_tiles alongside notes, so "have I
+already had this" is one question with one answer.
+
+AREA COMPLETION
+---------------
+`completion_bonus` on an area pays out once, when every interactive tile
+in it has been used. It is the payoff for thoroughness specifically --
+the reward for the LAST tile, which is otherwise the least interesting
+one to walk to.
 
 ----------------------------------------------------------------------
 DENSITY IS THE THING THAT MATTERS
@@ -163,6 +188,7 @@ AREAS: dict[str, dict] = {
     "ocellios_ruin": {
         "name": "Ocellios Lab — Sector 9",
         "blurb": "Coming apart. You do not remember arriving.",
+        "completion_bonus": {"gold": 300, "item": "uncommon"},
         "grid": [
             "#############",
             "#T.s.c#R.m.o#",
@@ -251,10 +277,11 @@ AREAS: dict[str, dict] = {
                 "text": "Six D-class cradles. Five empty, the sixth holding a unit with its control cover prised off.\n\nSomebody reached in and changed what these things want. It wasn't the lab.",
             },
             "b": {
-                "kind": "note",
+                "kind": "cache",
                 "emoji": "📦",
-                "name": "Shipping pallet",
+                "name": "Shipping pallet — prised open",
                 "text": "Crates stencilled for a freight route running north off the edge of the site map.\n\nEvery crate is within four kilos of every other crate.",
+                "grant": {"gold": 260, "metal": 40, "item": "uncommon"}
             },
             "o": {
                 "kind": "note",
@@ -296,6 +323,7 @@ AREAS: dict[str, dict] = {
     "glacier_crossing": {
         "name": "Glacier 15 — The Crossing",
         "blurb": "White, then white, then white. A line of dead lamps going east.",
+        "completion_bonus": {"gold": 450, "shards": 60, "item": "uncommon"},
         "grid": [
             "#############",
             "#B.t.p#N.i.h#",
@@ -357,10 +385,11 @@ AREAS: dict[str, dict] = {
                 "text": "Something rectangular under the drift, forty metres off the path. A roof.\n\nYou are not crossing a wilderness. You are walking along the top of somebody's street.",
             },
             "u": {
-                "kind": "note",
+                "kind": "cache",
                 "emoji": "🚗",
-                "name": "Buried vehicle",
+                "name": "Buried vehicle — the packed boot",
                 "text": "A family hauler, iced solid. Doors shut, seats empty, boot open and packed.\n\nThey packed. They got as far as loading it. Then they didn't drive.",
+                "grant": {"gold": 320, "permafrost_ore": 40, "item": "uncommon"}
             },
             "z": {
                 "kind": "note",
@@ -399,10 +428,13 @@ AREAS: dict[str, dict] = {
                 "text": "Stones stacked waist-high, a name plate wired to the top, no grave underneath.\n\nThere are more of these than there are loose stones to build them from. Somebody has been rationing the memorials.",
             },
             "a": {
-                "kind": "note",
+                "kind": "hunt",
                 "emoji": "🕳",
-                "name": "Entry hole",
-                "text": "A shaft punched clean through the ice from below, wide enough to drive into.\n\nThe edges are machined. Whatever came up here was built, and it did not come up hungry. It came up *looking*.",
+                "name": "Entry hole — something still down there",
+                "text": "The shaft goes deeper than the worm needed, and something small came back up it afterwards. It has not gone down again.\n\n*Optional. Losing this costs you nothing at all.*",
+                "enemies": ["Concussion Drone", "Concussion Drone"],
+                "level": 4,
+                "grant": {"gold": 400, "permafrost_ore": 45, "item": "uncommon"}
             },
             "q": {
                 "kind": "note",
@@ -430,6 +462,7 @@ AREAS: dict[str, dict] = {
     "cascade_forward_base": {
         "name": "Cascade — Forward Base",
         "blurb": "One heated shell, one relay, and a great deal of extension cable.",
+        "completion_bonus": {"gold": 600, "reroll_tokens": 6, "item": "rare"},
         "grid": [
             "#############",
             "#V.b...M.d.n#",
@@ -496,10 +529,11 @@ AREAS: dict[str, dict] = {
                 "text": "Four beds. Three made with a neatness that suggests military habit; the fourth is a nest of blankets and charging cables.\n\nYou can tell whose is whose, and you have been here under an hour.",
             },
             "z": {
-                "kind": "note",
+                "kind": "cache",
                 "emoji": "🧰",
-                "name": "Parts crate",
+                "name": "Parts crate — ASK ME FIRST",
                 "text": "Salvage sorted into bins by a system that is either brilliant or nonexistent.\n\nOne bin says **GOOD**. One says **BAD**. One says **ASK ME FIRST** and is padlocked.",
+                "grant": {"metal": 70, "crystal": 35, "reroll_tokens": 4}
             },
             "m": {
                 "kind": "note",
@@ -539,6 +573,7 @@ AREAS: dict[str, dict] = {
     "cryosphere_divide": {
         "name": "Cryosphere Divide",
         "blurb": "Where the shelf gives way. Xender says there is nothing here.",
+        "completion_bonus": {"gold": 900, "shards": 80, "item": "rare"},
         "grid": [
             "#############",
             "#J.f.s#C.g.p#",
@@ -617,10 +652,13 @@ AREAS: dict[str, dict] = {
                 "text": "Half-buried, pointing away from the site. Civilian, and child-sized.\n\nThere were no civilians here. There was nobody here at all.",
             },
             "y": {
-                "kind": "note",
+                "kind": "hunt",
                 "emoji": "🐾",
-                "name": "Four-point tracks",
-                "text": "Something crossed here on four points, heavy enough to punch the crust, and it was not a snowcat.\n\nThe stride is even and the line is dead straight. Animals wander. This was walking a route.",
+                "name": "Four-point tracks — followed",
+                "text": "The stride is even and the line is dead straight. It runs behind the vehicle park and stops there.\n\nSomething is standing very still back there.\n\n*Optional. Losing this costs you nothing at all.*",
+                "enemies": ["Glacial Exterminator"],
+                "level": 6,
+                "grant": {"gold": 900, "crystal": 50, "item": "rare"}
             },
             "v": {
                 "kind": "note",
@@ -641,10 +679,11 @@ AREAS: dict[str, dict] = {
                 "text": "A spare medical kit, cached at the divide, restocked and dated last week.\n\nCascade keeps supplies at the edge of this site permanently. They have never once stopped expecting to need them.",
             },
             "b": {
-                "kind": "note",
+                "kind": "cache",
                 "emoji": "🛢",
-                "name": "Fuel bunker",
+                "name": "Fuel bunker — company stock",
                 "text": "Diesel in quantity, with a delivery log bolted to the door.\n\nDeliveries every six weeks without a gap. The generator that eats it has never been switched off.",
+                "grant": {"gold": 700, "xendium": 25, "item": "rare"}
             },
             "k": {
                 "kind": "note",
@@ -671,6 +710,7 @@ AREAS: dict[str, dict] = {
     "the_outpost": {
         "name": "The Outpost",
         "blurb": "Under Glacier 15. Every light on, nobody home for two years.",
+        "completion_bonus": {"gold": 1200, "crystal": 70, "item": "rare"},
         "grid": [
             "#############",
             "#c.a.L#G.x.o#",
@@ -729,10 +769,11 @@ AREAS: dict[str, dict] = {
                 "text": "A site this remote ran on families. There is a room here with small chairs in it.\n\nA medical kit is cached by the door, restocked. Whoever restocks it goes in, comes out, and does not comment.",
             },
             "o": {
-                "kind": "note",
+                "kind": "cache",
                 "emoji": "📦",
-                "name": "Outbound crates",
+                "name": "Outbound crates — one prised open",
                 "text": "Two hundred crates, sealed, labelled for a freight route running further north than the map goes.\n\nManifests list contents by weight only. Every crate is within four kilos of every other crate — the same stencil you saw on a pallet in a burning lab.",
+                "grant": {"gold": 900, "crystal": 60, "item": "rare"}
             },
             "h": {
                 "kind": "note",
@@ -765,10 +806,13 @@ AREAS: dict[str, dict] = {
                 "text": "Site power, itemised. Lighting, heating, comms — all trivial.\n\nNinety-one percent of everything this site has drawn for two years goes to one unlabelled circuit, and that circuit goes *down*.",
             },
             "w": {
-                "kind": "note",
+                "kind": "hunt",
                 "emoji": "🧯",
-                "name": "The sealed corridor",
-                "text": "A corridor welded shut from the inside, with a handwritten sign wired to it:\n\n**DO NOT OPEN. NOT FOR YOUR SAKE.**\n\nNobody suggests opening it. Everybody looks at it for a long time.",
+                "name": "The sealed corridor — opened anyway",
+                "text": "**DO NOT OPEN. NOT FOR YOUR SAKE.**\n\nJosh reads the sign twice, looks at you, and says: “Him wrote that to keep something in, or keep someone out. Only one of them our problem.”\n\n*Optional. Losing this costs you nothing at all.*",
+                "enemies": ["Ocellios Test Subject", "Voidwarp Construct"],
+                "level": 8,
+                "grant": {"gold": 1400, "crystal": 80, "shards": 60, "item": "epic"}
             },
         },
     },
@@ -784,6 +828,7 @@ AREAS: dict[str, dict] = {
     "wastelands_line": {
         "name": "The Wastelands — The Line",
         "blurb": "Rail, dust, and four hundred people refusing to move.",
+        "completion_bonus": {"gold": 1600, "shards": 110, "item": "epic"},
         "grid": [
             "#############",
             "#F.s.b#P.r.w#",
@@ -872,10 +917,11 @@ AREAS: dict[str, dict] = {
                 "text": "**ALL SCHEDULED FREIGHT SUSPENDED PENDING RESOLUTION.**\n\nUnderneath, a second notice in a different font: **EXCEPT SERVICE 0210.** No explanation. No signature that isn't a letter.",
             },
             "g": {
-                "kind": "note",
+                "kind": "cache",
                 "emoji": "📻",
-                "name": "A borrowed radio",
+                "name": "A borrowed radio — and what's under the seat",
                 "text": "Somebody has rigged a receiver to the overhead line and is listening to company traffic.\n\nThey offer you the earpiece without being asked. Cascade has been doing this alone for two years and did not have to be.",
+                "grant": {"gold": 1100, "xendium": 40, "reroll_tokens": 8}
             },
             "c": {
                 "kind": "note",
@@ -915,6 +961,7 @@ AREAS: dict[str, dict] = {
     "entrospire_underside": {
         "name": "Entrospire — The Underside",
         "blurb": "Beneath the rail deck. Everything down here signs for itself.",
+        "completion_bonus": {"gold": 2200, "shards": 150, "echoes": 40, "item": "epic"},
         "grid": [
             "#############",
             "#C.l.p#Y.h.v#",
@@ -1002,16 +1049,20 @@ AREAS: dict[str, dict] = {
                 "text": "The Underside's only clean water, and a laminated sign beside it:\n\n**TESTED DAILY. IT IS FINE. — D.**\n\nSomeone has added: *he really does come all this way to test it.*",
             },
             "j": {
-                "kind": "note",
+                "kind": "hunt",
                 "emoji": "🎞",
-                "name": "Deck camera",
-                "text": "A company camera bolted under the deck, pointed at the yard gate.\n\nThe cable has been spliced. Somebody has been watching the watchers, patiently, for a very long time.",
+                "name": "Deck camera — whoever spliced it",
+                "text": "The splice is fresh, and the cable runs back into a maintenance void.\n\nSomebody has been watching the watchers for two years, and they are still in there.\n\n*Optional. Losing this costs you nothing at all.*",
+                "enemies": ["Xender Convoy", "Xender Loyalist"],
+                "level": 13,
+                "grant": {"gold": 1800, "shards": 120, "xendium": 50, "item": "epic"}
             },
             "f": {
-                "kind": "note",
+                "kind": "cache",
                 "emoji": "🪟",
-                "name": "Pawnbroker's window",
+                "name": "Pawnbroker's window — the cut-strap tag",
                 "text": "Field kit, mostly. Ocellios badges, Xender issue, a Cascade relay tag with the strap cut.\n\nThe tag is not yours. Somebody else lit beacons once, and got this far, and stopped.",
+                "grant": {"gold": 1400, "shards": 90, "item": "epic"}
             },
             "o": {
                 "kind": "note",

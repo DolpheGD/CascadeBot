@@ -115,6 +115,140 @@ class StoryMenuView(OwnedView):
         )
 
 
+def _reward_block(rewards, bonus) -> str:
+    """Reward lines appended to the tile's own text.
+
+    Deliberately part of the SAME message rather than a follow-up: a
+    separate 'you got X' embed reads like a system notification, and the
+    thing being rewarded here is having bothered to look."""
+    out = ""
+    if rewards:
+        out += "\n\n" + "\n".join(rewards)
+    if bonus:
+        out += ("\n\n**🏅 You've seen everything in this area.**\n"
+                + "\n".join(bonus))
+    return out
+
+
+class HuntOfferView(OwnedView):
+    """Optional fights are OPTED INTO. Walking onto a tile and being
+    dropped straight into combat is an ambush, not a choice."""
+
+    def __init__(self, owner_id: int | None = None):
+        super().__init__(timeout=600, owner_id=owner_id)
+
+    @discord.ui.button(label="⚔️ Take it on", style=discord.ButtonStyle.danger)
+    async def fight(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await _render_hunt(interaction)
+
+    @discord.ui.button(label="◀ Leave it", style=discord.ButtonStyle.secondary)
+    async def leave(self, interaction: discord.Interaction, button: discord.ui.Button):
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            story = story_service.get_or_create(db, player)
+            story.pending_hunt = None
+            db.commit()
+        finally:
+            db.close()
+        await _render_map(interaction, edit=True)
+
+
+def _open_hunt(db, player):
+    """Build or resume the optional fight. Mirrors _open_battle, but the
+    state lives on `pending_hunt` so a lost hunt can never disturb a
+    mission in progress."""
+    story = story_service.get_or_create(db, player)
+    hunt = story.pending_hunt
+    if not hunt:
+        return None, None
+    if story.combat_state:
+        battle = battle_from_dict(story.combat_state)
+    else:
+        squad = character_service.get_squad(db, player)
+        equipped = character_service.get_equipped_items_by_character(db, [c.id for c in squad])
+        party = build_party_combatants(squad, equipped)
+        for member in party:
+            member.current_hp = member.max_hp
+        enemies = [build_enemy_combatant(get_template_by_name(n), hunt["level"])
+                   for n in hunt["enemies"]]
+        battle = Battle(party, enemies)
+        story.combat_state = battle_to_dict(battle)
+        db.commit()
+    _advance_to_player_turn(battle)
+    story.combat_state = battle_to_dict(battle)
+    db.commit()
+    embed = embedder.combat_embed(battle)
+    embed.set_author(name="Optional — losing costs you nothing")
+    return embed, HuntCombatView(owner_id=player.id, battle=battle)
+
+
+async def _render_hunt(interaction: discord.Interaction, edit: bool = True):
+    db = SessionLocal()
+    try:
+        player = get_player(db, interaction.user.id)
+        embed, view = _open_hunt(db, player)
+    finally:
+        db.close()
+    if embed is None:
+        await _render_map(interaction, edit=True)
+        return
+    await interaction.response.edit_message(embed=embed, view=view)
+
+
+async def _hunt_action(interaction: discord.Interaction, action: str,
+                       ability_id: str | None = None):
+    db = SessionLocal()
+    finished = None
+    embed = view = None
+    try:
+        player = get_player(db, interaction.user.id)
+        story = story_service.get_or_create(db, player)
+        if not story.combat_state or not story.pending_hunt:
+            await interaction.response.send_message("No fight in progress.", ephemeral=True)
+            return
+        battle = battle_from_dict(story.combat_state)
+        if battle.current_actor() not in battle.party:
+            await interaction.response.send_message("It's not your turn.", ephemeral=True)
+            return
+        battle.take_party_action(action, ability_id=ability_id)
+        _advance_to_player_turn(battle)
+        story.combat_state = battle_to_dict(battle)
+        db.commit()
+        if battle.is_over():
+            hunt = dict(story.pending_hunt)
+            story.combat_state = None
+            db.commit()
+            rewards = map_service.finish_hunt(
+                db, story, hunt["area"], hunt["char"], won=(battle.result == "won"))
+            finished = (battle.result == "won", rewards)
+        else:
+            embed = embedder.combat_embed(battle)
+            view = HuntCombatView(owner_id=player.id, battle=battle)
+    finally:
+        db.close()
+
+    if finished is None:
+        await interaction.response.edit_message(embed=embed, view=view)
+        return
+    won, rewards = finished
+    if not won:
+        await interaction.response.edit_message(
+            embed=discord.Embed(
+                title="Driven off",
+                description=("You back out of it. Nothing is lost — it was optional, and "
+                             "it'll still be there."),
+                color=discord.Color.dark_grey()),
+            view=BackToMapView(owner_id=interaction.user.id))
+        return
+    await interaction.response.edit_message(
+        embed=discord.Embed(
+            title="⚔️ Cleared",
+            description=_reward_block(rewards, None).strip() or "Done.",
+            color=discord.Color.gold()),
+        view=BackToMapView(owner_id=interaction.user.id))
+
+
 # ----------------------------------------------------------------------
 # The overworld
 #
@@ -320,12 +454,34 @@ async def _interact(interaction: discord.Interaction):
             await interaction.response.send_message("There's nothing here.", ephemeral=True)
             return
 
-        if kind in ("locked", "done"):
+        if kind in ("locked", "done", "spent"):
             await interaction.response.send_message(result["text"], ephemeral=True)
             return
 
+        if kind == "cache":
+            note = {
+                "name": result["name"], "emoji": result["emoji"],
+                "text": (result.get("text") or "")
+                        + _reward_block(result.get("rewards"), result.get("bonus")),
+            }
+        elif kind == "hunt":
+            # Accepting an optional fight is a deliberate press, so the
+            # tile shows what it is FIRST and the player opts in. An
+            # optional fight you're dropped into is just an ambush.
+            story.pending_hunt = {
+                "area": result["area_id"], "char": result["char"],
+                "enemies": result["enemies"], "level": result["level"],
+            }
+            story.combat_state = None
+            db.commit()
+            hunt = result
+
+
         if kind == "note":
-            note = result
+            note = {
+                "name": result["name"], "emoji": result["emoji"],
+                "text": (result.get("text") or "") + _reward_block(None, result.get("bonus")),
+            }
         elif kind == "exit":
             map_service.travel(db, story, result["to_area"], result["to"])
         elif kind == "mission":
@@ -336,7 +492,10 @@ async def _interact(interaction: discord.Interaction):
                 await interaction.response.send_message(str(exc), ephemeral=True)
                 return
 
-        if not started:
+        if kind == "hunt":
+            embed = embedder.story_note_embed(hunt["name"], hunt["emoji"], hunt["text"])
+            view = HuntOfferView(owner_id=player.id)
+        elif not started:
             embed, view = (
                 (embedder.story_note_embed(note["name"], note["emoji"], note["text"]),
                  BackToMapView(owner_id=player.id))
@@ -628,6 +787,24 @@ class Story(commands.Cog):
             await _render_current(ctx, edit=False)
             return
         await _render_map(ctx, edit=False)
+
+
+
+
+class HuntCombatView(StoryCombatView):
+    """Identical controls to a story fight; only the resolution differs."""
+
+    @discord.ui.button(label="⚔️ Attack", style=discord.ButtonStyle.danger)
+    async def attack_button(self, interaction, button):
+        await _hunt_action(interaction, "attack")
+
+    @discord.ui.button(label="💥 Ultimate", style=discord.ButtonStyle.success)
+    async def ultimate_button(self, interaction, button):
+        await _hunt_action(interaction, "ultimate")
+
+    @discord.ui.button(label="🛡️ Guard", style=discord.ButtonStyle.primary)
+    async def guard_button(self, interaction, button):
+        await _hunt_action(interaction, "guard")
 
 
 async def setup(bot):

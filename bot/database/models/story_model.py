@@ -80,6 +80,12 @@ class PlayerStory(Base):
     # area tell you how much of it you've actually seen.
     visited: Mapped[dict] = mapped_column(JSON, default=dict)
 
+    # An optional HUNT the player has accepted: {"area", "char", "level",
+    # "enemies": [...], "grant": {...}}. Separate from `combat_state`'s
+    # mission battles because a hunt is not part of any mission -- losing
+    # one costs nothing and must not touch mission progress.
+    pending_hunt: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
     # {area_id: [tile_char, ...]} -- one-shot tiles already consumed, so
     # a note that has been read stops advertising itself.
     read_tiles: Mapped[dict] = mapped_column(JSON, default=dict)

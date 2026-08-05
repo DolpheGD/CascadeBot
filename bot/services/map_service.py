@@ -292,6 +292,34 @@ def interact(db, story) -> dict:
             "name": content.get("name", "Something here"),
             "emoji": content.get("emoji", ""),
             "text": content.get("text", ""),
+            "bonus": _completion_bonus_if_due(db, story, state["area_id"]),
+        }
+
+    if kind == "cache":
+        if has_read(story, state["area_id"], state["char"]):
+            return {"kind": "spent", "text": "You've already taken everything here."}
+        mark_read(db, story, state["area_id"], state["char"])
+        return {
+            "kind": "cache",
+            "name": content.get("name", "A cache"),
+            "emoji": content.get("emoji", ""),
+            "text": content.get("text", ""),
+            "rewards": _grant(db, story, content.get("grant") or {}),
+            "bonus": _completion_bonus_if_due(db, story, state["area_id"]),
+        }
+
+    if kind == "hunt":
+        if has_read(story, state["area_id"], state["char"]):
+            return {"kind": "spent", "text": "Whatever was here, you already dealt with it."}
+        return {
+            "kind": "hunt",
+            "name": content.get("name", "Something waiting"),
+            "emoji": content.get("emoji", ""),
+            "text": content.get("text", ""),
+            "enemies": content["enemies"],
+            "level": content["level"],
+            "char": state["char"],
+            "area_id": state["area_id"],
         }
 
     if kind == "exit":
@@ -329,6 +357,77 @@ def interact(db, story) -> dict:
 
 
 # ----------------------------------------------------------------------
+# Optional content
+# ----------------------------------------------------------------------
+
+def _grant(db, story, grant: dict) -> list[str]:
+    """Pay out through the STORY's grant block, not a second copy of it.
+
+    One place in the codebase knows how to turn a reward dict into things
+    a player owns; a parallel implementation here would drift the moment
+    either side gained a currency."""
+    if not grant:
+        return []
+    from bot.services import player_service, story_service
+
+    player = player_service.get_player(db, story.player_id)
+    if player is None:
+        return []
+    return story_service._grant(db, player, grant)
+
+
+def interactive_chars(area: dict) -> set[str]:
+    """Every tile in the area a player can DO something with.
+
+    Exits are excluded: walking through a door is not engagement with the
+    area, it's leaving it."""
+    return {
+        char for char, content in (area.get("legend") or {}).items()
+        if content.get("kind") in ("note", "cache", "hunt")
+    }
+
+
+def area_complete(story, area_id: str) -> bool:
+    area = mc.get_area(area_id)
+    if area is None:
+        return False
+    wanted = interactive_chars(area)
+    if not wanted:
+        return False
+    done = set((story.read_tiles or {}).get(area_id, []))
+    return wanted.issubset(done)
+
+
+def _completion_bonus_if_due(db, story, area_id: str) -> list[str]:
+    """Pay the area's completion bonus the moment its last tile is used.
+
+    Tracked with a sentinel char in read_tiles rather than a new column --
+    '*' can never collide with a grid character, since the grid only ever
+    holds legend keys."""
+    area = mc.get_area(area_id)
+    bonus = (area or {}).get("completion_bonus")
+    if not bonus or not area_complete(story, area_id):
+        return []
+    if has_read(story, area_id, "*"):
+        return []
+    mark_read(db, story, area_id, "*")
+    return _grant(db, story, bonus)
+
+
+def finish_hunt(db, story, area_id: str, char: str, won: bool) -> list[str]:
+    """Resolve an optional fight. Losing costs nothing at all."""
+    story.pending_hunt = None
+    db.commit()
+    if not won:
+        return []
+    area = mc.get_area(area_id) or {}
+    content = (area.get("legend") or {}).get(char) or {}
+    mark_read(db, story, area_id, char)
+    rewards = _grant(db, story, content.get("grant") or {})
+    return rewards + _completion_bonus_if_due(db, story, area_id)
+
+
+# ----------------------------------------------------------------------
 # Rendering
 # ----------------------------------------------------------------------
 
@@ -362,6 +461,9 @@ def render(db, story) -> str:
                 row += mc.EMOJI_LOCKED
             elif content.get("kind") == "mission" and content["mission"] in completed:
                 row += mc.EMOJI_DONE
+            elif (content.get("kind") in ("cache", "hunt")
+                  and has_read(story, area_id, mc.tile_char(area, x, y))):
+                row += mc.EMOJI_DONE
             else:
                 row += content.get("emoji", mc.EMOJI_FLOOR)
         rows.append(row)
@@ -382,8 +484,8 @@ def legend_lines(db, story) -> list[str]:
 
     lines: list[str] = []
     for char, content in (area.get("legend") or {}).items():
-        if content.get("kind") == "note" and has_read(story, area_id, char):
-            continue  # already read; stop advertising it
+        if content.get("kind") in ("note", "cache", "hunt") and has_read(story, area_id, char):
+            continue  # already had; stop advertising it
         emoji = content.get("emoji", "")
         name = content.get("name", char)
         if tile_locked(db, story, content):
