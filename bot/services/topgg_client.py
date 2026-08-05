@@ -29,13 +29,34 @@ _parse_voted below accepts every shape we've seen:
     {"user": "123", "timeLeft": 39600000, ...}    newer, present == voted
     {"user": false}                               newer, "hasn't voted"
     {"data": {...}}                               v1 envelope, unwrapped first
+    {"created_at": ..., "expires_at": ...}        v1 vote record; expires_at
+                                                  is honoured, so a LAPSED
+                                                  vote reads as not voted
 
 Anything genuinely unrecognised is treated as "not voted" and logged, so a
 top.gg format change degrades into "the bot says you haven't voted yet"
 rather than a crash or -- much worse -- free rewards for everyone.
+
+404 MEANS "NO VOTE RECORD", NOT "NO BOT". The check endpoint looks up a
+user's VOTE, so a user who hasn't voted (or whose 12h window lapsed) gets
+a 404, not a 200 saying "voted: 0". This is much clearer in the v1
+successor -- `GET /v1/projects/@me/votes/:user_id`, which returns that
+vote's created_at/expires_at and has nothing to return when there isn't
+one. has_voted therefore treats a 404 as "hasn't voted" and only reports
+a missing LISTING after separately confirming the listing is missing.
+
+ON MIGRATING TO v1. The v1 endpoint is better for us -- it returns
+`expires_at`, which would remove the guesswork this module documents
+below about not knowing WHICH vote we're seeing. It's deliberately not
+used yet for one reason: v1 rejects legacy tokens outright and needs a
+newly-generated one, so switching would silently break voting for any
+deployment still holding an old token. Worth doing behind a config flag
+once a new token is in place.
 """
 
 from __future__ import annotations
+
+import datetime as dt
 
 import aiohttp
 
@@ -74,6 +95,15 @@ def _headers() -> dict[str, str]:
     return {"Authorization": TOPGG_TOKEN or "", "Accept": "application/json"}
 
 
+class TopGGNotFound(TopGGError):
+    """A 404 from top.gg.
+
+    Its own type because 404 is the one status whose MEANING depends
+    entirely on which endpoint returned it -- see has_voted, which treats
+    a 404 from the per-user check as "hasn't voted" rather than as a
+    failure. Every other caller can keep catching plain TopGGError."""
+
+
 async def _get(path: str, params: dict | None = None) -> dict:
     if not is_configured():
         raise TopGGError("Voting isn't set up on this bot yet.")
@@ -89,10 +119,15 @@ async def _get(path: str, params: dict | None = None) -> dict:
                         "let the bot owner know."
                     )
                 if resp.status == 404:
-                    logger.error("top.gg returned 404 on %s -- is the bot listed?", path)
-                    raise TopGGError(
-                        "This bot doesn't seem to be listed on top.gg yet."
-                    )
+                    # Deliberately NOT logged as an error here. A 404's
+                    # meaning depends on the endpoint, and the caller is
+                    # the only thing that knows which one it asked -- see
+                    # has_voted. Logging "is the bot listed?" from this
+                    # level is what made a routine per-user 404 look like
+                    # a broken listing for months.
+                    body = (await resp.text())[:200]
+                    logger.debug("top.gg 404 on %s params=%s body=%r", path, params, body)
+                    raise TopGGNotFound("top.gg has no record at that path.")
                 if resp.status == 429:
                     raise TopGGError("Top.gg is rate-limiting us right now -- try again shortly.")
                 if resp.status >= 400:
@@ -107,6 +142,26 @@ async def _get(path: str, params: dict | None = None) -> dict:
     except TimeoutError as exc:
         logger.warning("top.gg request to %s timed out", path)
         raise TopGGError("Top.gg took too long to respond -- try again in a minute.") from exc
+
+
+async def _listing_exists(bot_id: int) -> bool:
+    """Whether top.gg actually has a listing for `bot_id`.
+
+    Only called on the 404 path, to tell the two very different causes
+    apart: a missing LISTING (a config problem the owner must fix, and
+    which would 404 for everybody) versus a missing VOTE RECORD for one
+    user (routine). Without this the two are indistinguishable, because
+    top.gg answers both with a bare 404."""
+    try:
+        await _get(f"/bots/{bot_id}")
+        return True
+    except TopGGNotFound:
+        return False
+    except TopGGError:
+        # Any other failure (rate limit, network) tells us nothing about
+        # the listing. Assume it exists -- the alternative is telling the
+        # owner their bot is unlisted because top.gg rate-limited us.
+        return True
 
 
 def _parse_voted(payload: dict) -> bool:
@@ -132,16 +187,70 @@ def _parse_voted(payload: dict) -> bool:
     if "hasVoted" in payload:
         return bool(payload["hasVoted"])
 
+    # The v1 VOTE RECORD shape: {created_at, expires_at, weight}. Handled
+    # here even though we call a v0 path, because top.gg is mid-migration
+    # and has changed this endpoint's body before -- if the legacy path
+    # starts answering in the new shape, the alternative is every vote
+    # silently failing to register for every player at once, with nothing
+    # in the logs but "Unrecognised".
+    #
+    # expires_at is honoured rather than assumed: a record exists for a
+    # LAPSED vote too, and treating that as a live vote would hand out a
+    # reward for a vote that expired.
+    if "expires_at" in payload or "created_at" in payload:
+        expires_at = payload.get("expires_at")
+        if not expires_at:
+            return True
+        try:
+            expiry = dt.datetime.fromisoformat(str(expires_at).replace("Z", "+00:00"))
+            if expiry.tzinfo is None:
+                expiry = expiry.replace(tzinfo=dt.timezone.utc)
+            return expiry > dt.datetime.now(dt.timezone.utc)
+        except ValueError:
+            logger.warning("top.gg sent an unparseable expires_at: %r", expires_at)
+            return True
+
     logger.warning("Unrecognised top.gg check response: %r", payload)
     return False
 
 
 async def has_voted(bot_id: int, user_id: int) -> bool:
     """Whether `user_id` has voted for `bot_id` inside top.gg's current
-    12-hour window. Raises TopGGError with a player-facing message on any
-    failure -- never silently returns False for a transport problem, since
-    that would read to the player as "your vote didn't count"."""
-    payload = await _get(f"/bots/{bot_id}/check", params={"userId": str(user_id)})
+    12-hour window. Raises TopGGError with a player-facing message on a
+    transport failure -- never silently returns False for one, since that
+    would read to the player as "your vote didn't count".
+
+    A 404 IS NOT A FAILURE HERE. Top.gg's vote check is a lookup of a
+    VOTE RECORD, not of the bot: its v1 successor is literally
+    `GET /v1/projects/@me/votes/:user_id` returning that vote's
+    created_at/expires_at, and a user with no current vote has no record
+    to return. So a user who has never voted -- or whose 12h window has
+    lapsed -- 404s, while a user who has voted gets a 200.
+
+    That's why the symptom looked so strange: the error appeared for
+    SOME users while voting demonstrably worked for others, on a bot that
+    was listed the whole time. This function used to turn that routine
+    "no vote yet" into a hard error reading "This bot doesn't seem to be
+    listed on top.gg yet", which is both wrong and the single most
+    misleading thing it could have said -- it sent the owner to check a
+    listing that was never the problem.
+
+    The genuinely-unlisted case still needs reporting, since it looks
+    identical from a single response, so it's disambiguated with one
+    extra request on the 404 path only."""
+    try:
+        payload = await _get(f"/bots/{bot_id}/check", params={"userId": str(user_id)})
+    except TopGGNotFound:
+        if await _listing_exists(bot_id):
+            logger.info(
+                "top.gg has no current vote record for user %s -- treating as 'not voted'",
+                user_id,
+            )
+            return False
+        logger.error(
+            "top.gg has no listing for bot %s -- /vote cannot work until it's listed", bot_id
+        )
+        raise TopGGError("This bot doesn't seem to be listed on top.gg yet.") from None
     return _parse_voted(payload)
 
 
