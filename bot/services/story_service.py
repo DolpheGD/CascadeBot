@@ -105,6 +105,13 @@ def is_grandfathered(db, player) -> bool:
     # have re-broken it the same way, so the fix is to stop asking the
     # question rather than to raise the threshold.
     story = db.query(PlayerStory).filter_by(player_id=player.id).first()
+
+    # The RECORDED fact wins over every heuristic below it. The migration
+    # sets this for everyone who existed before gating, which is the only
+    # source that actually knows.
+    if story is not None and getattr(story, "grandfathered", False):
+        return True
+
     if story is not None and (story.completed_missions or story.active_mission):
         return False
 

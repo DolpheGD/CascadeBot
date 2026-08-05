@@ -81,6 +81,7 @@ def _ensure_columns(conn):
     add_column("player_stories", "visited", "JSON")
     add_column("player_stories", "read_tiles", "JSON")
     add_column("player_stories", "pending_hunt", "JSON")
+    add_column("player_stories", "grandfathered", "BOOLEAN DEFAULT 0")
 
     # Void Abyss. The table is created fresh by create_all for anyone who
     # doesn't have it, so these ALTERs only matter for a database that saw

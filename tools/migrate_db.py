@@ -187,7 +187,8 @@ def drop_retired_tables(db, dry_run: bool) -> list[str]:
 
 
 def grandfather_story(db, dry_run: bool) -> int:
-    """Mark every EXISTING player as having finished the prologue.
+    """Mark every EXISTING player as pre-story: prologue complete AND
+    grandfathered.
 
     This is the single most important step in the script. Story mode
     gates features -- inventory, pulls, squad, expeditions -- that every
@@ -219,8 +220,32 @@ def grandfather_story(db, dry_run: bool) -> int:
             db.add(PlayerStory(
                 player_id=player_id, completed_missions=[], flags={},
                 active_mission=None, beat_index=0, prologue_complete=True,
+                grandfathered=True,
             ))
+
+    # ALSO backfill anyone who already HAS a story row.
+    #
+    # prologue_complete was never enough on its own: it covers the
+    # features the prologue unlocks, but Chapter 1-2 gate six more
+    # (forge, lab, raids, gifting, exchange, abyss). A player who had
+    # only ever run /start passed the prologue check, then failed the
+    # runtime "looks like a veteran" heuristic -- one character, no
+    # expeditions -- and lost six features they used to have. Measured on
+    # a real migrated database, not theorised.
     if not dry_run:
+        backfilled = (
+            db.query(PlayerStory)
+            .filter(PlayerStory.prologue_complete.is_(True),
+                    PlayerStory.grandfathered.is_(False))
+            .all()
+        )
+        for row in backfilled:
+            # Anyone who has actually PLAYED the story is not a pre-story
+            # player, and must not be handed the whole game.
+            if row.completed_missions or row.active_mission:
+                continue
+            row.grandfathered = True
+            marked += 1
         db.commit()
     return marked
 
@@ -273,8 +298,9 @@ def main() -> int:
     # works -- the exact opposite of what a dry run is for.
     import bot.database.models  # noqa: F401
     from bot.database.models import (  # noqa: F401
-        base_building_model, character_model, economy_model, equipment_model,
-        expedition_model, gift_model, hq_model, player_model, presence_model, quest_model, raid_model, story_model,
+        abyss_model, base_building_model, character_model, economy_model,
+        equipment_model, expedition_model, gift_model, hq_model, player_model,
+        presence_model, quest_model, raid_model, story_model,
     )
     from bot.database.db_init import init_db
     from bot.database.session import SessionLocal
@@ -283,7 +309,8 @@ def main() -> int:
         print("   (skipped -- dry run; this step adds columns/tables and is safe to re-run)")
     else:
         init_db()
-        print("   Columns and tables up to date (new pity columns, raid tables).")
+        print("   Columns and tables up to date "
+              "(story overworld + optional-content columns, Void Abyss table).")
 
     db = SessionLocal()
     try:

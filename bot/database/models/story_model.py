@@ -63,6 +63,18 @@ class PlayerStory(Base):
 
     prologue_complete: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # SET ONCE BY THE MIGRATION, for players who existed before story
+    # mode gated anything.
+    #
+    # prologue_complete alone was not enough: it only covers features the
+    # PROLOGUE unlocks, and Chapter 1-2 gate six more (forge, lab, raids,
+    # gifting, exchange, abyss). A player who had only ever run /start
+    # passed the prologue check and still failed the "looks like a
+    # veteran" heuristic -- one character, no expeditions -- so they lost
+    # six features they previously had. Recording the fact directly means
+    # it can never be re-derived wrongly.
+    grandfathered: Mapped[bool] = mapped_column(Boolean, default=False)
+
     # ------------------------------------------------------------------
     # Overworld position (bot/game/story/map_config.py).
     #
