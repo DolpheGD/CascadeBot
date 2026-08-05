@@ -194,16 +194,45 @@ acts.
 
 ## Build order
 
-1. **Beat engine + `/story`** -- linear missions, no map. Proves beats,
-   flags and persistence.
-2. **The prologue** -- rewrite `/start`, progressive feature gating,
-   grandfather existing players.
-3. **The overworld** -- add the map as a container; convert the prologue
-   onto it.
-4. **Chapters 1-5.**
+1. ~~**Beat engine + `/story`**~~ -- DONE.
+2. ~~**The prologue**~~ -- DONE.
+3. ~~**The overworld**~~ -- DONE. `bot/game/story/map_config.py` (areas),
+   `bot/services/map_service.py` (movement), map checks in
+   `tools/check_story.py`. The map is the landing screen for `/story`;
+   the chapter list moved to a Journal button.
+4. **Chapters 1-5.** <- next
 
-Each stage is independently playable. If the map turns out to feel bad at
-stage 3, stages 1-2 still stand on their own.
+Each stage is independently playable. The container/contents split held:
+converting the prologue onto the map changed zero beats.
+
+### What stage 3 changed about the prologue
+
+Two things came out of playing stages 1-2, and both are worth recording
+because they were invisible on paper:
+
+**The prologue no longer gifts Josh.** It grants 480 Shards (four pulls)
+and unlocks `/pull`, and the player brings whoever answers. Gifting the
+squadmate removed the softlock but also removed the tutorial -- being
+handed the reward for a mechanic is a reliable way never to learn the
+mechanic. The softlock guard moved to the lane door, which won't open
+below two characters (`requires_characters` in map_config). Safe because
+the avatar is excluded from the gacha pool, so a player who owns only
+their avatar *cannot* roll a duplicate: the first pull is always somebody
+new.
+
+P4 was re-simulated against all 29 possible partners at level 1 and
+dropped from enemy level 4 to 3 -- at 4 the worst partner won 70% and
+four fell below 90%; at 3 the mean is 99%.
+
+**Features with no unlock beat are no longer open by default.** They now
+wait for the end of the prologue. The old default was correct when the
+prologue was the only content and wrong the moment anyone played it: a
+player who had just been handed their inventory in mission 2 could open
+the HQ, the shop, the Forge and the Research Lab, none of which the story
+had introduced. Six cogs also never called `require_feature` at all.
+`tools/check_runtime.py` now asserts every command is gated or listed in
+`UNGATED_COMMANDS` with a written reason, because forgetting the gate on
+a new command fails silently.
 
 ## Open questions
 

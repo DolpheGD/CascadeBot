@@ -16,7 +16,8 @@ from bot.services import quest_service
 from bot.game.economy.quest_config import MAX_ACTIVE_BASIC_QUESTS
 from bot.utils import embedder
 from bot.utils.guild_decorator import guild_decorator
-from bot.utils.ui_guard import OwnedView, check_message_owner, require_player
+from bot.utils.ui_guard import (OwnedView, check_message_owner, require_feature,
+                                require_player)
 
 
 def _quest_embed_and_view(db, player) -> tuple[discord.Embed, "QuestView"]:
@@ -107,6 +108,8 @@ class Quests(commands.Cog):
         try:
             player = get_player(db, ctx.user.id)
             if not await require_player(ctx, player):
+                return
+            if not await require_feature(ctx, db, player, 'quests'):
                 return
             embed, view = _quest_embed_and_view(db, player)
         finally:

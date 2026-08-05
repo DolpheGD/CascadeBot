@@ -37,7 +37,8 @@ from bot.services.currency_service import format_currency
 from bot.utils.embedder._shared import fit_field
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils import names
-from bot.utils.ui_guard import OwnedView, check_message_owner, require_player
+from bot.utils.ui_guard import (OwnedView, check_message_owner, require_feature,
+                                require_player)
 
 
 PERK_LABELS = {
@@ -1331,6 +1332,8 @@ class Base(commands.GroupCog, name="base", description="Cascade HQ base-building
             player = get_player(db, ctx.user.id)
             if not await require_player(ctx, player):
                 return
+            if not await require_feature(ctx, db, player, 'base'):
+                return
             embed = _build_hq_embed(db, player)
             view = _build_hq_view(db, player)
         finally:
@@ -1344,6 +1347,8 @@ class Base(commands.GroupCog, name="base", description="Cascade HQ base-building
             player = get_player(db, ctx.user.id)
             if not await require_player(ctx, player):
                 return
+            if not await require_feature(ctx, db, player, 'base'):
+                return
             embed = _build_shrine_embed(db, player)
             view = _build_shrine_view(db, player)
         finally:
@@ -1356,6 +1361,8 @@ class Base(commands.GroupCog, name="base", description="Cascade HQ base-building
         try:
             player = get_player(db, ctx.user.id)
             if not await require_player(ctx, player):
+                return
+            if not await require_feature(ctx, db, player, 'base'):
                 return
 
             embed = _build_harvester_embed(db, player)
@@ -1372,6 +1379,8 @@ class Base(commands.GroupCog, name="base", description="Cascade HQ base-building
             player = get_player(db, ctx.user.id)
             if not await require_player(ctx, player):
                 return
+            if not await require_feature(ctx, db, player, 'base'):
+                return
             embed = _build_shop_embed(db, player)
             view = _build_shop_view(db, player)
         finally:
@@ -1385,6 +1394,8 @@ class Base(commands.GroupCog, name="base", description="Cascade HQ base-building
             player = get_player(db, ctx.user.id)
             if not await require_player(ctx, player):
                 return
+            if not await require_feature(ctx, db, player, 'lab'):
+                return
             embed = _build_lab_embed(db, player)
             view = _build_lab_view(db, player)
         finally:
@@ -1397,6 +1408,8 @@ class Base(commands.GroupCog, name="base", description="Cascade HQ base-building
         try:
             player = get_player(db, ctx.user.id)
             if not await require_player(ctx, player):
+                return
+            if not await require_feature(ctx, db, player, 'forge'):
                 return
             embed = _build_forge_embed(db, player)
             view = _build_forge_view(db, player)

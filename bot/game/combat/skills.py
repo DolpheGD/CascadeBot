@@ -710,13 +710,27 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     "gostley_skill": _skill(
         "gostley_skill", "Grave Tithe", 20, 1,
         "Deal 165% ATK damage. If it kills, heal yourself for 25% of your max HP.",
+        # The key is heal_percent_ON_KILL. Spelled "heal_percent" here
+        # originally, which made Gostley's skill raise KeyError the
+        # instant it actually killed something -- a crash that only fires
+        # on success, so it survived every test that didn't land a
+        # finishing blow.
         {"kind": "damage_execute_heal", "damage_percent": 165, "damage_stat": "attack",
-         "heal_percent": 25},
+         "heal_percent_on_kill": 25},
     ),
     "gostley_ultimate": _ultimate(
         "gostley_ultimate", "Last Rites",
-        "Execute the target outright below 22% HP; otherwise deal 250% ATK damage.",
-        {"kind": "execute_below_threshold", "damage_percent": 250, "damage_stat": "attack",
+        # The description used to promise an outright execute, which the
+        # engine has no way to do -- `execute_below_threshold` deals
+        # BIGGER damage under the threshold, it doesn't instant-kill. The
+        # effect also omitted `execute_damage_percent` entirely, so the
+        # ability raised KeyError the moment the target was low enough
+        # for the execute branch to run. Both halves are fixed here, and
+        # the text now states the real numbers: this game's rule is that
+        # what an ability says is what it does.
+        "Deal 250% ATK damage — or 600% if the target is below 22% HP.",
+        {"kind": "execute_below_threshold", "damage_percent": 250,
+         "execute_damage_percent": 600, "damage_stat": "attack",
          "hp_threshold_percent": 22},
     ),
     "daffysamlake_skill": _skill(

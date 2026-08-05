@@ -10,7 +10,7 @@ from bot.services.player_service import get_or_create_player, get_player
 from bot.services.currency_service import add_currency
 from bot.services import (account_service, character_service, dungeon_service,
                           gift_service, inventory_service, story_service)
-from bot.utils.ui_guard import OwnedView, require_player
+from bot.utils.ui_guard import OwnedView, require_feature, require_player
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils import embedder
 
@@ -294,6 +294,8 @@ class Profile(commands.Cog):
             sender = get_player(db, ctx.user.id)
             if not await require_player(ctx, sender):
                 return
+            if not await require_feature(ctx, db, player, 'gifting'):
+                return
             try:
                 sent = gift_service.send_gift(db, sender, player.id, {currency: amount}, note)
             except gift_service.GiftError as exc:
@@ -315,6 +317,8 @@ class Profile(commands.Cog):
         try:
             player = get_player(db, ctx.user.id)
             if not await require_player(ctx, player):
+                return
+            if not await require_feature(ctx, db, player, 'gifting'):
                 return
             pending = gift_service.pending_for(db, player.id)
             embed = embedder.gift_inbox_embed(player, pending)

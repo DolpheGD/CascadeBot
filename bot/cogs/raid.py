@@ -579,6 +579,8 @@ async def _handle_raid_claim(interaction: discord.Interaction):
         if player is None:
             await interaction.response.send_message("Use `/start` first.", ephemeral=True)
             return
+        if not await require_feature(interaction, db, player, "raids"):
+            return
 
         claimable = raid_service.claimable_raids(db, player, interaction.guild_id)
         if not claimable:
@@ -633,6 +635,16 @@ async def _handle_leaderboard(interaction: discord.Interaction, board: str, edit
         return
     db = SessionLocal()
     try:
+        # The leaderboard is gated with the raids it ranks. Seeing where
+        # you place among people playing systems you haven't been shown
+        # yet is the opposite of the prologue's job.
+        player = get_player(db, interaction.user.id)
+        if player is None:
+            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            return
+        if not await require_feature(interaction, db, player, "raids"):
+            return
+
         member_ids = _guild_member_ids(db, interaction)
         data = leaderboard_service.get_board(db, board, member_ids, viewer_id=interaction.user.id)
         data["viewer_id"] = interaction.user.id

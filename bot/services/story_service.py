@@ -125,17 +125,35 @@ def feature_unlocked(db, player, feature: str) -> bool:
     if feature in sc.ALWAYS_AVAILABLE or feature not in sc.FEATURES:
         return True
 
-    # A feature NO written mission unlocks is not gated at all.
-    #
-    # Without this, listing a feature in FEATURES before writing the
-    # chapter that grants it locks it permanently -- a door with no key,
-    # which is a softlock rather than pacing. Gating switches on the
-    # moment an unlock beat for it exists, so content and gating ship
-    # together by construction instead of by remembering.
-    if sc.feature_unlocked_by(feature) is None:
-        return True
-
     story = get_or_create(db, player)
+
+    # A feature NO written mission unlocks opens when the PROLOGUE ends.
+    #
+    # This used to return True -- ungated entirely -- to avoid a door
+    # with no key. That was right when the prologue was the only content,
+    # and wrong as soon as anyone played it: a new player who had just
+    # been handed their inventory in mission 2 could immediately open the
+    # HQ, the Forge, the Research Lab and the shop, none of which the
+    # story had introduced or explained. The whole reason the prologue
+    # exists is that meeting one system at a time beats meeting thirty at
+    # once, and an unwritten unlock beat was silently opting features out
+    # of that.
+    #
+    # Falling back to the END OF THE PROLOGUE rather than to "open" keeps
+    # both properties:
+    #
+    #   * no softlock -- the prologue requires none of these features to
+    #     complete, so the key always exists and is always reachable
+    #   * no permanent lock when a chapter is unwritten -- the feature
+    #     arrives at a defined moment instead of never
+    #
+    # When Chapter 1 later adds a real unlock beat for, say, the Forge,
+    # that beat takes over automatically and this branch stops applying
+    # to it. Content and gating still ship together; the default is just
+    # no longer "wide open".
+    if sc.feature_unlocked_by(feature) is None:
+        return bool(story.prologue_complete) or is_grandfathered(db, player)
+
     if _unlocked_by_story(story, feature):
         return True
 
@@ -180,7 +198,14 @@ def locked_message(feature: str) -> str:
     mission_id = sc.feature_unlocked_by(feature)
     mission = sc.get_mission(mission_id) if mission_id else None
     if mission is None:
-        return f"**{label}** isn't available yet. Keep going in `/story`."
+        # No unlock beat written yet, so this feature arrives when the
+        # prologue does. Say that, rather than "isn't available yet" --
+        # a player who can't tell whether the wall is temporary or
+        # permanent has no reason to keep playing toward it.
+        return (
+            f"**{label}** opens once you've finished the Prologue. "
+            "Use `/story` to keep going."
+        )
     return (
         f"**{label}** unlocks during **{mission['name']}**. "
         "Use `/story` to pick up where you left off."

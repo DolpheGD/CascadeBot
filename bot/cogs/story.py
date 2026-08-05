@@ -28,7 +28,7 @@ from bot.game.combat.battle import Battle
 from bot.game.combat.factory import build_enemy_combatant, build_party_combatants
 from bot.game.combat.enemies import get_template_by_name
 from bot.game.combat.serialization import battle_from_dict, battle_to_dict
-from bot.services import character_service, story_service
+from bot.services import character_service, map_service, story_service
 from bot.services.player_service import get_player
 from bot.utils import combat_ui, embedder
 from bot.utils.guild_decorator import guild_decorator
@@ -116,6 +116,200 @@ class StoryMenuView(OwnedView):
 
 
 # ----------------------------------------------------------------------
+# The overworld
+#
+# The map is the LANDING SCREEN for /story, not a sub-page. With no
+# mission in progress you're standing somewhere, and the chapter list
+# moved to a Journal button.
+#
+# That ordering is the whole point of the map: a menu asks "which of
+# these do you pick", a map asks "where do you go", and only the second
+# one produces a place you remember. The Journal still exists because
+# "what have I actually done" is a question a menu answers better than a
+# grid ever will.
+# ----------------------------------------------------------------------
+
+class MapView(OwnedView):
+    """A d-pad and an interact button.
+
+    Directions that would walk into a wall are DISABLED rather than
+    missing: a button that moves position between renders is a button
+    you misclick. Same reason the layout is a fixed cross even when
+    only one direction is legal.
+    """
+
+    def __init__(self, state: dict, owner_id: int | None = None):
+        super().__init__(timeout=900, owner_id=owner_id)
+        available = set(state.get("directions", []))
+        self.north_button.disabled = "north" not in available
+        self.south_button.disabled = "south" not in available
+        self.west_button.disabled = "west" not in available
+        self.east_button.disabled = "east" not in available
+        # Nothing under your feet means nothing to interact with, and a
+        # live button that always answers "nothing here" trains the
+        # player to stop pressing it.
+        self.interact_button.disabled = state.get("content") is None
+
+    @discord.ui.button(label="⬆️", style=discord.ButtonStyle.secondary, row=0)
+    async def north_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await _move(interaction, "north")
+
+    @discord.ui.button(label="⬅️", style=discord.ButtonStyle.secondary, row=1)
+    async def west_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await _move(interaction, "west")
+
+    @discord.ui.button(label="✋", style=discord.ButtonStyle.primary, row=1)
+    async def interact_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await _interact(interaction)
+
+    @discord.ui.button(label="➡️", style=discord.ButtonStyle.secondary, row=1)
+    async def east_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await _move(interaction, "east")
+
+    @discord.ui.button(label="⬇️", style=discord.ButtonStyle.secondary, row=2)
+    async def south_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await _move(interaction, "south")
+
+    @discord.ui.button(label="📖 Journal", style=discord.ButtonStyle.secondary, row=3)
+    async def journal_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            if player is None:
+                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                return
+            story = story_service.get_or_create(db, player)
+            nxt = story_service.next_mission(db, player)
+            embed = embedder.story_menu_embed(story, nxt, player)
+        finally:
+            db.close()
+        # Ephemeral so the map message stays put -- the journal is a
+        # thing you glance at, not a place you navigate to.
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+class BackToMapView(OwnedView):
+    """Shown under a note. One way back, so a flavour tile can never
+    become a place the player is stuck."""
+
+    def __init__(self, owner_id: int | None = None):
+        super().__init__(timeout=900, owner_id=owner_id)
+
+    @discord.ui.button(label="◀ Back", style=discord.ButtonStyle.secondary)
+    async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await _render_map(interaction, edit=True)
+
+
+def _map_screen(db, player):
+    story = story_service.get_or_create(db, player)
+    state = map_service.look(db, story)
+    content = state["content"]
+    standing_on = None
+    if content:
+        standing_on = f"{content.get('emoji', '')} **{content.get('name', '')}**".strip()
+        if state["done"]:
+            standing_on += " — already done"
+    embed = embedder.story_map_embed(
+        area=state["area"],
+        grid=map_service.render(db, story),
+        legend=map_service.legend_lines(db, story),
+        standing_on=standing_on,
+        locked=state["locked"],
+    )
+    return embed, MapView(state, owner_id=player.id)
+
+
+async def _render_map(interaction: discord.Interaction, edit: bool):
+    db = SessionLocal()
+    try:
+        player = get_player(db, interaction.user.id)
+        if player is None:
+            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            return
+        embed, view = _map_screen(db, player)
+    finally:
+        db.close()
+    if edit:
+        await interaction.response.edit_message(embed=embed, view=view)
+    else:
+        await interaction.response.send_message(embed=embed, view=view)
+
+
+async def _move(interaction: discord.Interaction, direction: str):
+    db = SessionLocal()
+    try:
+        player = get_player(db, interaction.user.id)
+        if player is None:
+            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            return
+        story = story_service.get_or_create(db, player)
+        try:
+            map_service.move(db, story, direction)
+        except map_service.MapError as exc:
+            await interaction.response.send_message(str(exc), ephemeral=True)
+            return
+        embed, view = _map_screen(db, player)
+    finally:
+        db.close()
+    await interaction.response.edit_message(embed=embed, view=view)
+
+
+async def _interact(interaction: discord.Interaction):
+    """Resolve the tile underfoot.
+
+    map_service decides WHAT the tile is; starting a mission still goes
+    through story_service.start_mission, the same call the Journal's
+    Begin button makes. One start path, one place for the beat index to
+    be set.
+    """
+    db = SessionLocal()
+    started = False
+    note = None
+    try:
+        player = get_player(db, interaction.user.id)
+        if player is None:
+            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            return
+        story = story_service.get_or_create(db, player)
+        result = map_service.interact(db, story)
+        kind = result["kind"]
+
+        if kind == "nothing":
+            await interaction.response.send_message("There's nothing here.", ephemeral=True)
+            return
+
+        if kind == "locked":
+            await interaction.response.send_message(result["text"], ephemeral=True)
+            return
+
+        if kind == "note":
+            note = result
+        elif kind == "exit":
+            map_service.travel(db, story, result["to_area"], result["to"])
+        elif kind == "mission":
+            try:
+                story_service.start_mission(db, player, result["mission"])
+                started = True
+            except story_service.StoryError as exc:
+                await interaction.response.send_message(str(exc), ephemeral=True)
+                return
+
+        if not started:
+            embed, view = (
+                (embedder.story_note_embed(note["name"], note["emoji"], note["text"]),
+                 BackToMapView(owner_id=player.id))
+                if note else _map_screen(db, player)
+            )
+    finally:
+        db.close()
+
+    if started:
+        await _render_current(interaction, edit=True)
+        return
+    await interaction.response.edit_message(embed=embed, view=view)
+
+
+# ----------------------------------------------------------------------
 # Rendering
 # ----------------------------------------------------------------------
 
@@ -130,13 +324,21 @@ async def _render_current(interaction: discord.Interaction, edit: bool, extra_te
 
         state = story_service.current_beat(db, player)
         if state is None:
-            await _send_menu(interaction, db, player, edit=edit)
-            return
-
-        mission, beat = state
-        if beat.get("kind") == "battle":
-            embed, view = _open_battle(db, player, mission, beat)
+            # Falling out of a mission puts you back on the map, not in a
+            # menu. The map is where the game lives now; the menu would
+            # be a detour on the way to the same place.
+            need_map = True
         else:
+            need_map = False
+
+        if need_map:
+            embed, view = _map_screen(db, player)
+            mission = beat = None
+        else:
+            mission, beat = state
+        if not need_map and beat.get("kind") == "battle":
+            embed, view = _open_battle(db, player, mission, beat)
+        elif not need_map:
             embed = embedder.story_beat_embed(mission, beat, text=extra_text)
             view = (ChoiceView(beat, owner_id=player.id) if beat.get("kind") == "choice"
                     else ContinueView(owner_id=player.id))
@@ -172,7 +374,8 @@ async def _advance_and_render(interaction: discord.Interaction, choice_id: str |
 
     if finished is not None and mission is not None:
         await interaction.response.edit_message(
-            embed=embedder.story_mission_complete_embed(mission, finished), view=None
+            embed=embedder.story_mission_complete_embed(mission, finished),
+            view=BackToMapView(owner_id=interaction.user.id),
         )
         return
     # The result TEXT of a choice belongs on the next screen, so the
@@ -356,7 +559,8 @@ async def _story_combat_action(interaction: discord.Interaction, action: str,
 
     if result and result.get("finished") and mission is not None:
         await interaction.response.edit_message(
-            embed=embedder.story_mission_complete_embed(mission, result), view=None
+            embed=embedder.story_mission_complete_embed(mission, result),
+            view=BackToMapView(owner_id=interaction.user.id),
         )
         return
     await _render_current(interaction, edit=True, extra_text=text)
@@ -381,12 +585,7 @@ class Story(commands.Cog):
         if state is not None:
             await _render_current(ctx, edit=False)
             return
-        db = SessionLocal()
-        try:
-            player = get_player(db, ctx.user.id)
-            await _send_menu(ctx, db, player, edit=False)
-        finally:
-            db.close()
+        await _render_map(ctx, edit=False)
 
 
 async def setup(bot):

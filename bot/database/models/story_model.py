@@ -63,6 +63,27 @@ class PlayerStory(Base):
 
     prologue_complete: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # ------------------------------------------------------------------
+    # Overworld position (bot/game/story/map_config.py).
+    #
+    # NULL area means "hasn't stepped onto the map yet", which is how an
+    # existing player who predates the overworld reads -- map_service
+    # spawns them rather than treating (0, 0) as a real position, since
+    # (0, 0) is a wall in every authored area.
+    # ------------------------------------------------------------------
+    area: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    pos_x: Mapped[int] = mapped_column(Integer, default=0)
+    pos_y: Mapped[int] = mapped_column(Integer, default=0)
+
+    # {area_id: [[x, y], ...]} -- tiles the player has stood on. Purely
+    # informational (the grid is never hidden), but it's what lets an
+    # area tell you how much of it you've actually seen.
+    visited: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    # {area_id: [tile_char, ...]} -- one-shot tiles already consumed, so
+    # a note that has been read stops advertising itself.
+    read_tiles: Mapped[dict] = mapped_column(JSON, default=dict)
+
     updated_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

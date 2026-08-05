@@ -50,6 +50,53 @@ def story_menu_embed(story, next_mission: dict | None, player) -> discord.Embed:
     return embed
 
 
+def map_embed(area: dict, grid: str, legend: list[str], standing_on: str | None,
+              locked: bool = False) -> discord.Embed:
+    """The overworld screen: the grid, then what's on it, then what's
+    under your feet.
+
+    That order is deliberate. An emoji grid on its own is a puzzle about
+    emoji -- the labelled list underneath is what turns it into a place,
+    and the "you are standing on" line is what makes the d-pad feel
+    connected to anything. Dropping either one was tried and the map
+    immediately reads as decoration.
+    """
+    embed = discord.Embed(
+        title=f"🗺️ {area['name']}",
+        description=area.get("blurb", ""),
+        color=STORY_COLOR,
+    )
+    embed.add_field(name="​", value=grid, inline=False)
+
+    if legend:
+        # 1024-char field ceiling. Areas are small enough that this has
+        # never been close, but a truncated legend would silently hide
+        # the one tile the player is looking for.
+        embed.add_field(name="Here", value="\n".join(legend)[:1024], inline=False)
+
+    if standing_on:
+        embed.add_field(
+            name="You're standing on",
+            value=("🔒 " if locked else "") + standing_on,
+            inline=False,
+        )
+        embed.set_footer(text="Press ✋ to interact.")
+    else:
+        embed.set_footer(text="Move with the arrows.")
+    return embed
+
+
+def note_embed(name: str, emoji: str, text: str) -> discord.Embed:
+    """A flavour tile. Same visual weight as a dialogue beat on purpose --
+    optional content that looks cheaper than required content teaches the
+    player not to read it."""
+    return discord.Embed(
+        title=f"{emoji} {name}".strip(),
+        description=text,
+        color=STORY_COLOR,
+    )
+
+
 def beat_embed(mission: dict, beat: dict, text: str | None = None) -> discord.Embed:
     """One beat. `text` overrides the beat's own body -- used to show the
     RESULT of a choice rather than the prompt that produced it."""

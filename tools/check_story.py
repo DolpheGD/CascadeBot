@@ -34,6 +34,236 @@ import sys
 BEAT_KINDS = {"dialogue", "choice", "battle", "encounter", "reward", "unlock"}
 
 
+def _check_maps() -> list[str]:
+    """Validate every overworld area.
+
+    The density rules here are the load-bearing ones. A grid map in a
+    button UI does not fail by being too big, it fails by being SPARSE:
+    every step costs a Discord round-trip, so a step that usually returns
+    nothing is pure friction, and that gets worse the more room you have
+    to wander. Density can't be eyeballed once areas vary in size, so it
+    is asserted -- an area that fails is a design bug, not a preference.
+
+    Also checked, in rough order of how badly each one ruins a session:
+
+      * reachability -- content walled off from the spawn is content
+        nobody will ever see, and it looks completely fine in the source
+      * exits that land in a wall or a nonexistent area
+      * lock ordering -- a tile requiring a mission that can only be
+        started BEYOND that tile is a softlock, and the prologue is
+        exactly where a softlock is unrecoverable
+      * every mission in story_config placed on exactly one tile
+      * glyph width, including variation selectors, which shear a column
+        on mobile without looking wrong in an editor
+    """
+    from collections import deque
+
+    from bot.game.story import map_config as mc
+    from bot.game.story import story_config as sc
+
+    failures: list[str] = []
+    placed: dict[str, list[str]] = {}
+
+    for area_id, area in mc.AREAS.items():
+        grid = area.get("grid") or []
+        if not grid:
+            failures.append(f"area '{area_id}': no grid")
+            continue
+
+        width, height = mc.area_size(area)
+        if width > mc.MAX_WIDTH or height > mc.MAX_HEIGHT:
+            failures.append(
+                f"area '{area_id}': {width}x{height} exceeds "
+                f"{mc.MAX_WIDTH}x{mc.MAX_HEIGHT} (wraps on mobile)"
+            )
+        if len({len(row) for row in grid}) != 1:
+            failures.append(f"area '{area_id}': rows are not all the same length")
+
+        # Spawn
+        spawns = sum(row.count(mc.SPAWN_CHAR) for row in grid)
+        if spawns != 1:
+            failures.append(f"area '{area_id}': {spawns} spawn tiles (needs exactly 1)")
+
+        # Legend <-> grid agreement, both directions.
+        used = {
+            char for row in grid for char in row
+            if char not in (mc.WALL_CHAR, mc.FLOOR_CHAR, mc.SPAWN_CHAR)
+        }
+        legend = area.get("legend") or {}
+        for char in sorted(used - set(legend)):
+            failures.append(f"area '{area_id}': '{char}' is on the grid with no legend entry")
+        for char in sorted(set(legend) - used):
+            failures.append(f"area '{area_id}': legend has '{char}', which is on no tile")
+        for char in sorted(used):
+            count = sum(row.count(char) for row in grid)
+            if count > 1:
+                failures.append(
+                    f"area '{area_id}': '{char}' appears {count} times -- one legend "
+                    f"entry cannot describe two different tiles"
+                )
+
+        # Contents
+        for char, content in legend.items():
+            where = f"area '{area_id}' tile '{char}'"
+            kind = content.get("kind")
+            emoji = content.get("emoji", "")
+            if "️" in emoji:
+                failures.append(
+                    f"{where}: emoji {emoji!r} contains a variation selector, which "
+                    f"renders narrow and shears the column on mobile"
+                )
+            if not content.get("name"):
+                failures.append(f"{where}: no name")
+
+            if kind == "mission":
+                mission_id = content.get("mission")
+                if sc.get_mission(mission_id) is None:
+                    failures.append(f"{where}: no mission named {mission_id!r}")
+                else:
+                    placed.setdefault(mission_id, []).append(f"{area_id}/{char}")
+            elif kind == "note":
+                if not content.get("text"):
+                    failures.append(f"{where}: note with no text")
+            elif kind == "exit":
+                target = content.get("to_area")
+                destination = mc.AREAS.get(target)
+                if destination is None:
+                    failures.append(f"{where}: exits to unknown area {target!r}")
+                else:
+                    tx, ty = content.get("to", [None, None])
+                    if not isinstance(tx, int) or not isinstance(ty, int):
+                        failures.append(f"{where}: exit has no integer [x, y]")
+                    elif mc.is_wall(destination, tx, ty):
+                        failures.append(f"{where}: exit lands inside a wall at ({tx}, {ty})")
+            else:
+                failures.append(f"{where}: unknown tile kind {kind!r}")
+
+            needed = content.get("requires_mission")
+            if needed and sc.get_mission(needed) is None:
+                failures.append(f"{where}: requires unknown mission {needed!r}")
+
+            roster = content.get("requires_characters")
+            if roster is not None and (not isinstance(roster, int) or roster < 1):
+                failures.append(f"{where}: requires_characters must be a positive int")
+
+            if (needed or roster) and not content.get("locked_text"):
+                failures.append(
+                    f"{where}: locked with no locked_text -- a door that won't say what "
+                    f"opens it is a bug report waiting to happen"
+                )
+
+        # Reachability from the spawn, by orthogonal walking.
+        walkable = set(mc.walkable_tiles(area))
+        spawn = mc.spawn_of(area)
+        seen = {spawn}
+        queue = deque([spawn])
+        while queue:
+            x, y = queue.popleft()
+            for dx, dy in ((0, -1), (0, 1), (-1, 0), (1, 0)):
+                nxt = (x + dx, y + dy)
+                if nxt in walkable and nxt not in seen:
+                    seen.add(nxt)
+                    queue.append(nxt)
+        for x, y in sorted(walkable - seen):
+            char = mc.tile_char(area, x, y)
+            failures.append(
+                f"area '{area_id}': ({x}, {y}) [{char}] is walled off from the spawn"
+            )
+
+        # DENSITY. Both halves of the rule.
+        content_tiles = [
+            (x, y) for (x, y) in walkable if mc.tile_content(area, x, y) is not None
+        ]
+        if walkable:
+            density = len(content_tiles) / len(walkable)
+            if density < mc.MIN_DENSITY:
+                failures.append(
+                    f"area '{area_id}': density {density:.0%} is below "
+                    f"{mc.MIN_DENSITY:.0%} ({len(content_tiles)}/{len(walkable)} tiles do "
+                    f"something) -- the map is mostly walking"
+                )
+
+        if content_tiles:
+            # Multi-source BFS out from every interactive tile at once:
+            # the distance that matters is to the NEAREST one.
+            distance = {tile: 0 for tile in content_tiles}
+            queue = deque(content_tiles)
+            while queue:
+                x, y = queue.popleft()
+                for dx, dy in ((0, -1), (0, 1), (-1, 0), (1, 0)):
+                    nxt = (x + dx, y + dy)
+                    if nxt in walkable and nxt not in distance:
+                        distance[nxt] = distance[(x, y)] + 1
+                        queue.append(nxt)
+            for tile in sorted(walkable):
+                steps = distance.get(tile)
+                if steps is None or steps > mc.MAX_DISTANCE_TO_CONTENT:
+                    failures.append(
+                        f"area '{area_id}': {tile} is {steps if steps is not None else 'infinitely'}"
+                        f" steps from anything interactive (max {mc.MAX_DISTANCE_TO_CONTENT})"
+                    )
+
+    # Every mission placed exactly once.
+    for mission in sc.all_missions():
+        where = placed.get(mission["id"], [])
+        if not where:
+            failures.append(
+                f"mission '{mission['id']}' is on no tile -- unreachable now that the "
+                f"overworld is the way in"
+            )
+        elif len(where) > 1:
+            failures.append(f"mission '{mission['id']}' is on {len(where)} tiles: {where}")
+
+    # LOCK ORDERING. A tile gated behind a mission that lives further
+    # along the same one-way path is a softlock; in the prologue it's an
+    # unrecoverable one, since there's nothing else to go and do.
+    reachable_missions: set[str] = set()
+    frontier = [mc.STARTING_AREA]
+    open_areas: set[str] = set()
+    progressed = True
+    while progressed:
+        progressed = False
+        for area_id in list(frontier):
+            if area_id in open_areas:
+                continue
+            area = mc.AREAS.get(area_id)
+            if area is None:
+                continue
+            open_areas.add(area_id)
+            progressed = True
+        for area_id in list(open_areas):
+            for content in (mc.AREAS[area_id].get("legend") or {}).values():
+                needed = content.get("requires_mission")
+                if needed and needed not in reachable_missions:
+                    continue
+                if content.get("kind") == "mission":
+                    if content["mission"] not in reachable_missions:
+                        reachable_missions.add(content["mission"])
+                        progressed = True
+                elif content.get("kind") == "exit":
+                    target = content.get("to_area")
+                    if target in mc.AREAS and target not in open_areas:
+                        frontier.append(target)
+                        progressed = True
+
+    for mission in sc.all_missions():
+        if placed.get(mission["id"]) and mission["id"] not in reachable_missions:
+            failures.append(
+                f"mission '{mission['id']}' can never be started -- its tile, or the area "
+                f"holding it, is locked behind a mission that isn't reachable first"
+            )
+
+    total_tiles = sum(len(mc.walkable_tiles(a)) for a in mc.AREAS.values())
+    interactive = sum(
+        1 for a in mc.AREAS.values() for (x, y) in mc.walkable_tiles(a)
+        if mc.tile_content(a, x, y) is not None
+    )
+    print(f"areas    : {len(mc.AREAS)}")
+    print(f"tiles    : {total_tiles} walkable, {interactive} interactive "
+          f"({interactive / total_tiles:.0%} density)" if total_tiles else "tiles    : 0")
+    return failures
+
+
 def main() -> int:
     from bot.database.models.enums import Rarity
     from bot.game.characters.character_seed_data import CHARACTER_TEMPLATES
@@ -148,6 +378,8 @@ def main() -> int:
         ]
         if len(unlocks) > 1:
             failures.append(f"feature '{feature}' is unlocked by more than one mission: {unlocks}")
+
+    failures += _check_maps()
 
     gated = [f for f in sc.FEATURES if sc.feature_unlocked_by(f)]
     print(f"chapters : {len(sc.CHAPTERS)}")

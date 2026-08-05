@@ -64,6 +64,9 @@ FEATURES: dict[str, str] = {
     "forge": "The Forge",
     "lab": "The Research Lab",
     "exchange": "The Echo Exchange",
+    "quests": "Quests",
+    "gifting": "Gifting",
+    "daily": "Daily rewards",
 }
 
 # Features every player has from the moment they exist. Deliberately
@@ -253,9 +256,23 @@ CHAPTERS: list[dict] = [
                         ),
                     },
                     {
+                        # 480 Shards = FOUR pulls at 120 each.
+                        #
+                        # The number is a softlock guard, not generosity.
+                        # The prologue's last fight is unwinnable with a
+                        # solo level-1 avatar (measured 0%), so the player
+                        # MUST come out of this mission with a second
+                        # character. The avatar template is excluded from
+                        # the gacha pool, which means a player who owns
+                        # only their avatar cannot roll a duplicate --
+                        # their first pull is guaranteed to be somebody
+                        # new. Four pulls is therefore three more than the
+                        # guarantee needs, which is the margin for a
+                        # player who spends some of it before reading
+                        # what it was for.
                         "kind": "reward",
                         "text": "She routes you a recruitment budget.",
-                        "grant": {"shards": 400},
+                        "grant": {"shards": 480},
                     },
                     {
                         "kind": "unlock",
@@ -279,17 +296,29 @@ CHAPTERS: list[dict] = [
                         ),
                     },
                     {
-                        # The prologue GRANTS a squadmate rather than only
-                        # unlocking the ability to look for one. Unlocking
-                        # /pull doesn't guarantee anyone presses it, and a
-                        # player who skips it reaches the prologue's last
-                        # fight with a solo level-1 avatar -- measured 0%
-                        # winnable. Josh is standing right there and is
-                        # about to walk you into Glacier 15 personally, so
-                        # he's the obvious answer narratively as well.
-                        "kind": "reward",
-                        "text": "Josh puts his pack down next to yours. That appears to be the discussion.",
-                        "grant": {"character": "Josh"},
+                        # NOBODY IS GIFTED HERE.
+                        #
+                        # An earlier version handed the player Josh
+                        # outright, which removed the softlock but also
+                        # removed the tutorial: the first pull is one of
+                        # the systems the prologue exists to teach, and
+                        # being given the reward for a mechanic is a
+                        # reliable way never to learn the mechanic.
+                        #
+                        # The softlock is instead handled by the LANE
+                        # DOOR, which won't open until the player actually
+                        # has a second squad member (see the
+                        # `requires_characters` lock in map_config). That
+                        # keeps the guard rail without skipping the
+                        # lesson, and it means whoever walks north is
+                        # somebody the player chose.
+                        "kind": "dialogue",
+                        "speaker": "Dolphe",
+                        "text": (
+                            "Put the word out with `/pull` and see who answers. Then put them "
+                            "in your `/squad` — nobody walks into Glacier 15 alone.\n\n"
+                            "I'll be here. Josh is already outside, pretending he isn't waiting."
+                        ),
                     },
                     {
                         "kind": "dialogue",
@@ -344,6 +373,7 @@ CHAPTERS: list[dict] = [
                         "text": (
                             "Get your team in order. Whoever answered, whoever you trust "
                             "with this.\n\n"
+                            "I'm not opening that door until there's more than one of you. "
                             "Then we go north."
                         ),
                     },
@@ -369,9 +399,22 @@ CHAPTERS: list[dict] = [
                         ),
                     },
                     {
+                        # LEVEL 3, NOT 4.
+                        #
+                        # This fight used to be balanced around the
+                        # prologue handing you Josh, a 5-star, which made
+                        # level 4 a formality. Now you bring whoever you
+                        # pulled, so it was re-simulated against all 29
+                        # possible partners at level 1: at level 4 the
+                        # worst partner won 70% and four fell below 90%;
+                        # at level 3 the mean is 98% and the worst is
+                        # 80%. Losing retries rather than ending the run,
+                        # so 80% is a fight you might lose once -- which
+                        # is the right feeling for the last tutorial
+                        # beat, where a coin flip is not.
                         "kind": "battle",
                         "enemies": ["Xender Henchmen", "Xender Henchmen"],
-                        "level": 4,
+                        "level": 3,
                         "intro": (
                             "Two of them. **🎯 Switch target** is a free action — it doesn't "
                             "cost your turn, so pick who dies first.\n"

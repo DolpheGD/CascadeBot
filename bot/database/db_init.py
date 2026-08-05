@@ -69,6 +69,17 @@ def _ensure_columns(conn):
     # difficulty, i.e. a 1.0x bonus, so nobody's in-flight raid changes.
     add_column("raid_participants", "best_difficulty", "VARCHAR(16)")
 
+    # Story overworld position. NULL `area` is meaningful, not missing:
+    # it's how map_service tells "never stepped onto the map" apart from
+    # "standing at (0, 0)", which is a wall in every authored area. Any
+    # player whose story row predates the overworld reads as NULL and is
+    # spawned properly on their first move.
+    add_column("player_stories", "area", "VARCHAR(64)")
+    add_column("player_stories", "pos_x", "INTEGER DEFAULT 0")
+    add_column("player_stories", "pos_y", "INTEGER DEFAULT 0")
+    add_column("player_stories", "visited", "JSON")
+    add_column("player_stories", "read_tiles", "JSON")
+
 
 def init_db():
     Base.metadata.create_all(bind=engine)

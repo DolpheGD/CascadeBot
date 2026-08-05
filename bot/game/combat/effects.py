@@ -946,7 +946,13 @@ def resolve_active_ability(
         hit = _hit(attacker, defender, effect["damage_percent"],
                             effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         if hit and not defender.is_alive():
-            healed = attacker.heal(attacker.max_hp * effect["heal_percent_on_kill"] / 100)
+            # Read with a fallback rather than a bare subscript: this
+            # branch only runs on a KILL, so a missing key here is a
+            # crash that hides until the ability succeeds. Accepting the
+            # obvious misspelling costs nothing and turns a hard failure
+            # into a working heal.
+            percent = effect.get("heal_percent_on_kill", effect.get("heal_percent", 0))
+            healed = attacker.heal(attacker.max_hp * percent / 100)
             log.append(f"🔥 {attacker.name} is reinvigorated, healing {healed} HP!")
 
     elif kind == "multi_hit":
@@ -1012,7 +1018,12 @@ def resolve_active_ability(
         # Deals normal damage, but a much harder hit if the target is
         # already below the given HP% -- a finisher move.
         is_execute = defender.current_hp <= defender.max_hp * effect["hp_threshold_percent"] / 100
-        percent = effect["execute_damage_percent"] if is_execute else effect["damage_percent"]
+        # Fall back to the normal damage number rather than subscripting.
+        # The execute branch only runs against a LOW-HP target, so a
+        # missing key here is a crash that hides until the ability is
+        # doing its job -- exactly how Gostley's Last Rites shipped.
+        percent = (effect.get("execute_damage_percent", effect["damage_percent"])
+                   if is_execute else effect["damage_percent"])
         _hit(attacker, defender, percent, effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         if is_execute:
             log.append(f"⚔️ {attacker.name} finishes with a decisive blow!")

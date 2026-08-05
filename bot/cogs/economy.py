@@ -41,6 +41,8 @@ class Economy(commands.Cog):
             player = get_player(db, ctx.user.id)
             if not await require_player(ctx, player):
                 return
+            if not await require_feature(ctx, db, player, 'daily'):
+                return
 
             try:
                 result = claim_daily(db, player)
@@ -136,6 +138,13 @@ class Economy(commands.Cog):
             # /start yet should still be able to read the odds table, they
             # just don't get a personal pity readout with it.
             player = get_player(db, ctx.user.id)
+            # Gated only for players who EXIST. Someone who hasn't run
+            # /start has nothing to be gated against and still gets the
+            # plain odds table; someone mid-prologue is reading the rates
+            # for a system the story hasn't introduced, which is the
+            # thing the gate is for.
+            if player is not None and not await require_feature(ctx, db, player, "pull"):
+                return
             embed = embedder.gacha_rates_embed(player=player)
         except Exception:
             logger.exception("`/pull_rates` failed to build its embed")
@@ -166,6 +175,8 @@ class Economy(commands.Cog):
         try:
             player = get_player(db, ctx.user.id)
             if not await require_player(ctx, player):
+                return
+            if not await require_feature(ctx, db, player, 'inventory'):
                 return
 
             expedition = dungeon_service.get_active_expedition(db, player.id)
@@ -243,6 +254,10 @@ class Economy(commands.Cog):
         try:
             player = get_player(db, ctx.user.id)
             if not await require_player(ctx, player):
+                return
+            # Resonance is a property of DUPLICATE PULLS, so it travels
+            # with /pull rather than standing on its own.
+            if not await require_feature(ctx, db, player, "pull"):
                 return
             owned = character_service.list_owned_characters(db, player)
             embed = embedder.resonance_embed(owned[0])
