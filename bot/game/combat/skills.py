@@ -379,9 +379,12 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     # match.
     "arkiver_skill": _skill(
         "arkiver_skill", "Twin Fang Strike", 18, 1,
-        "Deal 130% ELE damage, or 220% ELE damage if the target is already weakened by a debuff.",
-        {"kind": "damage_bonus_if_debuffed", "damage_percent": 130,
-         "bonus_damage_percent": 90, "damage_stat": "elemental"},
+        "Deal 110% ELE damage, or 280% ELE damage if the target is already weakened by a debuff.",
+        # Bonus raised from +90 to +170. The condition was already right
+        # -- it just wasn't worth building around, which is the same
+        # failure as having no condition at all.
+        {"kind": "damage_bonus_if_debuffed", "damage_percent": 110,
+         "bonus_damage_percent": 170, "damage_stat": "elemental"},
     ),
     "arkiver_ultimate": _ultimate(
         "arkiver_ultimate", "Elemental Fury",
@@ -528,9 +531,25 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
          "debuff_chance_percent": 100, "debuff_stat": "defense", "debuff_percent": -18, "duration": 2},
     ),
     "star_skill": _skill(
+        # STAR WAS THE PROBLEM CHARACTER. A flat 220% with no condition
+        # attached made him 94% of the roster's best damage at 4 stars,
+        # with a measured setup/plain ratio of 0.98 -- he did the same
+        # damage no matter what was happening, so there was never a
+        # reason to bring anyone harder to use.
+        #
+        # He is now the OPENER: enormous against a healthy target,
+        # ordinary once it's hurt. That is the exact inverse of Gostley's
+        # execute, so the two stop competing for the same moment and
+        # start wanting to be in the same squad -- Star swings first, the
+        # executes clean up.
+        #
+        # "Never in a hurry, never needs to be -- Star takes his time
+        # lining up a swing." The kit now does what the bio always said.
         "star_skill", "Lazy Haymaker", 20, 1,
-        "Deal 220% ATK damage to the target.",
-        {"kind": "damage_multiplier", "damage_percent": 220, "damage_stat": "attack"},
+        "Deal 130% ATK damage — or 300% if the target is still above 60% HP.",
+        {"kind": "damage_bonus_if_target_healthy", "damage_percent": 130,
+         "bonus_damage_percent": 170, "hp_threshold_percent": 60,
+         "damage_stat": "attack"},
     ),
     "star_ultimate": _ultimate(
         "star_ultimate", "One and Done",
@@ -697,9 +716,13 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     # ==================================================================
     "blastix_skill": _skill(
         "blastix_skill", "Overpressure Round", 22, 1,
-        "Deal 105% ATK damage to all enemies, at the cost of 8% of your own max HP.",
-        {"kind": "damage_all_and_debuff_self", "damage_percent": 105, "damage_stat": "attack",
-         "self_cost_percent": 8, "debuff_stat": "defense", "debuff_percent": -10, "duration": 2},
+        "Deal 95% ATK damage to ALL enemies, +45% per additional enemy present.",
+        # Scales with how many targets there are, which is what
+        # "demolitions, enthusiastically" should mean. Weak into a single
+        # boss, devastating into a crowd -- a real reason to swap him in
+        # and out rather than a number that never changes.
+        {"kind": "damage_scales_with_enemy_count", "damage_percent": 95,
+         "bonus_per_enemy": 45, "damage_stat": "attack"},
     ),
     "blastix_ultimate": _ultimate(
         "blastix_ultimate", "Total Detonation",
@@ -756,9 +779,13 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     ),
     "aizer_skill": _skill(
         "aizer_skill", "Closing Argument", 20, 1,
-        "Deal 120% ATK damage, rising to 240% against a target that has already lost most of its health.",
-        {"kind": "damage_scales_with_missing_hp", "base_damage_percent": 120,
-         "bonus_damage_percent_at_zero_hp": 120, "damage_stat": "attack"},
+        "Deal 110% ATK damage, +55% for each consecutive use on the SAME target (max 4). Switching targets resets it.",
+        # Ramps on the SAME target and resets when he switches, which is
+        # "prosecutes fights the way he used to prosecute cases:
+        # patiently, relentlessly". It also pulls against every other
+        # carry's instinct to retarget whatever is lowest.
+        {"kind": "damage_ramp_per_use", "damage_percent": 110,
+         "bonus_per_stack": 55, "max_stacks": 4, "damage_stat": "attack"},
     ),
     "aizer_ultimate": _ultimate(
         "aizer_ultimate", "Verdict",

@@ -39,10 +39,15 @@ import random
 # baseline you'll see constantly, 5-star is the aspirational pull. These
 # are the BASE rates, before any soft-pity ramp is applied.
 STAR_WEIGHTS: dict[int, float] = {
-    3: 75.0,
-    4: 21.0,
-    5: 4.0,
+    3: 73.0,
+    4: 22.0,
+    5: 5.0,
 }
+# These are already percentages and already sum to 100, so the displayed
+# odds are the authored numbers rather than a normalisation of them --
+# worth keeping true, because a rates table that disagrees with the
+# config by a rounding step is the kind of thing players screenshot.
+assert abs(sum(STAR_WEIGHTS.values()) - 100.0) < 1e-9, "STAR_WEIGHTS must total 100"
 
 SINGLE_PULL_COST_SHARDS = 120
 MULTI_PULL_COUNT = 10

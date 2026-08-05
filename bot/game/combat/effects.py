@@ -323,6 +323,13 @@ _EVENT_KINDS: dict[str, set[str]] = {
         "damage_and_debuff", "damage_and_double_debuff", "team_debuff",
         "aoe_damage_chance_debuff", "apply_vulnerability_stack",
     },
+    # Conditional damage added by the DPS diversity pass. Grouped
+    # together so it is obvious at a glance which kits pay off only in
+    # specific circumstances.
+    "conditional_damage": {
+        "damage_bonus_if_target_healthy", "damage_scales_with_enemy_count",
+        "damage_ramp_per_use",
+    },
     "dot": {"damage_and_dot", "aoe_damage_chance_dot"},
     "cleanse": {"cleanse_ally_and_heal", "cleanse_self_and_heal", "team_shield_and_cleanse"},
     "sacrifice": {
@@ -1444,6 +1451,58 @@ def resolve_active_ability(
         _hit(attacker, defender, percent, effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         if has_debuff:
             log.append(f"🎯 {attacker.name} exploits {defender.name}'s weakened state!")
+
+    elif kind == "damage_bonus_if_target_healthy":
+        # THE OPENER. Huge on a target still above `hp_threshold_percent`,
+        # ordinary once it's hurt -- the exact inverse of an execute.
+        #
+        # Added for the DPS diversity pass. Every conditional carry in the
+        # roster wanted the target WEAK, which meant "the conditions" were
+        # really one condition and the conditional carries all competed
+        # for the same moment. A carry that wants the target STRONG opens
+        # a second slot in the same squad: he swings first, the executes
+        # clean up, and neither is redundant.
+        healthy = defender.current_hp > defender.max_hp * effect["hp_threshold_percent"] / 100
+        percent = effect["damage_percent"] + (effect["bonus_damage_percent"] if healthy else 0)
+        _hit(attacker, defender, percent, effect.get("damage_stat", "attack"), rng, log,
+             defender_allies=defender_allies)
+        if healthy:
+            log.append(f"🗡️ {attacker.name} lines up a clean swing on a fresh target!")
+
+    elif kind == "damage_scales_with_enemy_count":
+        # More targets, more damage -- to EVERY target. A demolitions kit
+        # should be embarrassing against one enemy and devastating
+        # against five, which is a real squad-building decision rather
+        # than a number that is always the same.
+        living = [e for e in (opponents or [defender]) if e.is_alive()]
+        percent = effect["damage_percent"] + effect["bonus_per_enemy"] * max(0, len(living) - 1)
+        for target in living:
+            _hit(attacker, target, percent, effect.get("damage_stat", "attack"), rng, log,
+                 suppress_kill_log=True, defender_allies=defender_allies)
+        if len(living) > 1:
+            log.append(f"💥 {attacker.name}'s charges chain across {len(living)} targets!")
+
+    elif kind == "damage_ramp_per_use":
+        # Ramps every time it is used ON THE SAME TARGET, and resets the
+        # moment the target changes. Rewards committing to one enemy for
+        # several turns, which is the opposite of the "retarget whatever
+        # is lowest" habit every other carry encourages.
+        marker = getattr(attacker, "_ramp_state", None)
+        # `!=`, NOT `is not`. id() returns a large int, and CPython only
+        # interns small ones, so `marker[0] is not id(defender)` was true
+        # even when the target hadn't changed -- the ramp reset on every
+        # single use and the ability was a flat 110% forever. It measured
+        # as a NERF, which is how it got caught.
+        if not marker or marker[0] != id(defender):
+            marker = [id(defender), 0]
+        stacks = min(marker[1], effect.get("max_stacks", 4))
+        percent = effect["damage_percent"] + effect["bonus_per_stack"] * stacks
+        _hit(attacker, defender, percent, effect.get("damage_stat", "attack"), rng, log,
+             defender_allies=defender_allies)
+        marker = [id(defender), min(marker[1] + 1, effect.get("max_stacks", 4))]
+        attacker._ramp_state = marker
+        if stacks:
+            log.append(f"⚖️ {attacker.name} presses the case — {stacks} stack(s) deep.")
 
     elif kind == "chance_double_hit":
         # Riftcutter-style flat percent chance to swing again immediately

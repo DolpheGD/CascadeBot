@@ -200,7 +200,114 @@ acts.
    `bot/services/map_service.py` (movement), map checks in
    `tools/check_story.py`. The map is the landing screen for `/story`;
    the chapter list moved to a Journal button.
-4. **Chapters 1-5.** <- next
+4. **Chapters 1-5.** Chapter 1 (*The Frozen Thread*) is written: 5
+   missions, 3 areas, and the last five gated features. Chapters 2-5
+   are next.
+
+## CANON (read this before writing a single line)
+
+The lore PDFs in `docs/Detailed Official world lore/` are the source of
+truth. An entire prologue and chapter were written before they were
+read, and had to be thrown away. Do not repeat that.
+
+**Facts that were got wrong the first time:**
+
+- **Dolphe is HE.** File C-000. An earlier draft used "she" in every
+  scene he appeared in.
+- **Josh speaks in broken English.** Canon, not characterisation: *"Im
+  just try to live, but people say it bad."* An earlier draft wrote him
+  fluent and clipped, which quietly turned the roster's most distinctive
+  character into a generic soldier.
+- **Josh's motive is Rex.** He is driven by "the debt of Rex's death".
+  Rex is dead before the game starts.
+- **Dolphe News became Team Cascade in 107 IC**, right after Glacier 15.
+  There is no newspaper left to be recruited into by 109 IC.
+- **The Player is canonically a cat** — "a self-insert, a cat icon with
+  player colors". The map marker was already 🐱 by luck.
+- **The Player** resonates with electricity and void matter, foresees
+  and parries attacks, and is *extremely fragile* — 1-2 hits.
+
+**The canon opening (Jul 26, 109 IC):** the Player wakes in Ocellios Lab
+mid-collapse with Stubby's mechs hacked hostile, neutralises them with
+electricity, escapes east into Glacier 15, survives by powering **heat
+beacons**, is intercepted by **Nebula and Gostley** (sent by Dolphe to
+investigate an anomaly on Cascade's radar — the anomaly is the Player),
+narrowly escapes a **mechanical worm**, and joins Team Cascade at their
+forward base.
+
+## The arc: Rohan
+
+Rohan — **Mr. R** — is the primary antagonist, and this is a deliberate
+divergence: he appears nowhere in the PDFs, where the spine is Xender vs
+HHyper. In the bot he was the Abyssnia endgame boss and a comedy fruit
+vendor who hates Josh and Rex. The story mode promotes him.
+
+Xender stays as **political backdrop** — real, dangerous, and not what
+the story is about. The personal line is Player / Josh / Rohan, with Rex
+as the debt underneath it.
+
+**Rohan is not seen in Chapter 1.** He is established by what he can
+afford to abandon: a boss-tier driller cut in one pass and signed with a
+single letter, nineteen Xender survey teams that went in and never filed
+out, and an Eris-frame Guardian he *found* rather than built. He is
+named only at the end, and by Josh, who has been calling it in for two
+years and being told he was grieving.
+
+### Every feature now has a real unlock beat
+
+13/13. The prologue opens 8 (inventory, quests, pull, squad, adventure,
+base, daily, domains); Chapter 1 opens the remaining 5 (gifting and the
+Echo Exchange on the flight north, the Forge at the workshop, the
+Research Lab at the reveal, raids under the chapter boss).
+
+Raids specifically wait until C1M5 because that is the first thing in
+the story a squad of four demonstrably cannot finish. Handing someone a
+co-op system in a safehouse is a menu tour; handing it to them under a
+thing that just walked through a wall is an argument.
+
+This means the "no unlock beat -> opens at prologue end" fallback in
+story_service is now dead code in practice. It stays, because the next
+chapter will add features before it adds the missions that grant them.
+
+### Missions run once
+
+Story rewards are fixed and authored, and story fights are tuned to be
+winnable, so a replayable mission is strictly the best farm in the game
+and hollows out the mode. Refused in `start_mission` and surfaced early
+by the map tile. Repeatable content is expeditions, domains and raids.
+
+### Combat tuning is simulated, never guessed
+
+Chapter 1's fights were authored by eye and all three were wrong -- the
+opener won 100% at every squad level from 5 to 25, and the boss was 0%
+winnable at every level tested. The lesson that came out of the sweep is
+that difficulty in this engine is driven by **composition**, not level:
+three Recon Scouts are free at level 15, while a lone Permafrost
+Guardian is a wall at level 5. Final numbers, measured over 80 seeded
+fights per cell:
+
+**Enemy TIER is a hard wall, not a curve.** Measured base HP: a
+`combat` template is 40-58, an `elite` is 200, a `boss` is 520. A
+two-character party at level 1-8 beats *every* combat template at 100%
+and *no* elite or boss at any level. There is no amount of level tuning
+that bridges that, so an early fight must use combat-tier enemies —
+full stop.
+
+That killed the prologue's worm as a fight. Canon says the Player
+*narrowly escapes* it, and the engine agrees, so the worm is now the
+hazard and its two minders are the encounter. It returns as a boss later,
+when a squad can actually meet it.
+
+| fight | party | result |
+|---|---|---|
+| PR1 Rogue Security Drone (lv2) | 1 char, lv1 | 100% |
+| PR5 Concussion Drone + Recon Scout (lv3) | 2 chars, lv1 | 98% |
+| C1M2 Tank + 2 Henchmen (lv4) | 4 chars | 47% @10, 78% @12, 100% @15 |
+| C1M5 Permafrost Guardian, alone (lv11) | 4 chars | 17% @10, 40% @15, 75% @20 |
+
+The C1M5 boss lost its two escorts along the way. It reads better as well
+as playing better: one enormous thing that came through a wall is a boss,
+one enormous thing with two blocks of ice is a patrol.
 
 Each stage is independently playable. The container/contents split held:
 converting the prologue onto the map changed zero beats.
@@ -239,3 +346,145 @@ a new command fails silently.
 - **Chapter length.** 4–6 missions each is still a guess. Shorter
   chapters mean more frequent payoffs; longer ones mean weightier ones.
   Worth revisiting once Chapter 1 is playable rather than deciding now.
+
+
+## Adventure rebalance (driven by the prologue)
+
+The prologue now delivers a **level 1-5 squad with one Uncommon item**
+into Glacier 15. That exposed balance problems that predate story mode
+and were invisible until somebody measured the region a beginner
+actually lands in.
+
+**Per-fight win rates are misleading here.** HP carries between fights
+inside a run, so Glacier 15 measured 98-100% per combat room and **32%
+per run** — you win every fight and still die of accumulated attrition.
+Anything tuned off single fights is wrong in the same direction.
+`tools/sim_expedition.py` models whole runs: 9 floors, weighted room
+types, the forced pre-boss campfire, revive-to-1-HP between fights.
+
+**The ladder was inverted.** Final-boss HP ran 700 → 420 → 950 → 1050 →
+1500. Glacier's capstone was two thirds bigger than the region *after*
+it, and since a region only unlocks by clearing the previous one, the
+first rung gated the whole game. Every number inside Glacier's own config
+looked fine; the bug only existed *between* regions, which nothing
+compared.
+
+Changes, all data-only:
+
+| change | why |
+|---|---|
+| Void Hydra 700 → 380 HP | Glacier's capstone, entered at level 1-5. Still the hardest thing in the region by a distance (regular bosses cap at 300). |
+| Driller (520) and Corrupted Bli (420) out of Glacier's regular pool | They sat beside 270-300 HP bosses, so the *draw* decided the run. Both keep every later region. |
+| Loona (170) out of The Hotlands | Same failure: a 3.1x spread against the 520 Driller. |
+
+Glacier 15 full-run clear rate went **3% → 28% at squad level 1** and
+**16% → 62% at level 5**, reaching 100% by level 20 — a first region that
+asks you to grow rather than one that refuses you.
+
+`tools/check_progression.py` now asserts the ladder rises and that no
+boss pool is a coin flip. It caught the Hotlands case immediately.
+
+### Harder regions, funded by the story
+
+Difficulty was raised across tiers 1-4 and the story was made to pay for
+it. Doing either alone would have been a regression: harder regions with
+the old rewards is a wall, and better rewards with the old regions is a
+walkover.
+
+**Gear had to go into the simulator first.** Every earlier reading was
+taken naked, which is a floor nobody plays at, and it inverted the
+conclusion — Glacier 15 read as brutally hard naked and 100% clear with
+gear. `tools/sim_expedition.py` now equips a squad and takes rarity and
+item level as parameters.
+
+**The story now kits you out.** The prologue grants 5 items (2 Uncommon,
+3 Rare) and Chapter 1 four more (2 Rare, 2 Epic), so a player reaches
+`/adventure` with a full five-slot kit rather than the single Uncommon
+they used to get. Measured handoff into Glacier 15:
+
+| squad level | naked | with the story's kit |
+|---|---|---|
+| 3 | 8% | 32% |
+| 5 | 18% | 40% |
+| 8 | 30% | 64% |
+| 18 | 68% | 88% |
+
+**New offsets**, measured at the level and gear each region is actually
+reached:
+
+| region | was | now | clear at entry |
+|---|---|---|---|
+| Glacier 15 | 2 / 0 | 8 / 5 | 82% -> 62% |
+| The Wastelands | 10 / 7 | 22 / 18 | 98% -> 82% |
+| The Hotlands | 20 / 15 | 24 / 19 | 75% -> 57% |
+| Voidcrest Desert | 35 / 25 | 38 / 28 | 72% -> 70% |
+| Abyssnia | 48 / 35 | 42 / 30 | 18% -> 32% (lv100) |
+
+**Abyssnia went the other way, on purpose.** At 18% fully geared it was
+not a hard region, it was a closed door — raising it "across the board"
+would have made the endgame unreachable rather than difficult. It now
+measures 14% at level 70 and 32% at 100 with Legendary gear, and the sim
+models neither Mythic/Divine gear nor Resonance, so real endgame players
+sit above that.
+
+### Resolved: the multi-boss capstone scare
+
+An earlier pass recorded that capstones could roll a 2,656 HP four-body
+group and concluded deep regions were unclearable. Half right. Boss
+GROUPS are real (`BOSS_GROUP_CHANCE = 0.2`) and The Wastelands can roll
+NF + Ocellios Train + Broskm + Duko, but Abyssnia's capstone is a solo
+1,500 HP Xender in 100% of rolls — the earlier 0% reading was
+small-sample noise at 40 runs, not a group problem. At 120 runs it is
+14%. Sample size, not mechanics.
+
+### Historical note: the original multi-boss diagnosis
+
+`get_boss_encounter(final=True)` can return a **group**. The Wastelands
+capstone rolled NF + Ocellios Train + Broskm + Duko — **2,656 HP across
+four bodies**, which no squad clears without gear at any level tested.
+That is why regions past Glacier still read near-0% above.
+
+This is a real pre-existing problem and it deserves its own pass rather
+than a guess. One change was made on a wrong diagnosis during this work
+(NF 420 → 560, on the theory that the capstone ladder needed raising)
+and was **reverted** once the group encounter turned out to be the actual
+wall. Deeper regions should be re-measured *with gear modelled* before
+anything else is touched.
+
+
+## Chapter 2: Two Hundred Crates
+
+Five missions, two areas (The Wastelands line, Entrospire Underside), and
+**no feature unlocks** — everything is open by the end of Chapter 1, which
+frees Chapter 2 to be about people instead of menus. That is the pacing
+working, not a gap in it.
+
+The turn: the two hundred sealed crates leaving Glacier 15 are **ballast**.
+Rohan ran a two-year decoy because two hundred crates leaving a dead city
+in daylight is the story any journalist would chase — he built Dolphe a
+headline and pointed it away from wherever the people actually went.
+
+**Rohan appears in person** and does not fight you. He sits on a crate,
+gestures at one thing, watches you kill it, and applauds. He leaves the
+north gate key behind on purpose. The scene works because he does not
+consider it an engagement — and he lets slip "Ocellios put you in the
+frame", which means he knows what the Player is and Team Cascade doesn't.
+
+Chary carries the chapter's read on him: she dealt to him years ago and
+he was the worst player she ever sat across from, not because he was bad
+at cards but because he could not accept that the deck didn't owe him.
+
+### Combat notes
+
+The Lector of Ledgers shipped with a Xender Convoy escort at level 18 and
+measured **0% at every squad level tested** — the same mistake Chapter 1's
+Permafrost Guardian taught: an elite or boss template is already harder
+than most three-enemy groups, so an escort is not difficulty, it is
+unwinnability. Alone at level 12 it runs 60% at squad 22 and 82% at 25.
+
+**A caveat on these numbers.** Repeated runs of the fight simulator
+disagreed with each other on the same inputs (one pass read c2m5 at 40%
+where another read 0%), which is why the escort was removed on the finding
+both passes agreed on rather than tuned against a single reading. The
+partner squad is randomly sampled per seed, so small sample counts move a
+lot. Treat any single-fight percentage under ~50 samples as directional.

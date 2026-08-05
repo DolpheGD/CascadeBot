@@ -4,6 +4,7 @@ from bot.database.models.base_model import Base
 # Import every model module so each table registers on Base.metadata before
 # create_all runs.
 from bot.database.models import (  # noqa: F401
+    abyss_model,
     base_building_model,
     character_model,
     economy_model,
@@ -79,6 +80,12 @@ def _ensure_columns(conn):
     add_column("player_stories", "pos_y", "INTEGER DEFAULT 0")
     add_column("player_stories", "visited", "JSON")
     add_column("player_stories", "read_tiles", "JSON")
+
+    # Void Abyss. The table is created fresh by create_all for anyone who
+    # doesn't have it, so these ALTERs only matter for a database that saw
+    # an earlier version of the model.
+    add_column("player_abyss", "run_flawless", "INTEGER DEFAULT 1")
+    add_column("player_abyss", "run_fast", "INTEGER DEFAULT 1")
 
 
 def init_db():

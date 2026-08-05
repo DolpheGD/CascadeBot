@@ -843,9 +843,15 @@ ENEMY_TEMPLATES: list[dict] = [
         # Balance pass: slow (Speed 8) and by far the tankiest regular
         # boss (520 base HP) -- the "slow, hard-hitting" AoE profile, so
         # it picks up Cleave Smash alongside its support kit.
+        # NOT IN GLACIER 15. At 520 HP it was nearly double the other
+        # regular bosses in the first region's pool (270-300), so which
+        # boss a new player drew decided their run before it started.
+        # It keeps every later region, and the story now uses it as the
+        # prologue's un-killable hazard -- so "it comes back as a boss
+        # later" is literally true.
         "name": "Boss John's Driller Prototype",
         "role": "boss",
-        "region_roles": {'Glacier 15': 'regular', 'The Wastelands': 'regular', 'The Hotlands': 'regular', 'Voidcrest Desert': 'regular'},
+        "region_roles": {'The Wastelands': 'regular', 'The Hotlands': 'regular', 'Voidcrest Desert': 'regular'},
         "base_stats": {
             "attack": 29, "defense": 12, "elemental": 14, "speed": 4,
             "max_hp": 520, "max_mana": 999, "crit_rate": 9, "crit_damage": 190, "recharge": 30,
@@ -946,9 +952,12 @@ ENEMY_TEMPLATES: list[dict] = [
         # Balance pass: the fastest non-XG-23 boss (Speed 16) -- the
         # roster's other multi-action pick, with attack/elemental pulled
         # down to compensate for the extra action per cycle.
+        # NOT IN GLACIER 15 -- same reason as the Driller: 420 HP and
+        # three actions a cycle is not a tier-1 regular boss. Keeps
+        # Voidcrest, where it was buffed to belong.
         "name": "Corrupted Bli",
         "role": "boss",
-        "region_roles": {'Glacier 15': 'regular', 'Voidcrest Desert': 'regular'},
+        "region_roles": {'Voidcrest Desert': 'regular'},
         "base_stats": {
             "attack": 17, "defense": 9, "elemental": 19, "speed": 22,
             "max_hp": 420, "max_mana": 999, "crit_rate": 8, "crit_damage": 180, "recharge": 18,
@@ -1028,9 +1037,14 @@ ENEMY_TEMPLATES: list[dict] = [
     },
     {
         # Triv's girlfriend
+        # Loona is NOT in The Hotlands. At 170 HP she sat in a regular
+        # boss pool that also held the 520 HP Driller -- a 3.1x spread,
+        # which means the draw decided the run rather than the player.
+        # Same failure the first region had. tools/check_progression.py
+        # asserts the spread now.
         "name": "Loona",
         "role": "boss_group_member",
-        "region_roles": {'Glacier 15': 'regular', 'The Hotlands': 'regular'},
+        "region_roles": {'Glacier 15': 'regular'},
         "base_stats": {
             "attack": 17, "defense": 8, "elemental": 11, "speed": 15,
             "max_hp": 170, "max_mana": 999, "crit_rate": 6, "crit_damage": 150, "recharge": 18,
@@ -1056,12 +1070,25 @@ ENEMY_TEMPLATES: list[dict] = [
         # the whole party at once reads better than a single meteor, and
         # it gives the region's capstone fight a real "everyone's in
         # danger" moment.
+        # 380 HP, DOWN FROM 700.
+        #
+        # This is the capstone of the FIRST region, and the ladder of
+        # final bosses ran 700 -> 420 -> 950 -> 1050 -> 1500: Glacier's
+        # gate was two thirds bigger than the one after it. Since a
+        # region only unlocks by clearing the one before, an inverted
+        # first rung locks the entire game behind it -- measured at 3%
+        # clear for a level-1 squad, which is precisely who the prologue
+        # now delivers here.
+        #
+        # 380 keeps it the hardest thing in Glacier 15 by a distance
+        # (regular bosses there top out at 300) while putting the ladder
+        # in order: 380 -> 560 -> 950 -> 1050 -> 1500.
         "name": "Void Hydra",
         "role": "boss",
         "region_roles": {'Glacier 15': 'final'},
         "base_stats": {
             "attack": 27, "defense": 8, "elemental": 19, "speed": 11,
-            "max_hp": 700, "max_mana": 999, "crit_rate": 16, "crit_damage": 185, "recharge": 20,
+            "max_hp": 380, "max_mana": 999, "crit_rate": 16, "crit_damage": 185, "recharge": 20,
         },
         "level_scale_percent": 8,
         "active_abilities": [

@@ -56,10 +56,36 @@ from __future__ import annotations
 
 from bot.database.models.enums import Rarity
 
+# ----------------------------------------------------------------------
+# DIFFICULTY WAS RAISED ACROSS TIERS 1-4, AND LOWERED FOR TIER 5.
+#
+# Measured with GEAR modelled (tools/sim_expedition.py), which changed the
+# answer completely -- a naked squad is a floor nobody plays at, and every
+# earlier reading off it was misleading. At the level and gear a player
+# actually arrives with, the old offsets gave:
+#
+#     Glacier 15   @lv8  rare gear   82%      -> now 62%
+#     Wastelands   @lv22 rare gear   98%      -> now 82%
+#     Hotlands     @lv38 epic gear   75%      -> now 57%
+#     Voidcrest    @lv52 legendary   72%      -> now 70%
+#     Abyssnia     @lv70 legendary   18%      -> now ~32%
+#
+# The first four were too easy for regions that are supposed to be the
+# whole progression curve. Abyssnia went the OTHER way on purpose: at
+# 18% fully geared it was not a hard region, it was a closed door, and
+# raising it "across the board" would have made the endgame unreachable
+# rather than difficult.
+#
+# The story funds this. The prologue now hands out five pieces of gear
+# (2 Uncommon + 3 Rare) and Chapter 1 four more (2 Rare + 2 Epic), so a
+# player reaches Glacier 15 with a full five-slot kit instead of one
+# Uncommon. Difficulty and preparation moved together; either alone
+# would have been a regression.
+# ----------------------------------------------------------------------
 REGION_DIFFICULTY: dict[str, dict] = {
     "Glacier 15": {
         "tier": 1, "difficulty_label": "Easy",
-        "level_offset": 0, "combat_level_offset": 2, "reward_multiplier": 1.3,
+        "level_offset": 5, "combat_level_offset": 8, "reward_multiplier": 1.3,
         "max_item_rarity": Rarity.EPIC, "max_lootbox_tier": "rare",
         "rarity_weight_bonus": 0,
         "combat_squad_weights": {1: 30, 2: 40, 3: 25, 4: 5},
@@ -67,7 +93,7 @@ REGION_DIFFICULTY: dict[str, dict] = {
     },
     "The Wastelands": {
         "tier": 2, "difficulty_label": "Normal",
-        "level_offset": 7, "combat_level_offset": 10, "reward_multiplier": 1.8,
+        "level_offset": 18, "combat_level_offset": 22, "reward_multiplier": 1.8,
         "max_item_rarity": Rarity.LEGENDARY, "max_lootbox_tier": "epic",
         "rarity_weight_bonus": 60,
         "combat_squad_weights": {1: 10, 2: 30, 3: 35, 4: 20, 5: 5},
@@ -75,7 +101,7 @@ REGION_DIFFICULTY: dict[str, dict] = {
     },
     "The Hotlands": {
         "tier": 3, "difficulty_label": "Hard",
-        "level_offset": 15, "combat_level_offset": 20, "reward_multiplier": 2.8,
+        "level_offset": 19, "combat_level_offset": 24, "reward_multiplier": 2.8,
         "max_item_rarity": Rarity.MYTHIC, "max_lootbox_tier": "legendary",
         "rarity_weight_bonus": 130,
         "combat_squad_weights": {2: 20, 3: 35, 4: 30, 5: 15},
@@ -83,7 +109,7 @@ REGION_DIFFICULTY: dict[str, dict] = {
     },
     "Voidcrest Desert": {
         "tier": 4, "difficulty_label": "Insane",
-        "level_offset": 25, "combat_level_offset": 35, "reward_multiplier": 4.5,
+        "level_offset": 28, "combat_level_offset": 38, "reward_multiplier": 4.5,
         "max_item_rarity": Rarity.DIVINE, "max_lootbox_tier": "mythic",
         "rarity_weight_bonus": 220,
         "combat_squad_weights": {2: 10, 3: 25, 4: 35, 5: 30},
@@ -101,7 +127,7 @@ REGION_DIFFICULTY: dict[str, dict] = {
         # loot ceiling: a genuine "hardest content in the game" tier
         # rather than a "strictly better loot" tier.
         "tier": 5, "difficulty_label": "Nightmare",
-        "level_offset": 35, "combat_level_offset": 48, "reward_multiplier": 6.5,
+        "level_offset": 30, "combat_level_offset": 42, "reward_multiplier": 6.5,
         "max_item_rarity": Rarity.DIVINE, "max_lootbox_tier": "mythic",
         "rarity_weight_bonus": 320,
         "combat_squad_weights": {3: 10, 4: 35, 5: 55},

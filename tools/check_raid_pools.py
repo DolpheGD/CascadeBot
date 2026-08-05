@@ -40,6 +40,12 @@ from __future__ import annotations
 import sys
 
 
+# Biggest allowed jump in total HP pool between consecutive tiers.
+MAX_TIER_STEP = 4.0
+# Fewest bosses a tier may draw from, so repeat raids aren't identical.
+MIN_POOL_SIZE = 8
+
+
 def main() -> int:
     from bot.game.combat.enemies import get_template_by_name
     from bot.game.combat.factory import build_enemy_combatant
@@ -50,6 +56,8 @@ def main() -> int:
         RAID_TIERS,
         attacks_per_player,
         boss_hp_multiplier,
+        pool_hp_for,
+        RAID_TIERS,
         expected_participants,
         get_difficulty,
         pool_hp_for,
@@ -107,6 +115,49 @@ def main() -> int:
     print("(a full kill, as a % of one attack's target)")
 
     print()
+    # ------------------------------------------------------------------
+    # LADDER SHAPE. A tier being individually clearable says nothing about
+    # whether the JUMP to it is reasonable, and the jump is what players
+    # actually feel. The pools ran 4,160 -> 160,000 -> 440,000 -> 880,000:
+    # a 38x step, then 2.8x, then 2.0x. Every sizing axis moved at once
+    # between the first two tiers (hp_per_attack 520 -> 4,000, expected
+    # participants 2 -> 4, attacks 4 -> 10), so clearing the starter raid
+    # taught a server nothing about the next one -- it just met a wall.
+    # ------------------------------------------------------------------
+    previous, previous_name = None, None
+    for tier in RAID_TIERS:
+        pool = pool_hp_for(tier)
+        if previous is not None:
+            step = pool / previous
+            if step > MAX_TIER_STEP:
+                failures.append(
+                    f"{tier['id']}: {step:.1f}x bigger than {previous_name} "
+                    f"({previous:,} -> {pool:,}), max {MAX_TIER_STEP:.1f}x"
+                )
+            if step < 1.0:
+                failures.append(
+                    f"{tier['id']}: SMALLER than {previous_name} "
+                    f"({previous:,} -> {pool:,})"
+                )
+        previous, previous_name = pool, tier["id"]
+
+    gates = [t["min_roster_levels"] for t in RAID_TIERS]
+    if gates != sorted(gates):
+        failures.append(f"min_roster_levels is not monotonic: {gates}")
+
+    for tier in RAID_TIERS:
+        if len(tier["boss_pool"]) < MIN_POOL_SIZE:
+            failures.append(
+                f"{tier['id']}: only {len(tier['boss_pool'])} bosses in the pool "
+                f"(min {MIN_POOL_SIZE}) -- consecutive raids will repeat"
+            )
+
+    print()
+    print("ladder    : " + " -> ".join(f"{pool_hp_for(t):,}" for t in RAID_TIERS))
+    print("pool sizes: " + ", ".join(f"{t['id']}={len(t['boss_pool'])}" for t in RAID_TIERS))
+    print(f"distinct bosses across all tiers: "
+          f"{len({n for t in RAID_TIERS for n in t['boss_pool']})}")
+
     if failures:
         for line in dict.fromkeys(failures):
             print(f"  FAIL  {line}")

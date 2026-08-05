@@ -22,6 +22,22 @@ from bot.utils.embedder._shared import fit_field
 STAR_EMOJI = {3: "⭐⭐⭐", 4: "⭐⭐⭐⭐", 5: "⭐⭐⭐⭐⭐"}
 
 
+def star_label(star: int) -> str:
+    """Compact "5★" form, for places that MENTION a rarity rather than
+    LABEL one.
+
+    The full ⭐ run is the strongest signal in the gacha UI: a row of
+    five is meant to be recognisable at a glance, without reading. That
+    only works if five stars in a row is rare on screen. The pity panel
+    and the odds table were both printing full runs several times each,
+    so a menu could show three or four "5-star" shapes none of which was
+    a 5-star character -- which is exactly the glance the signal is for.
+
+    So: ⭐ runs stay on things that ARE a character of that rarity, and
+    everything that merely refers to a tier uses this instead."""
+    return f"{star}★"
+
+
 def gacha_pull_embed(results: list[dict], player=None) -> discord.Embed:
     """`results` is the list of per-pull dicts returned by
     character_gacha_service (template/is_new/dupe_reward/from_pity).
@@ -183,9 +199,9 @@ def _pity_status_lines(player) -> str:
     current_rate = five_star_chance_percent(player.pity_since_five_star)
 
     lines = [
-        f"⭐⭐⭐⭐⭐ guaranteed in **{five_left}** pull{'s' if five_left != 1 else ''} "
+        f"**{star_label(5)}** guaranteed in **{five_left}** pull{'s' if five_left != 1 else ''} "
         f"({player.pity_since_five_star}/{FIVE_STAR_HARD_PITY})",
-        f"⭐⭐⭐⭐ guaranteed in **{four_left}** pull{'s' if four_left != 1 else ''} "
+        f"**{star_label(4)}** guaranteed in **{four_left}** pull{'s' if four_left != 1 else ''} "
         f"({player.pity_since_four_star}/{FOUR_STAR_PITY})",
     ]
     if player.pity_since_five_star + 1 > FIVE_STAR_SOFT_PITY_START:
@@ -214,7 +230,7 @@ def gacha_rates_embed(player=None) -> discord.Embed:
     total = sum(STAR_WEIGHTS.values())
     embed = discord.Embed(title="🎰 Gacha Rates", color=discord.Color.gold())
     lines = [
-        f"{STAR_EMOJI[star]}: {weight / total * 100:.1f}%"
+        f"**{star_label(star)}** — {weight / total * 100:.0f}%"
         for star, weight in sorted(STAR_WEIGHTS.items(), reverse=True)
     ]
     embed.add_field(name="Base Odds by Star Rating", value="\n".join(lines), inline=False)

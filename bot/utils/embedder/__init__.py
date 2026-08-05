@@ -93,6 +93,7 @@ from bot.utils.embedder.inventory import (
 from bot.utils.embedder.gacha import (
     echo_exchange_embed,
     STAR_EMOJI,
+    star_label,
     gacha_pull_embed,
     gacha_rates_embed,
     resonance_embed,
@@ -142,6 +143,7 @@ __all__ = [
     "RARITY_EMOJI",
     "ROOM_TYPE_EMOJI",
     "STAR_EMOJI",
+    "star_label",
     "STAT_EMOJI",
     "STAT_LABEL",
     "_bar",

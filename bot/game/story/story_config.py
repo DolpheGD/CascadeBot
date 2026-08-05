@@ -67,6 +67,7 @@ FEATURES: dict[str, str] = {
     "quests": "Quests",
     "gifting": "Gifting",
     "daily": "Daily rewards",
+    "abyss": "The Void Abyss",
 }
 
 # Features every player has from the moment they exist. Deliberately
@@ -78,461 +79,389 @@ ALWAYS_AVAILABLE = frozenset({"profile", "help", "story", "characters"})
 CHAPTERS: list[dict] = [
     {
         "id": "prologue",
-        "name": "Prologue: Signal Discipline",
+        "name": "Prologue: Destruction Eruption",
         "blurb": (
-            "Somebody at The Daily Dolphe has been trying to reach you for a week. "
-            "You finally answer."
+            "You wake up in a lab that is coming apart around you, and you do not "
+            "remember arriving."
         ),
-        # The prologue unlocks no region -- it unlocks the GAME.
         "unlocks_region": None,
         "missions": [
             # ==========================================================
-            # P1 -- combat. One fight, against something that cannot
-            # realistically kill a starting squad. The job of this
-            # mission is to make the four buttons mean something.
+            # PR1 -- the wake-up. Canon opening: the Player comes to
+            # inside Ocellios Lab mid-collapse with Stubby's mechs hacked
+            # and hostile, and neutralises them with electricity.
+            #
+            # The combat tutorial is therefore diegetic: the first fight
+            # is the first thing that happens to you, and the four
+            # buttons are the only thing between you and a mech.
             # ==========================================================
             {
-                "id": "p1_answer_the_call",
-                "name": "Answer the Call",
-                "summary": "Dolphe has been calling for a week.",
+                "id": "pr1_destruction_eruption",
+                "name": "Destruction Eruption",
+                "summary": "Ocellios Lab is coming down. You are inside it.",
                 "beats": [
                     {
                         "kind": "dialogue",
-                        "speaker": "Dolphe",
+                        "speaker": "Ocellios Lab",
                         "text": (
-                            "You're a hard person to reach. I've left six messages.\n\n"
-                            "I'm not going to waste the seventh. My name is Dolphe. I used to "
-                            "run a newspaper. Now I run something that used to be a newspaper."
+                            "**CONTAINMENT FAULT — SECTOR 9 — EVACUATE**\n\n"
+                            "You come to on a floor that is at eleven degrees and getting "
+                            "worse. There is a restraint frame beside you with the cuffs "
+                            "already open.\n\n"
+                            "You do not remember lying down in it."
                         ),
                     },
                     {
                         "kind": "dialogue",
-                        "speaker": "Dolphe",
+                        "speaker": "Ocellios Lab",
                         "text": (
-                            "Here's the short version. Ninety years of peace, one lab nobody "
-                            "was allowed to audit, and a city that stopped existing overnight. "
-                            "Officially: an unknown incident. Officially, nobody went missing.\n\n"
-                            "I have four hundred names that say otherwise."
-                        ),
-                    },
-                    {
-                        "kind": "choice",
-                        "prompt": "Dolphe waits.",
-                        "options": [
-                            {
-                                "id": "in",
-                                "label": "🗞️ \"What do you need?\"",
-                                "text": (
-                                    "\"Someone who can walk into places Acatrya has written off "
-                                    "and walk back out. That's the entire job description.\""
-                                ),
-                                "sets": {"prologue_eager": True},
-                            },
-                            {
-                                "id": "wary",
-                                "label": "🤨 \"Why me?\"",
-                                "text": (
-                                    "\"Because you answered. That's genuinely most of it.\" "
-                                    "She doesn't smile. \"The rest is that you're not on anyone's payroll.\""
-                                ),
-                                "sets": {"prologue_wary": True},
-                            },
-                            {
-                                "id": "paid",
-                                "label": "💰 \"What does it pay?\"",
-                                "text": (
-                                    "\"Badly, at first.\" A pause. \"Honestly, badly for a while. "
-                                    "But nobody else is hiring for this, and you already know why.\""
-                                ),
-                                "sets": {"prologue_mercenary": True},
-                            },
-                        ],
-                    },
-                    {
-                        "kind": "dialogue",
-                        "speaker": "Dolphe",
-                        "text": (
-                            "There's a drone on the approach road that never got a shutdown "
-                            "order. It's been shooting at scavengers for eleven years.\n\n"
-                            "Deal with it and we'll talk properly."
+                            "Something has gone through the lab's mech control and left it "
+                            "wrong. A D-class unit turns towards you and does not run its "
+                            "greeting routine.\n\n"
+                            "Your hands are producing light. That is new information, and "
+                            "there is no time to have feelings about it."
                         ),
                     },
                     {
                         "kind": "battle",
                         "enemies": ["Rogue Security Drone"],
                         "level": 2,
-                        "intro": (
-                            "**⚔️ Attack** builds Energy and SP. **🌀 Skill** spends SP. "
-                            "**💥 Ultimate** costs 50 Energy and has a cooldown.\n"
-                            "The **😈 Incoming** panel shows what the drone will do *before* it "
-                            "does it. It never lies."
+                        "intro": "It has decided you are debris that moved.",
+                        "on_win": (
+                            "The arc goes through it and out the far wall. The mech drops.\n\n"
+                            "You look at your hands for slightly too long."
                         ),
-                        "on_win": "The drone goes quiet for the first time in eleven years.",
-                        # A prologue fight you cannot fail out of. Losing
-                        # the tutorial and being kicked back to a menu is
-                        # the worst possible first impression, so a loss
-                        # here retries rather than ending the mission.
-                        "retry_on_loss": True,
-                        "on_lose": "It puts you down. Dolphe waits while you get back up.",
+                        "on_lose": "The floor tilts and takes you with it. You wake up again.",
+                    },
+                    {
+                        "kind": "choice",
+                        "prompt": "There is a door east and the ceiling is not going to hold.",
+                        "options": [
+                            {
+                                "id": "run",
+                                "label": "🏃 Get out. Now.",
+                                "text": (
+                                    "You do not look back at the restraint frame. Later you "
+                                    "will wonder whether that was instinct or training."
+                                ),
+                                "sets": {"pro_ran": True},
+                            },
+                            {
+                                "id": "look",
+                                "label": "🔎 Look at the frame first",
+                                "text": (
+                                    "Your own weight is logged on the chart. Eleven months of "
+                                    "readings, and the earliest entry is older than anything "
+                                    "you can remember.\n\n"
+                                    "Then the ceiling comes down and the question goes with it."
+                                ),
+                                "sets": {"pro_looked": True},
+                            },
+                        ],
                     },
                     {
                         "kind": "dialogue",
-                        "speaker": "Dolphe",
+                        "speaker": "Ocellios Lab",
                         "text": (
-                            "Good. You can fight, which I was about to have to find out the "
-                            "expensive way.\n\n"
-                            "Take what's left of it. You'll want the parts."
+                            "You come out into weather.\n\n"
+                            "East, past the fence line, the ground goes white and stays "
+                            "white. There is a city out there under the ice, and everything "
+                            "you have on you is what you woke up wearing."
                         ),
                     },
                 ],
-                "rewards": {"gold": 200},
+                "rewards": {"gold": 120},
             },
 
             # ==========================================================
-            # P2 -- gear. Unlocks the inventory, which is the first
-            # system the player owns rather than watches.
+            # PR2 -- gear, from a locker rather than a mentor. Nobody has
+            # met you yet; the tutorial has to be the world for a while
+            # longer.
             # ==========================================================
             {
-                "id": "p2_field_kit",
-                "name": "Field Kit",
-                "summary": "Salvage from the drone. Something to hold.",
+                "id": "pr2_field_salvage",
+                "name": "Field Salvage",
+                "summary": "A supply locker that survived better than the building did.",
                 "beats": [
                     {
                         "kind": "dialogue",
-                        "speaker": "Bee Jee",
+                        "speaker": "Ocellios Lab",
                         "text": (
-                            "Dolphe said you'd be filthy. She undersold it.\n\n"
-                            "I don't fight. I make sure the people who do, do it better. "
-                            "Give me the drone parts."
+                            "A staging locker, buckled but shut. Ocellios kitted its field "
+                            "teams properly — whatever else the place was, it was funded.\n\n"
+                            "The lock is electronic. You are, apparently, electricity."
                         ),
                     },
                     {
                         "kind": "reward",
-                        "text": (
-                            "Bee Jee works for about four minutes and hands you something "
-                            "that is technically a weapon."
-                        ),
-                        "grant": {"item": "uncommon"},
+                        "text": "It opens with a noise like a struck bell.",
+                        "grant": {"item": "uncommon", "gold": 180, "wood": 30, "stone": 30},
                     },
                     {
                         "kind": "unlock",
                         "feature": "inventory",
                         "text": (
-                            "**`/inventory` is open.** Equip what she gave you.\n\n"
-                            "Every character wears a Weapon, an Artifact, two Armor and two "
-                            "Accessories. Weapons and Artifacts grant active skills; Armor and "
-                            "Accessories grant passives. Gear you never equip does nothing at all."
+                            "**`/inventory` is open.**\n\n"
+                            "Equip it — unequipped gear does nothing at all. Items level up "
+                            "with gold and materials, and every piece has substats you can "
+                            "reroll later.\n\n"
+                            "`/stash` holds your currencies and materials. `/sell_rarity` "
+                            "clears out a whole tier at once when you outgrow it."
                         ),
                     },
                     {
                         "kind": "dialogue",
-                        "speaker": "Bee Jee",
+                        "speaker": "Ocellios Lab",
                         "text": (
-                            "It'll hold. Come back when it doesn't and I'll pretend to be "
-                            "surprised."
+                            "There's a jacket in there too, three sizes wrong, and a ration "
+                            "bar with eight months on the clock.\n\n"
+                            "You eat it walking. East is the only direction that isn't on "
+                            "fire."
                         ),
                     },
                 ],
-                "rewards": {"gold": 150, "wood": 40, "stone": 40},
+                "rewards": {"gold": 150},
             },
 
             # ==========================================================
-            # P2B -- quests, and the prologue's first joke.
+            # PR3 -- the crossing, and quests.
             #
-            # Tonally this is the release valve. P1 is a cover-up and
-            # four hundred missing names, P2 is a medic telling you that
-            # you'll be hurt; if the whole prologue plays at that pitch
-            # the serious parts stop landing, because nothing contrasts
-            # with them. Nexus is genuinely useful (he wrote the quest
-            # board) and genuinely ridiculous (he wrote it for the
-            # engagement), and the joke never costs the premise anything.
+            # Canon: the Player survives Glacier 15 by powering heat
+            # beacons. A chain of standing objectives that pay out as you
+            # reach them IS the quest system, so /quests arrives as the
+            # literal mechanic keeping you alive rather than as a menu.
             # ==========================================================
             {
-                "id": "p2b_the_corkboard",
-                "name": "Content Strategy",
-                "summary": "Nexus has a corkboard and a plan. Mostly a corkboard.",
+                "id": "pr3_heat_beacons",
+                "name": "Heat Beacons",
+                "summary": "The cold is not a mood. It is a timer.",
                 "beats": [
                     {
                         "kind": "dialogue",
-                        "speaker": "Nexus",
+                        "speaker": "Glacier 15",
                         "text": (
-                            "Hey — hey. You're the new one. Don't move, the light's good.\n\n"
-                            "*He photographs you before you can answer.*"
+                            "Two hours out from the lab the shivering stops, which you are "
+                            "fairly sure is the bad version.\n\n"
+                            "Then: a post. Waist-high, iced over, with a dead lamp on top "
+                            "and a socket at the base shaped like nothing in particular."
                         ),
                     },
                     {
                         "kind": "dialogue",
-                        "speaker": "Nexus",
+                        "speaker": "Glacier 15",
                         "text": (
-                            "So Dolphe won't let me post about any of this, which, "
-                            "creatively? Devastating. Four hundred people vanish and I'm "
-                            "sitting on the biggest story of the decade with the engagement "
-                            "of a soup recipe.\n\n"
-                            "But she *did* say I could organise the board. So I organised "
-                            "the board."
+                            "You put your hand on it because you have no better ideas.\n\n"
+                            "The lamp comes up amber. Heat rolls off the post hard enough to "
+                            "hurt, and forty metres east another one answers it.\n\n"
+                            "Somebody built a road out of these. Somebody expected to be "
+                            "walking home in the dark."
                         ),
-                    },
-                    {
-                        "kind": "choice",
-                        "prompt": "The corkboard is enormous. Some of it is colour-coded.",
-                        "options": [
-                            {
-                                "id": "impressed",
-                                "label": "📌 Tell him it's actually well organised",
-                                "text": (
-                                    "\"THANK you.\" He gestures at a column of index cards. "
-                                    "\"Nobody says that. Bee Jee called it a crime scene.\""
-                                ),
-                                "sets": {"humoured_nexus": True},
-                            },
-                            {
-                                "id": "concerned",
-                                "label": "🧶 Ask why there's so much string",
-                                "text": (
-                                    "\"The string is *load-bearing*.\" He says this with "
-                                    "total confidence. \"Also it films well.\""
-                                ),
-                                "sets": {"questioned_nexus": True},
-                            },
-                            {
-                                "id": "business",
-                                "label": "📋 Ask what's actually on it",
-                                "text": (
-                                    "He straightens up, and for a second the performance "
-                                    "drops. \"Everything we still need someone to do. "
-                                    "It's longer than it should be.\""
-                                ),
-                                "sets": {"all_business": True},
-                            },
-                        ],
                     },
                     {
                         "kind": "unlock",
                         "feature": "quests",
                         "text": (
                             "**`/quests` is open.**\n\n"
-                            "Standing objectives that pay out as you play — some are one-off, "
-                            "some reset. You don't go *do* quests; you do the game, and the "
+                            "Standing objectives that pay out as you go — some one-off, some "
+                            "resetting. You don't stop and *do* quests; you play, and the "
                             "quests notice.\n\n"
-                            "Check it when you've been away a while. Things accumulate."
+                            "The beacon line works the same way. Reach the next one and it "
+                            "pays you in not freezing to death."
                         ),
                     },
                     {
                         "kind": "reward",
-                        "text": "He shoves a battered lootbox at you off the bottom shelf.",
-                        "grant": {"gold": 120, "reroll_tokens": 3},
-                    },
-                    {
-                        "kind": "dialogue",
-                        "speaker": "Nexus",
-                        "text": (
-                            "Look — I know what I sound like. I do it on purpose, it's easier "
-                            "than the alternative.\n\n"
-                            "My sister's on that board. Third column, second row. So when I "
-                            "say I want this to reach people, I'm not joking about that part."
-                        ),
+                        "text": "The beacon's service cache pops open at your feet.",
+                        "grant": {"gold": 200, "permafrost_ore": 25},
                     },
                 ],
-                "rewards": {"gold": 100},
+                "rewards": {"gold": 150},
             },
 
             # ==========================================================
-            # P3 -- the roster. A guided pull, then a squad. This is the
-            # mission that turns "a character" into "your team".
+            # PR4 -- first contact. Nebula and Gostley, sent out by Dolphe
+            # to investigate the anomaly on Cascade's radar.
+            #
+            # The anomaly is you.
+            #
+            # This is where /pull and /squad arrive: the beacon network
+            # can raise Cascade, and Cascade answers with people.
             # ==========================================================
             {
-                "id": "p3_who_else",
-                "name": "Who Else Is Coming",
-                "summary": "Cascade is a network, not an army.",
+                "id": "pr4_the_anomaly",
+                "name": "The Anomaly",
+                "summary": "Team Cascade sent two people to find out what you are.",
                 "beats": [
                     {
                         "kind": "dialogue",
-                        "speaker": "Dolphe",
+                        "speaker": "Nebula",
                         "text": (
-                            "You are not doing this alone. I want to be extremely clear about "
-                            "that, because the last three people who tried are three of my "
-                            "four hundred names.\n\n"
-                            "Cascade is a network. Let's find out who answers."
+                            "Stop there. Hands where the light is.\n\n"
+                            "*A woman on the ridge with climbing irons on her boots and a "
+                            "rifle she has not pointed at you.* You lit four beacons in a row "
+                            "on a network that has been dead for two years. You're the "
+                            "anomaly we came out for."
                         ),
                     },
                     {
-                        # 480 Shards = FOUR pulls at 120 each.
-                        #
-                        # The number is a softlock guard, not generosity.
-                        # The prologue's last fight is unwinnable with a
-                        # solo level-1 avatar (measured 0%), so the player
-                        # MUST come out of this mission with a second
-                        # character. The avatar template is excluded from
-                        # the gacha pool, which means a player who owns
-                        # only their avatar cannot roll a duplicate --
-                        # their first pull is guaranteed to be somebody
-                        # new. Four pulls is therefore three more than the
-                        # guarantee needs, which is the margin for a
-                        # player who spends some of it before reading
-                        # what it was for.
+                        "kind": "dialogue",
+                        "speaker": "Gostley",
+                        "text": (
+                            "*The second one has been standing behind you for some time.*\n\n"
+                            "\"It came from the lab.\"\n\n"
+                            "He does not say it unkindly. He says it the way you'd read a "
+                            "label."
+                        ),
+                    },
+                    {
+                        "kind": "choice",
+                        "prompt": "Nebula lowers the light. \"Alright. What are you?\"",
+                        "options": [
+                            {
+                                "id": "dont_know",
+                                "label": "🌀 \"I don't know.\"",
+                                "text": (
+                                    "\"...Right,\" she says, and something in her recalculates. "
+                                    "\"Gostley, that's an honest answer. Nobody rehearses "
+                                    "*that* one.\""
+                                ),
+                                "sets": {"pro_honest": True},
+                            },
+                            {
+                                "id": "lab",
+                                "label": "⚡ Tell them about the lab",
+                                "text": (
+                                    "Nebula's jaw sets. \"Ocellios went up two hours ago. "
+                                    "You walked out of it. On foot. In this.\"\n\n"
+                                    "Gostley, quietly: \"That's not the impressive part.\""
+                                ),
+                                "sets": {"pro_told_lab": True},
+                            },
+                            {
+                                "id": "silent",
+                                "label": "🐱 Say nothing",
+                                "text": (
+                                    "The silence goes on long enough that Gostley makes a "
+                                    "sound that might be approval.\n\n"
+                                    "\"Fine,\" says Nebula. \"Be like that. Be like that "
+                                    "*indoors*, you're grey.\""
+                                ),
+                                "sets": {"pro_silent": True},
+                            },
+                        ],
+                    },
+                    {
                         "kind": "reward",
-                        "text": "She routes you a recruitment budget.",
-                        "grant": {"shards": 480},
+                        "text": "Nebula puts a Cascade relay tag in your hand and closes your fingers on it.",
+                        "grant": {"shards": 480, "item": "uncommon"},
                     },
                     {
                         "kind": "unlock",
                         "feature": "pull",
                         "text": (
-                            "**`/pull` is open.** 120 Shards a pull; the 10x costs exactly ten "
-                            "times that, so there's no penalty for going one at a time.\n\n"
-                            "A duplicate is never a wasted pull — the first five copies of "
-                            "anyone permanently upgrade them, and every copy pays **Echoes**."
+                            "**`/pull` is open.** 120 <:shard:1534383382924890192> a pull; "
+                            "the 10x is exactly ten times that, so there's no penalty for "
+                            "going one at a time.\n\n"
+                            "Cascade is a decentralised network of cells. The tag broadcasts; "
+                            "whoever is close enough and willing comes to you.\n\n"
+                            "A duplicate is never wasted — the first five copies of anyone "
+                            "permanently upgrade them, and every copy pays **Echoes**."
                         ),
                     },
                     {
                         "kind": "unlock",
                         "feature": "squad",
                         "text": (
-                            "**`/squad` is open.** Four slots, and any character can go in any "
-                            "of them.\n\n"
+                            "**`/squad` is open.** Four slots, any character in any slot.\n\n"
                             "The strongest shape is at least one **Amplifier** and one "
-                            "**Sustain** — a good Amplifier is worth more than a fourth attacker. "
-                            "`/characters` shows anyone's full stats and kit."
-                        ),
-                    },
-                    {
-                        # NOBODY IS GIFTED HERE.
-                        #
-                        # An earlier version handed the player Josh
-                        # outright, which removed the softlock but also
-                        # removed the tutorial: the first pull is one of
-                        # the systems the prologue exists to teach, and
-                        # being given the reward for a mechanic is a
-                        # reliable way never to learn the mechanic.
-                        #
-                        # The softlock is instead handled by the LANE
-                        # DOOR, which won't open until the player actually
-                        # has a second squad member (see the
-                        # `requires_characters` lock in map_config). That
-                        # keeps the guard rail without skipping the
-                        # lesson, and it means whoever walks north is
-                        # somebody the player chose.
-                        "kind": "dialogue",
-                        "speaker": "Dolphe",
-                        "text": (
-                            "Put the word out with `/pull` and see who answers. Then put them "
-                            "in your `/squad` — nobody walks into Glacier 15 alone.\n\n"
-                            "I'll be here. Josh is already outside, pretending he isn't waiting."
+                            "**Sustain** — a good Amplifier is worth more than a fourth "
+                            "attacker. `/characters` shows anyone's full stats and kit."
                         ),
                     },
                     {
                         "kind": "dialogue",
-                        "speaker": "Josh",
+                        "speaker": "Nebula",
                         "text": (
-                            "So you're the new one.\n\n"
-                            "I was at Glacier 15. I got out. A lot of people didn't, and the "
-                            "official position is that there was nobody there to not get out.\n\n"
-                            "Dolphe says you're going to help me prove otherwise."
-                        ),
-                    },
-                    {
-                        "kind": "choice",
-                        "prompt": "Josh is looking at you like he's already been disappointed twice today.",
-                        "options": [
-                            {
-                                "id": "promise",
-                                "label": "🤝 Tell him you'll help",
-                                "text": (
-                                    "\"People say that.\" He nods anyway. \"Say it again when "
-                                    "you've seen the place.\""
-                                ),
-                                "sets": {"promised_josh": True},
-                            },
-                            {
-                                "id": "honest",
-                                "label": "🧊 Tell him you don't make promises",
-                                "text": (
-                                    "Something in his face relaxes very slightly. \"Good. "
-                                    "The last one made promises.\""
-                                ),
-                                "sets": {"honest_with_josh": True},
-                            },
-                            {
-                                "id": "ask",
-                                "label": "❓ Ask what happened at Glacier 15",
-                                "text": (
-                                    "\"One night. That's what happened. I'll show you the rest "
-                                    "when we're standing in it.\""
-                                ),
-                                "sets": {"asked_about_glacier": True},
-                            },
-                        ],
-                    },
-                    # A mission must not END on a choice: the player picks
-                    # an option and the completion screen replaces the
-                    # reply before they can read it. tools/check_story.py
-                    # enforces this -- it caught exactly that here.
-                    {
-                        "kind": "dialogue",
-                        "speaker": "Josh",
-                        "text": (
-                            "Get your team in order. Whoever answered, whoever you trust "
-                            "with this.\n\n"
-                            "I'm not opening that door until there's more than one of you. "
-                            "Then we go north."
+                            "Base is east and we are not walking it as three.\n\n"
+                            "Call somebody. I mean it — the last stretch runs along the "
+                            "drift line, and things have been coming up through the drift "
+                            "line all week."
                         ),
                     },
                 ],
-                "rewards": {"gold": 300},
+                "rewards": {"gold": 250},
             },
 
             # ==========================================================
-            # P4 -- the real fight, and the door to the rest of the game.
+            # PR5 -- the worm. Canon, and the prologue's real fight.
+            #
+            # In the timeline it is escaped rather than killed, so the
+            # beat is written as driving it back under: the win condition
+            # is surviving contact, and the text says so. The engine
+            # needs a winner; the fiction doesn't have to pretend that's
+            # the same as a kill.
             # ==========================================================
             {
-                "id": "p4_the_approach",
-                "name": "The Approach",
-                "summary": "Glacier 15 is four hours out and guarded.",
+                "id": "pr5_through_the_drift",
+                "name": "Through the Drift",
+                "summary": "Something has been following the beacon line from underneath.",
                 "beats": [
                     {
                         "kind": "dialogue",
-                        "speaker": "Josh",
+                        "speaker": "Gostley",
                         "text": (
-                            "There's a checkpoint on the last road in. It isn't Acatrya's. "
-                            "It isn't anyone's, officially.\n\n"
-                            "Which is how you know it's worth something."
+                            "Stop walking.\n\n"
+                            "*He has his hand flat on the ice.*\n\n"
+                            "\"It's been under us since the third beacon. It's been waiting "
+                            "for the ground to get thin.\""
                         ),
                     },
                     {
-                        # LEVEL 3, NOT 4.
+                        # THE WORM IS NOT THE FIGHT. It is the hazard.
                         #
-                        # This fight used to be balanced around the
-                        # prologue handing you Josh, a 5-star, which made
-                        # level 4 a formality. Now you bring whoever you
-                        # pulled, so it was re-simulated against all 29
-                        # possible partners at level 1: at level 4 the
-                        # worst partner won 70% and four fell below 90%;
-                        # at level 3 the mean is 98% and the worst is
-                        # 80%. Losing retries rather than ending the run,
-                        # so 80% is a fight you might lose once -- which
-                        # is the right feeling for the last tutorial
-                        # beat, where a coin flip is not.
+                        # Canon says the Player *narrowly escapes* it, and
+                        # the engine agrees: the Driller Prototype is a
+                        # boss-tier template and measured 0% winnable at
+                        # every level from 1 to 5 against the two-character
+                        # party this beat is gated to. Elite and boss
+                        # templates carry 200-520 base HP against the
+                        # 40-58 of a combat-tier enemy, so no amount of
+                        # level tuning reaches them this early.
+                        #
+                        # So the fight is its escort -- combat-tier, and
+                        # measured winnable -- and the worm stays exactly
+                        # what the timeline says it is: a thing you get
+                        # away from. It comes back as a boss later, when
+                        # a squad can actually meet it.
                         "kind": "battle",
-                        "enemies": ["Xender Henchmen", "Xender Henchmen"],
+                        "enemies": ["Concussion Drone", "Xender Recon Scout"],
                         "level": 3,
                         "intro": (
-                            "Two of them. **🎯 Switch target** is a free action — it doesn't "
-                            "cost your turn, so pick who dies first.\n"
-                            "**🛡️ Guard** halves incoming damage. Read the Incoming panel and "
-                            "guard whoever's being aimed at."
+                            "The drift opens. What comes out of it is machined, sectioned, "
+                            "and far too long to see the end of — and it has *minders*, two "
+                            "of them, riding the segment plates.\n\n"
+                            "*You are not going to kill that thing. You are going to get out "
+                            "from under it, and its escort is in the way.*"
                         ),
-                        "on_win": "The road is clear. Nobody comes to find out why.",
-                        "retry_on_loss": True,
-                        "on_lose": "You pull back bloodied. Josh doesn't say anything about it.",
+                        "on_win": (
+                            "The last minder goes down and the worm, uninterested now that "
+                            "nothing is signalling, folds and slides back through its own "
+                            "entry hole.\n\n"
+                            "The ice keeps shaking for a long time after it's gone."
+                        ),
+                        "on_lose": (
+                            "Nebula gets a hand under your arm and hauls. You lose ground, "
+                            "and you go again."
+                        ),
                     },
                     {
                         "kind": "dialogue",
-                        "speaker": "Josh",
+                        "speaker": "Nebula",
                         "text": (
-                            "That's the last checkpoint. Everything past this is frozen and "
-                            "empty and full of things that don't know the war ended.\n\n"
-                            "You should get properly equipped before we go in. I'll wait. "
-                            "I've waited eleven years."
+                            "That's Xender plant. Prototype frame, Boss John's fingerprints "
+                            "all over the drive assembly.\n\n"
+                            "Which is *fascinating*, because Xender's official position is "
+                            "that there is nothing at Glacier 15 worth drilling for."
                         ),
                     },
                     {
@@ -540,10 +469,19 @@ CHAPTERS: list[dict] = [
                         "feature": "adventure",
                         "text": (
                             "**`/adventure` is open.**\n\n"
-                            "Expeditions are how you get strong enough for what's next — gear, "
-                            "levels, materials. Regions unlock as the story reaches them.\n\n"
-                            "Come back to `/story` when you're ready. Glacier 15 isn't going "
-                            "anywhere."
+                            "Full expedition runs — gear, levels, materials. Regions unlock "
+                            "in order and harder ones pay more.\n\n"
+                            "This is where you get strong enough for the next thing the "
+                            "story asks of you. It will keep asking."
+                        ),
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Gostley",
+                        "text": (
+                            "*He is looking at the hole, not at you.*\n\n"
+                            "\"It didn't surface for us. We walked this line yesterday.\"\n\n"
+                            "\"It surfaced for the thing that lights beacons.\""
                         ),
                     },
                 ],
@@ -551,33 +489,30 @@ CHAPTERS: list[dict] = [
             },
 
             # ==========================================================
-            # P5 -- the base. Virtual is the game's engineer, so the HQ
-            # and the daily loop arrive in her voice rather than in a
-            # tooltip's.
+            # PR6 -- the base, Virtual, and the systems that run while
+            # you're gone.
             # ==========================================================
             {
-                "id": "p5_the_signal_room",
-                "name": "The Signal Room",
-                "summary": "Virtual has been running Cascade off a car battery.",
+                "id": "pr6_forward_base",
+                "name": "Forward Base",
+                "summary": "Team Cascade has been living in a dead city for two years.",
                 "beats": [
                     {
                         "kind": "dialogue",
                         "speaker": "Virtual",
                         "text": (
-                            "Mind the cable. Mind *that* cable. That one's fine, it's "
-                            "decorative.\n\n"
-                            "You're the one from the lane. Josh said you didn't run. He says "
-                            "that about maybe four people, so try not to let it go to your "
-                            "head."
+                            "Mind the cable. Mind *that* cable. That one's decorative.\n\n"
+                            "So you're the anomaly. You're shorter than the radar made you "
+                            "look."
                         ),
                     },
                     {
                         "kind": "dialogue",
                         "speaker": "Virtual",
                         "text": (
-                            "This is what's left of Team Cascade's infrastructure: one "
-                            "basement, one antenna, and whatever I can build out of what you "
-                            "bring back.\n\n"
+                            "This is everything Cascade has this far north: one heated shell, "
+                            "one relay, and whatever I can build out of what people drag "
+                            "home.\n\n"
                             "It is not much. It is, however, *ours*, which is more than the "
                             "last three places we tried this."
                         ),
@@ -586,13 +521,11 @@ CHAPTERS: list[dict] = [
                         "kind": "unlock",
                         "feature": "base",
                         "text": (
-                            "**`/hq` is open**, along with `/shrines`, `/harvesters` and "
-                            "`/shop`.\n\n"
+                            "**`/hq` is open**, with `/shrines`, `/harvesters` and `/shop`.\n\n"
                             "Your HQ levels up and unlocks the rest. Harvesters generate "
                             "materials while you're offline, shrines give permanent stat "
-                            "bonuses, and the shop trades in materials rather than gear.\n\n"
-                            "None of it needs babysitting. Set it up, go do something else, "
-                            "come back richer."
+                            "bonuses, and the shop trades materials rather than gear.\n\n"
+                            "None of it needs babysitting. Set it going and come back richer."
                         ),
                     },
                     {
@@ -600,7 +533,7 @@ CHAPTERS: list[dict] = [
                         "feature": "daily",
                         "text": (
                             "**`/daily` is open.**\n\n"
-                            "One claim a day. Streaks pay better, so the cheapest way to get "
+                            "One claim a day, and streaks pay better. The cheapest way to get "
                             "stronger in this game is to show up."
                         ),
                     },
@@ -609,22 +542,22 @@ CHAPTERS: list[dict] = [
                         "prompt": "Virtual watches you take in the room.",
                         "options": [
                             {
-                                "id": "offer_help",
+                                "id": "help",
                                 "label": "🔧 Offer to help build",
                                 "text": (
                                     "\"Noted. I'll hold you to it — I hold everyone to it, "
-                                    "it's why the antenna works.\""
+                                    "it's why the relay works.\""
                                 ),
-                                "sets": {"offered_virtual_help": True},
+                                "sets": {"pro_offered_help": True},
                             },
                             {
-                                "id": "ask_cost",
+                                "id": "cost",
                                 "label": "💭 Ask what it cost to build",
                                 "text": (
                                     "She doesn't look up. \"Two years and a friend. Next "
                                     "question.\""
                                 ),
-                                "sets": {"asked_virtual_cost": True},
+                                "sets": {"pro_asked_cost": True},
                             },
                         ],
                     },
@@ -632,70 +565,45 @@ CHAPTERS: list[dict] = [
                         "kind": "dialogue",
                         "speaker": "Virtual",
                         "text": (
-                            "Sader's at the map table and she's been waiting on you for an "
-                            "hour, which for her is roughly a geological era.\n\n"
-                            "Go. I have a car battery to lie to."
+                            "Dolphe's at the map table and he's been told three separate "
+                            "versions of what you are.\n\n"
+                            "Go and be the fourth."
                         ),
                     },
                 ],
-                "rewards": {"gold": 250, "wood": 60, "stone": 60},
+                "rewards": {"gold": 300, "wood": 60, "stone": 60, "item": "rare"},
             },
 
             # ==========================================================
-            # P6 -- domains. Sader Vorae flew at Glacier 15 and got out,
-            # same as Josh, and she is the counterweight to him: he wants
-            # to go back, she wants you to be ready first. That
-            # disagreement is the prologue's actual argument.
+            # PR7 -- Dolphe. HE, not she: File C-000 is unambiguous, and
+            # an earlier draft of this prologue had it wrong throughout.
             # ==========================================================
             {
-                "id": "p6_the_map_table",
+                "id": "pr7_the_map_table",
                 "name": "The Map Table",
-                "summary": "Sader Vorae would like a word about preparation.",
+                "summary": "The leader of Team Cascade would like to know what he has picked up.",
                 "beats": [
                     {
                         "kind": "dialogue",
-                        "speaker": "Sader Vorae",
+                        "speaker": "Dolphe",
                         "text": (
-                            "You're the one Josh is planning around. Sit.\n\n"
-                            "I flew the evac at Glacier 15. I got eleven people out and I "
-                            "have counted them every night since, which is a thing I'm "
-                            "telling you so you understand I'm not being dramatic when I say: "
-                            "he wants to go back too early."
+                            "I ran a newspaper for seventeen years. Then Glacier 15 happened, "
+                            "four hundred and six people stopped existing on paper, and I "
+                            "found out what my press was actually worth.\n\n"
+                            "So now I run this. Sit down."
                         ),
                     },
                     {
-                        "kind": "choice",
-                        "prompt": "She turns the map around so it's facing you.",
-                        "options": [
-                            {
-                                "id": "trust_josh",
-                                "label": "🤝 Say Josh knows what he's doing",
-                                "text": (
-                                    "\"He does. That's the problem — he knows exactly what "
-                                    "he's doing and he's going to do it anyway.\""
-                                ),
-                                "sets": {"sided_with_josh": True},
-                            },
-                            {
-                                "id": "agree",
-                                "label": "🧭 Agree that you're not ready",
-                                "text": (
-                                    "\"Good.\" Something unclenches in her shoulders. "
-                                    "\"Then we have somewhere to start.\""
-                                ),
-                                "sets": {"sided_with_sader": True},
-                            },
-                            {
-                                "id": "ask_glacier",
-                                "label": "❄️ Ask what she saw up there",
-                                "text": (
-                                    "A long pause. \"Lights under the ice that shouldn't "
-                                    "have been on. I'll tell you the rest when telling you "
-                                    "helps.\""
-                                ),
-                                "sets": {"asked_sader_glacier": True},
-                            },
-                        ],
+                        "kind": "dialogue",
+                        "speaker": "Dolphe",
+                        "text": (
+                            "Nebula says you don't know what you are. Gostley says you came "
+                            "out of Ocellios. Virtual says your resonance signature doesn't "
+                            "match anything in the library.\n\n"
+                            "*He turns the map to face you.*\n\n"
+                            "I'm choosing to find that interesting rather than alarming. "
+                            "People tell me that's my worst habit."
+                        ),
                     },
                     {
                         "kind": "unlock",
@@ -709,135 +617,1155 @@ CHAPTERS: list[dict] = [
                         ),
                     },
                     {
+                        "kind": "choice",
+                        "prompt": "\"One question, and answer it however you like.\"",
+                        "options": [
+                            {
+                                "id": "stay",
+                                "label": "🤝 \"I'd like to stay.\"",
+                                "text": (
+                                    "\"Then you're staying.\" No paperwork, no vote. You "
+                                    "will learn that this is exactly how Dolphe does "
+                                    "everything, and exactly how it goes wrong."
+                                ),
+                                "sets": {"pro_joined_willing": True},
+                            },
+                            {
+                                "id": "useful",
+                                "label": "⚡ \"I'd like to be useful.\"",
+                                "text": (
+                                    "\"Careful. People who lead with *useful* tend to have "
+                                    "been treated as equipment.\"\n\n"
+                                    "He lets that sit exactly one second too long."
+                                ),
+                                "sets": {"pro_joined_useful": True},
+                            },
+                            {
+                                "id": "answers",
+                                "label": "🔎 \"I want to know what was done to me.\"",
+                                "text": (
+                                    "\"Good. That's a motive I can plan around.\"\n\n"
+                                    "\"And it's the same file as mine, which should worry "
+                                    "us both.\""
+                                ),
+                                "sets": {"pro_joined_answers": True},
+                            },
+                        ],
+                    },
+                    {
                         "kind": "dialogue",
-                        "speaker": "Sader Vorae",
+                        "speaker": "Dolphe",
                         "text": (
-                            "Run them until the numbers stop scaring you. Then run them "
-                            "again.\n\n"
-                            "I am not trying to slow you down. I am trying to make sure that "
-                            "when you *do* go north, I only have to count you once."
+                            "Welcome to Team Cascade. Nobody will explain the coffee rota and "
+                            "you will be expected to know it.\n\n"
+                            "Get some sleep. There's a man coming in off the shelf tomorrow "
+                            "and I'd rather you met him rested."
                         ),
                     },
                 ],
-                "rewards": {"gold": 300, "reroll_tokens": 5},
+                "rewards": {"gold": 400, "reroll_tokens": 6, "item": "rare"},
             },
 
             # ==========================================================
-            # P7 -- the close. No new mechanic, on purpose: the prologue
-            # has handed over eight systems and the last thing it should
-            # do is hand over a ninth. This one only does the story job
-            # -- names the enemy, sets the destination, and lets the
-            # player answer for themselves one more time.
+            # PR8 -- the close, and the first thread of the real story.
             #
-            # THIS is what completes the prologue.
+            # No new mechanic on purpose: the prologue has handed over
+            # eight systems and the last thing it should do is hand over
+            # a ninth. What it does instead is plant R -- unnamed, one
+            # letter, mentioned by nobody who understands it yet.
             # ==========================================================
             {
-                "id": "p7_what_we_do_now",
-                "name": "What We Do Now",
-                "summary": "Everyone in the room has already decided. They're waiting on you.",
+                "id": "pr8_someone_got_here_first",
+                "name": "Someone Got Here First",
+                "summary": "Gostley found something in the drift and nobody likes it.",
                 "beats": [
                     {
                         "kind": "dialogue",
-                        "speaker": "Dolphe",
+                        "speaker": "Gostley",
                         "text": (
-                            "Sit down. All of you.\n\n"
-                            "The two in the lane weren't muscle for hire. They were on a "
-                            "payroll, and the payroll has a name on it: **Xender**. Which "
-                            "would be a small story, except Xender is the company that "
-                            "certified Glacier 15 as empty."
+                            "I went back to the hole.\n\n"
+                            "*He puts a plate of sectioned metal on the table. It is cut, not "
+                            "broken — one pass, clean, through a driller frame that ate a "
+                            "reinforced beacon post without slowing down.*"
                         ),
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Virtual",
+                        "text": (
+                            "That's not us. That's not Xender either — nobody at Xender is "
+                            "issuing cutting gear that does *that*, I'd know, I've stolen "
+                            "their catalogue.\n\n"
+                            "Somebody put this thing down after we walked away. Somebody who "
+                            "was already out there."
+                        ),
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Nebula",
+                        "text": (
+                            "There's a mark on the underside. One letter, scored in after the "
+                            "cut.\n\n"
+                            "**R.**\n\n"
+                            "*Nobody in the room has anything to add. Dolphe writes it on the "
+                            "map anyway, because that is what he does with things he doesn't "
+                            "understand yet.*"
+                        ),
+                    },
+                    {
+                        "kind": "choice",
+                        "prompt": "Dolphe looks up. \"Opinions. Anyone.\"",
+                        "options": [
+                            {
+                                "id": "helped",
+                                "label": "🙂 \"Whoever it was, they helped us.\"",
+                                "text": (
+                                    "\"They killed something that was hunting us,\" Dolphe "
+                                    "agrees. \"That isn't the same as helping. It's the same "
+                                    "as *arriving first*.\""
+                                ),
+                                "sets": {"pro_r_friendly": True},
+                            },
+                            {
+                                "id": "signature",
+                                "label": "🔻 \"People who sign their work want it found.\"",
+                                "text": (
+                                    "The room goes quiet.\n\n"
+                                    "\"Yes,\" says Gostley, to nobody. \"They do.\""
+                                ),
+                                "sets": {"pro_r_signature": True},
+                            },
+                            {
+                                "id": "worry",
+                                "label": "🗡️ \"I want to know what cuts like that.\"",
+                                "text": (
+                                    "Virtual turns the plate over twice. \"So do I. And I "
+                                    "build the things that cut.\""
+                                ),
+                                "sets": {"pro_r_weapon": True},
+                            },
+                        ],
+                    },
+                    {
+                        "kind": "reward",
+                        "text": "Dolphe advances you a field allowance out of a fund that is mostly optimism.",
+                        "grant": {"gold": 600, "shards": 120, "reroll_tokens": 8, "item": "rare"},
                     },
                     {
                         "kind": "dialogue",
                         "speaker": "Dolphe",
                         "text": (
-                            "They signed a piece of paper that said nobody was there. Then "
-                            "they sent people to make sure nobody went and looked.\n\n"
-                            "That's not a cover-up any more. That's a schedule."
+                            "Sleep. Build something. Go and get strong.\n\n"
+                            "`/adventure` for runs, `/domains` for five spare minutes, `/hq` "
+                            "for the long game. Come back to `/story` when you're ready.\n\n"
+                            "**Welcome to Cascade.** The man off the shelf gets here at dawn "
+                            "and his name is Josh."
+                        ),
+                    },
+                ],
+                "rewards": {"gold": 400},
+                "completes_prologue": True,
+            },
+        ],
+    },
+
+    {
+        "id": "ch1",
+        "name": "Chapter 1: What Josh Owes",
+        "blurb": (
+            "A survivor with a debt, a letter carved into wreckage, and somebody who "
+            "keeps getting there first."
+        ),
+        "unlocks_region": "Glacier 15",
+        "missions": [
+            # ==========================================================
+            # C1M1 -- Josh.
+            #
+            # HIS VOICE IS BROKEN ENGLISH, and that is canon, not
+            # characterisation I invented: "Im just try to live, but
+            # people say it bad." An earlier draft wrote him fluent and
+            # clipped, which quietly turned the roster's most distinctive
+            # character into a generic soldier.
+            #
+            # Two unlocks, both about reaching other people, because
+            # that's what Josh has come to ask for.
+            # ==========================================================
+            {
+                "id": "c1m1_the_man_off_the_shelf",
+                "name": "The Man Off the Shelf",
+                "summary": "He walked here. From the shelf. In that.",
+                "beats": [
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Josh",
+                        "text": (
+                            "Im hear you got the beacons on.\n\n"
+                            "*He is yellow, underfed, and has walked in from a direction "
+                            "with nothing in it.* Two year them lights is off. Two year Im "
+                            "ask people to turn them on. Then you come and just — do it."
                         ),
                     },
                     {
                         "kind": "dialogue",
                         "speaker": "Josh",
                         "text": (
-                            "I've been saying this for two years to a room that kept telling "
-                            "me I was grieving.\n\n"
-                            "*He looks at you, not at her.* You're the first person who came "
-                            "to the lane instead of the funeral."
-                        ),
-                    },
-                    {
-                        "kind": "dialogue",
-                        "speaker": "Bee Jee",
-                        "text": (
-                            "And you came back off it standing, which I'd like on the record "
-                            "as partly my doing.\n\n"
-                            "*She's smiling. She's also already restocking your kit.*"
+                            "Im from here. Glacier 15. Before.\n\n"
+                            "Everyone say Glacier 15 people not exist no more. Im standing "
+                            "here, so that a lie, but Im the only one Im can prove."
                         ),
                     },
                     {
                         "kind": "choice",
-                        "prompt": "Dolphe puts a hand flat on the table. \"So. What do we do now?\"",
+                        "prompt": "He hasn't sat down. He doesn't seem to think he's allowed to.",
                         "options": [
                             {
-                                "id": "north",
-                                "label": "❄️ \"We go to Glacier 15.\"",
+                                "id": "sit",
+                                "label": "🪑 Push a chair towards him",
                                 "text": (
-                                    "Josh exhales like he's been holding it since the lane. "
-                                    "Sader says nothing, which from Sader is a vote.\n\n"
-                                    "\"Then we go north,\" Dolphe says. \"Properly. "
-                                    "Not tonight.\""
+                                    "He looks at it like it might be a trick. Then he sits, "
+                                    "very carefully, on the front third of it.\n\n"
+                                    "\"...Thanks,\" he says. It is the only word he says "
+                                    "properly."
                                 ),
-                                "sets": {"chose_north": True},
+                                "sets": {"c1_kind_to_josh": True},
                             },
                             {
-                                "id": "proof",
-                                "label": "📰 \"We prove it first.\"",
+                                "id": "ask_who",
+                                "label": "❓ Ask who you'd be proving it for",
                                 "text": (
-                                    "\"Spoken like someone who's worked for me for a day,\" "
-                                    "Dolphe says, and it's almost warm.\n\n"
-                                    "Josh doesn't argue. He also doesn't agree."
+                                    "Everything in his face shuts at once.\n\n"
+                                    "\"...Rex,\" he says. \"Him name Rex.\" And then "
+                                    "nothing else, for a while."
                                 ),
-                                "sets": {"chose_proof": True},
+                                "sets": {"c1_asked_rex": True},
                             },
                             {
-                                "id": "people",
-                                "label": "🫂 \"We find who's still alive.\"",
+                                "id": "blunt",
+                                "label": "🧊 Ask what he wants from Cascade",
                                 "text": (
-                                    "The room goes quiet in a way the other answers wouldn't "
-                                    "have caused.\n\n"
-                                    "\"Four hundred and six,\" Dolphe says softly. \"I've "
-                                    "never let myself say *still*.\""
+                                    "\"Good. Straight. Im like straight.\"\n\n"
+                                    "\"Im want people. Im can't do it alone no more, Im try "
+                                    "two year.\""
                                 ),
-                                "sets": {"chose_survivors": True},
+                                "sets": {"c1_blunt_with_josh": True},
                             },
                         ],
-                    },
-                    {
-                        "kind": "reward",
-                        "text": "Dolphe slides a field advance across the table. It's most of what's left.",
-                        "grant": {"gold": 600, "shards": 120, "reroll_tokens": 8},
                     },
                     {
                         "kind": "dialogue",
                         "speaker": "Dolphe",
                         "text": (
-                            "Then that's what we do.\n\n"
-                            "Go get strong enough to survive being right. `/adventure` for "
-                            "runs, `/domains` when you've got five minutes, `/hq` to build "
-                            "something that lasts. Come back to `/story` when you're ready "
-                            "for the north.\n\n"
-                            "**Welcome to Cascade.**"
+                            "Then you'll have people. That's the entire point of us.\n\n"
+                            "*To you:* Cascade runs on cells passing things to each other — "
+                            "supplies, names, favours. If you're going to work with him "
+                            "you'd better know how that works."
+                        ),
+                    },
+                    {
+                        "kind": "unlock",
+                        "feature": "gifting",
+                        "text": (
+                            "**`/gift` and `/gifts` are open.**\n\n"
+                            "Send materials and currency to other players and collect what "
+                            "they send you. There's a cap per window, so nobody can be farmed "
+                            "as a mule — it's for helping somebody over a wall, not for "
+                            "running an economy through a friend."
+                        ),
+                    },
+                    {
+                        "kind": "unlock",
+                        "feature": "exchange",
+                        "text": (
+                            "**`/exchange` is open.**\n\n"
+                            "Every duplicate you have ever pulled paid **Echoes**. Spend them "
+                            "on *exactly* the character you want — no rates, no pity, no "
+                            "luck.\n\n"
+                            "Buying somebody you already own raises their **Resonance** "
+                            "instead, which is the deterministic way to push a favourite."
+                        ),
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Josh",
+                        "text": (
+                            "One thing. Before you say yes.\n\n"
+                            "Someone else out there. Been out there long time, before you, "
+                            "before Cascade come back. Him don't want the city found.\n\n"
+                            "Im not say him name in this room."
                         ),
                     },
                 ],
-                "rewards": {"gold": 400},
-                # THIS finishes the prologue -- moved off P4 when the
-                # safehouse missions were added. A feature with no unlock
-                # beat of its own opens here (see story_service), so
-                # moving this marker also moves the Forge, the Lab, raids,
-                # gifting and the Echo Exchange.
-                "completes_prologue": True,
+                "rewards": {"gold": 500, "echoes": 40},
+            },
+
+            # ==========================================================
+            # C1M2 -- the first fight of the chapter, and the first time
+            # R is ahead of the party rather than behind them.
+            # ==========================================================
+            {
+                "id": "c1m2_the_cut_line",
+                "name": "The Cut Line",
+                "summary": "Xender is digging where Xender says there is nothing.",
+                "beats": [
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Nebula",
+                        "text": (
+                            "Survey camp, four hours old, and it's been abandoned in a "
+                            "hurry.\n\n"
+                            "Xender kit, Xender rations, Xender everything. On a site their "
+                            "own inspection slips certify as empty. Somebody is lying and "
+                            "they're not even being careful about it."
+                        ),
+                    },
+                    {
+                        "kind": "battle",
+                        "enemies": ["Xender Tank", "Xender Henchmen", "Xender Henchmen"],
+                        "level": 4,
+                        "intro": "The rear guard came back for the equipment. You're standing in it.",
+                        "on_win": (
+                            "The last one goes down still trying to raise a channel that "
+                            "nobody is answering."
+                        ),
+                        "on_lose": "Too many, too fast. Josh gets a shoulder under you and runs.",
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Josh",
+                        "text": (
+                            "Look the tents. Look them.\n\n"
+                            "*Six tents. Four are cut open, one pass each, from outside.*\n\n"
+                            "Them not run from us. Them already run from someone."
+                        ),
+                    },
+                    {
+                        "kind": "reward",
+                        "text": "The camp's stores are intact. Whoever came through wasn't here for supplies.",
+                        "grant": {"gold": 350, "permafrost_ore": 30, "metal": 40, "item": "rare"},
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Gostley",
+                        "text": (
+                            "*He is crouched at the fourth tent, looking at the cut.*\n\n"
+                            "\"Same edge as the driller.\"\n\n"
+                            "\"He's not following Xender. He's following whoever gets close "
+                            "to the city.\""
+                        ),
+                    },
+                ],
+                "rewards": {"gold": 400, "reroll_tokens": 6},
+            },
+
+            # ==========================================================
+            # C1M3 -- the Forge, at the far end of a supply line that
+            # doesn't exist.
+            # ==========================================================
+            {
+                "id": "c1m3_no_supply_line",
+                "name": "No Supply Line",
+                "summary": "Virtual has found a shed and is extremely happy about it.",
+                "beats": [
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Virtual",
+                        "text": (
+                            "Bench. Vice. Power. *Roof.* I could cry.\n\n"
+                            "We are four hundred kilometres from a shop and nothing is "
+                            "getting resupplied out here. From now on, if you want it, we "
+                            "make it."
+                        ),
+                    },
+                    {
+                        "kind": "unlock",
+                        "feature": "forge",
+                        "text": (
+                            "**`/forge` is open.**\n\n"
+                            "Craft gear in the **slot and rarity you choose** — no rolling "
+                            "for the piece you actually need. You can also reforge substats, "
+                            "transfer an upgrade level between items, and salvage what you "
+                            "don't want back into materials.\n\n"
+                            "Crafting starts at **Rare**. Below that the drops are already "
+                            "better than the recipe."
+                        ),
+                    },
+                    {
+                        "kind": "choice",
+                        "prompt": "She's already sorting your salvage into piles.",
+                        "options": [
+                            {
+                                "id": "learn",
+                                "label": "🔨 Ask her to show you properly",
+                                "text": (
+                                    "\"Finally.\" She clears the bench with her forearm. "
+                                    "\"Sit. This takes an hour and saves you a month.\""
+                                ),
+                                "sets": {"c1_learned_forge": True},
+                            },
+                            {
+                                "id": "rush",
+                                "label": "⏱️ Tell her there isn't time",
+                                "text": (
+                                    "\"There's never time. That's how people end up on a "
+                                    "shelf in gear that was fine for a corridor.\"\n\n"
+                                    "She hands you the schematic anyway."
+                                ),
+                                "sets": {"c1_rushed_forge": True},
+                            },
+                        ],
+                    },
+                    {
+                        "kind": "reward",
+                        "text": "She empties the shed into your pack on principle.",
+                        "grant": {"metal": 80, "crystal": 40, "permafrost_ore": 50, "gold": 300, "item": "epic"},
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Josh",
+                        "text": (
+                            "*He has been standing in the doorway the whole time, not coming "
+                            "in.*\n\n"
+                            "\"Rex do this. Fix thing. Him fix my boot four time.\"\n\n"
+                            "\"Him not good at it.\" A pause. \"Him keep doing it anyway.\""
+                        ),
+                    },
+                ],
+                "rewards": {"gold": 350},
+            },
+
+            # ==========================================================
+            # C1M4 -- the Lab, and the name.
+            #
+            # R stops being a letter here. He does not appear; he is
+            # simply demonstrated to have been present, repeatedly, for
+            # longer than anyone has been looking.
+            # ==========================================================
+            {
+                "id": "c1m4_the_letter",
+                "name": "The Letter",
+                "summary": "Two years of logs, and somebody is in all of them.",
+                "beats": [
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Virtual",
+                        "text": (
+                            "I pulled the survey camp's recorder. It's not one camp's worth "
+                            "of data — they've been feeding a chain since the incident.\n\n"
+                            "Two years of it. It's going to take real work to get anything "
+                            "usable out."
+                        ),
+                    },
+                    {
+                        "kind": "unlock",
+                        "feature": "lab",
+                        "text": (
+                            "**`/lab` is open.**\n\n"
+                            "The Research Lab turns time and materials into **permanent, "
+                            "account-wide upgrades** — loot rarity, gacha pity, expedition "
+                            "yield. Projects run in the background whether you're playing or "
+                            "not.\n\n"
+                            "Nothing in it is a consumable. Everything you finish, you keep."
+                        ),
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Virtual",
+                        "text": (
+                            "Here's the first thing out of the decrypt, and I want somebody "
+                            "else to say it so it isn't only me.\n\n"
+                            "Xender has lost **nineteen** survey teams at Glacier 15 in two "
+                            "years. Nineteen. They keep sending them and they keep not coming "
+                            "back, and they have never once filed it as hostile action."
+                        ),
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Nebula",
+                        "text": (
+                            "Because filing it means admitting there's somebody up here.\n\n"
+                            "And every one of the nineteen has the same field note attached "
+                            "before it stops. Not a report. A *name they were told*."
+                        ),
+                    },
+                    {
+                        "kind": "choice",
+                        "prompt": "Josh has gone very still. \"Say it,\" he says. \"Im already know.\"",
+                        "options": [
+                            {
+                                "id": "read",
+                                "label": "📄 Read it out",
+                                "text": (
+                                    "\"**Mr. R sends his regards.**\"\n\n"
+                                    "Josh puts both hands on the table. \"Rohan,\" he says. "
+                                    "\"Him name Rohan. Him were there when Rex die.\""
+                                ),
+                                "sets": {"c1_read_the_name": True},
+                            },
+                            {
+                                "id": "let_josh",
+                                "label": "🤝 Let Josh say it",
+                                "text": (
+                                    "\"Rohan,\" Josh says, to the table. \"Him call himself "
+                                    "Mr. R now. Like it a joke.\"\n\n"
+                                    "\"Him were there when Rex die. Im the only one who see "
+                                    "him, so Im the only one who lying.\""
+                                ),
+                                "sets": {"c1_josh_said_it": True},
+                            },
+                        ],
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Dolphe",
+                        "text": (
+                            "Two years ago a man told me the same thing in my own newsroom "
+                            "and I printed a correction about it.\n\n"
+                            "*He is not looking at Josh.*\n\n"
+                            "I owe you a retraction. You'll get it in print, with my name on "
+                            "it. After."
+                        ),
+                    },
+                ],
+                "rewards": {"gold": 600, "reroll_tokens": 8, "crystal": 60, "item": "rare"},
+            },
+
+            # ==========================================================
+            # C1M5 -- the chapter boss, and raids.
+            #
+            # Rohan does not fight you here and is not seen. What you
+            # fight is the thing he left switched on, which is the honest
+            # shape of a first chapter: the antagonist is established by
+            # the size of what he can afford to abandon.
+            #
+            # Raids unlock here because this is the first thing in the
+            # story a squad demonstrably cannot finish.
+            # ==========================================================
+            {
+                "id": "c1m5_what_he_left_on",
+                "name": "What He Left Switched On",
+                "summary": "Nineteen teams did not come back. This is what stopped them.",
+                "beats": [
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Virtual",
+                        "text": (
+                            "Power draw just went somewhere and it all went *down*.\n\n"
+                            "Ninety-one percent of this site's load for two years has gone "
+                            "to one unlabelled circuit. It just woke up."
+                        ),
+                    },
+                    {
+                        "kind": "battle",
+                        "enemies": ["Permafrost Guardian"],
+                        "level": 11,
+                        "intro": (
+                            "It doesn't come through the door. It comes through the wall "
+                            "beside the door, which was, on reflection, always an option.\n\n"
+                            "*It is alone. It does not appear to think it needs help.*"
+                        ),
+                        "on_win": (
+                            "It goes down on one knee and stops. It does not power off. It "
+                            "is simply waiting, which is worse."
+                        ),
+                        "on_lose": "You get out. Not with everything you went in with.",
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Gostley",
+                        "text": (
+                            "*He has found the maker's plate and is holding it out.*\n\n"
+                            "\"It's Eris frame. Pre-collapse. Somebody woke it up and pointed "
+                            "it at the stairs.\"\n\n"
+                            "\"He didn't build this. He *found* it. That's worse.\""
+                        ),
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Josh",
+                        "text": (
+                            "Him always find thing. Him say him got divine power, everyone "
+                            "laugh.\n\n"
+                            "Nobody laugh at nineteen team."
+                        ),
+                    },
+                    {
+                        "kind": "unlock",
+                        "feature": "raids",
+                        "text": (
+                            "**`/raid` is open.**\n\n"
+                            "A server-wide boss that everyone in your Discord fights "
+                            "*together*, across several difficulties. Damage is tracked and "
+                            "rewarded by contribution, and `/raid_claim` collects your share "
+                            "once it ends. **`/leaderboard`** opens with it.\n\n"
+                            "This is the first thing in this story a squad of four cannot "
+                            "finish. It will not be the last."
+                        ),
+                    },
+                    {
+                        "kind": "choice",
+                        "prompt": "Dolphe, on the relay: \"I need a headline and I need it true.\"",
+                        "options": [
+                            {
+                                "id": "nineteen",
+                                "label": "📰 \"Xender has lost nineteen teams and filed none of them.\"",
+                                "text": (
+                                    "\"That one they'll sue over.\" A pause you could park "
+                                    "an airship in. \"Good. Let them explain the other "
+                                    "eighteen under oath.\""
+                                ),
+                                "sets": {"c1_headline_nineteen": True},
+                            },
+                            {
+                                "id": "name",
+                                "label": "🔻 \"Print the name. Mr. R.\"",
+                                "text": (
+                                    "\"If I print that and I'm wrong, I finish Josh a second "
+                                    "time.\"\n\n"
+                                    "*Long silence.* \"...Set it. I'll decide at the press.\""
+                                ),
+                                "sets": {"c1_headline_name": True},
+                            },
+                            {
+                                "id": "hold",
+                                "label": "🤐 \"Don't print anything yet.\"",
+                                "text": (
+                                    "\"You're the third person to tell me that this month "
+                                    "and the first one I've believed.\""
+                                ),
+                                "sets": {"c1_headline_hold": True},
+                            },
+                        ],
+                    },
+                    {
+                        "kind": "reward",
+                        "text": "The Guardian's core comes out intact. Virtual takes it like it's a bird.",
+                        "grant": {"gold": 900, "shards": 240, "crystal": 80, "permafrost_ore": 100, "item": "epic"},
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Josh",
+                        "text": (
+                            "Im not ask you to help me kill him.\n\n"
+                            "*He is looking at the thing on one knee.*\n\n"
+                            "Im ask you help me make people know him real. Killing him easy "
+                            "part. Im been ready for that two year.\n\n"
+                            "*Chapter 2 isn't written yet — but `/raid`, `/lab` and the Forge "
+                            "are, and you're going to need all three.*"
+                        ),
+                    },
+                ],
+                "rewards": {"gold": 800, "reroll_tokens": 12},
+            },
+        ],
+    },
+    {
+        "id": "ch2",
+        "name": "Chapter 2: Two Hundred Crates",
+        "blurb": (
+            "The freight leaves Glacier 15 heading north with no contents listed. "
+            "Somebody has been shipping something for two years."
+        ),
+        "unlocks_region": "The Wastelands",
+        "missions": [
+            # ==========================================================
+            # C2M1 -- the road, and the first time the party disagrees
+            # about what they're actually doing.
+            #
+            # No feature unlocks left: everything is open by now, which
+            # frees Chapter 2 to be about people rather than menus. That
+            # is a feature of the pacing, not a gap in it.
+            # ==========================================================
+            {
+                "id": "c2m1_the_freight_line",
+                "name": "The Freight Line",
+                "summary": "Two hundred crates left the site while you were in it.",
+                "beats": [
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Virtual",
+                        "text": (
+                            "The crates are gone. All two hundred, out on the freight line, "
+                            "and they moved them while we were four floors down fighting "
+                            "their doorman.\n\n"
+                            "Which means somebody watched us go in and decided that was the "
+                            "window."
+                        ),
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Josh",
+                        "text": (
+                            "Him not run from us. Him *use* us.\n\n"
+                            "Two year Im try get someone to look at Glacier 15. First time "
+                            "anyone look — same day the crates move. That not luck."
+                        ),
+                    },
+                    {
+                        "kind": "choice",
+                        "prompt": "Dolphe has the map out and a decision to make.",
+                        "options": [
+                            {
+                                "id": "chase",
+                                "label": "🚂 \"Follow the freight.\"",
+                                "text": (
+                                    "\"Then we follow it.\" He is already folding the map. "
+                                    "\"Every road out of here is a road he chose. That's "
+                                    "worth knowing on its own.\""
+                                ),
+                                "sets": {"c2_chose_chase": True},
+                            },
+                            {
+                                "id": "stay",
+                                "label": "🏚️ \"Finish searching the site.\"",
+                                "text": (
+                                    "\"The site isn't going anywhere and the freight is.\" "
+                                    "Sader says it flatly. \"But you're right that we're "
+                                    "being walked. Let's at least know where to.\""
+                                ),
+                                "sets": {"c2_chose_stay": True},
+                            },
+                        ],
+                    },
+                    {
+                        "kind": "reward",
+                        "text": "Virtual strips the site's relay for parts before you leave.",
+                        "grant": {"gold": 700, "crystal": 60, "metal": 100, "item": "rare"},
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Nebula",
+                        "text": (
+                            "Line runs south-west through the Wastelands before it turns "
+                            "north. It has to — the Divide is impassable for anything on "
+                            "rails.\n\n"
+                            "So we can beat it to the bend. It's four days of walking and "
+                            "we have two."
+                        ),
+                    },
+                ],
+                "rewards": {"gold": 600, "reroll_tokens": 8},
+            },
+
+            # ==========================================================
+            # C2M2 -- the Wastelands, and the strike.
+            #
+            # Canon has Cascade protecting strikers and rioters in the
+            # Wastelands while Boss John sends mechs at them. That happens
+            # HERE, but as something the party walks into rather than an
+            # assignment -- Rohan's freight is the reason they're on this
+            # road at all.
+            # ==========================================================
+            {
+                "id": "c2m2_the_picket",
+                "name": "The Picket",
+                "summary": "Four hundred people are sitting on the rails.",
+                "beats": [
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Nebula",
+                        "text": (
+                            "That's not a checkpoint. That's a *picket*.\n\n"
+                            "Rail workers, four hundred of them, sitting on the line with "
+                            "banners. They've stopped the freight for us and they don't "
+                            "know it."
+                        ),
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Josh",
+                        "text": (
+                            "Four hundred.\n\n"
+                            "*He does not say the other four hundred and six. Nobody makes "
+                            "him.*"
+                        ),
+                    },
+                    {
+                        "kind": "battle",
+                        "enemies": ["Xender Tank", "Xender Enforcer", "Xender Enforcer"],
+                        "level": 14,
+                        "intro": (
+                            "Company security comes down the embankment at a walk, which is "
+                            "worse than a run. They have done this before."
+                        ),
+                        "on_win": (
+                            "The line holds. Somebody in the crowd starts clapping and then "
+                            "stops, embarrassed, and then four hundred people join in."
+                        ),
+                        "on_lose": "You're driven off the embankment. The picket scatters.",
+                    },
+                    {
+                        "kind": "choice",
+                        "prompt": "The organiser wants to know who you are.",
+                        "options": [
+                            {
+                                "id": "cascade",
+                                "label": "📰 \"Team Cascade.\"",
+                                "text": (
+                                    "\"...The newspaper?\" She looks at Dolphe properly for "
+                                    "the first time. \"You printed my brother's name. In "
+                                    "'07. Nobody else did.\""
+                                ),
+                                "sets": {"c2_named_cascade": True},
+                            },
+                            {
+                                "id": "nobody",
+                                "label": "🤐 \"Nobody. We were passing.\"",
+                                "text": (
+                                    "\"Right.\" She doesn't believe it and doesn't push. "
+                                    "\"Then nobody just kept four hundred people off a "
+                                    "casualty list.\""
+                                ),
+                                "sets": {"c2_stayed_anonymous": True},
+                            },
+                        ],
+                    },
+                    {
+                        "kind": "reward",
+                        "text": "The rail workers empty their strike fund into your hands. You try to refuse.",
+                        "grant": {"gold": 900, "metal": 120, "xendium": 30, "item": "rare"},
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Dolphe",
+                        "text": (
+                            "Ask her about the freight.\n\n"
+                            "*The organiser's face changes.* \"The sealed one? It doesn't "
+                            "stop. It doesn't crew. It runs at night and the yard bosses "
+                            "won't sign for it.\"\n\n"
+                            "\"We've been striking about pay. They think we're striking "
+                            "about *that*.\""
+                        ),
+                    },
+                ],
+                "rewards": {"gold": 800, "reroll_tokens": 10},
+            },
+
+            # ==========================================================
+            # C2M3 -- Entrospire, and somebody who knew Rohan before.
+            #
+            # Chary is a card sharp who reads a room the way she reads a
+            # table, which makes her the right person to have already
+            # worked out what everyone else is still arguing about.
+            # ==========================================================
+            {
+                "id": "c2m3_the_underside",
+                "name": "The Underside",
+                "summary": "Entrospire City, below the rail deck. Chary has been expecting you.",
+                "beats": [
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Chary",
+                        "text": (
+                            "Sit. You're blocking my light and you're about to ask me "
+                            "something you think is subtle.\n\n"
+                            "*She deals two cards face down and does not look at them.* "
+                            "It's about the night freight, it's about who signs for it, and "
+                            "you already know the answer or you wouldn't have walked down "
+                            "here to hear it out loud."
+                        ),
+                    },
+                    {
+                        "kind": "choice",
+                        "prompt": "She turns one card over. It means nothing. She knows it means nothing.",
+                        "options": [
+                            {
+                                "id": "ask_rohan",
+                                "label": "🔻 Ask about Mr. R directly",
+                                "text": (
+                                    "The card stops halfway.\n\n"
+                                    "\"Nobody says that down here. Not because they're "
+                                    "scared of him. Because the ones who said it aren't "
+                                    "down here any more.\""
+                                ),
+                                "sets": {"c2_asked_chary_direct": True},
+                            },
+                            {
+                                "id": "ask_freight",
+                                "label": "🚂 Ask about the freight instead",
+                                "text": (
+                                    "\"Cleverer. Fine.\" She deals a third card. \"It "
+                                    "signs out of a yard that closed in '06. The signature "
+                                    "is a letter. You've seen it.\""
+                                ),
+                                "sets": {"c2_asked_chary_oblique": True},
+                            },
+                            {
+                                "id": "say_nothing",
+                                "label": "🐱 Put Josh's badge on the table",
+                                "text": (
+                                    "She looks at **J. — SITE ENGINEERING — GLACIER 15** "
+                                    "for a long moment.\n\n"
+                                    "\"...Oh,\" she says quietly, and sweeps the cards "
+                                    "away. \"You're not asking. You're telling me. Sit "
+                                    "down properly, then.\""
+                                ),
+                                "sets": {"c2_showed_badge": True},
+                            },
+                        ],
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Chary",
+                        "text": (
+                            "I dealt to him. Years ago, before he was anything.\n\n"
+                            "Worst player I ever sat across from. Not because he was bad at "
+                            "cards — because he genuinely could not accept that the deck "
+                            "didn't owe him. Lost, and lost, and kept explaining why it "
+                            "shouldn't have happened.\n\n"
+                            "Men like that don't stop. They just find a bigger table."
+                        ),
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Josh",
+                        "text": (
+                            "Him say him got divine power. Everyone laugh at that.\n\n"
+                            "Rex laugh at that.\n\n"
+                            "*He stops. Nobody fills the gap.*"
+                        ),
+                    },
+                    {
+                        "kind": "reward",
+                        "text": "Chary slides a yard key across the table and takes nothing for it.",
+                        "grant": {"gold": 800, "shards": 120, "item": "epic"},
+                    },
+                ],
+                "rewards": {"gold": 700, "reroll_tokens": 10},
+            },
+
+            # ==========================================================
+            # C2M4 -- the crates. The chapter's real turn.
+            # ==========================================================
+            {
+                "id": "c2m4_what_is_in_them",
+                "name": "What Is In Them",
+                "summary": "The yard that closed in '06, and two hundred crates that didn't.",
+                "beats": [
+                    {
+                        "kind": "battle",
+                        "enemies": ["Xender Convoy", "Xender Loyalist", "Xender Loyalist"],
+                        "level": 16,
+                        "intro": (
+                            "The yard has a night crew after all. They are not railway "
+                            "people and they do not ask who you are."
+                        ),
+                        "on_win": "The yard goes quiet. Two hundred crates sit under the lamps.",
+                        "on_lose": "You're pushed back through the gate. The lamps go out behind you.",
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Virtual",
+                        "text": (
+                            "Manifest says weight only. Every crate within four kilos.\n\n"
+                            "*She gets the first one open.*\n\n"
+                            "...It's rock. It's *rock*. Two hundred crates of ballast."
+                        ),
+                    },
+                    {
+                        "kind": "choice",
+                        "prompt": "Nobody in the yard says anything for several seconds.",
+                        "options": [
+                            {
+                                "id": "decoy",
+                                "label": "🎭 \"It's a decoy. Always was.\"",
+                                "text": (
+                                    "\"For two years?\" Nebula says. \"Who runs a decoy "
+                                    "for two years?\"\n\n"
+                                    "\"Somebody who knew somebody would eventually come "
+                                    "and look,\" says Dolphe."
+                                ),
+                                "sets": {"c2_read_decoy": True},
+                            },
+                            {
+                                "id": "moved",
+                                "label": "📦 \"Then where did the real ones go?\"",
+                                "text": (
+                                    "Virtual is already on the yard ledger. \"Same weight, "
+                                    "same route, twice a month, north.\"\n\n"
+                                    "\"North of the map,\" she says. \"There is no north "
+                                    "of the map.\""
+                                ),
+                                "sets": {"c2_asked_where": True},
+                            },
+                        ],
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Dolphe",
+                        "text": (
+                            "It was never about hiding the cargo.\n\n"
+                            "Two hundred crates leaving Glacier 15 in daylight is a *story*. "
+                            "It's the story I'd have printed. It's the story anyone would "
+                            "chase.\n\n"
+                            "He built us a headline and pointed it away from wherever the "
+                            "people went."
+                        ),
+                    },
+                    {
+                        "kind": "reward",
+                        "text": "The yard ledger comes off the wall with the bolts still in it.",
+                        "grant": {"gold": 1_100, "crystal": 90, "xendium": 45, "item": "rare"},
+                    },
+                ],
+                "rewards": {"gold": 900, "reroll_tokens": 12},
+            },
+
+            # ==========================================================
+            # C2M5 -- Rohan, in person, for ninety seconds.
+            #
+            # He does NOT fight you. He is not withheld out of coyness --
+            # the point of the scene is that he does not consider this an
+            # engagement. You fight what he leaves running, again, and
+            # this time he stays to watch you do it.
+            # ==========================================================
+            {
+                "id": "c2m5_the_man_himself",
+                "name": "Mr. R",
+                "summary": "He was always going to be standing at the end of it.",
+                "beats": [
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Rohan",
+                        "text": (
+                            "*There is a man sitting on a crate at the end of the yard, and "
+                            "he has been there the whole time.*\n\n"
+                            "Two years. Two years of that fence, that gate, that inspection "
+                            "slip signed every ninety days in my own handwriting, and not "
+                            "one person came.\n\n"
+                            "Then *you* lit a beacon."
+                        ),
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Rohan",
+                        "text": (
+                            "You have no idea what you are. That's the part I enjoy.\n\n"
+                            "*He looks at Josh without hurrying.* Hello, Josh. You've told "
+                            "them about me. I can tell, because they're standing like people "
+                            "who've been told."
+                        ),
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Josh",
+                        "text": (
+                            "You were there.\n\n"
+                            "*It is not a question and his voice does not shake.*\n\n"
+                            "Rex. You were *there*."
+                        ),
+                    },
+                    {
+                        "kind": "choice",
+                        "prompt": "Rohan does not stand up.",
+                        "options": [
+                            {
+                                "id": "swing",
+                                "label": "⚡ Go for him",
+                                "text": (
+                                    "You cross half the yard before the floor opens.\n\n"
+                                    "\"No,\" he says, mildly, the way you'd correct a "
+                                    "child's grammar. \"Not yet. You're not finished being "
+                                    "useful.\""
+                                ),
+                                "sets": {"c2_went_for_him": True},
+                            },
+                            {
+                                "id": "listen",
+                                "label": "🐱 Let him talk",
+                                "text": (
+                                    "\"...Huh.\" For the first time something in his face "
+                                    "moves. \"You're patient. That's not what the file "
+                                    "said.\"\n\n"
+                                    "*He notices he has said 'the file' out loud, and is "
+                                    "briefly, visibly annoyed with himself.*"
+                                ),
+                                "sets": {"c2_let_him_talk": True},
+                            },
+                            {
+                                "id": "protect",
+                                "label": "🛡️ Put yourself between him and Josh",
+                                "text": (
+                                    "Rohan's eyebrows go up.\n\n"
+                                    "\"That's new. Nobody's ever done that for him.\" A "
+                                    "pause. \"Rex did, once. Look how that went.\""
+                                ),
+                                "sets": {"c2_shielded_josh": True},
+                            },
+                        ],
+                    },
+                    {
+                        # THE LECTOR FIGHTS ALONE, at level 12.
+                        #
+                        # It shipped with a Xender Convoy escort at level
+                        # 18 and measured 0% at every squad level tested.
+                        # Exactly the lesson the Permafrost Guardian
+                        # taught in Chapter 1: an elite or boss template
+                        # is already a harder fight than most three-enemy
+                        # groups, so an escort on top is not difficulty,
+                        # it's unwinnability.
+                        #
+                        # It reads better alone too. Rohan gestures at ONE
+                        # thing and sits back down.
+                        "kind": "battle",
+                        "enemies": ["The Lector of Ledgers"],
+                        "level": 12,
+                        "intro": (
+                            "He doesn't get up. He gestures, and the thing that has been "
+                            "standing in the dark behind him stops being scenery.\n\n"
+                            "*He watches. He does not draw a weapon at any point.*"
+                        ),
+                        "on_win": (
+                            "It comes apart. Rohan applauds — three slow claps, entirely "
+                            "sincere, which is somehow the worst part."
+                        ),
+                        "on_lose": (
+                            "You go down in the lamplight. When you come round the yard is "
+                            "empty and nobody has taken anything from you."
+                        ),
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Rohan",
+                        "text": (
+                            "*He is already walking, unhurried, towards the north gate.*\n\n"
+                            "That was worth the trip. Genuinely — I've been curious since "
+                            "Ocellios put you in the frame, and now I've seen it.\n\n"
+                            "Keep going north, by all means. I'd like the company."
+                        ),
+                    },
+                    {
+                        "kind": "unlock",
+                        "feature": "abyss",
+                        "text": (
+                            "**`/abyss` is open.**\n\n"
+                            "Past the north gate the ground stops being ground. Twelve "
+                            "floors down, and every floor is several chambers that must be "
+                            "cleared by **different teams** — nobody fights twice.\n\n"
+                            "The early floors are doable now. The bottom four rotate every "
+                            "two weeks and are the hardest content in the game. It is not "
+                            "your gear that decides how far you get; it is how many "
+                            "characters you actually built."
+                        ),
+                    },
+                    {
+                        "kind": "reward",
+                        "text": "He leaves the yard key on the crate. It fits the north gate.",
+                        "grant": {"gold": 1_600, "shards": 300, "crystal": 120, "item": "epic"},
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Dolphe",
+                        "text": (
+                            "He said *Ocellios put you in the frame*.\n\n"
+                            "*He is looking at you, and for once he is not being generous "
+                            "about it.*\n\n"
+                            "He knows what you are and we don't. That is now the second "
+                            "most dangerous thing about him.\n\n"
+                            "*Chapter 3 isn't written yet. Go north when it is.*"
+                        ),
+                    },
+                ],
+                "rewards": {"gold": 1_400, "reroll_tokens": 15},
             },
         ],
     },

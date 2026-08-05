@@ -46,6 +46,7 @@ from bot.game.economy.raid_config import (
     difficulty_reward_bonus,
     RAID_TIERS,
     attack_cooldown,
+    summon_cooldown,
     attacks_per_player,
     boss_hp_multiplier,
     contribution_tier,
@@ -122,6 +123,29 @@ def start_raid(db, player, guild_id: int, tier_id: str, rng: random.Random | Non
 
     if get_active_raid(db, guild_id) is not None:
         raise RaidError("This server already has a raid in progress. Use `/raid` to join it.")
+
+    # SUMMON COOLDOWN -- see raid_config.SUMMON_COOLDOWNS. Without this,
+    # clearing a raid and immediately re-summoning the same tier is an
+    # unbounded shard faucet, and it paid best at the easiest tier.
+    previous = (
+        db.query(GuildRaid)
+        .filter(GuildRaid.guild_id == guild_id, GuildRaid.tier == tier_id,
+                GuildRaid.status != "active")
+        .order_by(GuildRaid.started_at.desc())
+        .first()
+    )
+    if previous is not None:
+        finished = previous.defeated_at or previous.ends_at
+        if finished is not None:
+            ready_at = as_utc(finished) + summon_cooldown(tier_id)
+            right_now = dt.datetime.now(dt.timezone.utc)
+            if ready_at > right_now:
+                label = (get_tier(tier_id) or {}).get("name", tier_id)
+                raise RaidError(
+                    f"**{label}** was run here recently. It can be summoned again in "
+                    f"**{describe_wait(ready_at - right_now)}**.\n\n"
+                    "Harder tiers come off cooldown faster."
+                )
 
     tier = get_tier(tier_id)
     if tier is None:

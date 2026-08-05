@@ -200,6 +200,36 @@ def raid_boss_level(raid_level: int, difficulty: dict) -> int:
     return max(MIN_RAID_BOSS_LEVEL, min(100, raid_level + difficulty["level_offset"]))
 
 
+# ----------------------------------------------------------------------
+# SUMMON COOLDOWN -- the anti-farm rule.
+#
+# `start_raid` used to refuse only if a raid was ALREADY ACTIVE, so the
+# loop was: clear Rift Patrol, immediately summon another Rift Patrol,
+# repeat. At 60 shards a clear that is an unbounded shard faucet gated
+# only by how fast a server can press buttons -- and the EASIEST tier
+# paid it, which is exactly backwards.
+#
+# So the cooldown runs INVERSELY to difficulty: the cheap tiers are
+# rate-limited hardest, and Nightmare is nearly free to re-summon because
+# clearing it is the limiting factor all by itself.
+#
+# Measured from the previous raid of that tier ENDING in that guild, so a
+# long raid doesn't also serve its own cooldown.
+# ----------------------------------------------------------------------
+SUMMON_COOLDOWNS: dict[str, dt.timedelta] = {
+    "patrol":    dt.timedelta(hours=20),
+    "skirmish":  dt.timedelta(hours=20),
+    "incursion": dt.timedelta(hours=16),
+    "standard":  dt.timedelta(hours=12),
+    "elite":     dt.timedelta(hours=8),
+    "nightmare": dt.timedelta(hours=6),
+}
+
+
+def summon_cooldown(tier_id: str) -> dt.timedelta:
+    return SUMMON_COOLDOWNS.get(tier_id, dt.timedelta(hours=12))
+
+
 RAID_TIERS: list[dict] = [
     {
         # ------------------------------------------------------------------
@@ -230,7 +260,12 @@ RAID_TIERS: list[dict] = [
         "id": "patrol",
         "name": "Rift Patrol",
         "emoji": "🟩",
-        "boss_pool": ["Xender Henchmen", "Rogue Security Drone", "Scrap Buggy"],
+        "boss_pool": [
+            "Rogue Security Drone", "Concussion Drone",
+            "Ad-Drone Swarm Unit", "Xender Enforcer", "Xender Loyalist",
+            "Mech Gunpod", "Alan", "Jynxzi", "Refense Hater",
+            "Illusion of Rex"
+        ],
         "boss_level": 18,
         # ~50% of the boss's (multiplied) health bar per attack -- see the
         # SIZING RULE below. Measured: a roster-15 squad with no gear at
@@ -244,8 +279,8 @@ RAID_TIERS: list[dict] = [
         "duration": dt.timedelta(days=2),
         "description": "A quick first raid. Two people can finish it in one sitting.",
         "rewards": {
-            "gold": 1_400,
-            "shards": 60,
+            "gold": 900,
+            "shards": 22,
             "wood": 150,
             "stone": 150,
             "metal": 40,
@@ -259,24 +294,102 @@ RAID_TIERS: list[dict] = [
         "reward_lootbox": ("uncommon", 1),
     },
     {
+        # ------------------------------------------------------------------
+        # SKIRMISH and INCURSION exist because the ladder had a CLIFF.
+        #
+        # The pools ran 4,160 -> 160,000 -> 440,000 -> 880,000: a 38x jump
+        # followed by 2.8x and 2.0x. All three sizing axes moved at once
+        # between the first two tiers (hp_per_attack 520 -> 4,000,
+        # participants 2 -> 4, attacks 4 -> 10), so a server that cleared
+        # the starter raid in an afternoon met a wall it could not
+        # meaningfully chip at.
+        #
+        # The ladder is now 4.2k -> 13.2k -> 42k -> 125k -> 400k -> 880k,
+        # which is 3.2x / 3.2x / 3.0x / 3.2x / 2.2x. tools/check_raid_pools.py
+        # asserts both clearability and the step ratio.
+        # ------------------------------------------------------------------
+        "id": "skirmish",
+        "name": "Border Skirmish",
+        "emoji": "🟨",
+        "boss_pool": [
+            "Ocellios Test Subject", "Voidwarp Construct",
+            "Xendium Overcharge Drone", "Xender Airship", "MianotAI",
+            "Xender Tank", "Xender Convoy", "Glacial Exterminator",
+            "Kiradmj", "Frostblock", "Loona", "Dolpo", "Xero",
+            "Bulwark Sentinel"
+        ],
+        "boss_level": 28,
+        "hp_per_attack": 1_100,
+        "min_roster_levels": 25,
+        "expected_participants": 3,
+        "attacks_per_player": 4,
+        "attack_cooldown": dt.timedelta(seconds=30),
+        "duration": dt.timedelta(days=3),
+        "description": "A step up from the patrol. Three people, one evening.",
+        "rewards": {
+            "gold": 1_700,
+            "shards": 45,
+            "wood": 220,
+            "stone": 220,
+            "metal": 90,
+            "reroll_tokens": 18,
+        },
+        "reward_lootbox": ("uncommon", 2),
+    },
+    {
+        "id": "incursion",
+        "name": "Frontier Incursion",
+        "emoji": "🟧",
+        "boss_pool": [
+            "H-Nation Vanguard", "HHyper Airship", "Shatterjaw Reaver",
+            "Permafrost Guardian", "Blightspire Adept",
+            "Wasteland Colosseum Champion", "Sir Vengeance", "Samuel",
+            "Triv", "Thedoggyp", "Bt03", "XG-23 Heavy Drone", "The Giveaway",
+            "Ledger Warden", "Hater Ringleader"
+        ],
+        "boss_level": 38,
+        "hp_per_attack": 1_750,
+        "min_roster_levels": 70,
+        "expected_participants": 4,
+        "attacks_per_player": 6,
+        "attack_cooldown": dt.timedelta(seconds=40),
+        "duration": dt.timedelta(days=3),
+        "description": "The first raid that really wants a full server.",
+        "rewards": {
+            "gold": 2_900,
+            "shards": 80,
+            "crystal": 45,
+            "metal": 140,
+            "xendium": 18,
+            "reroll_tokens": 26,
+        },
+        "reward_lootbox": ("rare", 1),
+    },
+    {
         "id": "standard",
-        "name": "Cascade Incursion",
+        "name": "Cascade Offensive",
         "emoji": "🌀",
         # Boss templates are drawn from bot/game/combat/enemies.py by
         # name. Several are listed per tier so consecutive raids in the
         # same server aren't identical.
-        "boss_pool": ["Corrupted Bli", "Corrupted Eris Sentry", "H-Nation Vanguard"],
+        "boss_pool": [
+            "Corrupted Bli", "Corrupted Eris Sentry", "Aerion Mk1",
+            "Void Hydra", "Dorve", "SAJ II", "NF", "Ashplate Warden",
+            "Propaganda Broadcast Unit", "The Revengeance Block",
+            "Skybridge Sentinel", "Acatrya Elite Guard", "Abyssal Custodian",
+            "Broskm", "Duko"
+        ],
         "boss_level": 45,
         # Pool = this, times EXPECTED_PARTICIPANTS, times
         # MAX_ATTACKS_PER_PLAYER. i.e. "the damage we expect one average
         # attack to do".
-        "hp_per_attack": 4_000,
+        "hp_per_attack": 3_125,
         # Raised from 0 when Rift Patrol was added. With both at 0 a brand
         # new server would summon this one first -- and it's a level-45
         # boss -- which is exactly the problem the starter tier exists to
         # solve. 60 is about four level-15 characters: reachable within a
         # first session or two, so this is a "next step", not a wall.
-        "min_roster_levels": 60,
+        "min_roster_levels": 150,
         "description": "The standard server raid. A few days of chipping away.",
         "rewards": {
             # Multiplied by the player's contribution tier below.
@@ -292,9 +405,14 @@ RAID_TIERS: list[dict] = [
         "id": "elite",
         "name": "Voidcrest Breach",
         "emoji": "🕳️",
-        "boss_pool": ["Borehole", "Rupture", "Gatekeeper"],
+        "boss_pool": [
+            "Borehole", "Rupture", "Gatekeeper", "The Chairman",
+            "The Auditor", "The Censor", "The Lector of Ledgers",
+            "Stubby's Failsafe", "Acatrya Prime Enforcer",
+            "Boss John's Driller Prototype", "Ocellios Train", "X-RR"
+        ],
         "boss_level": 70,
-        "hp_per_attack": 11_000,
+        "hp_per_attack": 10_000,
         "min_roster_levels": 300,
         "description": "A tougher boss and a much bigger pool. Bring the server.",
         "rewards": {
@@ -315,7 +433,11 @@ RAID_TIERS: list[dict] = [
         # authored as the hardest template on the roster (4 actions a
         # cycle, 34 poise) and a raid is the only place a squad gets to
         # fight something that size cooperatively.
-        "boss_pool": ["Xender", "Rohan"],
+        "boss_pool": [
+            "Xender", "Rohan", "X-RR", "Eris Sentinel",
+            "Acatrya Prime Enforcer", "Stubby's Failsafe", "The Chairman",
+            "Gatekeeper", "Ocellios Train", "Boss John's Driller Prototype"
+        ],
         "boss_level": 95,
         # Sized against ROHAN, not Xender: the pool has to be clearable
         # whichever boss rolls, and Rohan's bar is the smaller of the
@@ -323,7 +445,7 @@ RAID_TIERS: list[dict] = [
         # tools/check_raid_pools.py caught this the moment he was added
         # to the pool -- at 26,000 an on-target attack needed 66% of his
         # health bar, over the healthy limit.
-        "hp_per_attack": 22_000,
+        "hp_per_attack": 17_500,
         "min_roster_levels": 650,
         "description": "Xender himself. The hardest thing in the game.",
         "rewards": {
