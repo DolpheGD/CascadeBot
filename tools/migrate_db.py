@@ -210,6 +210,25 @@ def grandfather_story(db, dry_run: bool) -> int:
     # a migration, because it's the step that stops people being locked
     # out. Reading one column makes it immune to schema drift elsewhere.
     player_ids = [row[0] for row in db.query(Player.id).all()]
+
+    # THE TABLE MAY NOT EXIST YET.
+    #
+    # --dry-run deliberately skips init_db(), which is the step that
+    # creates tables -- so on a genuinely pre-story database this
+    # function runs before `player_stories` exists and every query
+    # against it raises OperationalError. The live run worked (init_db
+    # had already made the table) which is exactly why this went
+    # unnoticed: the dry run, whose entire job is to be safe to run, was
+    # the only path that crashed.
+    from sqlalchemy import inspect as sqla_inspect
+
+    table_exists = sqla_inspect(db.get_bind()).has_table(PlayerStory.__tablename__)
+    if not table_exists:
+        # No table means no story rows, so every player is pre-story.
+        # Nothing to write in a dry run; the live path will have created
+        # the table by the time it gets here.
+        return len(player_ids)
+
     existing = {row[0] for row in db.query(PlayerStory.player_id).all()}
     marked = 0
     for player_id in player_ids:
