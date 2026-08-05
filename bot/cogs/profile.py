@@ -14,8 +14,9 @@ from bot.utils.ui_guard import OwnedView, require_player
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils import embedder
 
-STARTING_GOLD = 250
-STARTING_SHARDS = 150
+# STARTING_GOLD / STARTING_SHARDS are gone: /start no longer grants
+# currency. The prologue hands out everything a new player needs, in
+# the order they can use it. See bot/game/story/story_config.py.
 
 
 # ----------------------------------------------------------------------
@@ -119,15 +120,29 @@ class Profile(commands.Cog):
 
             get_or_create_player(db, ctx.user.id, ctx.user.display_name)
             player = get_player(db, ctx.user.id)
-            add_currency(db, player, "gold", STARTING_GOLD)
-            add_currency(db, player, "shards", STARTING_SHARDS)
+            character_service.ensure_avatar_character(db, player)
+            story_service.get_or_create(db, player)
         finally:
             db.close()
 
+        # /start NO LONGER HANDS OUT CURRENCY.
+        #
+        # It used to grant gold and shards and drop the player into a game
+        # with ~30 commands and no basis for choosing between them. The
+        # prologue does that job now, and does it better: it teaches
+        # combat, hands you a weapon, gives you a squadmate and opens each
+        # system at the point you have a reason to care about it. Handing
+        # over a pile of currency the player can't yet spend on anything
+        # was never the welcome it looked like.
         await ctx.response.send_message(
-            f"Welcome to the Cascade, **{ctx.user.display_name}**. "
-            f"Your journey begins at level 1 with 🪙 {STARTING_GOLD} gold and <:shard:1534383382924890192> {STARTING_SHARDS} shards to get started. "
-            "Use `/profile` any time to check your stats, gear, and abilities."
+            embed=discord.Embed(
+                title=f"Welcome to the Cascade, {ctx.user.display_name}",
+                description=(
+                    "Somebody has been trying to reach you.\n\n"
+                    "Use **`/story`** to answer."
+                ),
+                color=discord.Color.from_rgb(88, 101, 242),
+            )
         )
 
     # COMMAND: /rename

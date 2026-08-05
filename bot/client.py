@@ -120,6 +120,32 @@ class CascadeBot(commands.Bot):
                 await self.load_extension(f"bot.cogs.{filename[:-3]}")
                 logger.info("Loaded cog: %s", filename)
 
+    async def on_interaction(self, interaction: discord.Interaction):
+        """Record that this player is active in this guild.
+
+        Leaderboards are per-server, and Discord will not tell us who is
+        in a server without the privileged `members` intent (which this
+        bot deliberately doesn't request -- see __init__). So we track it
+        ourselves, from the one place every command, button and select
+        passes through.
+
+        Wrapped in a blanket except on purpose: this is bookkeeping
+        attached to every interaction in the game, and a failure to write
+        a leaderboard row must never break the action the player actually
+        pressed."""
+        try:
+            if interaction.guild_id is None or interaction.user.bot:
+                return
+            from bot.services import presence_service
+
+            db = SessionLocal()
+            try:
+                presence_service.record_seen(db, interaction.user.id, interaction.guild_id)
+            finally:
+                db.close()
+        except Exception:  # pragma: no cover - never break an interaction
+            logger.debug("Could not record guild presence", exc_info=True)
+
     async def on_ready(self):
         try:
             if DEV_MODE:

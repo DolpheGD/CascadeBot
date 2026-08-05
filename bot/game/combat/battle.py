@@ -710,113 +710,122 @@ class Battle:
             sim["energy"] -= ability["resource_cost"]
         sim["cooldowns"][ability["id"]] = ability.get("cooldown", 0)
 
-    def peek_enemy_intent_schedule(self, max_entries: int = 8) -> list[dict]:
-        """Every enemy action queued for the rest of the CURRENT cycle,
-        with the actual move for each one.
+    # Most rows the Incoming panel will ever show. A fight can field five
+    # enemies plus escorts, and one row each was pushing the panel past
+    # the point where it can be read at a glance on a phone -- which
+    # defeats the purpose of a telegraph. Anything beyond this is
+    # summarised as a count instead.
+    MAX_INTENT_ROWS = 5
 
-        Returns a list of dicts:
-            {"enemy", "intent", "imminent", "locked", "slot"}
-          * `imminent` -- resolves the instant you submit this turn's
-            action (everything before the next party member in the queue).
-          * `locked`   -- this exact move is guaranteed; it's stored on
-            Combatant.pending_intent and reused verbatim at execution.
-          * `slot`     -- 0 for an enemy's next action, 1+ for its later
-            actions this cycle (an actions_per_cycle >= 2 boss).
+    def peek_enemy_intent_schedule(self, max_entries: int = MAX_INTENT_ROWS) -> list[dict]:
+        """ONE ROW PER LIVING ENEMY: what that enemy does on its next turn.
 
-        LOOKAHEAD. Intents used to become visible only once the enemy was
-        already next in line, so a telegraphed heavy hit arrived with a
-        single party turn left to answer it. Guard, taunting and
-        poise-breaking are all decisions you want to make two or three
-        turns out, and you cannot plan against information you don't have
-        yet -- so the whole rest of the cycle is shown.
+        Returns a list of dicts, in the order the enemies will act:
+            {"enemy", "intent", "extra_actions", "imminent", "locked"}
+          * `intent`        -- the move, pinned and binding. None if the
+            enemy is stunned or broken and will lose the turn.
+          * `extra_actions` -- how many FURTHER actions this enemy takes
+            back-to-back before any party member moves, for
+            actions_per_cycle >= 2 enemies. 0 for everyone else.
+          * `imminent`      -- resolves the moment you submit this turn.
 
-        LOCKED vs PROJECTED. An enemy's NEXT action is decided once and
-        pinned (pending_intent), so it cannot change. Its later actions
-        this cycle are PROJECTED against simulated cooldown/energy state
-        (see _projected_intent) rather than pinned, because the player is
-        expected to interfere with them -- breaking the enemy cancels its
-        move outright, and killing it removes the slot entirely. Showing
-        them is still far more useful than hiding them: a projected
-        ultimate two slots away is exactly the thing worth building a
-        turn around, and if you change it, you changed it on purpose.
+        WHY PER-ENEMY RATHER THAN PER-CYCLE. This used to enumerate every
+        enemy action queued for the rest of the cycle, then project into
+        the next one, and group the result under "later this cycle" /
+        "next cycle" headers. It was accurate and it was unreadable: a
+        four-enemy fight produced eight or more rows, the same enemy
+        appeared several times, and the player had to reconstruct "what
+        is about to hit me" from a schedule.
 
-        Should a projected move somehow become unavailable anyway, the
-        enemy falls back to a basic attack rather than doing nothing --
-        see take_enemy_turn."""
-        candidates: list[tuple[Combatant, int]] = []
-        if self._current_actor is not None and self._current_actor in self.enemies and self._current_actor.is_alive():
-            candidates.append((self._current_actor, 0))
-        candidates.extend((c, 0) for c in self.cycle_order)
+        The question the panel exists to answer is "what does each enemy
+        do next", and that has exactly one answer per enemy. So each
+        enemy appears once, showing its next move; when it acts, the row
+        advances to its following move. Cycle boundaries stop being
+        something the player has to think about at all -- which is right,
+        because they were never the thing being decided.
 
-        # LOOK PAST THE END OF THE CYCLE.
-        #
-        # The queue above is only what REMAINS of the current cycle, and
-        # once the last enemy in it has acted there is nothing left to
-        # report -- so the Incoming panel simply emptied for the rest of
-        # the cycle and then repopulated wholesale when the next one
-        # began. Measured over 200 fights: 215 renders showed an empty
-        # panel with enemies alive and well.
-        #
-        # From the player's side that reads as the telegraph being broken,
-        # and it's worst exactly where it hurts most -- an enemy that
-        # acted early in the cycle is silent for the rest of it, then its
-        # next move appears with one turn's notice.
-        #
-        # Cycle order is deterministic given speed (_build_cycle_order
-        # with rng=None sorts by -speed then name), so future cycles can
-        # be projected exactly, the same way preview_turn_order already
-        # does for the turn-order line. Those projections get PINNED like
-        # any other slot, so a move telegraphed for next cycle is the move
-        # that actually resolves next cycle.
+        Intents are still DECIDED ONCE AND PINNED (Combatant.pending_intents),
+        so a telegraphed move cannot change between renders. The only
+        things that alter one are breaking the enemy, which cancels it,
+        and killing it -- both of which the player did deliberately."""
+        # Walk the upcoming turn order, but record only the FIRST
+        # appearance of each enemy. Future cycles are projected the same
+        # deterministic way preview_turn_order does it, so an enemy that
+        # has already acted this cycle still shows its next move instead
+        # of vanishing from the panel until the cycle turns over.
+        upcoming: list[Combatant] = []
+        if self._current_actor is not None and self._current_actor in self.enemies \
+                and self._current_actor.is_alive():
+            upcoming.append(self._current_actor)
+        upcoming.extend(self.cycle_order)
+
+        living_enemies = [e for e in self.enemies if e.is_alive()]
         guard = 0
-        cycle_offset = 0
-        while len(candidates) < max_entries + len(self.party) and guard < 8:
+        while guard < 6 and not all(any(e is c for c in upcoming) for e in living_enemies):
             living = [c for c in self.all_combatants() if c.is_alive()]
-            if not living or not any(c in self.enemies for c in living):
+            if not living:
                 break
-            cycle_offset += 1
-            candidates.extend((c, cycle_offset) for c in self._build_cycle_order(living, rng=None))
+            upcoming.extend(self._build_cycle_order(living, rng=None))
             guard += 1
 
         result: list[dict] = []
         sims: dict[int, dict] = {}
-        slot_of: dict[int, int] = {}
+        seen: set[int] = set()
         imminent = True
+        party_seen = False
 
-        for c, offset in candidates:
+        for index, actor in enumerate(upcoming):
             if len(result) >= max_entries:
                 break
-            if not c.is_alive():
+            if not actor.is_alive():
                 continue
-            if c in self.party:
+            if actor in self.party:
+                party_seen = True
                 imminent = False
                 continue
+            if id(actor) in seen:
+                continue
+            seen.add(id(actor))
 
-            slot = slot_of.get(id(c), 0)
-            slot_of[id(c)] = slot + 1
+            # Consecutive actions: how many more times this same enemy
+            # acts before ANY party member does. That's the one case
+            # where showing more than one move per enemy is worth the
+            # row, because they all land without a chance to respond.
+            extra = 0
+            for follower in upcoming[index + 1:]:
+                if follower in self.party:
+                    break
+                if follower is actor:
+                    extra += 1
+            total_actions = 1 + extra
 
-            # A broken or stunned enemy loses this slot entirely.
-            if c.stunned_turns > 0 or c.is_broken():
-                result.append({"enemy": c, "intent": None, "imminent": imminent,
-                               "locked": False, "slot": slot, "cycle_offset": offset})
+            if actor.stunned_turns > 0 or actor.is_broken():
+                result.append({"enemy": actor, "intent": None, "extra_actions": 0,
+                               "imminent": imminent, "locked": False})
                 continue
 
-            # Decide-once-and-pin, for EVERY slot rather than just the
-            # next one. The decision is random, so re-deciding a later
-            # slot on each render would both jitter between re-renders
-            # and disagree with the eventual real roll -- measured at
-            # ~45% agreement before this. Appending to the queue makes
-            # every telegraphed move binding no matter how far ahead it
-            # was shown, which is what lets the UI commit to it.
-            if slot >= len(c.pending_intents):
-                sim = self._sim_for(c, sims)
-                c.pending_intents.append(self._projected_intent(c, sim))
-                self._advance_sim(sim, c.pending_intents[-1])
+            # Pin every action we're about to show, so each one is
+            # binding rather than a guess that re-rolls next render.
+            while len(actor.pending_intents) < total_actions:
+                sim = self._sim_for(actor, sims)
+                actor.pending_intents.append(self._projected_intent(actor, sim))
+                self._advance_sim(sim, actor.pending_intents[-1])
 
-            intent = c.pending_intents[slot]
-            result.append({"enemy": c, "intent": intent, "imminent": imminent,
-                           "locked": True, "slot": slot, "cycle_offset": offset})
+            result.append({
+                "enemy": actor,
+                "intent": actor.pending_intents[0],
+                "extra_actions": extra,
+                "imminent": imminent,
+                "locked": True,
+            })
+
         return result
+
+    def hidden_intent_count(self, shown: list[dict]) -> int:
+        """How many living enemies didn't fit in the panel. Reported as a
+        count rather than dropped silently -- "and 3 more" is honest;
+        a panel that just stops is not."""
+        return max(0, len([e for e in self.enemies if e.is_alive()]) - len(shown))
 
     def take_enemy_turn(self) -> None:
         if self.is_over():

@@ -206,14 +206,30 @@ MERCHANT_ENCOUNTERS: list[dict] = [
                 "id": "buy_augment",
                 "label": "🔫 Commission a weapon augment (70⚙️ 30🪙)",
                 "description": "Quality's the workshop's call.",
-                "action": "trade",
+                "action": "gamble",
                 "style": "success",
                 "cost": {"metal": 70, "gold": 30},
-                "success_chance": 0.95,
-                "success_text": "Bee Jee's work is precise, as always.",
-                "on_success": {"gain": {"item": "natural", "reroll_tokens": [5, 10]}, "bonus": {"chance": 0.08, "gain": {"lootbox": "common"}}},
-                "fail_text": "\"Wrong caliber for what I've got,\" she admits, refunding you.",
-                "on_fail": {"gain": {"gold": 70}},
+                # A COMMISSION HAS A FLOOR.
+                #
+                # This used to grant {"item": "natural"} -- a fresh
+                # weighted roll, which lands Common about 42% of the time
+                # (see rarity_config.RARITY_WEIGHTS). Paying a smith 70
+                # Metal and 30 gold and walking away with a Common is not
+                # a bad roll, it's a bad trade, and it happened more often
+                # than any other outcome.
+                #
+                # A gamble with an explicit rarity per tier gives the
+                # thing a commission should have: a guaranteed floor you
+                # can plan around, plus real upside. Same mechanism the
+                # High Roller shop uses to sell certainty.
+                "tiers": [
+                    {"chance": 0.12, "text": "She outdoes herself. What she hands back is genuinely exceptional.",
+                     "outcome": {"gain": {"item": "legendary", "reroll_tokens": [5, 10]}}},
+                    {"chance": 0.33, "text": "Precise, over-engineered, and well worth the metal.",
+                     "outcome": {"gain": {"item": "epic", "reroll_tokens": [5, 10]}}},
+                    {"chance": 0.55, "text": "Solid work, delivered on time. Exactly what you paid for.",
+                     "outcome": {"gain": {"item": "rare", "reroll_tokens": [5, 10]}}},
+                ],
             },
             {
                 "id": "buy_crystal",

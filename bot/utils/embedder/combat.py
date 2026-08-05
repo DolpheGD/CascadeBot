@@ -249,44 +249,38 @@ def _poise_pips(enemy) -> str:
 
 
 def _intent_lines(battle) -> str:
-    """The enemy telegraph block. Splits into what lands the INSTANT you
-    submit this turn's action and what's queued behind it for later in
-    the cycle -- see Battle.peek_enemy_intent_schedule, which is also
-    what fixed the "intent only appears right before the enemy's turn"
-    problem: you can now see a heavy hit coming with a turn or two of
-    warning, which is the amount of notice Guard and poise-breaking
-    actually need to be usable answers.
+    """The enemy telegraph block: one row per enemy, showing what that
+    enemy does NEXT.
 
-    LOCKS IN the imminent enemies' decisions as a side effect of being
-    called (see peek_enemy_intent_schedule's docstring), so call this at
-    most once per render."""
+    Rewritten from a per-cycle schedule. The old version listed every
+    enemy action queued for the rest of the cycle and then projected into
+    the following one, under "later this cycle" / "next cycle" headers --
+    which was accurate and unreadable. A four-enemy fight produced eight
+    or more rows, the same enemy appeared two or three times, and
+    answering "what is about to hit me" meant reconstructing it from a
+    schedule.
+
+    Each enemy now gets exactly one row, and it advances when that enemy
+    acts. Cycle boundaries aren't shown at all, because they were never
+    the thing the player was deciding about.
+
+    LOCKS IN each shown decision as a side effect (see
+    Battle.peek_enemy_intent_schedule), so call this at most once per
+    render."""
     schedule = battle.peek_enemy_intent_schedule()
     if not schedule:
         return "*Nothing incoming right now.*"
 
-    now_lines, later_lines, next_cycle_lines = [], [], []
-
-    def bucket(row):
-        """Which of the three sections a row belongs in. Split three ways
-        rather than two because the panel now looks PAST the end of the
-        cycle (see peek_enemy_intent_schedule) -- lumping next cycle in
-        with "later this cycle" would misstate when the hit lands, which
-        is the one thing this panel exists to get right."""
-        if row["imminent"]:
-            return now_lines
-        return next_cycle_lines if row.get("cycle_offset", 0) > 0 else later_lines
-
+    lines = []
     for row in schedule:
         enemy, intent = row["enemy"], row["intent"]
         name = names.display_name(enemy)
 
         if enemy.is_broken():
-            state = f"**{name}** 💫 broken, won't act"
-            bucket(row).append(state)
+            lines.append(f"**{name}** 💫 broken, won't act")
             continue
         if intent is None:
-            state = f"**{name}** 😵 stunned, won't act"
-            bucket(row).append(state)
+            lines.append(f"**{name}** 😵 stunned, won't act")
             continue
 
         ability = intent["ability"]
@@ -312,28 +306,20 @@ def _intent_lines(battle) -> str:
         else:
             target_label = names.display_name(intent["target"])
 
-        # No certainty marker: every move here is pinned and binding, no
-        # matter how far ahead it was shown (see
-        # Battle.peek_enemy_intent_schedule). The only things that change
-        # one are breaking the enemy, which cancels it outright, or
-        # killing it -- both of which the player did on purpose and both
-        # of which are visible when they happen.
-        repeat = " ⟳" if row["slot"] > 0 else ""
+        # Back-to-back actions, called out because they all land before
+        # you get to respond -- the one case where "this enemy acts
+        # twice" changes what you should do about it.
+        repeat = f" ×{row['extra_actions'] + 1}" if row["extra_actions"] else ""
 
         # Spell out the counterplay: how many more hits until this enemy
         # breaks and loses the move it's telegraphing.
-        counter = f" · break in {enemy.poise}" if enemy.can_be_broken() and row["imminent"] else ""
-        line = f"**{name}**{repeat} ▸ {target_label}\n┗ {move}{counter}"
-        bucket(row).append(line)
+        counter = f" · break in {enemy.poise}" if enemy.can_be_broken() else ""
+        lines.append(f"**{name}**{repeat} ▸ {target_label}\n┗ {move}{counter}")
 
-    parts = now_lines or ["*Nothing until next cycle.*"]
-    if later_lines:
-        parts.append("*— later this cycle —*")
-        parts.extend(later_lines)
-    if next_cycle_lines:
-        parts.append("*— next cycle —*")
-        parts.extend(next_cycle_lines)
-    return "\n".join(parts)
+    hidden = battle.hidden_intent_count(schedule)
+    if hidden:
+        lines.append(f"*...and {hidden} more enemy(s).*")
+    return "\n".join(lines)
 
 
 def _party_line(battle, member) -> str:

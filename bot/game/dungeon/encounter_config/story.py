@@ -293,14 +293,23 @@ STORY_ENCOUNTERS: list[dict] = [
                 "id": "commission_gear",
                 "label": "⚒️ Commission gear (60🪨 40⚙️ 15🪙)",
                 "description": "Have NF89 forge you something to equip -- quality's the forge's call.",
-                "action": "trade",
+                "action": "gamble",
                 "style": "success",
                 "cost": {"stone": 60, "metal": 40, "gold": 15},
-                "success_chance": 0.96,
-                "success_text": "NF89 delivers a piece of gear, fresh off the forge.",
-                "on_success": {"gain": {"item": "natural"}, "bonus": {"chance": 0.08, "gain": {"lootbox": "common"}}},
-                "fail_text": "The forge misfires. NF89 refunds some materials, embarrassed.",
-                "on_fail": {"gain": {"material_tier": 1, "amount": [2, 27]}},
+                # Same fix as Bee Jee's augment (see merchant.py): a paid
+                # commission granting {"item": "natural"} returned a
+                # Common about 42% of the time, which made the whole
+                # trade a loss more often than not. NF89's bill is
+                # lighter than hers, so his floor sits one tier lower and
+                # his ceiling stops at Epic.
+                "tiers": [
+                    {"chance": 0.08, "text": "He surprises himself. It's the best thing he's made all month.",
+                     "outcome": {"gain": {"item": "epic"}}},
+                    {"chance": 0.37, "text": "Clean, honest work -- better than the price suggested.",
+                     "outcome": {"gain": {"item": "rare"}}},
+                    {"chance": 0.55, "text": "Serviceable, sturdy, and exactly to spec.",
+                     "outcome": {"gain": {"item": "uncommon", "material_tier": 1, "amount": [4, 10]}}},
+                ],
             },
             {
                 "id": "sell_metal",

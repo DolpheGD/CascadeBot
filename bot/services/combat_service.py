@@ -120,10 +120,31 @@ def clear_battle(db, expedition) -> None:
     db.commit()
 
 
-def sync_party_hp_to_characters(db, battle: Battle) -> None:
+# HP a downed character is revived to after a battle the run SURVIVED.
+# Deliberately 1, not a heal: they're back on their feet and can act, but
+# they are one hit from going down again and the player still has to
+# spend a campfire or a heal on them. Dying costs something either way.
+REVIVE_HP_AFTER_BATTLE = 1
+
+
+def sync_party_hp_to_characters(db, battle: Battle, revive_downed: bool = True) -> None:
     """Writes each surviving/defeated party Combatant's HP back onto its
     PlayerCharacter row, so the next battle (or the profile/squad view)
-    reflects real HP instead of resetting to full every time."""
+    reflects real HP instead of resetting to full every time.
+
+    `revive_downed` decides what happens to a character on 0 HP:
+
+      * True (the default, and every ONGOING run) -- they come back at
+        REVIVE_HP_AFTER_BATTLE. Without this, one death mid-run left that
+        character on 0 HP for every remaining fight, unable to act and
+        unrevivable until the run ended: an invisible, permanent squad
+        wipe that the player couldn't do anything about.
+      * False -- 0 is written through as 0. Used for the run-ENDING
+        defeat, where the loss screen reports who fell and a character
+        quietly standing back up at 1 HP would contradict it.
+
+    That's the whole distinction: a death you fought past, versus the
+    death that ended the run."""
     from bot.database.models.character_model import PlayerCharacter
 
     character_ids = [c.character_id for c in battle.party if c.character_id is not None]
@@ -135,7 +156,11 @@ def sync_party_hp_to_characters(db, battle: Battle) -> None:
     }
     for combatant in battle.party:
         pc = rows.get(combatant.character_id)
-        if pc is not None:
+        if pc is None:
+            continue
+        if combatant.current_hp <= 0 and revive_downed:
+            pc.current_hp = REVIVE_HP_AFTER_BATTLE
+        else:
             # Preserve the full-HP sentinel when a combatant ends a battle at max HP.
             # This keeps characters at true full health when future max HP changes
             # from leveling, shrine bonuses, or other effects are applied.
@@ -228,9 +253,17 @@ def apply_victory_rewards(
         # roll_rarity entirely -- putting it only in the generator would
         # have made the perk silently do nothing on real drops.
         from bot.services import research_service
+        # Region tilt PLUS the research perk, added together: a deep
+        # region should be a better place to farm top rarities, not just
+        # a place where they're legal (see region_config's RARITY ODDS
+        # block). Both feed the same weighting mechanism, so they stack
+        # smoothly rather than one overriding the other.
         rarity = generator.roll_rarity(
             max_rarity=difficulty["max_item_rarity"],
-            rarity_weight_bonus=research_service.perk_value(db, player.id, "loot_rarity_weight"),
+            rarity_weight_bonus=(
+                difficulty.get("rarity_weight_bonus", 0)
+                + research_service.perk_value(db, player.id, "loot_rarity_weight")
+            ),
         )
         template = item_template_service.pick_random_template(db, rng=rng, rarity=rarity)
         if template is not None:

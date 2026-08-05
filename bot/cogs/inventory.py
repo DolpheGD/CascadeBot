@@ -11,7 +11,7 @@ from bot.database.models.enums import CLASS_DISPLAY_NAME, Rarity
 from bot.services.currency_service import format_currency
 from bot.utils import embedder
 from bot.utils.guild_decorator import guild_decorator
-from bot.utils.ui_guard import OwnedView, check_message_owner, require_player
+from bot.utils.ui_guard import require_feature, OwnedView, check_message_owner, require_player
 
 
 # ----------------------------------------------------------------------
@@ -736,6 +736,8 @@ class Inventory(commands.Cog):
             player = get_player(db, ctx.user.id)
             if not await require_player(ctx, player):
                 return
+            if not await require_feature(ctx, db, player, "inventory"):
+                return
 
             entries = inventory_service.list_combined_entries(db, player.id)
             if not entries:
@@ -761,6 +763,8 @@ class Inventory(commands.Cog):
         try:
             player = get_player(db, ctx.user.id)
             if not await require_player(ctx, player):
+                return
+            if not await require_feature(ctx, db, player, "inventory"):
                 return
 
             embed, view = await _render_stash(db, player)
@@ -790,6 +794,8 @@ class Inventory(commands.Cog):
         try:
             player = get_player(db, ctx.user.id)
             if not await require_player(ctx, player):
+                return
+            if not await require_feature(ctx, db, player, "inventory"):
                 return
 
             rarity_enum = Rarity(rarity)

@@ -12,7 +12,9 @@ from bot.database.models import (  # noqa: F401
     gift_model,
     hq_model,
     player_model,
+    presence_model,
     quest_model,
+    story_model,
     raid_model,
 )
 
@@ -61,6 +63,11 @@ def _ensure_columns(conn):
     # from dupe_count and so applies immediately with no backfill at all
     # (see resonance_config.resonance_for).
     add_column("players", "echoes", "INTEGER DEFAULT 0")
+
+    # Hardest raid difficulty a participant fought at -- drives the
+    # absolute reward bonus. NULL on existing rows reads as the default
+    # difficulty, i.e. a 1.0x bonus, so nobody's in-flight raid changes.
+    add_column("raid_participants", "best_difficulty", "VARCHAR(16)")
 
 
 def init_db():

@@ -25,6 +25,7 @@ import random
 from bot.database.models.enums import ItemType, Rarity
 from bot.database.models.equipment_model import InventoryItem, ItemTemplate
 from bot.game.loot import naming
+from bot.game.loot.rarity_config import upgrade_level_cap
 from bot.game.loot.abilities import (
     ARMOR_PASSIVES,
     ARTIFACT_SKILLS,
@@ -191,6 +192,23 @@ class LootGenerator:
                 max_rarity=effective_max, min_rarity=getattr(template, "min_rarity", None),
                 rarity_weight_bonus=rarity_weight_bonus,
             )
+
+        # EVERY item is created at level 1, and can never exceed its
+        # rarity's upgrade cap.
+        #
+        # Dropped gear used to be generated at a level derived from the
+        # dungeon floor (floor + 1 + region offset), which produced items
+        # ABOVE the cap their rarity can ever be upgraded to -- a level-17
+        # Rare, when Rare caps at 15. Those items were unupgradeable on
+        # arrival and their stats sat outside the curve every other system
+        # is balanced against.
+        #
+        # Clamped HERE rather than only at the call sites because this is
+        # the one place every item in the game is born: fixing the caller
+        # fixes today's bug, fixing the constructor fixes the next one
+        # too. Levelling gear up is the player's job, via
+        # item_upgrade_service.
+        item_level = max(1, min(item_level, upgrade_level_cap(rarity)))
 
         main_stat_value = self.roll_main_stat(template, item_level, rarity)
         substats = self.roll_substats(template.main_stat, item_level, rarity)

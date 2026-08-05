@@ -41,13 +41,16 @@ _PAGES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
         [
             (
                 "The loop",
-                "`/start` → `/pull` a few characters → `/squad` to set your team → "
-                "`/adventure` → gear up in `/inventory` → repeat.\n"
-                "Everything else on these pages is optional depth you can pick up later.",
+                "`/start` → **`/story`** → everything else unlocks as you play it.\n\n"
+                "Story mode is the main game. It teaches you the systems, hands you a "
+                "squad, and opens `/adventure`, `/pull` and the rest at the point you "
+                "have a reason to use them. Expeditions are where you get strong enough "
+                "for the next mission.",
             ),
             (
                 "Your characters",
                 "`/start` — create your profile and your own avatar character\n"
+                "`/story` — **the main mode.** Start here.\n"
                 "`/squad` — set your 4-character team (slot 1 is always your avatar)\n"
                 
                 "`/class` — switch your avatar between DPS / Support DPS / Amplifier / Sustain\n"

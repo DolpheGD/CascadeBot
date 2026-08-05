@@ -27,7 +27,7 @@ from bot.services import domain_service
 from bot.game.economy.domain_config import DOMAIN_TYPES, DOMAIN_DIFFICULTY_TIERS, get_domain_type
 from bot.utils import combat_ui, embedder
 from bot.utils.guild_decorator import guild_decorator
-from bot.utils.ui_guard import OwnedView, require_player
+from bot.utils.ui_guard import require_feature, OwnedView, require_player
 
 
 def _domain_select_options() -> list[discord.SelectOption]:
@@ -430,6 +430,8 @@ class Domains(commands.Cog):
         try:
             player = get_player(db, ctx.user.id)
             if not await require_player(ctx, player):
+                return
+            if not await require_feature(ctx, db, player, "domains"):
                 return
 
             if domain_service.has_active_challenge(player.id):

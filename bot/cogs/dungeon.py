@@ -8,7 +8,7 @@ from bot.services.player_service import get_player
 from bot.services import character_service, combat_service, dungeon_service, relic_service
 from bot.utils import combat_ui, embedder
 from bot.utils.guild_decorator import guild_decorator
-from bot.utils.ui_guard import OwnedView
+from bot.utils.ui_guard import OwnedView, require_feature
 
 
 def _squad_hp_lines(db, player) -> list[str]:
@@ -898,6 +898,8 @@ class Dungeon(commands.Cog):
             player = get_player(db, ctx.user.id)
             if player is None:
                 await ctx.response.send_message("Use `/start` first.", ephemeral=True)
+                return
+            if not await require_feature(ctx, db, player, "adventure"):
                 return
 
             expedition = dungeon_service.get_active_expedition(db, player.id)

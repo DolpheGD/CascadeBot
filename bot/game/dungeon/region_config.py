@@ -33,6 +33,23 @@ they now get pushed harder than elites/bosses do in that same region
 rather than just inheriting `level_offset`. `combat_squad_weights` were
 also bumped up across every region for a significantly higher average
 enemy count per normal fight.
+
+RARITY ODDS, NOT JUST A RARITY CEILING.
+
+`max_item_rarity` is a hard CAP -- it decides what a region can produce
+at all. On its own that turned out to be a weak progression lever,
+because the base weights (see rarity_config.RARITY_WEIGHTS) are steeply
+tilted toward Common: reaching Abyssnia unlocked Divine drops at 0.5%,
+which is unlocking a rarity in name only. A player who had beaten the
+hardest content in the game was still opening Commons.
+
+`rarity_weight_bonus` fixes that by tilting the DISTRIBUTION as well as
+raising the ceiling. It feeds rarity_config's existing weighting
+mechanism (the same one the Research Lab's Salvage branch uses), which
+scales each rarity's weight by its own position -- so the bonus lifts the
+top of the table hardest and never touches what the cap already excluded.
+Endgame regions become genuinely good places to farm the top rarities
+rather than places where they are merely legal.
 """
 
 from __future__ import annotations
@@ -44,6 +61,7 @@ REGION_DIFFICULTY: dict[str, dict] = {
         "tier": 1, "difficulty_label": "Easy",
         "level_offset": 0, "combat_level_offset": 2, "reward_multiplier": 1.3,
         "max_item_rarity": Rarity.EPIC, "max_lootbox_tier": "rare",
+        "rarity_weight_bonus": 0,
         "combat_squad_weights": {1: 30, 2: 40, 3: 25, 4: 5},
         "elite_squad_weights": {1: 100},
     },
@@ -51,6 +69,7 @@ REGION_DIFFICULTY: dict[str, dict] = {
         "tier": 2, "difficulty_label": "Normal",
         "level_offset": 7, "combat_level_offset": 10, "reward_multiplier": 1.8,
         "max_item_rarity": Rarity.LEGENDARY, "max_lootbox_tier": "epic",
+        "rarity_weight_bonus": 60,
         "combat_squad_weights": {1: 10, 2: 30, 3: 35, 4: 20, 5: 5},
         "elite_squad_weights": {1: 80, 2: 20},
     },
@@ -58,6 +77,7 @@ REGION_DIFFICULTY: dict[str, dict] = {
         "tier": 3, "difficulty_label": "Hard",
         "level_offset": 15, "combat_level_offset": 20, "reward_multiplier": 2.8,
         "max_item_rarity": Rarity.MYTHIC, "max_lootbox_tier": "legendary",
+        "rarity_weight_bonus": 130,
         "combat_squad_weights": {2: 20, 3: 35, 4: 30, 5: 15},
         "elite_squad_weights": {1: 50, 2: 50},
     },
@@ -65,6 +85,7 @@ REGION_DIFFICULTY: dict[str, dict] = {
         "tier": 4, "difficulty_label": "Insane",
         "level_offset": 25, "combat_level_offset": 35, "reward_multiplier": 4.5,
         "max_item_rarity": Rarity.DIVINE, "max_lootbox_tier": "mythic",
+        "rarity_weight_bonus": 220,
         "combat_squad_weights": {2: 10, 3: 25, 4: 35, 5: 30},
         "elite_squad_weights": {1: 30, 2: 50, 3: 20},
     },
@@ -82,6 +103,7 @@ REGION_DIFFICULTY: dict[str, dict] = {
         "tier": 5, "difficulty_label": "Nightmare",
         "level_offset": 35, "combat_level_offset": 48, "reward_multiplier": 6.5,
         "max_item_rarity": Rarity.DIVINE, "max_lootbox_tier": "mythic",
+        "rarity_weight_bonus": 320,
         "combat_squad_weights": {3: 10, 4: 35, 5: 55},
         "elite_squad_weights": {1: 10, 2: 35, 3: 55},
     },

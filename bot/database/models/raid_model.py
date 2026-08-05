@@ -134,6 +134,14 @@ class RaidParticipant(Base):
     )
 
     damage_dealt: Mapped[int] = mapped_column(BigInteger, default=0)
+
+    # The hardest difficulty this player completed an attack at, used for
+    # the absolute payout bonus (see raid_config.DIFFICULTY_REWARD_BONUS).
+    # BEST rather than last or average, deliberately: a player who cleared
+    # one Apex attack and then dropped to Standard because they ran out of
+    # healing has demonstrably fought the hard version, and averaging
+    # would quietly punish them for adapting.
+    best_difficulty: Mapped[str | None] = mapped_column(String(16), nullable=True)
     attacks_used: Mapped[int] = mapped_column(Integer, default=0)
 
     # Rewards are claimed explicitly rather than pushed automatically:

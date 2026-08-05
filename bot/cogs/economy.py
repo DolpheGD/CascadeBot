@@ -16,7 +16,7 @@ from bot.utils import embedder
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils.logger import get_logger
 from bot.utils import names
-from bot.utils.ui_guard import OwnedView, check_message_owner, require_player
+from bot.utils.ui_guard import require_feature, OwnedView, check_message_owner, require_player
 
 logger = get_logger("economy")
 
@@ -88,6 +88,8 @@ class Economy(commands.Cog):
         try:
             player = get_player(db, ctx.user.id)
             if not await require_player(ctx, player):
+                return
+            if not await require_feature(ctx, db, player, "pull"):
                 return
 
             expedition = dungeon_service.get_active_expedition(db, player.id)
@@ -216,6 +218,8 @@ class Economy(commands.Cog):
         try:
             player = get_player(db, ctx.user.id)
             if not await require_player(ctx, player):
+                return
+            if not await require_feature(ctx, db, player, "exchange"):
                 return
             offers = echo_exchange_service.offers(db, player)
             embed = embedder.echo_exchange_embed(player, offers)

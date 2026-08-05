@@ -25,7 +25,7 @@ from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
 from bot.services import character_service, dungeon_service
 from bot.utils.guild_decorator import guild_decorator
-from bot.utils.ui_guard import OwnedView, require_player
+from bot.utils.ui_guard import require_feature, OwnedView, require_player
 
 SLOT_LABELS = ["Slot 1", "Slot 2", "Slot 3", "Slot 4"]
 
@@ -143,6 +143,8 @@ class Squad(commands.Cog):
         try:
             player = get_player(db, ctx.user.id)
             if not await require_player(ctx, player):
+                return
+            if not await require_feature(ctx, db, player, "squad"):
                 return
 
             embed = _build_squad_embed(db, player)

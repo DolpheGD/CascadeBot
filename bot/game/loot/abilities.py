@@ -165,11 +165,17 @@ WEAPON_SKILLS: list[dict] = [
         "id": "shield_bash",
         "name": "Shield Bash",
         "min_rarity": Rarity.COMMON,
-        "resource_cost": 10,
+        # Retuned hard. At 10 SP on a 1-turn cooldown with a GUARANTEED
+        # stun, one enemy carrying this could deny a party member every
+        # other turn for the whole fight, and eight enemy templates carry
+        # it. Cost and cooldown now make it a decision, and the stun is a
+        # roll rather than a certainty.
+        "resource_cost": 24,
         "resource_type": "mana",
-        "cooldown": 1,
-        "description": "Deal 90% ATK damage and stun the target for 1 turn.",
-        "effect": {"kind": "damage_and_stun", "damage_percent": 90, "damage_stat": "attack", "duration": 1},
+        "cooldown": 3,
+        "description": "Deal 105% ATK damage, with a 45% chance to stun the target for 1 turn.",
+        "effect": {"kind": "damage_and_stun", "damage_percent": 105, "damage_stat": "attack",
+                   "chance_percent": 45, "duration": 1},
     },
     {
         "id": "flame_strike",
@@ -1283,8 +1289,8 @@ ARMOR_PASSIVES: list[dict] = [
         "name": "Retaliation Plating",
         "min_rarity": Rarity.RARE,
         "trigger": "always",
-        "description": "20% chance to stun an attacker for 1 turn whenever you take a hit.",
-        "effect": {"kind": "chance_stun_attacker", "percent": 20, "duration": 1},
+        "description": "12% chance to stun an attacker for 1 turn whenever you take a hit.",
+        "effect": {"kind": "chance_stun_attacker", "percent": 12, "duration": 1},
     },
     {
         "id": "support_matrix",
@@ -1319,8 +1325,8 @@ ARMOR_PASSIVES: list[dict] = [
         "name": "Static Discharge",
         "min_rarity": Rarity.UNCOMMON,
         "trigger": "always",
-        "description": "15% chance to stun an attacker for 1 turn whenever you take a hit.",
-        "effect": {"kind": "chance_stun_attacker", "percent": 15, "duration": 1},
+        "description": "10% chance to stun an attacker for 1 turn whenever you take a hit.",
+        "effect": {"kind": "chance_stun_attacker", "percent": 10, "duration": 1},
     },
     {
         # filler -- Executioner's shape at a lower rarity gate and a

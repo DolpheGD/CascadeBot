@@ -662,7 +662,12 @@ def resolve_battle_end(db, expedition: Expedition, player, battle) -> dict:
     rewarding checkpoints that let the run continue. Every win records
     "win_battles" quest progress, plus "defeat_boss" or "defeat_elite" on
     top of that if the room was a BOSS or ELITE encounter respectively."""
-    combat_service.sync_party_hp_to_characters(db, battle)
+    # A LOSS ends the run, and the defeat screen names who fell -- so the
+    # 0 HP is written through rather than revived. Anything else is a
+    # fight the run survived, and downed members get back up at 1 HP.
+    combat_service.sync_party_hp_to_characters(
+        db, battle, revive_downed=battle.result != "lost"
+    )
 
     if battle.result == "won":
         room_type = expedition.graph["nodes"][expedition.current_node_id]["room_type"]
@@ -921,7 +926,10 @@ def _apply_gain(
             from bot.services import research_service
             rarity = generator.roll_rarity(
                 max_rarity=max_item_rarity,
-                rarity_weight_bonus=research_service.perk_value(db, player.id, "loot_rarity_weight"),
+                rarity_weight_bonus=(
+                    difficulty.get("rarity_weight_bonus", 0)
+                    + research_service.perk_value(db, player.id, "loot_rarity_weight")
+                ),
             )
         elif item_spec is True:
             # True -> guaranteed Common, like a basic shop item.
@@ -1091,7 +1099,13 @@ def resolve_encounter_choice(db, expedition: Expedition, player, choice_id: str,
     # gold_multiplier relic (Prospector's Ledger) actually earns its slot.
     gold_mult = difficulty["reward_multiplier"] * relic_service.gold_multiplier(expedition)
     max_item_rarity = difficulty["max_item_rarity"]
-    item_level = node["floor"] + 1 + difficulty["level_offset"]
+    # Item level is NOT derived from the floor. It used to be
+    # (floor + 1 + level_offset), which is where over-cap drops like a
+    # level-17 Rare came from -- Rare's upgrade cap is 15, so the item
+    # arrived already unupgradeable. Gear drops at level 1 and the player
+    # levels it; depth is expressed through RARITY (max_item_rarity
+    # above), which is the axis that actually scales.
+    item_level = 1
     action = choice["action"]
 
     if action == "leave":

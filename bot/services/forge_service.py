@@ -21,6 +21,7 @@ from bot.database.models.enums import EquipmentSlot, ItemType, Rarity
 from bot.database.models.base_building_model import PlayerForge
 from bot.database.models.equipment_model import InventoryItem, ItemTemplate
 from bot.game.economy.forge_config import (
+    salvage_material_base,
     CRAFT_COST,
     REFORGE_COST,
     SALVAGE_RETURN_PERCENT,
@@ -56,7 +57,19 @@ def _discounted(db, player, amount: int) -> int:
 
 
 def craft_cost(db, player, rarity: Rarity) -> dict:
-    base = CRAFT_COST[rarity]
+    # A rarity the Forge doesn't craft raises a player-facing error
+    # rather than a KeyError. This is reachable in practice: craft
+    # buttons carry their rarity in the custom_id, so a message left
+    # open from before the ladder was rebased at Rare still has a
+    # `...:common` button on it, and pressing it used to crash the
+    # interaction instead of explaining anything.
+    base = CRAFT_COST.get(rarity)
+    if base is None:
+        floor = min(CRAFT_COST, key=lambda r: r.sort_order)
+        raise ForgeError(
+            f"The Forge doesn't make {rarity.value.title()} gear -- it starts at "
+            f"**{floor.value.title()}**. Anything below that drops freely in the field."
+        )
     gold = _discounted(db, player, base["gold"])
     materials = split_materials(_discounted(db, player, base["materials"]), rarity)
     return {"gold": gold, "materials": materials}
@@ -92,6 +105,12 @@ def craft_item(db, player, slot: EquipmentSlot, rarity: Rarity,
 
     if not operation_unlocked("craft", forge.level):
         raise ForgeError("Your Forge can't craft yet.")
+    if rarity not in CRAFT_COST:
+        floor = min(CRAFT_COST, key=lambda r: r.sort_order)
+        raise ForgeError(
+            f"The Forge doesn't make {rarity.value.title()} gear -- it starts at "
+            f"**{floor.value.title()}**. Anything below that drops freely in the field."
+        )
     ceiling = max_craft_rarity(forge.level)
     if rarity.sort_order > ceiling.sort_order:
         raise ForgeError(
@@ -136,7 +155,7 @@ def salvage_item(db, player, item: InventoryItem) -> dict[str, int]:
     if item.is_equipped:
         raise ForgeError(f"{item.display_name} is equipped -- unequip it first.")
 
-    base = CRAFT_COST.get(item.rarity, CRAFT_COST[Rarity.COMMON])["materials"]
+    base = salvage_material_base(item.rarity)
     returned = split_materials(
         max(1, int(round(base * SALVAGE_RETURN_PERCENT / 100))), item.rarity
     )

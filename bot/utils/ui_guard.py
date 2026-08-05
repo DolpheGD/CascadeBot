@@ -103,3 +103,36 @@ async def check_message_owner(interaction: discord.Interaction) -> bool:
         return True
     await interaction.response.send_message(NOT_YOUR_MENU, ephemeral=True)
     return False
+
+
+async def require_feature(interaction: discord.Interaction, db, player, feature: str) -> bool:
+    """The story gate. Returns True if the caller may use `feature`.
+
+    Sibling of require_player above, and used the same way:
+
+        if not await require_feature(ctx, db, player, "adventure"):
+            return
+
+    A locked feature is REFUSED WITH A REASON rather than hidden. A
+    player who typed `/adventure` and got silence learns nothing; one who
+    is told which mission opens it has something to do about it. See
+    story_service.locked_message.
+
+    Deliberately fails OPEN on any unexpected error: this sits in front
+    of every gated command in the game, and a bug here locking someone
+    out of content they own is a far worse outcome than a gate that
+    briefly lets something through."""
+    from bot.services import story_service
+
+    try:
+        if story_service.feature_unlocked(db, player, feature):
+            return True
+        message = story_service.locked_message(feature)
+    except Exception:  # pragma: no cover - never lock someone out on a bug
+        return True
+
+    if interaction.response.is_done():
+        await interaction.followup.send(message, ephemeral=True)
+    else:
+        await interaction.response.send_message(message, ephemeral=True)
+    return False

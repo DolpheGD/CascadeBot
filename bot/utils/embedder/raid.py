@@ -15,6 +15,7 @@ from bot.game.economy.raid_config import (
     CONTRIBUTION_TIERS,
     attacks_per_player,
     contribution_tier,
+    get_difficulty,
     get_tier,
     lootbox_for,
     rewards_for,
@@ -254,6 +255,18 @@ def raid_claim_embed(result: dict, raid) -> discord.Embed:
         ),
         color=discord.Color.gold(),
     )
+    # The difficulty bonus is stated rather than folded silently into the
+    # numbers. A player who fought Apex should be able to SEE that the
+    # harder fight paid -- an invisible multiplier is indistinguishable
+    # from no multiplier.
+    bonus = result.get("difficulty_bonus", 1.0)
+    if bonus != 1.0:
+        difficulty = get_difficulty(result.get("best_difficulty") or "")
+        name = difficulty["name"] if difficulty else "your best difficulty"
+        embed.description += (
+            f"\nToughest fight: **{name}** — **{bonus}×** on top."
+        )
+
     embed.add_field(
         name="Received",
         value="\n".join(result["reward_lines"]) or "*Nothing.*",

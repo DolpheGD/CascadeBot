@@ -186,6 +186,45 @@ def drop_retired_tables(db, dry_run: bool) -> list[str]:
     return dropped
 
 
+def grandfather_story(db, dry_run: bool) -> int:
+    """Mark every EXISTING player as having finished the prologue.
+
+    This is the single most important step in the script. Story mode
+    gates features -- inventory, pulls, squad, expeditions -- that every
+    player has had since the day they ran /start. Without this, shipping
+    story mode would lock an established player out of their own
+    inventory and tell them to go do a tutorial.
+
+    Deliberately generous: anyone who already has a Player row predates
+    story mode by definition, so they're all grandfathered, no heuristics
+    involved. story_service.is_grandfathered is the runtime safety net
+    for anyone created between this running and the deploy finishing.
+    """
+    from bot.database.models.player_model import Player
+    from bot.database.models.story_model import PlayerStory
+
+    # Only the ID column, deliberately. A full ORM load of Player selects
+    # every mapped column, so a database missing ANY unrelated column
+    # would fail here -- and this step must not be the thing that breaks
+    # a migration, because it's the step that stops people being locked
+    # out. Reading one column makes it immune to schema drift elsewhere.
+    player_ids = [row[0] for row in db.query(Player.id).all()]
+    existing = {row[0] for row in db.query(PlayerStory.player_id).all()}
+    marked = 0
+    for player_id in player_ids:
+        if player_id in existing:
+            continue
+        marked += 1
+        if not dry_run:
+            db.add(PlayerStory(
+                player_id=player_id, completed_missions=[], flags={},
+                active_mission=None, beat_index=0, prologue_complete=True,
+            ))
+    if not dry_run:
+        db.commit()
+    return marked
+
+
 def clear_stale_combat_state(db, dry_run: bool) -> int:
     """Drop any in-progress battle. Those saves embed both the old ability
     dicts and enemy stat blocks built under the pre-cap percent scaling,
@@ -235,7 +274,7 @@ def main() -> int:
     import bot.database.models  # noqa: F401
     from bot.database.models import (  # noqa: F401
         base_building_model, character_model, economy_model, equipment_model,
-        expedition_model, gift_model, hq_model, player_model, quest_model, raid_model,
+        expedition_model, gift_model, hq_model, player_model, presence_model, quest_model, raid_model, story_model,
     )
     from bot.database.db_init import init_db
     from bot.database.session import SessionLocal
@@ -271,7 +310,12 @@ def main() -> int:
         print("\n4. Drop retired tables")
         drop_retired_tables(db, args.dry_run)
 
-        print("\n5. Clear in-progress battles")
+        print("\n5. Grandfather existing players into story mode")
+        marked = grandfather_story(db, args.dry_run)
+        print(f"   {marked} existing player(s) marked prologue-complete "
+              "(nobody loses access to a feature they already had)")
+
+        print("\n6. Clear in-progress battles")
         cleared = clear_stale_combat_state(db, args.dry_run)
         print(f"   {cleared} in-progress battle(s) cleared")
 

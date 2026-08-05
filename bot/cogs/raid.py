@@ -33,7 +33,7 @@ from bot.game.economy.raid_config import (
 from bot.utils import combat_ui, embedder
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils.time_utils import describe_wait
-from bot.utils.ui_guard import OwnedView, check_message_owner, require_player
+from bot.utils.ui_guard import require_feature, OwnedView, check_message_owner, require_player
 
 
 async def _reject_dm(interaction: discord.Interaction) -> bool:
@@ -46,16 +46,31 @@ async def _reject_dm(interaction: discord.Interaction) -> bool:
     return False
 
 
-def _guild_member_ids(interaction: discord.Interaction) -> list[int]:
-    """Discord ids of everyone in this server, used to scope leaderboards
-    (see leaderboard_service's SCOPE note). Falls back to just the caller
-    if the member cache isn't populated -- a board of one is a poor board
-    but an intelligible one, which beats an error."""
-    guild = interaction.guild
-    if guild is None:
+def _guild_member_ids(db, interaction: discord.Interaction) -> list[int]:
+    """Player ids eligible for this server's leaderboards.
+
+    Read from OUR OWN record of who has played here (see
+    presence_service), not from `guild.members`. The member cache is
+    empty without the privileged `members` intent, which this bot
+    doesn't request -- so the old version fell through to "just the
+    caller" every single time and every board showed exactly one player.
+
+    Anyone who has used the bot in this guild is included, plus the
+    caller unconditionally so a brand-new player still sees themselves.
+    If the members intent ever IS enabled, cached members are folded in
+    as a bonus rather than being required."""
+    from bot.services import presence_service
+
+    if interaction.guild_id is None:
         return [interaction.user.id]
-    ids = [m.id for m in guild.members if not m.bot]
-    return ids or [interaction.user.id]
+
+    ids = set(presence_service.player_ids_in_guild(
+        db, interaction.guild_id, include=interaction.user.id
+    ))
+    guild = interaction.guild
+    if guild is not None:
+        ids.update(m.id for m in guild.members if not m.bot)
+    return list(ids)
 
 
 # ----------------------------------------------------------------------
@@ -618,7 +633,7 @@ async def _handle_leaderboard(interaction: discord.Interaction, board: str, edit
         return
     db = SessionLocal()
     try:
-        member_ids = _guild_member_ids(interaction)
+        member_ids = _guild_member_ids(db, interaction)
         data = leaderboard_service.get_board(db, board, member_ids, viewer_id=interaction.user.id)
         data["viewer_id"] = interaction.user.id
         label, desc = next(
@@ -648,6 +663,8 @@ class Raids(commands.Cog):
         try:
             player = get_player(db, ctx.user.id)
             if not await require_player(ctx, player):
+                return
+            if not await require_feature(ctx, db, player, "raids"):
                 return
 
             # An attack still open in memory takes priority over the raid

@@ -152,6 +152,17 @@ MAX_HEALTHY_ATTACK_FRACTION = 0.60
 # ----------------------------------------------------------------------
 RAID_DIFFICULTIES: list[dict] = [
     {
+        # Below Skirmish, for players who can't clear even that. A boss 40
+        # levels down is beatable by almost any squad, and 0.3x still
+        # moves the shared bar -- which is the point: the failure mode
+        # this prevents is a player who cannot contribute AT ALL deciding
+        # raids aren't for them. Contributing slowly is a rung on a
+        # ladder; contributing nothing is a closed door.
+        "id": "recon", "name": "Recon", "emoji": "⚪",
+        "level_offset": -40, "contribution_multiplier": 0.3,
+        "description": "The weakest version there is. Slow credit, but anyone can finish it.",
+    },
+    {
         "id": "skirmish", "name": "Skirmish", "emoji": "🟢",
         "level_offset": -20, "contribution_multiplier": 0.55,
         "description": "Much weaker boss. Contributes less, but anyone can clear it.",
@@ -163,12 +174,12 @@ RAID_DIFFICULTIES: list[dict] = [
     },
     {
         "id": "elite", "name": "Elite", "emoji": "🟠",
-        "level_offset": 15, "contribution_multiplier": 1.7,
+        "level_offset": 15, "contribution_multiplier": 2.0,
         "description": "A tougher boss for a well-geared squad.",
     },
     {
         "id": "apex", "name": "Apex", "emoji": "🔴",
-        "level_offset": 30, "contribution_multiplier": 2.6,
+        "level_offset": 30, "contribution_multiplier": 3.5,
         "description": "Punishing. Only worth attempting if you can actually win it.",
     },
 ]
@@ -269,11 +280,11 @@ RAID_TIERS: list[dict] = [
         "description": "The standard server raid. A few days of chipping away.",
         "rewards": {
             # Multiplied by the player's contribution tier below.
-            "gold": 4_000,
-            "shards": 120,
-            "crystal": 60,
-            "xendium": 25,
-            "reroll_tokens": 25,
+            "gold": 5_600,
+            "shards": 170,
+            "crystal": 85,
+            "xendium": 36,
+            "reroll_tokens": 35,
         },
         "reward_lootbox": ("rare", 1),
     },
@@ -287,12 +298,12 @@ RAID_TIERS: list[dict] = [
         "min_roster_levels": 300,
         "description": "A tougher boss and a much bigger pool. Bring the server.",
         "rewards": {
-            "gold": 11_000,
-            "shards": 300,
-            "crystal": 140,
-            "xendium": 70,
-            "void": 30,
-            "reroll_tokens": 60,
+            "gold": 17_000,
+            "shards": 460,
+            "crystal": 220,
+            "xendium": 110,
+            "void": 50,
+            "reroll_tokens": 90,
         },
         "reward_lootbox": ("epic", 1),
     },
@@ -316,13 +327,13 @@ RAID_TIERS: list[dict] = [
         "min_roster_levels": 650,
         "description": "Xender himself. The hardest thing in the game.",
         "rewards": {
-            "gold": 26_000,
-            "shards": 700,
-            "crystal": 300,
-            "xendium": 160,
-            "void": 90,
-            "entropy": 90,
-            "reroll_tokens": 140,
+            "gold": 44_000,
+            "shards": 1_150,
+            "crystal": 520,
+            "xendium": 280,
+            "void": 160,
+            "entropy": 160,
+            "reroll_tokens": 230,
         },
         "reward_lootbox": ("legendary", 1),
     },
@@ -333,13 +344,53 @@ RAID_TIERS: list[dict] = [
 #  label). Checked highest-first. The top band deliberately pays 2.5x
 # rather than 10x: a raid where the top contributor takes almost
 # everything teaches everyone else not to bother next time.
+# Thresholds are set against the EVEN SPLIT, not against domination.
+#
+# A raid sized for EXPECTED_PARTICIPANTS (4) splits evenly at 25% each --
+# which meant the old 30% top band was unreachable by a group that
+# cooperated normally. Exactly one player per raid could ever hit it, and
+# only by taking share away from teammates. For a co-op feature that's
+# backwards: it made helping zero-sum, and it made the headline reward a
+# thing most players would simply never see.
+#
+# The bands now reward PULLING YOUR WEIGHT rather than out-competing your
+# server. At a 4-way even split everyone clears Vanguard; someone doing
+# half the average still reaches Striker; someone who turned up for one
+# attack still gets Contributor. The ladder punishes freeloading instead
+# of punishing cooperation.
 CONTRIBUTION_TIERS: list[tuple[float, float, str]] = [
-    (0.30, 2.5, "🥇 Vanguard"),
-    (0.20, 2.0, "🥈 Spearhead"),
-    (0.10, 1.5, "🥉 Striker"),
-    (0.05, 1.1, "Contributor"),
-    (0.0, 0.75, "Participant"),
+    (0.22, 2.5, "🥇 Vanguard"),
+    (0.14, 2.0, "🥈 Spearhead"),
+    (0.07, 1.5, "🥉 Striker"),
+    (0.03, 1.15, "Contributor"),
+    (0.0, 0.8, "Participant"),
 ]
+
+# ----------------------------------------------------------------------
+# DIFFICULTY REWARD BONUS -- paying more for the harder fight, in
+# ABSOLUTE terms rather than relative ones.
+#
+# `contribution_multiplier` already rewards difficulty, but only
+# RELATIVELY: it inflates your damage credit, which raises your SHARE of
+# the total. If everybody picks Apex, everybody's share is unchanged and
+# nobody is paid a penny more for a much harder fight.
+#
+# This is the absolute half. A player's best difficulty across the raid
+# is recorded (RaidParticipant.best_difficulty) and multiplies their
+# final payout, so choosing the hard version is worth something even if
+# the whole server chose it too.
+# ----------------------------------------------------------------------
+DIFFICULTY_REWARD_BONUS: dict[str, float] = {
+    "recon": 0.85,
+    "skirmish": 0.95,
+    "standard": 1.0,
+    "elite": 1.25,
+    "apex": 1.6,
+}
+
+
+def difficulty_reward_bonus(difficulty_id: str | None) -> float:
+    return DIFFICULTY_REWARD_BONUS.get(difficulty_id or DEFAULT_RAID_DIFFICULTY, 1.0)
 
 
 def get_tier(tier_id: str) -> dict | None:

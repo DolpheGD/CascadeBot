@@ -55,6 +55,11 @@ from bot.utils.embedder.profile import (
 from bot.utils.embedder.dungeon import (
     dungeon_map_embed,
 )
+from bot.utils.embedder.story import (
+    beat_embed as story_beat_embed,
+    mission_complete_embed as story_mission_complete_embed,
+    story_menu_embed,
+)
 from bot.utils.embedder.raid import (
     leaderboard_embed,
     raid_attack_result_embed,
@@ -179,6 +184,9 @@ __all__ = [
     "item_detail_embed",
     "lootbox_detail_embed",
     "leaderboard_embed",
+    "story_beat_embed",
+    "story_menu_embed",
+    "story_mission_complete_embed",
     "account_profile_embed",
     "gift_collected_embed",
     "gift_inbox_embed",

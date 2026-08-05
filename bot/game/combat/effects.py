@@ -585,6 +585,26 @@ def grant_action_energy(actor: Combatant, log: list, multiplier: float = 1.0) ->
     actor.gain_energy(gained)
 
 
+def apply_stun(target: Combatant, duration: int, log: list) -> None:
+    """Stun `target` for `duration` turns.
+
+    Takes the MAXIMUM of the existing and new duration rather than adding
+    them. Every stun in the game used to be `stunned_turns += duration`,
+    which meant two enemies landing a 1-turn stun on the same character
+    produced a 2-turn lockout, three produced 3, and a party facing
+    several stun-carriers could lose a member for the rest of the fight
+    with no counterplay and nothing on screen explaining why.
+
+    Overlapping stuns now refresh rather than accumulate, which is the
+    behaviour players already expect from every other duration effect
+    here."""
+    if duration <= 0:
+        return
+    already = target.stunned_turns > 0
+    target.stunned_turns = max(target.stunned_turns, duration)
+    log.append(f"😵 {target.name} is {'still ' if already else ''}stunned!")
+
+
 def poise_damage_for(ability: dict | None) -> int:
     """How much poise one hit from `ability` chips. None means a basic
     attack. An explicit "poise_damage" in the ability's effect wins, so a
@@ -896,9 +916,22 @@ def resolve_active_ability(
     elif kind == "damage_and_stun":
         hit = _hit(attacker, defender, effect["damage_percent"],
                             effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
-        if hit and defender.is_alive():
-            defender.stunned_turns += effect["duration"]
-            log.append(f"😵 {defender.name} is stunned!")
+        # Stun is a CHANCE, not a guarantee.
+        #
+        # This used to stun on every landed hit, with no roll at all. On
+        # the player's side that's merely strong; on the enemy side it
+        # was the single most oppressive thing in the game, because
+        # sixteen enemy templates carry a stun source and losing a turn
+        # outright is the one effect you cannot play around. Shield Bash
+        # in particular sat at a 1-turn cooldown and 10 SP, so a single
+        # enemy could deny a party member every other turn indefinitely.
+        #
+        # Abilities that don't specify a chance keep working (defaulting
+        # to certain) so nothing silently changes shape -- the ones that
+        # needed reining in state their odds explicitly.
+        chance = effect.get("chance_percent", 100)
+        if hit and defender.is_alive() and rng.uniform(0, 100) < chance:
+            apply_stun(defender, effect["duration"], log)
 
     elif kind == "self_buff_debuff":
         attacker.modifiers.append(StatModifier(
@@ -1628,8 +1661,10 @@ def _resolve_hit(attacker: Combatant, defender: Combatant, damage_percent: float
 
     for passive in defender.find_passive("chance_stun_attacker"):
         if formulas.roll_percent(passive["effect"]["percent"], rng):
-            attacker.stunned_turns += passive["effect"]["duration"]
+            # Through apply_stun so a retaliation stun refreshes rather
+            # than stacking on top of an ability stun -- see apply_stun.
             log.append(f"⚡ {defender.name}'s {passive['name']} stuns {attacker.name}!")
+            apply_stun(attacker, passive["effect"]["duration"], log)
 
     for passive in defender.find_passive("on_hit_team_buff"):
         eff = passive["effect"]

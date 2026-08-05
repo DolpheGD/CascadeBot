@@ -36,6 +36,7 @@ from bot.game.economy.hq_config import (
 from bot.services.currency_service import format_currency
 from bot.utils.embedder._shared import fit_field
 from bot.utils.guild_decorator import guild_decorator
+from bot.utils import names
 from bot.utils.ui_guard import OwnedView, check_message_owner, require_player
 
 
@@ -997,33 +998,268 @@ class ForgeSlotSelect(discord.ui.Select):
             db.close()
 
 
+# ----------------------------------------------------------------------
+# FORGE OPERATIONS: salvage, reforge, transfer.
+#
+# All three existed as services from the day the Forge shipped and none
+# of them had a single button -- the menu offered Craft and Upgrade and
+# nothing else, which is why it read as unfinished. Reforge and Transfer
+# were even advertised in the Operations line of the embed as unlocking
+# at levels 2 and 4, so the player was told about capabilities they had
+# no way to use.
+#
+# Each is an item-picker, so they share one pattern: a mode select
+# switches the view, and the picker lists only items the operation can
+# legally act on (unequipped, right type) rather than listing everything
+# and failing on click.
+# ----------------------------------------------------------------------
+
+FORGE_MODES = [
+    ("craft", "🔨 Craft", "Make new gear in a slot and rarity you choose."),
+    ("salvage", "♻️ Salvage", "Break gear down into materials of its tier."),
+    ("reforge", "🎲 Reforge", "Re-roll an item's ability, keeping its stats."),
+    ("transfer", "🔗 Transfer", "Move an ability onto another item of the same type."),
+]
+
+
+def _forge_candidates(db, player, *, same_type_as=None) -> list:
+    """Unequipped items this player owns, newest first.
+
+    Equipped gear is excluded at the SOURCE rather than rejected on
+    click: every one of these operations refuses equipped items anyway,
+    and a dropdown full of choices that error is worse than a short one
+    that works."""
+    from bot.database.models.equipment_model import InventoryItem
+
+    query = db.query(InventoryItem).filter_by(player_id=player.id, is_equipped=False)
+    if same_type_as is not None:
+        query = query.filter(InventoryItem.item_type == same_type_as.item_type,
+                             InventoryItem.id != same_type_as.id)
+    return query.order_by(InventoryItem.id.desc()).limit(25).all()
+
+
+class ForgeModeSelect(discord.ui.Select):
+    def __init__(self, current: str, forge_level: int):
+        options = []
+        for mode, label, description in FORGE_MODES:
+            unlocked = forge_config.operation_unlocked(mode, forge_level)
+            need = forge_config.FORGE_UNLOCKS.get(mode, 1)
+            options.append(discord.SelectOption(
+                label=label if unlocked else f"🔒 {label} (Lv{need})",
+                value=mode,
+                description=description[:100],
+                default=(mode == current),
+            ))
+        super().__init__(placeholder="Forge operation...", options=options,
+                         custom_id="cascade_forge_mode", min_values=1, max_values=1)
+
+    async def callback(self, interaction: discord.Interaction):
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            if player is None:
+                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                return
+            mode = self.values[0]
+            forge = forge_service.get_or_create_forge(db, player)
+            if not forge_config.operation_unlocked(mode, forge.level):
+                need = forge_config.FORGE_UNLOCKS.get(mode, 1)
+                await interaction.response.send_message(
+                    f"{mode.title()} unlocks at Forge level {need}.", ephemeral=True
+                )
+                return
+            await interaction.response.edit_message(
+                embed=_build_forge_embed(db, player, mode=mode),
+                view=_build_forge_view(db, player, mode=mode),
+            )
+        finally:
+            db.close()
+
+
+class ForgeItemSelect(discord.ui.Select):
+    """The item picker for salvage/reforge, and the SOURCE picker for
+    transfer. `mode` is carried in the custom_id so the callback knows
+    which operation the click belongs to."""
+
+    def __init__(self, mode: str, items: list, placeholder: str):
+        options = [
+            discord.SelectOption(
+                label=names.fit_suffix(item.display_name, f"+{item.item_level}", 100),
+                value=str(item.id),
+                description=f"{item.rarity.value.title()} {item.slot.value}"[:100],
+            )
+            for item in items
+        ] or [discord.SelectOption(label="Nothing available", value="none")]
+        super().__init__(placeholder=placeholder, options=options[:25],
+                         custom_id=f"cascade_forge_item:{mode}", min_values=1, max_values=1)
+        self.mode = mode
+
+    async def callback(self, interaction: discord.Interaction):
+        if self.values[0] == "none":
+            await interaction.response.send_message(
+                "You have no unequipped gear the Forge can work on.", ephemeral=True
+            )
+            return
+        db = SessionLocal()
+        try:
+            from bot.database.models.equipment_model import InventoryItem
+
+            player = get_player(db, interaction.user.id)
+            if player is None:
+                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                return
+            item = db.get(InventoryItem, int(self.values[0]))
+            if item is None or item.player_id != player.id:
+                await interaction.response.send_message("You don't own that item.", ephemeral=True)
+                return
+
+            message = ""
+            try:
+                if self.mode == "salvage":
+                    name = item.display_name
+                    got = forge_service.salvage_item(db, player, item)
+                    gained = ", ".join(format_currency(c, a) for c, a in got.items())
+                    message = f"♻️ Salvaged **{name}** into {gained or 'nothing usable'}."
+                elif self.mode == "reforge":
+                    reforged = forge_service.reforge_item(db, player, item)
+                    ability = (reforged.active_ability or reforged.passive_ability or {}).get("name")
+                    message = (f"🎲 Reforged **{reforged.display_name}** — "
+                               f"now carries **{ability}**." if ability else
+                               f"🎲 Reforged **{reforged.display_name}**, but it came out blank.")
+                elif self.mode == "transfer":
+                    # First half of transfer: remember the source and show
+                    # the target picker, which only lists same-type items.
+                    await interaction.response.edit_message(
+                        embed=_build_forge_embed(db, player, mode="transfer", source=item),
+                        view=_build_forge_view(db, player, mode="transfer", source=item),
+                    )
+                    return
+            except forge_service.ForgeError as exc:
+                message = str(exc)
+
+            await interaction.response.edit_message(
+                content=message,
+                embed=_build_forge_embed(db, player, mode=self.mode),
+                view=_build_forge_view(db, player, mode=self.mode),
+            )
+        finally:
+            db.close()
+
+
+class ForgeTransferTargetSelect(discord.ui.Select):
+    def __init__(self, source, items: list):
+        options = [
+            discord.SelectOption(
+                label=names.fit_suffix(item.display_name, f"+{item.item_level}", 100),
+                value=str(item.id),
+                description=f"{item.rarity.value.title()} {item.slot.value}"[:100],
+            )
+            for item in items
+        ] or [discord.SelectOption(label="No compatible item", value="none")]
+        super().__init__(placeholder=f"Put {source.display_name}'s ability onto..."[:150],
+                         options=options[:25],
+                         custom_id=f"cascade_forge_target:{source.id}",
+                         min_values=1, max_values=1)
+        self.source_id = source.id
+
+    async def callback(self, interaction: discord.Interaction):
+        if self.values[0] == "none":
+            await interaction.response.send_message(
+                "You have no other unequipped item of that type to transfer onto.", ephemeral=True
+            )
+            return
+        db = SessionLocal()
+        try:
+            from bot.database.models.equipment_model import InventoryItem
+
+            player = get_player(db, interaction.user.id)
+            if player is None:
+                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                return
+            source = db.get(InventoryItem, self.source_id)
+            target = db.get(InventoryItem, int(self.values[0]))
+            if source is None or target is None or {source.player_id, target.player_id} != {player.id}:
+                await interaction.response.send_message("You don't own those items.", ephemeral=True)
+                return
+            try:
+                result = forge_service.transfer_ability(db, player, source, target)
+                message = f"🔗 Ability moved onto **{result.display_name}**. The donor was consumed."
+            except forge_service.ForgeError as exc:
+                message = str(exc)
+            await interaction.response.edit_message(
+                content=message,
+                embed=_build_forge_embed(db, player, mode="transfer"),
+                view=_build_forge_view(db, player, mode="transfer"),
+            )
+        finally:
+            db.close()
+
+
 class ForgeView(OwnedView):
-    def __init__(self, buttons: list, slot: str, owner_id: int | None = None):
-        super().__init__(timeout=None, owner_id=owner_id)
-        self.add_item(ForgeSlotSelect(slot))
+    """NOT persistent -- 5 minutes and it expires.
+
+    It used to be timeout=None, which was fine when the Forge was two
+    fixed buttons. The operation pickers carry their target in the
+    custom_id (`cascade_forge_item:reforge`, `cascade_forge_target:412`),
+    and those can't be pre-registered for a restart because the item ids
+    don't exist until the menu is built. A view that survives a restart
+    with dead selects is worse than one that visibly expires, and the
+    Forge is a menu you open, use, and close -- there's nothing here
+    worth surviving anything."""
+
+    def __init__(self, buttons: list, selects: list, owner_id: int | None = None):
+        super().__init__(timeout=300, owner_id=owner_id)
+        for select in selects:
+            self.add_item(select)
         for b in buttons:
             self.add_item(b)
 
 
-def _build_forge_embed(db, player, slot: str = "weapon") -> discord.Embed:
+def _build_forge_embed(db, player, slot: str = "weapon", mode: str = "craft",
+                       source=None) -> discord.Embed:
     forge = forge_service.get_or_create_forge(db, player)
     ceiling = forge_config.max_craft_rarity(forge.level)
 
     embed = discord.Embed(
         title=f"🔨 Forge -- Level {forge.level}",
-        description=(
-            "Craft gear in the slot and rarity you choose instead of waiting on a lucky drop.\n"
-            f"Currently forging up to **{ceiling.value.title()}**."
-        ),
         color=discord.Color.dark_orange(),
     )
 
-    lines = []
-    for rarity in forge_config.craftable_rarities(forge.level):
-        cost = forge_service.craft_cost(db, player, rarity)
-        mats = ", ".join(format_currency(c, a) for c, a in cost["materials"].items())
-        lines.append(f"**{rarity.value.title()}** — {format_currency('gold', cost['gold'])}, {mats}")
-    embed.add_field(name=f"Craft cost ({slot.title()})", value=fit_field(lines), inline=False)
+    if mode == "craft":
+        embed.description = (
+            "Craft gear in the slot and rarity you choose instead of waiting on a lucky drop.\n"
+            f"Currently forging up to **{ceiling.value.title()}**. "
+            "The Forge starts at Rare -- anything below that drops freely already."
+        )
+        lines = []
+        for rarity in forge_config.craftable_rarities(forge.level):
+            cost = forge_service.craft_cost(db, player, rarity)
+            mats = ", ".join(format_currency(c, a) for c, a in cost["materials"].items())
+            lines.append(f"**{rarity.value.title()}** — {format_currency('gold', cost['gold'])}, {mats}")
+        embed.add_field(name=f"Craft cost ({slot.title()})", value=fit_field(lines), inline=False)
+    elif mode == "salvage":
+        embed.description = (
+            "Break unequipped gear down into materials of its own rarity tier.\n"
+            f"Returns about **{forge_config.SALVAGE_RETURN_PERCENT}%** of what crafting it would cost."
+        )
+    elif mode == "reforge":
+        embed.description = (
+            "Re-roll an item's **ability**, keeping its main stat and substats exactly as they are.\n"
+            "The counterpart to `/inventory`'s substat reroll -- between them you can fix "
+            "either half of an item you almost like."
+        )
+    elif mode == "transfer":
+        if source is not None:
+            embed.description = (
+                f"Moving the ability from **{source.display_name}**.\n"
+                "Pick what it lands on. **The donor is destroyed.**"
+            )
+        else:
+            embed.description = (
+                "Move an ability from one item onto another of the same type. "
+                "The donor is consumed.\n"
+                "Pick the item whose ability you want to KEEP first."
+            )
 
     unlocks = []
     for op, level in forge_config.FORGE_UNLOCKS.items():
@@ -1039,9 +1275,31 @@ def _build_forge_embed(db, player, slot: str = "weapon") -> discord.Embed:
     return embed
 
 
-def _build_forge_view(db, player, slot: str = "weapon") -> ForgeView:
+def _build_forge_view(db, player, slot: str = "weapon", mode: str = "craft",
+                      source=None) -> ForgeView:
     forge = forge_service.get_or_create_forge(db, player)
     buttons: list = []
+    selects: list = [ForgeModeSelect(mode, forge.level)]
+
+    if mode == "craft":
+        selects.append(ForgeSlotSelect(slot))
+        for rarity in forge_config.craftable_rarities(forge.level):
+            buttons.append(ForgeCraftButton(slot, rarity.value, label=f"🔨 Forge {rarity.value.title()}"))
+    elif mode in ("salvage", "reforge"):
+        selects.append(ForgeItemSelect(
+            mode, _forge_candidates(db, player),
+            placeholder="Salvage which item..." if mode == "salvage" else "Reforge which item...",
+        ))
+    elif mode == "transfer":
+        if source is None:
+            selects.append(ForgeItemSelect(
+                "transfer", _forge_candidates(db, player),
+                placeholder="Take the ability FROM...",
+            ))
+        else:
+            selects.append(ForgeTransferTargetSelect(
+                source, _forge_candidates(db, player, same_type_as=source)
+            ))
 
     cost = forge_config.forge_upgrade_cost(forge.level)
     if cost is None:
@@ -1050,10 +1308,9 @@ def _build_forge_view(db, player, slot: str = "weapon") -> ForgeView:
         cost_text = "/".join(format_currency(c, a) for c, a in cost.items())
         buttons.append(ForgeUpgradeButton(label=f"Upgrade Forge to Lv{forge.level + 1} ({cost_text})"))
 
-    for rarity in forge_config.craftable_rarities(forge.level):
-        buttons.append(ForgeCraftButton(slot, rarity.value, label=f"🔨 Forge {rarity.value.title()}"))
-
-    return ForgeView(buttons, slot, owner_id=player.id)
+    # Discord allows 5 action rows; each select takes one. Two selects
+    # plus a row of buttons stays comfortably inside that.
+    return ForgeView(buttons, selects, owner_id=player.id)
 
 
 @guild_decorator

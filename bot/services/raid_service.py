@@ -42,6 +42,8 @@ from bot.game.combat.enemies import get_template_by_name
 from bot.game.combat.factory import build_enemy_combatant, build_party_combatants
 from bot.game.economy.raid_config import (
     DEFAULT_RAID_DIFFICULTY,
+    RAID_DIFFICULTIES,
+    difficulty_reward_bonus,
     RAID_TIERS,
     attack_cooldown,
     attacks_per_player,
@@ -297,6 +299,15 @@ def damage_dealt_in(battle: Battle) -> int:
     return max(0, boss.max_hp - boss.current_hp)
 
 
+def _difficulty_rank(difficulty_id: str | None) -> int:
+    """Position in RAID_DIFFICULTIES, so "hardest so far" is a comparison
+    rather than a guess. Unknown ids sort lowest."""
+    for index, entry in enumerate(RAID_DIFFICULTIES):
+        if entry["id"] == difficulty_id:
+            return index
+    return -1
+
+
 def record_attack_damage(db, player, raid: GuildRaid, damage: int) -> dict:
     """Applies one attack's damage to the shared pool and banks the
     player's contribution. See the CONCURRENCY block in the module
@@ -316,6 +327,13 @@ def record_attack_damage(db, player, raid: GuildRaid, damage: int) -> dict:
 
     row = _get_or_create_participant(db, raid, player)
     row.damage_dealt += applied
+
+    # Remember the hardest difficulty this player has actually fought at,
+    # for the absolute payout bonus at claim time (see
+    # raid_config.DIFFICULTY_REWARD_BONUS).
+    fought = _ACTIVE_DIFFICULTY.get(player.id, DEFAULT_RAID_DIFFICULTY)
+    if _difficulty_rank(fought) > _difficulty_rank(row.best_difficulty):
+        row.best_difficulty = fought
 
     just_defeated = False
     if raid.current_hp <= 0 and raid.status == "active":
@@ -408,7 +426,13 @@ def claim_reward(db, player, raid: GuildRaid) -> dict:
     share = contribution_share(db, raid, row)
     multiplier, label = contribution_tier(share)
 
-    payout = reward_preview(tier, multiplier)
+    # The absolute half of "harder pays more". contribution_tier already
+    # rewards difficulty RELATIVELY (harder attacks bank more credit, so
+    # a bigger share); this pays out for having fought the harder version
+    # even if the whole server did too, in which case shares are
+    # unchanged and the relative half does nothing at all.
+    difficulty_bonus = difficulty_reward_bonus(row.best_difficulty)
+    payout = reward_preview(tier, multiplier * difficulty_bonus)
     for currency, amount in payout["currencies"].items():
         add_currency(db, player, currency, amount)
 
@@ -429,6 +453,8 @@ def claim_reward(db, player, raid: GuildRaid) -> dict:
         "share": share,
         "label": label,
         "multiplier": multiplier,
+        "difficulty_bonus": difficulty_bonus,
+        "best_difficulty": row.best_difficulty or DEFAULT_RAID_DIFFICULTY,
         "reward_lines": payout["lines"],
         "damage_dealt": row.damage_dealt,
     }
