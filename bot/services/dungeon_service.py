@@ -895,6 +895,7 @@ def _apply_hp_damage(db, player, rng: random.Random, percent: int) -> str | None
 def _apply_gain(
     db, player, rng: random.Random, gain: dict, gold_mult: float, expedition: Expedition,
     max_item_rarity: Rarity | None = None, item_level: int = 1,
+    rarity_weight_bonus: float = 0,
 ) -> list[str]:
     gain = dict(gain)
     lines: list[str] = []
@@ -926,8 +927,13 @@ def _apply_gain(
             from bot.services import research_service
             rarity = generator.roll_rarity(
                 max_rarity=max_item_rarity,
+                # The region tilt is PASSED IN rather than read from a
+                # `difficulty` dict, because this function has never had
+                # one in scope -- reading it here raised NameError the
+                # moment any encounter granted a "natural" item, which is
+                # a crash on a reward, in the middle of a run.
                 rarity_weight_bonus=(
-                    difficulty.get("rarity_weight_bonus", 0)
+                    rarity_weight_bonus
                     + research_service.perk_value(db, player.id, "loot_rarity_weight")
                 ),
             )
@@ -1055,12 +1061,13 @@ def _apply_heal(db, player, rng: random.Random, heal_spec) -> str | None:
 def _apply_outcome(
     db, player, rng: random.Random, outcome: dict, gold_mult: float, expedition: Expedition,
     max_item_rarity: Rarity | None = None, item_level: int = 1,
+    rarity_weight_bonus: float = 0,
 ) -> list[str]:
     if not outcome:
         return []
     lines: list[str] = []
     if outcome.get("gain"):
-        lines += _apply_gain(db, player, rng, outcome["gain"], gold_mult, expedition, max_item_rarity, item_level)
+        lines += _apply_gain(db, player, rng, outcome["gain"], gold_mult, expedition, max_item_rarity, item_level, rarity_weight_bonus)
     if outcome.get("loss"):
         lines += _apply_loss(db, player, rng, outcome["loss"], expedition)
     if outcome.get("hp_damage_percent"):
@@ -1079,7 +1086,7 @@ def _apply_outcome(
         # Lootbox chance without them competing for the same roll.
         for spec in (bonus if isinstance(bonus, list) else [bonus]):
             if rng.random() < spec.get("chance", 0):
-                lines += _apply_gain(db, player, rng, spec.get("gain", {}), gold_mult, expedition, max_item_rarity, item_level)
+                lines += _apply_gain(db, player, rng, spec.get("gain", {}), gold_mult, expedition, max_item_rarity, item_level, rarity_weight_bonus)
     return lines
 
 
@@ -1099,6 +1106,7 @@ def resolve_encounter_choice(db, expedition: Expedition, player, choice_id: str,
     # gold_multiplier relic (Prospector's Ledger) actually earns its slot.
     gold_mult = difficulty["reward_multiplier"] * relic_service.gold_multiplier(expedition)
     max_item_rarity = difficulty["max_item_rarity"]
+    rarity_bonus = difficulty.get("rarity_weight_bonus", 0)
     # Item level is NOT derived from the floor. It used to be
     # (floor + 1 + level_offset), which is where over-cap drops like a
     # level-17 Rare came from -- Rare's upgrade cap is 15, so the item
@@ -1115,7 +1123,7 @@ def resolve_encounter_choice(db, expedition: Expedition, player, choice_id: str,
         success = rng.random() < choice.get("success_chance", 0.5)
         outcome = choice.get("on_success" if success else "on_fail", {})
         message = choice.get("success_text" if success else "fail_text", "") or ""
-        lines = _apply_outcome(db, player, rng, outcome, gold_mult, expedition, max_item_rarity, item_level)
+        lines = _apply_outcome(db, player, rng, outcome, gold_mult, expedition, max_item_rarity, item_level, rarity_bonus)
         if lines:
             message = f"{message}\n{', '.join(lines)}" if message else ", ".join(lines)
 
@@ -1145,7 +1153,7 @@ def resolve_encounter_choice(db, expedition: Expedition, player, choice_id: str,
             outcome = tier.get("outcome", {})
             message = tier.get("text", "") or ""
 
-        lines = _apply_outcome(db, player, rng, outcome, gold_mult, expedition, max_item_rarity, item_level)
+        lines = _apply_outcome(db, player, rng, outcome, gold_mult, expedition, max_item_rarity, item_level, rarity_bonus)
         if lines:
             message = f"{message}\n{', '.join(lines)}" if message else ", ".join(lines)
 

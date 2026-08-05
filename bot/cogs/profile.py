@@ -9,7 +9,7 @@ from bot.database.session import SessionLocal
 from bot.services.player_service import get_or_create_player, get_player
 from bot.services.currency_service import add_currency
 from bot.services import (account_service, character_service, dungeon_service,
-                          gift_service, inventory_service)
+                          gift_service, inventory_service, story_service)
 from bot.utils.ui_guard import OwnedView, require_player
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils import embedder
