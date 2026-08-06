@@ -71,3 +71,4 @@ class PlayerQuest(Base):
             f"<PlayerQuest id={self.id} quest_id={self.quest_id!r} kind={self.kind} "
             f"progress={self.progress}/{self.goal_count} completed={self.is_completed}>"
         )
+

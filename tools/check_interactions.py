@@ -11,7 +11,7 @@ or a raid attack commits. When that happened the token died and the
 handler crashed with 404 Unknown interaction (10062), which is what
 took out /gift, /squad and the inventory paginator in one evening.
 
-Two structural properties are checked, plus the behaviour of the helpers
+Three structural properties are checked, plus the behaviour of the helpers
 that make them safe. Both are things a future command can silently get
 wrong, which is the only reason this file exists:
 
@@ -22,6 +22,10 @@ wrong, which is the only reason this file exists:
   * no cog reaches for interaction.response.send_message /
     edit_message directly, because those are the calls that raise once
     the response slot has been spent by that defer
+
+  * no command defers TWICE -- the second call raises
+    InteractionResponded, which is not an HTTPException and so is caught
+    by nothing at all
 
 The helpers are then exercised against a fake interaction that fails the
 same way Discord's does.
@@ -40,7 +44,8 @@ COGS = pathlib.Path("bot/cogs")
 # Commands whose primary reply is private, and which must therefore
 # defer privately -- a public defer would leave a visible "thinking..."
 # placeholder attached to an answer nobody else should see.
-EPHEMERAL_PRIMARY = {"admin_boosterkit", "help", "sell_rarity", "gifts", "vote"}
+EPHEMERAL_PRIMARY = {"admin_boosterkit", "admin_reset", "help", "sell_rarity",
+                     "gifts", "vote"}
 
 
 def _commands_in(path: pathlib.Path):
@@ -91,6 +96,31 @@ def check_no_raw_responses(failures: list[str]) -> None:
                 failures.append(
                     f"{path.name}:{line} calls {call} directly -- it raises once the "
                     f"command has deferred; use responses.send / responses.edit"
+                )
+
+
+def check_no_double_defer(failures: list[str]) -> None:
+    """A command that defers TWICE raises InteractionResponded.
+
+    Worth its own check because that exception is not an HTTPException,
+    so neither responses.py nor the tree's error handler absorbs it --
+    it surfaces as a raw crash. It is also easy to reintroduce: adding
+    the automatic defer left two hand-written `ctx.response.defer()`
+    calls behind in commands that had always had one, and both would
+    have crashed on first use.
+
+    Component callbacks may still call response.defer() directly -- they
+    are never auto-deferred, so theirs is the only one.
+    """
+    for path in sorted(COGS.glob("*.py")):
+        tree = ast.parse(path.read_text())
+        for node in _commands_in(path):
+            body = ast.unparse(node)
+            if "response.defer(" in body:
+                failures.append(
+                    f"{path.name} /{node.name} calls response.defer() directly on top of "
+                    f"responses.defer() -- the second raises InteractionResponded, which "
+                    f"nothing catches"
                 )
 
 
@@ -187,6 +217,7 @@ def main() -> int:
     failures: list[str] = []
     total = check_every_command_defers(failures)
     check_no_raw_responses(failures)
+    check_no_double_defer(failures)
     check_helpers_survive_a_dead_token(failures)
 
     print(f"commands  : {total} slash commands, all deferring before any DB work")

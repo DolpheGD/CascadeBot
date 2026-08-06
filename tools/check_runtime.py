@@ -90,6 +90,9 @@ UNGATED_COMMANDS: dict[str, str] = {
     "vote": "top.gg voting is external to progression",
     "sync": "owner-only admin command",
     "admin_boosterkit": "admin-only, and enforces its own permission check",
+    "admin_reset": ("admin-only, self-only, and enforces its own permission check; "
+                    "story-gating the command that EXISTS to replay the story would "
+                    "be circular"),
 }
 
 

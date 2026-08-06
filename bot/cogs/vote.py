@@ -89,7 +89,6 @@ class Vote(commands.Cog):
 
         # The top.gg round-trip can take a second or two, comfortably past
         # Discord's 3s initial-response budget, so defer first.
-        await ctx.response.defer(ephemeral=True)
 
         db = SessionLocal()
         try:
