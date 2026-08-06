@@ -168,7 +168,14 @@ BREAK_DURATION_TURNS = 2
 # doesn't also need to be the largest multiplier in the game. Trimmed
 # alongside the break-resistance escalation in combatant.py; see that
 # block for the full picture of why the mechanic needed reining in.
-BREAK_DAMAGE_BONUS_PERCENT = 35
+# 60, up from 35.
+#
+# Breaking is expensive: it takes multi-hit and AOE turns that a crit
+# squad spends on damage instead, so a 35% window never paid for the
+# setup and "break team" measured at 45% of the crit-stack comp. At 60%
+# the payoff is worth the turns, which is the whole point of having a
+# second strategy.
+BREAK_DAMAGE_BONUS_PERCENT = 60
 
 # ----------------------------------------------------------------------
 # BREAK POTENTIAL -- the intended ways to make breaking EASIER.
@@ -304,6 +311,7 @@ KIT_EVENTS = frozenset({
 _EVENT_KINDS: dict[str, set[str]] = {
     "heal": {
         "heal_lowest_ally_percent_max_hp", "team_heal_percent_max_hp", "heal_percent_max_hp",
+        "heal_from_stat", "team_heal_from_stat",
         "cleanse_ally_and_heal", "cleanse_self_and_heal", "damage_and_heal_self",
         "heal_and_self_buff", "team_heal_and_buff", "team_regen_over_time",
         "sacrifice_hp_heal_lowest_ally_percent_max_hp", "sacrifice_hp_heal_team_percent_max_hp",
@@ -1005,6 +1013,37 @@ def resolve_active_ability(
         )
         healed = target.heal(target.max_hp * effect["percent"] / 100)
         log.append(f"💚 {attacker.name}'s {ability['name']} heals {target.name} for {healed} HP.")
+
+    elif kind == "heal_from_stat":
+        # HEALING THAT SCALES OFF THE HEALER, not the patient.
+        #
+        # Every heal in the game was "% of the TARGET's max HP", which
+        # made healers interchangeable -- the person casting it changed
+        # nothing, so a healing trinket did the same job as a dedicated
+        # Sustain and players correctly dropped the Sustain. A heal that
+        # reads the caster's own DEF/HP/ELE/SPD means the healer's build
+        # matters, and gear cannot replace them.
+        #
+        # `stat` is whichever stat suits that character; `percent` is how
+        # much of it converts to HP.
+        stat = effect.get("stat", "defense")
+        amount = attacker.effective_stat(stat) * effect["percent"] / 100
+        target = _pick_ally(
+            attacker, allies, chosen_ally,
+            auto=lambda cs: min(cs, key=lambda c: c.current_hp / max(1, c.max_hp)),
+            include_self=True,
+        )
+        healed = target.heal(amount)
+        log.append(f"💚 {attacker.name}'s {ability['name']} restores {healed} HP to "
+                   f"{target.name} (scaling off {stat.upper()}).")
+
+    elif kind == "team_heal_from_stat":
+        stat = effect.get("stat", "defense")
+        amount = attacker.effective_stat(stat) * effect["percent"] / 100
+        for member in [attacker] + [a for a in allies if a.is_alive()]:
+            healed = member.heal(amount)
+            if healed:
+                log.append(f"💚 {member.name} is healed for {healed} HP by {ability['name']}.")
 
     elif kind == "team_heal_percent_max_hp":
         # Sustain ultimate piece -- heals the whole team at once.

@@ -64,6 +64,10 @@ from bot.database.models.enums import Rarity
 # earlier reading off it was misleading. At the level and gear a player
 # actually arrives with, the old offsets gave:
 #
+# RE-CUT AFTER ENEMY ATTACK WENT TO 1.5x (see factory.py). Enemies
+# hitting half again as hard made every one of these numbers wrong at a
+# stroke -- Glacier 15 fell from 62% to 6% at squad 5 -- so the whole
+# ladder shifted down to hold the same curve against deadlier enemies.
 #     Glacier 15   @lv8  rare gear   82%      -> now 62%
 #     Wastelands   @lv22 rare gear   98%      -> now 82%
 #     Hotlands     @lv38 epic gear   75%      -> now 57%
@@ -85,7 +89,7 @@ from bot.database.models.enums import Rarity
 REGION_DIFFICULTY: dict[str, dict] = {
     "Glacier 15": {
         "tier": 1, "difficulty_label": "Easy",
-        "level_offset": 5, "combat_level_offset": 8, "reward_multiplier": 1.3,
+        "level_offset": 2, "combat_level_offset": 3, "reward_multiplier": 1.3,
         "max_item_rarity": Rarity.EPIC, "max_lootbox_tier": "rare",
         "rarity_weight_bonus": 0,
         "combat_squad_weights": {1: 30, 2: 40, 3: 25, 4: 5},
@@ -93,7 +97,7 @@ REGION_DIFFICULTY: dict[str, dict] = {
     },
     "The Wastelands": {
         "tier": 2, "difficulty_label": "Normal",
-        "level_offset": 18, "combat_level_offset": 22, "reward_multiplier": 1.8,
+        "level_offset": 14, "combat_level_offset": 18, "reward_multiplier": 1.8,
         "max_item_rarity": Rarity.LEGENDARY, "max_lootbox_tier": "epic",
         "rarity_weight_bonus": 60,
         "combat_squad_weights": {1: 10, 2: 30, 3: 35, 4: 20, 5: 5},
@@ -101,7 +105,7 @@ REGION_DIFFICULTY: dict[str, dict] = {
     },
     "The Hotlands": {
         "tier": 3, "difficulty_label": "Hard",
-        "level_offset": 19, "combat_level_offset": 24, "reward_multiplier": 2.8,
+        "level_offset": 18, "combat_level_offset": 22, "reward_multiplier": 2.8,
         "max_item_rarity": Rarity.MYTHIC, "max_lootbox_tier": "legendary",
         "rarity_weight_bonus": 130,
         "combat_squad_weights": {2: 20, 3: 35, 4: 30, 5: 15},
@@ -109,7 +113,7 @@ REGION_DIFFICULTY: dict[str, dict] = {
     },
     "Voidcrest Desert": {
         "tier": 4, "difficulty_label": "Insane",
-        "level_offset": 28, "combat_level_offset": 38, "reward_multiplier": 4.5,
+        "level_offset": 27, "combat_level_offset": 33, "reward_multiplier": 4.5,
         "max_item_rarity": Rarity.DIVINE, "max_lootbox_tier": "mythic",
         "rarity_weight_bonus": 220,
         "combat_squad_weights": {2: 10, 3: 25, 4: 35, 5: 30},
@@ -127,7 +131,7 @@ REGION_DIFFICULTY: dict[str, dict] = {
         # loot ceiling: a genuine "hardest content in the game" tier
         # rather than a "strictly better loot" tier.
         "tier": 5, "difficulty_label": "Nightmare",
-        "level_offset": 30, "combat_level_offset": 42, "reward_multiplier": 6.5,
+        "level_offset": 45, "combat_level_offset": 40, "reward_multiplier": 6.5,
         "max_item_rarity": Rarity.DIVINE, "max_lootbox_tier": "mythic",
         "rarity_weight_bonus": 320,
         "combat_squad_weights": {3: 10, 4: 35, 5: 55},

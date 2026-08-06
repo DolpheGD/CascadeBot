@@ -1268,6 +1268,46 @@ def _build_forge_embed(db, player, slot: str = "weapon", mode: str = "craft",
         unlocks.append(f"{mark} {op.title()}")
     embed.add_field(name="Operations", value="  ".join(unlocks), inline=False)
 
+    # WHAT IT COSTS, BEFORE YOU COMMIT.
+    #
+    # Craft already showed its price; reforge, transfer and salvage did
+    # not, so three of the Forge's four operations asked the player to
+    # pick an item and find out afterwards. Costs scale with rarity, so
+    # "it depends" was doing a lot of work here.
+    candidates = _forge_candidates(db, player) if mode != "craft" else []
+    if mode in ("reforge", "transfer", "salvage") and candidates:
+        from bot.database.models.enums import Rarity
+
+        lines = []
+        seen = set()
+        for item in candidates:
+            if item.rarity in seen:
+                continue
+            seen.add(item.rarity)
+            if mode == "salvage":
+                got = forge_service.salvage_yield(item)
+                lines.append(f"**{item.rarity.value.title()}** → returns "
+                             + forge_service.describe_cost(0, got).replace("0 🪙 · ", ""))
+            elif mode == "reforge":
+                gold, mats = forge_service.reforge_price(db, player, item)
+                lines.append(f"**{item.rarity.value.title()}** → "
+                             + forge_service.describe_cost(gold, mats))
+            else:
+                gold, mats = forge_service.transfer_price(db, player, item, item)
+                lines.append(f"**{item.rarity.value.title()}** → "
+                             + forge_service.describe_cost(gold, mats))
+        if lines:
+            label = {"salvage": "♻️ Salvage returns", "reforge": "🎲 Reforge cost",
+                     "transfer": "🔗 Transfer cost"}[mode]
+            embed.add_field(
+                name=f"{label} (by rarity)",
+                value=fit_field(sorted(lines)) + (
+                    "\n*Transfer uses the higher rarity of the two items.*"
+                    if mode == "transfer" else ""),
+                inline=False,
+            )
+
+
     cost = forge_config.forge_upgrade_cost(forge.level)
     embed.set_footer(
         text=("Forge at max level." if cost is None else
@@ -1282,19 +1322,21 @@ def _build_forge_view(db, player, slot: str = "weapon", mode: str = "craft",
     buttons: list = []
     selects: list = [ForgeModeSelect(mode, forge.level)]
 
+    candidates = _forge_candidates(db, player) if mode != "craft" else []
+
     if mode == "craft":
         selects.append(ForgeSlotSelect(slot))
         for rarity in forge_config.craftable_rarities(forge.level):
             buttons.append(ForgeCraftButton(slot, rarity.value, label=f"🔨 Forge {rarity.value.title()}"))
     elif mode in ("salvage", "reforge"):
         selects.append(ForgeItemSelect(
-            mode, _forge_candidates(db, player),
+            mode, candidates,
             placeholder="Salvage which item..." if mode == "salvage" else "Reforge which item...",
         ))
     elif mode == "transfer":
         if source is None:
             selects.append(ForgeItemSelect(
-                "transfer", _forge_candidates(db, player),
+                "transfer", candidates,
                 placeholder="Take the ability FROM...",
             ))
         else:

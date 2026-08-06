@@ -147,6 +147,52 @@ def craft_item(db, player, slot: EquipmentSlot, rarity: Rarity,
 # Salvage
 # ----------------------------------------------------------------------
 
+# ----------------------------------------------------------------------
+# COST PREVIEWS.
+#
+# Craft showed its price; reforge, transfer and salvage did not, so three
+# of the Forge's four operations asked the player to commit before
+# telling them what it cost. These return exactly what the operation
+# would charge, using the SAME expressions the operations themselves
+# use -- if a preview and its operation can drift apart, the preview is
+# worse than nothing.
+# ----------------------------------------------------------------------
+
+def reforge_price(db, player, item: InventoryItem) -> tuple[int, dict]:
+    gold = _discounted(db, player, REFORGE_COST["gold"] * (item.rarity.sort_order + 1))
+    materials = split_materials(
+        _discounted(db, player, REFORGE_COST["materials"] * (item.rarity.sort_order + 1)),
+        item.rarity,
+    )
+    return gold, materials
+
+
+def transfer_price(db, player, source: InventoryItem, target: InventoryItem) -> tuple[int, dict]:
+    rarity = max(source.rarity, target.rarity, key=lambda r: r.sort_order)
+    gold = _discounted(db, player, TRANSFER_COST["gold"] * (rarity.sort_order + 1))
+    materials = split_materials(
+        _discounted(db, player, TRANSFER_COST["materials"] * (rarity.sort_order + 1)), rarity
+    )
+    return gold, materials
+
+
+def salvage_yield(item: InventoryItem) -> dict:
+    """Salvage COSTS nothing and RETURNS materials, so the preview is the
+    payout rather than a price."""
+    base = salvage_material_base(item.rarity)
+    return split_materials(
+        max(1, int(round(base * SALVAGE_RETURN_PERCENT / 100))), item.rarity
+    )
+
+
+def describe_cost(gold: int, materials: dict) -> str:
+    from bot.services.currency_service import format_currency
+
+    parts = [format_currency("gold", gold)]
+    parts += [format_currency(name, amount) for name, amount in materials.items() if amount]
+    return " · ".join(parts)
+
+
 def salvage_item(db, player, item: InventoryItem) -> dict[str, int]:
     """Break an item down for materials of its own rarity tier."""
     forge = get_or_create_forge(db, player)

@@ -10,7 +10,18 @@ from __future__ import annotations
 
 import random
 
-MITIGATION_K = 70
+# 45, down from 70.
+#
+# Reduction is defense/(defense+K), so a LOWER K makes defense -- and
+# every debuff that strips it -- matter more. At K=70 a 30% DEF shred
+# bought about 12% more damage, which is why "DEF shred" measured at 46%
+# of the crit-stack comp and nobody built it. At K=45 the same shred is
+# worth roughly twice that.
+#
+# This also makes enemy defense meaningful, which is the point: if
+# mitigation is negligible then the only thing worth buffing is your own
+# damage, and that is exactly the one-strategy problem.
+MITIGATION_K = 45
 
 
 def mitigate(raw_damage: float, defense: float) -> float:

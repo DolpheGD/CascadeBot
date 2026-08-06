@@ -488,3 +488,119 @@ where another read 0%), which is why the escort was removed on the finding
 both passes agreed on rather than tuned against a single reading. The
 partner squad is randomly sampled per seed, so small sample counts move a
 lot. Treat any single-fight percentage under ~50 samples as directional.
+
+
+## Sustain is mandatory now (measured)
+
+Players were dropping dedicated healers and shielders for healing GEAR.
+`tools/bench_healers.py` showed exactly why: a squad with **no Sustain at
+all** still won 46% of fights, so the class was optional and a trinket
+was a fine substitute.
+
+Two changes, both measured rather than guessed:
+
+**Enemies hit 1.5x harder** (`factory.ENEMY_ATTACK_MULTIPLIER`). A sweep
+across attack and HP multipliers found this is the shape where a Sustain
+stops being a preference: at 1.5x a no-Sustain squad wins **0%** while a
+squad with a healer or shielder still wins ~54%. Raising enemy HP instead
+did nothing useful -- every squad hit the 40-cycle stalemate and lost.
+
+**Healing scales off the HEALER now**, via two new effect kinds,
+`heal_from_stat` and `team_heal_from_stat`. Every heal used to be "% of
+the TARGET's max HP", which is precisely why gear could replace a healer:
+the person casting it changed nothing about the result.
+
+| healer | scales off |
+|---|---|
+| Lily Lovelace | max HP (25% single / 17% team) |
+| Aura | elemental |
+| Refender | defense |
+| Evz | percent (kept, as a gear-independent floor) |
+| Kotori | percent, sacrificial |
+
+**A calibration trap worth remembering.** DEF and ELE sit around 30-45 at
+level 70 while max HP is ~620, so a stat-scaling heal needs a percentage
+roughly 10-20x larger than a max-HP one to restore the same amount. The
+first pass used percentages that looked sane and healed 6% of a bar --
+Aura measured *worse than bringing nobody* (17% vs 46%). Corrected, she
+is 90%.
+
+**The whole region ladder was re-cut** after the attack change, because
+1.5x damage invalidated every difficulty number at a stroke (Glacier 15
+fell from 62% to 6% at squad 5). Offsets are now 3/1, 13/10, 16/12,
+26/19, 30/22. With gear, at the level each region is actually reached:
+Glacier 92%, Wastelands 80%, Hotlands 70%, Voidcrest 32%, Abyssnia 8%.
+
+### Healers brought up to shielders
+
+Shielders initially out-performed healers badly (53%/37% vs 3-20%),
+because a shield is PRE-EMPTIVE and a heal is REACTIVE -- burst kills
+before a heal can answer it. Raising every healer's output ~1.6x closed
+it, which means the gap was magnitude rather than shape:
+
+| Sustain | win% |
+|---|---|
+| NO Sustain | 7% |
+| Jofrog (shield) | 57% |
+| Evz (percent) | 53% |
+| Aura (ELE) | 47% |
+| Bee Jee (shield) | 43% |
+| Kotori (blood) | 40% |
+| Lily (max HP) | 37% |
+| Refender (DEF) | 27% |
+
+Two individual fixes fell out of the same measurement:
+
+* **Kotori** pays HP to heal, which was survivable before enemies hit
+  1.5x harder and afterwards had her killing herself to keep others up
+  (7%). Self-cost halved -- she still pays, the payment is no longer
+  lethal.
+* **Evz** measured at exactly the no-Sustain rate. Her ultimate was a
+  pure DEF buff: on the class contract, but it keeps nobody alive. It is
+  now a team heal with the brace riding on it, which also suits "a
+  trauma surgeon who traded scalpels for throttle levers".
+
+The region ladder was re-checked afterwards -- stronger healers move it
+too -- and The Wastelands went to 18/14 because at 13/10 it measured
+*easier* than Glacier 15 before it (98% vs 68%). With gear at the entry
+level: Glacier 60%, Wastelands 82%, Hotlands 60%, Voidcrest 68%,
+Abyssnia 12%.
+
+
+## The "crit dominance" was never crit
+
+One strategy -- three supports stacking buffs on one carry -- measured
+2.4x the damage of every alternative. It was called crit stacking, and
+crit buffs were nerfed twice with **no measurable effect**, because the
+diagnosis was wrong.
+
+Measured directly: applying the entire support package to Star moved his
+crit rate from **5% to 7%**. Crit BASE is 5 and buffs are a percentage of
+base, so a "+30% crit rate" buff is worth +1.5 points. His ATTACK went
+**68 -> 106**. The thing doing the work was always ATK, and every round
+spent tuning crit was spent on the wrong number.
+
+**Fix: diminishing returns on stacked positive buffs to the same stat**
+(`combatant.BUFF_STACK_FALLOFF = 0.65`). The Nth buff counts 100%, 65%,
+42%, 27%... so a second ATK buffer is still good, a third is marginal,
+and a fourth is a wasted slot. Chosen over a hard cap, which would make
+the second buffer worthless rather than merely weaker.
+
+Two exemptions, both load-bearing:
+
+* **Debuffs stack in full.** DEF shred is one of the strategies this is
+  meant to make competitive; taxing it here would undo the fix while
+  applying it.
+* **DEF and max HP are exempt.** The first version taxed them too and
+  knocked every Sustain down with the carry (Bee Jee 43% -> 13%, Kotori
+  40% -> 7%), undoing the healer work. The problem is stacked OFFENCE.
+
+Result: strategy spread **2.4x -> 1.6x**, with the alternatives moving
+from 42-45% of the best comp to 61-64%.
+
+### Caveat
+
+Overall player power is now lower than when the region ladder was last
+cut, and the geared clear rates have drifted (Hotlands ~38% at entry).
+The ladder wants one more compensating pass against the post-falloff
+numbers.

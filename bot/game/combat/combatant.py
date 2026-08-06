@@ -41,6 +41,50 @@ STAT_KEYS = [
 ULTIMATE_COOLDOWN = 2
 
 
+# Diminishing returns on STACKED POSITIVE buffs to the same stat.
+#
+# The measured problem: a squad running three supports who all buff ATK
+# was 2.2x the damage of every other strategy, and no amount of buffing
+# DoT/break/shred closed the gap, because those add damage while an ATK
+# buff MULTIPLIES it -- and three of them multiplied together.
+#
+# Worth recording that the original diagnosis was wrong. It was called
+# "crit stacking" for two rounds and crit buffs were nerfed twice with no
+# effect, because crit_rate BASE is 5 and buffs are a percentage OF base:
+# the entire support package moved Star's crit rate from 5% to 7%. The
+# thing doing the work was always ATK.
+#
+# So the Nth buff to one stat counts for less: 100%, 65%, 42%, 27%...
+# Bringing a second ATK buffer is still good, a third is marginal, and a
+# fourth is a wasted slot -- which is the point. Compare the alternative
+# of capping ATK outright, which would make the second buffer worthless
+# rather than merely weaker.
+#
+# DEBUFFS ARE EXEMPT and stack in full. Defence shred is one of the
+# strategies this is meant to make competitive, so taxing it here would
+# undo the fix while applying it.
+BUFF_STACK_FALLOFF = 0.65
+
+
+# DEFENSIVE stats are exempt. The problem being solved is stacked
+# OFFENSIVE buffs; taxing DEF and max HP as well knocked every Sustain
+# down with it (Bee Jee 43% -> 13%, Kotori 40% -> 7%) and undid the
+# healer work rather than the damage work.
+NO_FALLOFF_STATS = frozenset({"defense", "max_hp"})
+
+
+def _stacked_percent(percents: list[float], stat: str | None = None) -> float:
+    if stat in NO_FALLOFF_STATS:
+        return sum(percents)
+    positives = sorted((p for p in percents if p > 0), reverse=True)
+    negatives = [p for p in percents if p <= 0]
+    total = sum(negatives)
+    for index, value in enumerate(positives):
+        total += value * (BUFF_STACK_FALLOFF ** index)
+    return total
+
+
+
 @dataclass
 class Combatant:
     name: str
@@ -375,7 +419,9 @@ class Combatant:
         combat logs and UI (e.g. 143.79999999999998); nothing in this game
         needs sub-cent precision on a stat value."""
         base = self.base_stats.get(stat, 0)
-        percent_total = sum(m.percent for m in self.modifiers if m.stat == stat)
+        percent_total = _stacked_percent(
+            [m.percent for m in self.modifiers if m.stat == stat], stat
+        )
 
         if stat in ("attack", "elemental") and self.ramp_percent_per_turn and self.ramp_stacks:
             percent_total += self.ramp_percent_per_turn * self.ramp_stacks

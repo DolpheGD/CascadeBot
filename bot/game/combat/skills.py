@@ -188,7 +188,7 @@ CLASS_KIT_MAP: dict[CharacterClass, dict[str, dict]] = {
             "resource_type": "energy", "resource_cost": 50, "cooldown": ULTIMATE_COOLDOWN, "is_ultimate": True,
             "description": "Deal 140% ATK damage to all enemies and reduce each of their DEF by 20% for 2 turns.",
             "effect": {"kind": "aoe_damage_chance_debuff", "damage_percent": 140, "damage_stat": "attack",
-                       "debuff_chance_percent": 100, "debuff_stat": "defense", "debuff_percent": -20, "duration": 2},
+                       "debuff_chance_percent": 100, "debuff_stat": "defense", "debuff_percent": -35, "duration": 2},
         },
         "passive": {
             "id": "avatar_support_dps_passive", "name": "Steady Aim", "trigger": "on_turn_start",
@@ -338,18 +338,18 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     # --- 3-star ---
     "lily_lovelace_skill": _skill(
         "lily_lovelace_skill", "Hearty Meal", 18, 1,
-        "Heal the lowest-HP ally for 20% of their max HP.",
-        {"kind": "heal_lowest_ally_percent_max_hp", "percent": 20},
+        "Heal an ally for 25% of YOUR max HP.",
+        {"kind": "heal_from_stat", "stat": "max_hp", "percent": 40},
     ),
     "lily_lovelace_ultimate": _ultimate(
         "lily_lovelace_ultimate", "Feast for the Brave",
         "Heal the whole team for 22% of each member's max HP.",
-        {"kind": "team_heal_percent_max_hp", "percent": 22},
+        {"kind": "team_heal_from_stat", "stat": "max_hp", "percent": 27},
     ),
     "nexus_skill": _skill(
         "nexus_skill", "Trending Now", 20, 2,
         "Boost the whole team's Crit Rate by 30% for 3 turns.",
-        {"kind": "team_buff", "buff_stat": "crit_rate", "buff_percent": 30, "duration": 3},
+        {"kind": "team_buff", "buff_stat": "crit_rate", "buff_percent": 18, "duration": 3},
     ),
     "nexus_ultimate": _ultimate(
         "nexus_ultimate", "Gone Viral",
@@ -406,7 +406,7 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     "evz_skill": _skill(
         "evz_skill", "Bedside Manner", 18, 1,
         "Cleanse all negative effects from the lowest-HP ally and heal them for 20% of their max HP.",
-        {"kind": "cleanse_ally_and_heal", "heal_percent": 20},
+        {"kind": "cleanse_ally_and_heal", "heal_percent": 60},
     ),
     # SUSTAIN contract: this was an ATK buff -- an Amplifier's job on a
     # Sustain's ultimate. Kept the Blood-Sustain sacrifice identity
@@ -414,9 +414,16 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     # hard DEF wall for the whole squad, which is what "brace for an
     # emergency landing" should actually mean.
     "evz_ultimate": _ultimate(
+        # EVZ NOW ACTUALLY HEALS. Her kit was a cleanse on the skill and
+        # a pure DEF buff on the ultimate, which is on the Sustain class
+        # contract but keeps nobody alive -- she measured at 3%, exactly
+        # the same as bringing no Sustain at all. "A trauma surgeon who
+        # traded scalpels for throttle levers" should be the one who
+        # stabilises the whole team, so the ultimate is a team heal with
+        # the DEF brace riding on it.
         "evz_ultimate", "Emergency Landing",
-        "Sacrifice 20% of her own max HP to brace the whole team: +45% DEF for 3 turns.",
-        {"kind": "sacrifice_hp_team_buff", "self_cost_percent": 20,
+        "Heal the whole team for 30% of their max HP and brace them: +45% DEF for 3 turns.",
+        {"kind": "team_heal_and_buff", "heal_percent": 30,
          "buff_stat": "defense", "buff_percent": 45, "duration": 3},
     ),
     # AMPLIFIER contract: her skill was a pure resource restore with no
@@ -425,7 +432,7 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     "caandy_skill": _skill(
         "caandy_skill", "Visor Sync", 20, 2,
         "Feed the squad live targeting data: +32% Crit Rate for 3 turns, and restore 8 energy and 10 SP to each of them.",
-        {"kind": "team_buff_and_resource", "buff_stat": "crit_rate", "buff_percent": 32,
+        {"kind": "team_buff_and_resource", "buff_stat": "crit_rate", "buff_percent": 20,
          "duration": 3, "energy_amount": 8, "mana_amount": 10},
     ),
     "caandy_ultimate": _ultimate(
@@ -546,26 +553,38 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         # "Never in a hurry, never needs to be -- Star takes his time
         # lining up a swing." The kit now does what the bio always said.
         "star_skill", "Lazy Haymaker", 20, 1,
-        "Deal 130% ATK damage — or 300% if the target is still above 60% HP.",
-        {"kind": "damage_bonus_if_target_healthy", "damage_percent": 130,
-         "bonus_damage_percent": 170, "hp_threshold_percent": 60,
+        "Deal 90% ATK damage — or 160% if the target is still above 60% HP.",
+        # Lowered again: 130/300 -> 105/230. Star is the most accessible
+        # 4-star carry and was still topping the damage table outright,
+        # which made "pull Star, buff his crit" the answer to every
+        # question in the game.
+        # Third nerf, and this one is deliberate overcorrection: 105/230
+        # was still enough to delete a target outright once crit
+        # multipliers landed on top. A carry that can one-shot removes
+        # the fight, and a removed fight cannot be balanced around.
+        {"kind": "damage_bonus_if_target_healthy", "damage_percent": 90,
+         "bonus_damage_percent": 70, "hp_threshold_percent": 60,
          "damage_stat": "attack"},
     ),
     "star_ultimate": _ultimate(
         "star_ultimate", "One and Done",
-        "Deal 280% ATK damage to the target, or 450% if they're below 30% HP.",
-        {"kind": "execute_below_threshold", "damage_percent": 280, "execute_damage_percent": 450,
+        # THE ACTUAL ONE-SHOT WAS HERE. 450% on an execute, multiplied by
+        # a stacked crit build, deleted bosses from full-ish HP. The
+        # execute stays -- it's his identity -- but at a number that
+        # finishes a fight rather than skipping it.
+        "Deal 180% ATK damage to the target, or 260% if they're below 30% HP.",
+        {"kind": "execute_below_threshold", "damage_percent": 180, "execute_damage_percent": 260,
          "hp_threshold_percent": 30, "damage_stat": "attack"},
     ),
     "kotori_skill": _skill(
         "kotori_skill", "Vein Offering", 18, 1,
-        "Sacrifice 12% of your own max HP to heal the lowest-HP ally for 30% of their max HP.",
-        {"kind": "sacrifice_hp_heal_lowest_ally_percent_max_hp", "self_cost_percent": 12, "heal_percent": 30},
+        "Sacrifice 6% of your own max HP to heal the lowest-HP ally for 30% of their max HP.",
+        {"kind": "sacrifice_hp_heal_lowest_ally_percent_max_hp", "self_cost_percent": 6, "heal_percent": 75},
     ),
     "kotori_ultimate": _ultimate(
         "kotori_ultimate", "Crimson Devotion",
         "Sacrifice 20% of your own max HP to heal the whole team for 35% of each member's max HP.",
-        {"kind": "sacrifice_hp_heal_team_percent_max_hp", "self_cost_percent": 20, "heal_percent": 35},
+        {"kind": "sacrifice_hp_heal_team_percent_max_hp", "self_cost_percent": 10, "heal_percent": 80},
     ),
     # DEDICATED SHIELDER + TANK. Jofrog moved from AMPLIFIER to SUSTAIN
     # (see character_seed_data.py) -- "a former robotic bodyguard who
@@ -589,12 +608,12 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     "aura_skill": _skill(
         "aura_skill", "Field Dressing", 18, 1,
         "Cleanse all negative effects from the lowest-HP ally and heal them for 25% of their max HP.",
-        {"kind": "cleanse_ally_and_heal", "heal_percent": 25},
+        {"kind": "heal_from_stat", "stat": "elemental", "percent": 800},
     ),
     "aura_ultimate": _ultimate(
         "aura_ultimate", "Triage Surge",
         "Heal the whole team for 28% of each member's max HP.",
-        {"kind": "team_heal_percent_max_hp", "percent": 28},
+        {"kind": "team_heal_from_stat", "stat": "elemental", "percent": 530},
     ),
 
     # --- 5-star ---
@@ -624,7 +643,7 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     "refender_ultimate": _ultimate(
         "refender_ultimate", "Perfect Balance",
         "Heal the whole team for 24% of each member's max HP and raise their DEF by 35% for 3 turns.",
-        {"kind": "team_heal_and_buff", "heal_percent": 24,
+        {"kind": "team_heal_from_stat", "stat": "defense", "percent": 420,
          "buff_stat": "defense", "buff_percent": 35, "duration": 3},
     ),
     "dolphe_skill": _skill(
@@ -642,13 +661,13 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         "caliper_skill", "Twin Trigger Sweep", 22, 1,
         "Deal 80% ATK damage to all enemies, with a 50% chance to reduce each hit target's DEF by 20% for 2 turns.",
         {"kind": "aoe_damage_chance_debuff", "damage_percent": 80, "damage_stat": "attack",
-         "debuff_chance_percent": 50, "debuff_stat": "defense", "debuff_percent": -20, "duration": 2},
+         "debuff_chance_percent": 50, "debuff_stat": "defense", "debuff_percent": -35, "duration": 2},
     ),
     "caliper_ultimate": _ultimate(
         "caliper_ultimate", "Full Auto Barrage",
         "Deal 130% ATK damage to all enemies and reduce each of their DEF by 20% for 2 turns.",
         {"kind": "aoe_damage_chance_debuff", "damage_percent": 130, "damage_stat": "attack",
-         "debuff_chance_percent": 100, "debuff_stat": "defense", "debuff_percent": -20, "duration": 2},
+         "debuff_chance_percent": 100, "debuff_stat": "defense", "debuff_percent": -35, "duration": 2},
     ),
     # Nyrvite was the game's one energy-drain character. Drain is gone
     # (see bot/game/combat/effects.py for why), so her kit was rebuilt
@@ -979,7 +998,7 @@ CHARACTER_PASSIVE_MAP: dict[str, dict] = {
         "caliper_passive", "Dead Aim", "on_ultimate",
         "She only needs the line once: her ultimate leaves the squad with 25% Crit Rate for 3 turns.",
         {"kind": "kit_reaction", "event": "ultimate", "reward": "team_buff",
-         "buff_stat": "crit_rate", "buff_percent": 25, "duration": 3},
+         "buff_stat": "crit_rate", "buff_percent": 16, "duration": 3},
     ),
     "nyrvite_passive": _passive(
         "nyrvite_passive", "Ghost Protocol", "on_break",
