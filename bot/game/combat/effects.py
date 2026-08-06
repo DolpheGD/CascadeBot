@@ -544,6 +544,121 @@ def _apply_dot_vulnerability(target: Combatant, ability: dict, effect: dict, log
         f"damage-over-time on it deals +{total:g}% damage."
     )
 
+# ----------------------------------------------------------------------
+# GEAR TOPS YOU UP. A SUSTAIN HEALS YOU.
+# ----------------------------------------------------------------------
+# The reported problem: "healers become obsolete in favour of equipment."
+# Reproduced before touching anything -- over full expedition runs, a
+# squad with NO Sustain cleared Abyssnia as often as one with a Sustain,
+# and cleared The Hotlands more often.
+#
+# The reason is that gear's healing is the same SHAPE as a healer's and
+# needs no turn to use. Lifesteal, the regen auras and the trickle
+# shields are all percentages -- of damage dealt, or of the wearer's own
+# max HP -- so they scale perfectly with the player's HP and damage as
+# both grow. A Sustain has to spend a turn to heal; gear heals for free,
+# forever, on every character at once. Given that, dropping the healer
+# for a fourth damage slot is not a mistake by the player. It is correct
+# play, and the fix belongs in the numbers rather than in the advice.
+#
+# So passive restoration FROM GEAR is scaled down, while the identical
+# effect from a CHARACTER'S OWN KIT is untouched. Gear keeps its job --
+# it carries you between the healer's turns, and it is what a squad
+# leans on when the Sustain is on cooldown or dead -- but it can no
+# longer BE the healer. A Sustain's burst heal is roughly 25-40% of max
+# HP on demand; gear now trickles a fraction of that and cannot cover a
+# real hit.
+#
+# Deliberately NOT applied to damage_reduction or prevent_death: those
+# are mitigation and insurance, not healing, and they aren't what a
+# Sustain does. The narrow scope is the point -- this is meant to make
+# one class necessary, not to make defensive gear bad.
+GEAR_SUSTAIN_MULTIPLIER = 0.45
+
+
+def sustain_scale(passive: dict) -> float:
+    """1.0 for restoration that comes from a character's own kit,
+    GEAR_SUSTAIN_MULTIPLIER for the same effect coming off an item.
+
+    Gear passives are tagged with `source_item` when they're resolved
+    onto a Combatant (see factory._gear_abilities); character kit
+    passives are tagged source="character". Checked in that order so an
+    untagged passive -- an enemy's innate one, or anything constructed
+    in a test -- is treated as innate and unscaled."""
+    if passive.get("source") == "character":
+        return 1.0
+    if passive.get("source_item"):
+        return GEAR_SUSTAIN_MULTIPLIER
+    return 1.0
+
+
+# ----------------------------------------------------------------------
+# EXPOSED -- a debuffed target takes more damage from EVERYONE.
+# ----------------------------------------------------------------------
+# The Support DPS's problem was never that its numbers were small. It was
+# that its contribution and the Amplifier's were the same contribution:
+# both classes spend a turn to make the squad's damage bigger, and the
+# Amplifier also feeds the whole team energy while doing it. Given two
+# ways to buy the same thing, players correctly bought the one that came
+# with a free aura, and measured runs agreed -- swapping the Support DPS
+# for a second Amplifier was worth ~20 points of Abyssnia clear rate.
+#
+# Raising debuff magnitudes doesn't fix that; it just makes the redundant
+# option louder. The classes need different SHAPES:
+#
+#   Amplifier   -- makes MY side stronger. Multiplies with itself, which
+#                  is why it needs the shared budget capping it.
+#   Support DPS -- makes THAT TARGET weaker. Applies to every source of
+#                  damage the squad has, including DoTs and the Sustain's
+#                  chip, and is deliberately outside the budget.
+#
+# This is the rule that gives the second shape teeth: any combatant
+# currently under at least one stat debuff is EXPOSED and takes extra
+# damage from every attacker. The first debuff is worth the most; further
+# ones add less, so the answer to "how do I open a target up" is one
+# Support DPS rather than three.
+#
+# Written as a property of DEBUFFS, not of a class, on purpose. A hidden
+# "Support DPS units secretly deal more damage" rule would be invisible
+# in every tooltip in the game; "the enemy is debuffed, so it takes more
+# damage" is legible from the status icons the player is already looking
+# at. It applies to the enemy side too -- an enemy that debuffs a
+# character's DEF gets the same payoff against them -- which is what
+# keeps it a rule rather than a player bonus.
+# 30 for the first debuffed stat, halving for each stat after it, to a
+# ceiling of three. Sized against the thing it competes with: a squad's
+# fourth slot is a straight choice between a second attacker and the
+# character who opens targets up, and at a flat 18 the second attacker
+# was still ahead in the middle regions.
+#
+# The falloff exists for the same reason the amplification budget does,
+# and was added for the same measured reason. A flat rate per stat made
+# TWO Support DPS the best squad in Voidcrest -- between them they keep
+# DEF, ATK and SPD debuffs running and collected the full rate three
+# times over. Diminishing it means one Support DPS opens a target up
+# almost as well as two, so the class is a slot rather than a stack:
+#
+#     1 debuffed stat  +30%    2 stats  +45%    3 stats  +52%
+EXPOSED_DAMAGE_PERCENT = 30
+EXPOSED_STAT_FALLOFF = 0.5
+MAX_EXPOSED_DEBUFFS = 3
+
+
+def exposed_bonus_percent(defender: Combatant) -> float:
+    """Extra damage `defender` takes right now for being debuffed.
+
+    Counts DISTINCT debuffed stats rather than debuff instances, so
+    stacking three DEF shreds onto one target is one point of exposure,
+    not three -- otherwise this would reintroduce, on the debuff side,
+    exactly the stacking problem the amplification budget just solved.
+    """
+    stats = {m.stat for m in defender.modifiers if m.percent < 0}
+    return sum(
+        EXPOSED_DAMAGE_PERCENT * (EXPOSED_STAT_FALLOFF ** index)
+        for index in range(min(len(stats), MAX_EXPOSED_DEBUFFS))
+    )
+
+
 GUARD_DAMAGE_REDUCTION_PERCENT = 50
 # Energy banked when a guarded combatant is actually hit. Roughly a third
 # of an ultimate, so two well-read guards meaningfully accelerate one.
@@ -1679,11 +1794,16 @@ def _resolve_hit(attacker: Combatant, defender: Combatant, damage_percent: float
         for passive in attacker.find_passive("crit_damage_bonus"):
             raw *= 1 + passive["effect"]["percent"] / 100
 
-    damage = formulas.mitigate(raw, defender.effective_stat("defense"))
+    damage = formulas.mitigate(raw, defender.effective_stat("defense"),
+                               attacker_level=getattr(attacker, "level", None))
 
     vulnerability_percent = defender.total_vulnerability_percent(damage_stat)
     if vulnerability_percent:
         damage *= 1 + vulnerability_percent / 100
+
+    exposure = exposed_bonus_percent(defender)
+    if exposure:
+        damage *= 1 + exposure / 100
 
     for passive in defender.find_passive("damage_reduction"):
         damage *= 1 - passive["effect"]["percent"] / 100
@@ -1709,7 +1829,7 @@ def _resolve_hit(attacker: Combatant, defender: Combatant, damage_percent: float
         damage *= 1 - GUARD_DAMAGE_REDUCTION_PERCENT / 100
 
     if defender.shield > 0:
-        absorbed = min(damage, defender.shield)
+        absorbed = int(round(min(damage, defender.shield)))
         defender.shield -= absorbed
         damage -= absorbed
         if absorbed:
@@ -1759,7 +1879,9 @@ def _resolve_hit(attacker: Combatant, defender: Combatant, damage_percent: float
         trigger_kit_event(attacker, "break", log, allies=attacker_allies or [], target=defender)
 
     for passive in attacker.find_passive("lifesteal"):
-        healed = attacker.heal(dealt * passive["effect"]["percent"] / 100)
+        healed = attacker.heal(
+            dealt * passive["effect"]["percent"] / 100 * sustain_scale(passive)
+        )
         if healed:
             log.append(f"🩸 {attacker.name} drains {healed} HP.")
 
@@ -1870,7 +1992,8 @@ def trigger_on_turn_start(combatant: Combatant, log: list, allies: list[Combatan
             # after turn.
             cap = combatant.max_hp * effect.get("cap_percent", 50) / 100
             headroom_percent = max(0.0, (cap - combatant.shield) / max(1, combatant.max_hp) * 100)
-            gained = grant_shield(combatant, combatant, min(headroom_percent, effect["percent"]))
+            per_turn = effect["percent"] * sustain_scale(passive)
+            gained = grant_shield(combatant, combatant, min(headroom_percent, per_turn))
             if gained:
                 log.append(f"🔷 {combatant.name}'s {passive['name']} reinforces their shield (+{round(gained)}).")
 
@@ -1900,8 +2023,9 @@ def trigger_on_turn_start(combatant: Combatant, log: list, allies: list[Combatan
             # Support aura -- heals combatant AND its living allies a
             # percentage of their own max HP every turn, for free (no
             # resource cost, unlike the active team_regen_over_time).
+            per_turn = effect["percent"] * sustain_scale(passive)
             for member in [combatant] + [a for a in allies if a.is_alive()]:
-                healed = member.heal(member.max_hp * effect["percent"] / 100)
+                healed = member.heal(member.max_hp * per_turn / 100)
                 if healed:
                     log.append(f"💚 {member.name} is healed for {healed} HP by {combatant.name}'s {passive['name']}.")
 
@@ -1914,8 +2038,9 @@ def trigger_on_turn_start(combatant: Combatant, log: list, allies: list[Combatan
             paid = combatant.take_raw_hp_loss(self_cost)
             if paid:
                 log.append(f"🩸 {combatant.name}'s {passive['name']} costs them {paid} HP.")
+            per_turn = effect["percent"] * sustain_scale(passive)
             for member in [a for a in allies if a.is_alive()]:
-                healed = member.heal(member.max_hp * effect["percent"] / 100)
+                healed = member.heal(member.max_hp * per_turn / 100)
                 if healed:
                     log.append(f"💚 {member.name} is healed for {healed} HP by {combatant.name}'s {passive['name']}.")
             _trigger_on_low_hp(combatant, log)

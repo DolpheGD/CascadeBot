@@ -148,7 +148,7 @@ WEAPON_SKILLS: list[dict] = [
         "description": "Deal 175% ATK damage and reduce the target's ATK and DEF by 18% each for 2 turns.",
         "effect": {"kind": "damage_and_double_debuff", "damage_percent": 175, "damage_stat": "attack",
                    "debuff_stat_1": "attack", "debuff_percent_1": -18,
-                   "debuff_stat_2": "defense", "debuff_percent_2": -18, "duration": 2},
+                   "debuff_stat_2": "defense", "debuff_percent_2": -30, "duration": 2},
     },
 
     {
@@ -206,9 +206,9 @@ WEAPON_SKILLS: list[dict] = [
         "resource_cost": 30,
         "resource_type": "mana",
         "cooldown": 3,
-        "description": "Gain 40% ATK for 3 turns, but lose 15% DEF.",
+        "description": "Gain 40% ATK for 3 turns, but lose 28% DEF.",
         "effect": {"kind": "self_buff_debuff", "buff_stat": "attack", "buff_percent": 40,
-                   "debuff_stat": "defense", "debuff_percent": -15, "duration": 3},
+                   "debuff_stat": "defense", "debuff_percent": -28, "duration": 3},
     },
     {
         "id": "rending_cleave",
@@ -265,9 +265,9 @@ WEAPON_SKILLS: list[dict] = [
         "resource_cost": 18,
         "resource_type": "mana",
         "cooldown": 2,
-        "description": "Deal 110% ATK damage and reduce the target's DEF by 15% for 2 turns.",
+        "description": "Deal 110% ATK damage and reduce the target's DEF by 28% for 2 turns.",
         "effect": {"kind": "damage_and_debuff", "damage_percent": 110, "damage_stat": "attack",
-                   "debuff_stat": "defense", "debuff_percent": -15, "duration": 2},
+                   "debuff_stat": "defense", "debuff_percent": -28, "duration": 2},
     },
     {
         # unique -- reuses damage_multiplier but keys the hit off SPEED
@@ -320,9 +320,9 @@ WEAPON_SKILLS: list[dict] = [
         "resource_cost": 32,
         "resource_type": "mana",
         "cooldown": 3,
-        "description": "Deal 85% ATK damage to all enemies, with a 40% chance to reduce each hit target's DEF by 15% for 2 turns.",
+        "description": "Deal 85% ATK damage to all enemies, with a 40% chance to reduce each hit target's DEF by 28% for 2 turns.",
         "effect": {"kind": "aoe_damage_chance_debuff", "damage_percent": 85, "damage_stat": "attack",
-                   "debuff_chance_percent": 40, "debuff_stat": "defense", "debuff_percent": -15, "duration": 2},
+                   "debuff_chance_percent": 40, "debuff_stat": "defense", "debuff_percent": -28, "duration": 2},
     },
     {
         # unique -- new damage_and_double_debuff kind on the weapon side
@@ -337,7 +337,7 @@ WEAPON_SKILLS: list[dict] = [
         "description": "Deal 120% ATK damage and reduce the target's ATK and DEF by 15% each for 2 turns.",
         "effect": {"kind": "damage_and_double_debuff", "damage_percent": 120, "damage_stat": "attack",
                    "debuff_stat_1": "attack", "debuff_percent_1": -15,
-                   "debuff_stat_2": "defense", "debuff_percent_2": -15, "duration": 2},
+                   "debuff_stat_2": "defense", "debuff_percent_2": -28, "duration": 2},
     },
     {
         # unique -- new chance_double_hit kind: every swing has a flat
@@ -451,8 +451,8 @@ ARTIFACT_SKILLS: list[dict] = [
         "name": "Guardian Ward",
         "min_rarity": Rarity.UNCOMMON,
         "resource_cost": 18, "resource_type": "mana", "cooldown": 2,
-        "description": "Shield one ally for 22% of their max HP.",
-        "effect": {"kind": "shield_ally_percent_max_hp", "percent": 22},
+        "description": "Shield one ally for 13% of their max HP.",
+        "effect": {"kind": "shield_ally_percent_max_hp", "percent": 13},
     },
     {
         "id": "bulwark_chorus",
@@ -493,16 +493,16 @@ ARTIFACT_SKILLS: list[dict] = [
         "name": "Restoration Wave",
         "min_rarity": Rarity.RARE,
         "resource_cost": 24, "resource_type": "mana", "cooldown": 3,
-        "description": "Heal the whole squad for 14% of each member's max HP.",
-        "effect": {"kind": "team_heal_percent_max_hp", "percent": 14},
+        "description": "Heal the whole squad for 8% of each member's max HP.",
+        "effect": {"kind": "team_heal_percent_max_hp", "percent": 8},
     },
     {
         "id": "mending_tide",
         "name": "Mending Tide",
         "min_rarity": Rarity.EPIC,
         "resource_cost": 26, "resource_type": "mana", "cooldown": 3,
-        "description": "Heal the squad for 13% of max HP and raise their DEF by 20% for 3 turns.",
-        "effect": {"kind": "team_heal_and_buff", "heal_percent": 13,
+        "description": "Heal the squad for 8% of max HP and raise their DEF by 20% for 3 turns.",
+        "effect": {"kind": "team_heal_and_buff", "heal_percent": 8,
                    "buff_stat": "defense", "buff_percent": 20, "duration": 3},
     },
     {
@@ -536,8 +536,8 @@ ARTIFACT_SKILLS: list[dict] = [
         "name": "Sanctuary Bell",
         "min_rarity": Rarity.LEGENDARY,
         "resource_cost": 30, "resource_type": "mana", "cooldown": 4,
-        "description": "Shield the squad for 30% of max HP each and purge every negative effect from them.",
-        "effect": {"kind": "team_shield_and_cleanse", "shield_percent": 30},
+        "description": "Shield the squad for 18% of max HP each and purge every negative effect from them.",
+        "effect": {"kind": "team_shield_and_cleanse", "shield_percent": 18},
     },
     {
         "id": "iron_vigil",
@@ -556,8 +556,8 @@ ARTIFACT_SKILLS: list[dict] = [
         "resource_cost": 20,
         "resource_type": "mana",
         "cooldown": 3,
-        "description": "Restore 30% of max HP.",
-        "effect": {"kind": "heal_percent_max_hp", "percent": 30},
+        "description": "Restore 18% of max HP.",
+        "effect": {"kind": "heal_percent_max_hp", "percent": 18},
     },
     {
         "id": "arcane_burst",
@@ -576,9 +576,9 @@ ARTIFACT_SKILLS: list[dict] = [
         "resource_cost": 26,
         "resource_type": "mana",
         "cooldown": 2,
-        "description": "Deal 110% ELE damage and reduce the target's DEF by 25% for 2 turns.",
+        "description": "Deal 110% ELE damage and reduce the target's DEF by 38% for 2 turns.",
         "effect": {"kind": "damage_and_debuff", "damage_percent": 110, "damage_stat": "elemental",
-                   "debuff_stat": "defense", "debuff_percent": -25, "duration": 2},
+                   "debuff_stat": "defense", "debuff_percent": -38, "duration": 2},
     },
     {
         "id": "empowering_ritual",
@@ -698,8 +698,8 @@ ARTIFACT_SKILLS: list[dict] = [
         "resource_cost": 28,
         "resource_type": "mana",
         "cooldown": 4,
-        "description": "Clear all of your own negative effects and restore 25% max HP.",
-        "effect": {"kind": "cleanse_self_and_heal", "percent": 25},
+        "description": "Clear all of your own negative effects and restore 15% max HP.",
+        "effect": {"kind": "cleanse_self_and_heal", "percent": 15},
     },
     {
         "id": "combat_medic",
@@ -708,8 +708,8 @@ ARTIFACT_SKILLS: list[dict] = [
         "resource_cost": 22,
         "resource_type": "mana",
         "cooldown": 2,
-        "description": "Heal whoever on your side (including you) is lowest on HP% for 30% of their max HP.",
-        "effect": {"kind": "heal_lowest_ally_percent_max_hp", "percent": 30},
+        "description": "Heal whoever on your side (including you) is lowest on HP% for 18% of their max HP.",
+        "effect": {"kind": "heal_lowest_ally_percent_max_hp", "percent": 18},
     },
     {
         "id": "rousing_signal",
@@ -728,8 +728,8 @@ ARTIFACT_SKILLS: list[dict] = [
         "resource_cost": 26,
         "resource_type": "mana",
         "cooldown": 3,
-        "description": "Reduce the DEF of every enemy by 20% for 2 turns.",
-        "effect": {"kind": "team_debuff", "debuff_stat": "defense", "debuff_percent": -20, "duration": 2},
+        "description": "Reduce the DEF of every enemy by 32% for 2 turns.",
+        "effect": {"kind": "team_debuff", "debuff_stat": "defense", "debuff_percent": -32, "duration": 2},
     },
     {
         "id": "power_transfer",
@@ -748,8 +748,8 @@ ARTIFACT_SKILLS: list[dict] = [
         "resource_cost": 32,
         "resource_type": "mana",
         "cooldown": 5,
-        "description": "Your whole side regenerates 4% max HP at the start of each of their turns for 3 turns.",
-        "effect": {"kind": "team_regen_over_time", "percent_max_hp_per_turn": 4, "duration": 3},
+        "description": "Your whole side regenerates 2% max HP at the start of each of their turns for 3 turns.",
+        "effect": {"kind": "team_regen_over_time", "percent_max_hp_per_turn": 2, "duration": 3},
     },
     {
         # filler -- cheap Common-tier bolt, the artifact-side equivalent
@@ -800,8 +800,8 @@ ARTIFACT_SKILLS: list[dict] = [
         "resource_cost": 28,
         "resource_type": "mana",
         "cooldown": 4,
-        "description": "Raise a shield that absorbs damage equal to 35% of your max HP.",
-        "effect": {"kind": "self_shield_percent_max_hp", "percent": 35},
+        "description": "Raise a shield that absorbs damage equal to 21% of your max HP.",
+        "effect": {"kind": "self_shield_percent_max_hp", "percent": 21},
     },
     {
         # unique -- team version of Ionic Ward; a Support/Amplifier-style
@@ -812,8 +812,8 @@ ARTIFACT_SKILLS: list[dict] = [
         "resource_cost": 38,
         "resource_type": "mana",
         "cooldown": 5,
-        "description": "Shield your whole side, each member absorbing damage equal to 18% of their own max HP.",
-        "effect": {"kind": "team_shield_percent_max_hp", "percent": 18},
+        "description": "Shield your whole side, each member absorbing damage equal to 11% of their own max HP.",
+        "effect": {"kind": "team_shield_percent_max_hp", "percent": 11},
     },
     {
         # unique -- the artifact-side aoe_damage_chance_debuff (Support
@@ -853,8 +853,8 @@ ARTIFACT_SKILLS: list[dict] = [
         "resource_cost": 40,
         "resource_type": "mana",
         "cooldown": 5,
-        "description": "Heal your whole side for 19% of each member's own max HP.",
-        "effect": {"kind": "team_heal_percent_max_hp", "percent": 19},
+        "description": "Heal your whole side for 11% of each member's own max HP.",
+        "effect": {"kind": "team_heal_percent_max_hp", "percent": 11},
     },
     {
         # unique -- new ally_buff kind on gear: buffs whichever ally needs
@@ -891,8 +891,8 @@ ARTIFACT_SKILLS: list[dict] = [
         "resource_cost": 26,
         "resource_type": "mana",
         "cooldown": 3,
-        "description": "Cleanse all negative effects from whichever ally is lowest on HP% and heal them for 25% of their max HP.",
-        "effect": {"kind": "cleanse_ally_and_heal", "heal_percent": 25},
+        "description": "Cleanse all negative effects from whichever ally is lowest on HP% and heal them for 15% of their max HP.",
+        "effect": {"kind": "cleanse_ally_and_heal", "heal_percent": 15},
     },
     {
         # unique -- team_dot_amplify on gear. Was team_resource_drain
@@ -1014,8 +1014,8 @@ ARTIFACT_SKILLS: list[dict] = [
         "resource_cost": 46,
         "resource_type": "mana",
         "cooldown": 5,
-        "description": "Heal your whole side for 27% of each member's own max HP.",
-        "effect": {"kind": "team_heal_percent_max_hp", "percent": 27},
+        "description": "Heal your whole side for 16% of each member's own max HP.",
+        "effect": {"kind": "team_heal_percent_max_hp", "percent": 16},
     },
     {
         # unique -- brings apply_vulnerability_stack (previously only
@@ -1257,7 +1257,7 @@ ARMOR_PASSIVES: list[dict] = [
         "name": "Second Wind",
         "min_rarity": Rarity.EPIC,
         "trigger": "on_low_hp",
-        "description": "The first time HP drops below 25% in a fight, heal 20% of max HP.",
+        "description": "The first time HP drops below 1% in a fight, heal 20% of max HP.",
         "effect": {"kind": "heal_percent_max_hp", "percent": 20, "charges_per_combat": 1},
     },
     {

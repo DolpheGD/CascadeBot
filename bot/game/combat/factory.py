@@ -322,6 +322,7 @@ def build_character_combatant(player_character, equipped_items: list) -> Combata
         active_abilities=active_abilities,
         ultimate_ability=ultimate_ability,
         passive_abilities=passive_abilities,
+        level=getattr(player_character, "level", 1) or 1,
     )
 
 
@@ -480,7 +481,123 @@ def build_party_combatants(squad: list, equipped_items_by_character: dict,
 
 # How much harder every enemy hits. See the block inside
 # build_enemy_combatant for the measurement behind this number.
+#
+# This is the multiplier AT GLACIER DEPTH. Past that it climbs -- see
+# enemy_attack_multiplier().
 ENEMY_ATTACK_MULTIPLIER = 1.5
+
+# ----------------------------------------------------------------------
+# THE LATE GAME WAS THE EASIEST PART OF THE GAME
+# ----------------------------------------------------------------------
+# Reported from play: Abyssnia enemies doing ~20 damage to a 500 HP
+# character, while Glacier 15 felt right. Reproduced exactly in
+# simulation before touching anything, which is the only reason the
+# numbers below are trustworthy.
+#
+# Two compounding causes, and BOTH had to move:
+#
+#   1. Defence outscaled content. Fixed in formulas.mitigate -- see the
+#      block there. That alone took Abyssnia from ~20 to ~45.
+#
+#   2. Enemy ATTACK grows slower than player HP does. Template attack
+#      climbs on level_scale_percent (4-5%/level, and only a QUARTER of
+#      that for percent stats), while a player's HP climbs on level AND
+#      on gear that roughly doubles it again. Over a 48-level span the
+#      player wins that race comfortably.
+#
+# So the multiplier itself now grows with depth, anchored at Glacier:
+# a level-17 enemy is multiplied by exactly the old 1.5, and the curve
+# only bites past the region the player says is already correct.
+#
+# Deliberately applied to the MULTIPLIER rather than to template attack
+# values: retuning 100+ templates by hand would drift, and every one of
+# them is also used by the Abyss and by raids at levels the region
+# ladder never reaches. One curve keeps all three consistent.
+# RE-CUT AGAIN, because the curve was still losing the race.
+#
+# The first version of this fixed the direction but not the magnitude.
+# Enemy LEVELS are set by region (see region_config's level_offset), and
+# they run 3 at Glacier to 51 at Abyssnia -- so across the whole game an
+# enemy's attack multiplier moved 1.50 -> 2.57, about 1.7x. Over the same
+# span the squad goes level 8 -> 70 with Rare -> Divine gear, which is
+# closer to a 9x gain in effective HP. Enemies were still falling behind
+# by a factor of five; the earlier pass just made them fall behind more
+# slowly.
+#
+# That gap is what made the healer optional. If an enemy hit costs 4% of
+# a character's HP, no one needs a Sustain -- passive regen off a single
+# armour piece covers it, which is precisely the substitution players
+# found. A Sustain only earns its slot when a hit hurts enough that
+# spending a turn to undo it is worth the turn.
+#
+# At 0.046/level the multiplier reaches 2.88 at Voidcrest depth and 3.84
+# at Abyssnia depth: incoming damage as a share of party HP now stays
+# roughly flat from Glacier onward instead of falling away, which is all
+# this was ever supposed to do. The slope is set by where VOIDCREST
+# needs to land rather than where Abyssnia does -- a gentler slope put
+# the whole difficulty ramp in the last region and left the one before
+# it still soft enough that a support slot was optional there.
+#
+# GLACIER IS UNTOUCHED, BY CONSTRUCTION. Everything below the anchor
+# level returns exactly 1.5, and Glacier's enemies are level 2-3, so the
+# region the balance is judged against does not move by so much as a
+# point. The Wastelands (level 10-14) doesn't move either.
+ATTACK_SCALE_ANCHOR_LEVEL = 17
+ATTACK_SCALE_PER_LEVEL = 0.046
+ATTACK_SCALE_CAP = 3.6
+
+
+# ----------------------------------------------------------------------
+# ENEMY DEFENCE HAS TO SCALE TOO, OR THE DEBUFF ECONOMY IS FICTION
+# ----------------------------------------------------------------------
+# Mitigation is DEF / (DEF + K), and K scales with the ATTACKER'S level
+# (see formulas.mitigation_k) so that player defence can't outrun the
+# content. That fix has a mirror-image consequence nobody costed at the
+# time: the same rising K also erases ENEMY defence, because enemy DEF
+# does NOT rise anything like as fast as the party's level does.
+#
+# Measured at Abyssnia depth: a normal enemy has 31 DEF against a
+# level-70 party, whose K is 185. That is 14% mitigation. Stripping SIXTY
+# PERCENT of it -- the single biggest DEF shred in the game, Caliper's
+# ultimate -- moves the party's damage by about 9%.
+#
+# That number is the whole Support DPS class. Their kits are AOE hits
+# that shred DEF; if shredding DEF is worth 9% then the class is worth a
+# rounding error, which is exactly what the role benchmark kept saying:
+# a squad that swapped its Support DPS for a duplicate Amplifier cleared
+# the region more often even after the Amplifier stacking tax.
+#
+# So enemy DEF now climbs with depth on the same shape as enemy attack,
+# anchored at the same level so the early game is untouched by
+# construction. At Abyssnia depth a normal enemy carries roughly 4x the
+# defence it used to, which puts it back in the same league as the
+# attacker's K -- and puts DEF shred back to being worth a turn.
+#
+# The knock-on is intended, not incidental: enemies being genuinely
+# tanky is also what makes fights long enough for a Sustain to matter.
+# The two problems in the report -- "enemies don't hit as hard" and
+# "healers are obsolete" -- share this cause.
+DEFENSE_SCALE_ANCHOR_LEVEL = ATTACK_SCALE_ANCHOR_LEVEL
+DEFENSE_SCALE_PER_LEVEL = 0.065
+DEFENSE_SCALE_CAP = 4.5
+
+
+def enemy_defense_multiplier(level: int) -> float:
+    """Defence multiplier for an enemy of this level. Exactly 1.0 at and
+    below the anchor -- Glacier and The Wastelands do not move -- rising
+    to about 3.9x at Abyssnia depth and capped so the Abyss's level-95
+    chambers don't turn into damage sponges."""
+    above = max(0, int(level or 1) - DEFENSE_SCALE_ANCHOR_LEVEL)
+    return min(1 + DEFENSE_SCALE_PER_LEVEL * above, DEFENSE_SCALE_CAP)
+
+
+def enemy_attack_multiplier(level: int) -> float:
+    """Attack multiplier for an enemy of this level. 1.5 at Glacier
+    depth, rising to about 3.1x by the deepest Abyssnia floors, capped
+    so the Abyss's level-95 chambers don't run away with it."""
+    above = max(0, int(level or 1) - ATTACK_SCALE_ANCHOR_LEVEL)
+    grown = ENEMY_ATTACK_MULTIPLIER * (1 + ATTACK_SCALE_PER_LEVEL * above)
+    return min(grown, ENEMY_ATTACK_MULTIPLIER * ATTACK_SCALE_CAP)
 
 
 def build_enemy_combatant(template: dict, level: int = 1, hp_multiplier: float = 1.0) -> Combatant:
@@ -535,11 +652,14 @@ def build_enemy_combatant(template: dict, level: int = 1, hp_multiplier: float =
     # Applied here, to base_stats, so it lands on every enemy in every
     # mode at once and can't be forgotten for one of them. See
     # tools/bench_healers.py for the sweep this came from.
-    base_stats["attack"] = round(base_stats["attack"] * ENEMY_ATTACK_MULTIPLIER)
-    base_stats["elemental"] = round(base_stats["elemental"] * ENEMY_ATTACK_MULTIPLIER)
+    attack_multiplier = enemy_attack_multiplier(level)
+    base_stats["attack"] = round(base_stats["attack"] * attack_multiplier)
+    base_stats["elemental"] = round(base_stats["elemental"] * attack_multiplier)
 
     base_stats["defense"] = round(
-        base_stats["defense"] * DEFENSE_MULTIPLIER_BY_ROLE.get(role, 1.35)
+        base_stats["defense"]
+        * DEFENSE_MULTIPLIER_BY_ROLE.get(role, 1.35)
+        * enemy_defense_multiplier(level)
     )
 
     # Balance pass -- elites (and, to a lesser degree, normal enemies)
@@ -600,6 +720,7 @@ def build_enemy_combatant(template: dict, level: int = 1, hp_multiplier: float =
         energy=0,
         max_energy=50,
         active_abilities=[dict(a, source="enemy") for a in template.get("active_abilities", [])],
+        level=level,
         ultimate_ability=ultimate,
         passive_abilities=list(template.get("passive_abilities", [])),
         ramp_percent_per_turn=ramp_percent_per_turn,

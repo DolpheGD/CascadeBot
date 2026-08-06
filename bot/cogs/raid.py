@@ -296,7 +296,8 @@ class RaidCombatView(OwnedView):
         if battle is None:
             await responses.send(interaction, "You're not in a raid attack right now.", ephemeral=True)
             return
-        await responses.send(interaction, embed=embedder.battle_log_embed(battle), ephemeral=True)
+        embed, view = combat_ui.log_response(battle)
+        await responses.send(interaction, embed=embed, view=view, ephemeral=True)
 
     @discord.ui.button(label="🏳️ Retreat", style=discord.ButtonStyle.secondary, custom_id="cascade_raid_c_retreat", row=4)
     async def retreat_button(self, interaction: discord.Interaction, button: discord.ui.Button):

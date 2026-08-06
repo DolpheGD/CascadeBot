@@ -123,6 +123,17 @@ MAX_BATTLE_CYCLES = 40
 CYCLE_WARNING_THRESHOLD = 25
 
 
+def _trim(value: float) -> str:
+    """Format a number for the combat log: no trailing ".0" on whole
+    numbers, at most one decimal otherwise.
+
+    Combat is played in whole numbers -- damage, healing, shields and HP
+    are all integers -- so a stray "+6.0%" in the log looks like a bug
+    even when the value is right."""
+    value = round(float(value), 1)
+    return str(int(value)) if value == int(value) else str(value)
+
+
 class Battle:
     def __init__(self, party: list[Combatant], enemies: list[Combatant], rng: random.Random | None = None):
         if not 1 <= len(party) <= MAX_PARTY_SIZE:
@@ -367,7 +378,11 @@ class Battle:
         if combatant.ramp_percent_per_turn:
             combatant.ramp_stacks += 1
             if combatant.ramp_stacks % 5 == 0:
-                total_bonus = round(combatant.ramp_percent_per_turn * combatant.ramp_stacks, 1)
+                # round(x, 1) leaves a trailing ".0" on every whole
+                # number, which is most of them -- "+6.0% ATK" reads as
+                # a rounding artefact rather than a number somebody
+                # chose. Drop the decimal when there isn't one.
+                total_bonus = _trim(combatant.ramp_percent_per_turn * combatant.ramp_stacks)
                 self.log.append(
                     f"😤 {combatant.name} grows increasingly aggressive! (+{total_bonus}% ATK/ELE)"
                 )

@@ -262,7 +262,7 @@ AREAS: dict[str, dict] = {
         "blurb": "On fire at both ends. Only one end is passable.",
         "grid": [
             "#########",
-            "#@..d..a#",
+            "#@<.d..a#",
             "#.#####.#",
             "#c..m..E#",
             "#########",
@@ -299,6 +299,13 @@ AREAS: dict[str, dict] = {
                 "name": "Mech cradles",
                 "text": "Six cradles, five empty. The sixth holds a unit with its control cover prised off.\n\nSomebody changed what these things want. It wasn't the lab.",
             },
+            "<": {
+                "kind": "exit",
+                "emoji": "🔙",
+                "name": "Back to Sector 9 — Containment",
+                "to_area": "ocellios_cell",
+                "to": [1, 1],
+            },
         },
     },
 
@@ -309,7 +316,7 @@ AREAS: dict[str, dict] = {
         "grid": [
             "#######",
             "#L...k#",
-            "#..#..#",
+            "#<.#..#",
             "#@...E#",
             "#######",
         ],
@@ -335,6 +342,13 @@ AREAS: dict[str, dict] = {
                 "name": "Coat hook",
                 "text": "One coat, three sizes too big.\n\nYou take it. Nobody at Cascade ever asks where you got it.",
             },
+            "<": {
+                "kind": "exit",
+                "emoji": "🔙",
+                "name": "Back to Sector 9 — East Corridor",
+                "to_area": "ocellios_corridor",
+                "to": [1, 2],
+            },
         },
     },
 
@@ -345,7 +359,7 @@ AREAS: dict[str, dict] = {
         "grid": [
             "#########",
             "#@..B..t#",
-            "#.#####.#",
+            "#<#####.#",
             "#u..c..E#",
             "#########",
         ],
@@ -388,6 +402,13 @@ AREAS: dict[str, dict] = {
                 "name": "A roofline",
                 "text": "Something rectangular under the drift. A roof.\n\nYou are walking along the top of somebody's street.",
             },
+            "<": {
+                "kind": "exit",
+                "emoji": "🔙",
+                "name": "Back to Sector 9 — Staging",
+                "to_area": "ocellios_staging",
+                "to": [1, 3],
+            },
         },
     },
 
@@ -397,7 +418,7 @@ AREAS: dict[str, dict] = {
         "blurb": "Somebody up here has been watching you for a while.",
         "grid": [
             "#######",
-            "#@.N.e#",
+            "#@<N.e#",
             "#.###.#",
             "#h...E#",
             "#######",
@@ -430,6 +451,13 @@ AREAS: dict[str, dict] = {
                 "name": "Marker cairn",
                 "text": "Stones waist-high, a name plate wired to the top, no grave underneath.\n\nThere are more of these than there are loose stones.",
             },
+            "<": {
+                "kind": "exit",
+                "emoji": "🔙",
+                "name": "Back to The Shelf",
+                "to_area": "glacier_shelf",
+                "to": [1, 3],
+            },
         },
     },
 
@@ -440,7 +468,7 @@ AREAS: dict[str, dict] = {
         "grid": [
             "#########",
             "#@..a..j#",
-            "#.#####.#",
+            "#<#####.#",
             "#q..W..E#",
             "#########",
         ],
@@ -490,6 +518,13 @@ AREAS: dict[str, dict] = {
                 "name": "Ration wrapper",
                 "text": "Eight months past date and the best thing that has ever happened to you.",
             },
+            "<": {
+                "kind": "exit",
+                "emoji": "🔙",
+                "name": "Back to The Ridge",
+                "to_area": "glacier_ridge",
+                "to": [1, 1],
+            },
         },
     },
 
@@ -500,7 +535,7 @@ AREAS: dict[str, dict] = {
         "grid": [
             "#######",
             "#V...b#",
-            "#..#..#",
+            "#<.#..#",
             "#@z..E#",
             "#######",
         ],
@@ -537,6 +572,13 @@ AREAS: dict[str, dict] = {
                     "reroll_tokens": 4,
                 },
             },
+            "<": {
+                "kind": "exit",
+                "emoji": "🔙",
+                "name": "Back to The Drift Line",
+                "to_area": "glacier_drift",
+                "to": [1, 3],
+            },
         },
     },
 
@@ -547,7 +589,7 @@ AREAS: dict[str, dict] = {
         "grid": [
             "#########",
             "#@..M..m#",
-            "#.#####.#",
+            "#<#####.#",
             "#p..T..E#",
             "#########",
         ],
@@ -587,6 +629,13 @@ AREAS: dict[str, dict] = {
                 "name": "The press plate",
                 "text": "One column. Four hundred and six names in eight-point type.\n\nIt is the only decoration in the building.",
             },
+            "<": {
+                "kind": "exit",
+                "emoji": "🔙",
+                "name": "Back to The Workshop",
+                "to_area": "cascade_workshop",
+                "to": [1, 3],
+            },
         },
     },
 
@@ -598,7 +647,7 @@ AREAS: dict[str, dict] = {
         "grid": [
             "#######",
             "#J...m#",
-            "#..#..#",
+            "#<.#..#",
             "#@..kE#",
             "#######",
         ],
@@ -635,6 +684,13 @@ AREAS: dict[str, dict] = {
                 "name": "Floodlights",
                 "text": "Every light lit, at noon, on a decommissioned site.\n\nJosh stands under one for a while. He was told for two years this place was dark.",
             },
+            "<": {
+                "kind": "exit",
+                "emoji": "🔙",
+                "name": "Back to Operations",
+                "to_area": "cascade_ops",
+                "to": [1, 3],
+            },
         },
     },
 
@@ -645,8 +701,8 @@ AREAS: dict[str, dict] = {
         "grid": [
             "#########",
             "#@..s..d#",
-            "#.#####.#",
-            "#y..C..E#",
+            "#<#####.#",
+            "#y..C.ME#",
             "#########",
         ],
         "legend": {
@@ -692,6 +748,19 @@ AREAS: dict[str, dict] = {
                     "item": "rare",
                 },
             },
+            "<": {
+                "kind": "exit",
+                "emoji": "🔙",
+                "name": "Back to The Divide — Cascade Camp",
+                "to_area": "divide_camp",
+                "to": [1, 3],
+            },
+            "M": {
+                "kind": "mission",
+                "emoji": "🗣",
+                "name": "The long table",
+                "mission": "c1m2b_the_argument",
+            },
         },
     },
 
@@ -702,7 +771,7 @@ AREAS: dict[str, dict] = {
         "grid": [
             "#######",
             "#F...w#",
-            "#..#..#",
+            "#<.#..#",
             "#@..bE#",
             "#######",
         ],
@@ -739,6 +808,13 @@ AREAS: dict[str, dict] = {
                     "item": "rare",
                 },
             },
+            "<": {
+                "kind": "exit",
+                "emoji": "🔙",
+                "name": "Back to The Divide — Fence Line",
+                "to_area": "divide_fence",
+                "to": [1, 3],
+            },
         },
     },
 
@@ -749,7 +825,7 @@ AREAS: dict[str, dict] = {
         "grid": [
             "#########",
             "#@..c..G#",
-            "#.#####.#",
+            "#<#####.#",
             "#a..L..E#",
             "#########",
         ],
@@ -787,6 +863,13 @@ AREAS: dict[str, dict] = {
                 "name": "The canteen",
                 "text": "Cups set down mid-conversation, in pairs and fours, frozen solid.\n\nThis room was not evacuated. It was *left*.",
             },
+            "<": {
+                "kind": "exit",
+                "emoji": "🔙",
+                "name": "Back to The Cold Workshop",
+                "to_area": "divide_shed",
+                "to": [1, 3],
+            },
         },
     },
 
@@ -797,8 +880,8 @@ AREAS: dict[str, dict] = {
         "grid": [
             "#######",
             "#@..z.#",
-            "#.###.#",
-            "#w..SX#",
+            "#<###.#",
+            "#w.MSX#",
             "#######",
         ],
         "legend": {
@@ -840,6 +923,19 @@ AREAS: dict[str, dict] = {
                     "item": "epic",
                 },
             },
+            "<": {
+                "kind": "exit",
+                "emoji": "🔙",
+                "name": "Back to Glacier 15 — Atrium",
+                "to_area": "outpost_atrium",
+                "to": [1, 3],
+            },
+            "M": {
+                "kind": "mission",
+                "emoji": "🪜",
+                "name": "The step outside",
+                "mission": "c1m6_what_josh_owes",
+            },
         },
     },
 
@@ -850,7 +946,7 @@ AREAS: dict[str, dict] = {
         "grid": [
             "#########",
             "#@..F..s#",
-            "#.#####.#",
+            "#<#####.#",
             "#k..P..E#",
             "#########",
         ],
@@ -895,6 +991,13 @@ AREAS: dict[str, dict] = {
                     "reroll_tokens": 6,
                 },
             },
+            "<": {
+                "kind": "exit",
+                "emoji": "🔙",
+                "name": "Back to Glacier 15 — Stairhead",
+                "to_area": "outpost_stairhead",
+                "to": [1, 3],
+            },
         },
     },
 
@@ -905,7 +1008,7 @@ AREAS: dict[str, dict] = {
         "grid": [
             "#######",
             "#C...a#",
-            "#..#..#",
+            "#<.#..#",
             "#@..fE#",
             "#######",
         ],
@@ -942,6 +1045,13 @@ AREAS: dict[str, dict] = {
                     "item": "epic",
                 },
             },
+            "<": {
+                "kind": "exit",
+                "emoji": "🔙",
+                "name": "Back to The Line — The Picket",
+                "to_area": "wastelands_picket",
+                "to": [1, 3],
+            },
         },
     },
 
@@ -952,8 +1062,8 @@ AREAS: dict[str, dict] = {
         "grid": [
             "#########",
             "#@..e..j#",
-            "#.#####.#",
-            "#Y..M..K#",
+            "#<#####.#",
+            "#Y..MGNK#",
             "#########",
         ],
         "legend": {
@@ -999,6 +1109,221 @@ AREAS: dict[str, dict] = {
                     "xendium": 50,
                     "item": "epic",
                 },
+            },
+            "<": {
+                "kind": "exit",
+                "emoji": "🔙",
+                "name": "Back to The Underside — Chary's Table",
+                "to_area": "entrospire_tables",
+                "to": [1, 3],
+            },
+            "N": {
+                "kind": "mission",
+                "emoji": "📒",
+                "name": "The yard ledger",
+                "mission": "c2m6_the_count",
+            },
+            "G": {
+                "kind": "exit",
+                "emoji": "\U0001f6aa",
+                "name": "The north gate",
+                "to_area": "deadlands_crossing",
+                "to": [1, 1],
+                "requires_mission": "c2m6_the_count",
+                "locked_text": (
+                    "The key fits. Finish here first -- the ledger is still open "
+                    "on the crate and nobody has said the number out loud yet."
+                ),
+            },
+        },
+    },
+
+
+    # ==================================================================
+    # CHAPTER 3 -- north of the gate.
+    #
+    # Both earlier chapters ended pointing at a gate that opened onto
+    # nothing, which is the worst possible place for a story to stop:
+    # the player has the key in their pocket and the door goes nowhere.
+    #
+    # Three rooms, deliberately: the crossing, the camp, and the room
+    # where the count happens. Small and linear on purpose -- this is
+    # the chapter where the story arrives somewhere, and a maze would be
+    # the wrong shape for an arrival.
+    # ==================================================================
+
+    "deadlands_crossing": {
+        "name": "The Crossing",
+        "region": "The Deadlands",
+        "blurb": "North of the gate the ground stops agreeing to be ground.",
+        "grid": [
+            "#########",
+            "#@..b..c#",
+            "#.#####.#",
+            "#<..A..E#",
+            "#########",
+        ],
+        "legend": {
+            "A": {
+                "kind": "mission",
+                "emoji": "\U0001f9ed",
+                "name": "The rope line",
+                "mission": "c3m1_north_of_the_gate",
+            },
+            "b": {
+                "kind": "note",
+                "emoji": "\U0001f573",
+                "name": "A hole that is not a hole",
+                "text": (
+                    "It is perfectly circular and it does not have a bottom, and when "
+                    "Virtual drops a bolt into it there is no sound at all — not a "
+                    "delayed sound. No sound.\n\n"
+                    "*She writes down the time anyway. She writes down the time for "
+                    "everything out here.*"
+                ),
+            },
+            "c": {
+                "kind": "cache",
+                "emoji": "\U0001f6f7",
+                "name": "A surveyor's kit",
+                "text": (
+                    "Xender-issue, two years old, dropped mid-measurement. The tripod is "
+                    "still standing. Whoever set it up walked away from a job they were "
+                    "halfway through and did not come back for the kit."
+                ),
+                "grant": {"gold": 2200, "permafrost_ore": 120, "item": "epic"},
+            },
+            "E": {
+                "kind": "exit",
+                "emoji": "\U0001f6aa",
+                "name": "The rise",
+                "to_area": "glacier_camp",
+                "to": [1, 1],
+                "requires_mission": "c3m1_north_of_the_gate",
+                "locked_text": (
+                    "Not until the rope line is anchored. Nobody crosses that on a guess."
+                ),
+            },
+            "<": {
+                "kind": "exit",
+                "emoji": "\U0001f519",
+                "name": "Back to the Freight Yard",
+                "to_area": "entrospire_yard",
+                "to": [5, 3],
+            },
+        },
+    },
+
+    "glacier_camp": {
+        "name": "The Camp",
+        "region": "Glacier 15",
+        "blurb": "Eleven shelters. Somebody has been maintaining all eleven.",
+        "grid": [
+            "#########",
+            "#@..d..B#",
+            "#.#####.#",
+            "#<..e..E#",
+            "#########",
+        ],
+        "legend": {
+            "B": {
+                "kind": "mission",
+                "emoji": "\U0001f3d5",
+                "name": "The shelters",
+                "mission": "c3m2_eleven_shelters",
+            },
+            "d": {
+                "kind": "note",
+                "emoji": "\U0001f4cf",
+                "name": "The doorframe",
+                "text": (
+                    "Scratches at four heights, the topmost recent.\n\n"
+                    "One line is labelled, in a careful adult hand: **the boy — 9**.\n\n"
+                    "Above it, unlabelled, two more."
+                ),
+            },
+            "e": {
+                "kind": "cache",
+                "emoji": "\U0001f9f0",
+                "name": "A boot, repaired",
+                "text": (
+                    "Left outside a shelter, sole stitched back on with wire, done badly "
+                    "and then done again properly on top of the bad job.\n\n"
+                    "It is not Josh's size. Somebody else needed it more, and somebody "
+                    "kept practising."
+                ),
+                "grant": {"gold": 2600, "shards": 220, "crystal": 90, "item": "epic"},
+            },
+            "E": {
+                "kind": "exit",
+                "emoji": "\U0001f6aa",
+                "name": "The counting house",
+                "to_area": "glacier_countinghouse",
+                "to": [1, 1],
+                "requires_mission": "c3m2_eleven_shelters",
+                "locked_text": "Look at the shelters first. All eleven of them.",
+            },
+            "<": {
+                "kind": "exit",
+                "emoji": "\U0001f519",
+                "name": "Back to The Crossing",
+                "to_area": "deadlands_crossing",
+                "to": [1, 1],
+            },
+        },
+    },
+
+    "glacier_countinghouse": {
+        "name": "The Counting House",
+        "region": "Glacier 15",
+        "blurb": "The only building with the lights on, and they have been on for two years.",
+        "grid": [
+            "#########",
+            "#@..f..C#",
+            "#.#####.#",
+            "#<..g..D#",
+            "#########",
+        ],
+        "legend": {
+            "C": {
+                "kind": "mission",
+                "emoji": "\U0001f4d2",
+                "name": "The ledger room",
+                "mission": "c3m3_the_auditor",
+            },
+            "D": {
+                "kind": "mission",
+                "emoji": "\U0001f56f",
+                "name": "The morning count",
+                "mission": "c3m4_the_number",
+            },
+            "f": {
+                "kind": "note",
+                "emoji": "\U0001f4a1",
+                "name": "The lights",
+                "text": (
+                    "Mains power. Out here. Running for two years to light one room "
+                    "nobody was supposed to find.\n\n"
+                    "*Virtual, flatly: \"That's not hiding. That's an office.\"*"
+                ),
+            },
+            "g": {
+                "kind": "note",
+                "emoji": "\U0001f5c3",
+                "name": "Filed correspondence",
+                "text": (
+                    "Two years of letters, all outbound, none sent. Every one is a "
+                    "polite refusal addressed to a different newsroom, a different "
+                    "relief office, a different survey board.\n\n"
+                    "They are drafts of the replies Josh got."
+                ),
+            },
+            "<": {
+                "kind": "exit",
+                "emoji": "\U0001f519",
+                "name": "Back to The Camp",
+                "to_area": "glacier_camp",
+                "to": [1, 1],
             },
         },
     },

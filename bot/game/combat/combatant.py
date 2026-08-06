@@ -41,7 +41,11 @@ STAT_KEYS = [
 ULTIMATE_COOLDOWN = 2
 
 
-# Diminishing returns on STACKED POSITIVE buffs to the same stat.
+# ----------------------------------------------------------------------
+# THE SHARED AMPLIFICATION BUDGET
+# ----------------------------------------------------------------------
+# Diminishing returns on STACKED POSITIVE buffs -- across every offensive
+# stat at once, not one stat at a time.
 #
 # The measured problem: a squad running three supports who all buff ATK
 # was 2.2x the damage of every other strategy, and no amount of buffing
@@ -54,16 +58,58 @@ ULTIMATE_COOLDOWN = 2
 # the entire support package moved Star's crit rate from 5% to 7%. The
 # thing doing the work was always ATK.
 #
-# So the Nth buff to one stat counts for less: 100%, 65%, 42%, 27%...
-# Bringing a second ATK buffer is still good, a third is marginal, and a
-# fourth is a wasted slot -- which is the point. Compare the alternative
-# of capping ATK outright, which would make the second buffer worthless
-# rather than merely weaker.
+# THE FALLOFF USED TO BE PER-STAT, AND THAT WAS THE LOOPHOLE.
 #
-# DEBUFFS ARE EXEMPT and stack in full. Defence shred is one of the
-# strategies this is meant to make competitive, so taxing it here would
-# undo the fix while applying it.
-BUFF_STACK_FALLOFF = 0.65
+# Taxing the Nth buff to ONE stat only taxes Amplifiers who happen to
+# buff the same thing. The roster's Amplifiers buff ATK, ELE, Crit Rate,
+# Crit DMG, SPD and recharge -- six different stats -- so three of them
+# in one squad landed three untaxed multipliers on the carry and simply
+# multiplied out. Measured over full expedition runs, "3 Amplifiers + 1
+# DPS" beat "one of each role" in every region, and "no Amplifier" was
+# the worst squad in the game by a distance. The class wasn't strong;
+# STACKING the class was strong, which is a different bug and needs a
+# different fix.
+#
+# So the budget is now shared. Every positive buff to any offensive stat
+# competes for the same falloff ladder, ranked by SOURCE:
+#
+#     1st source: 100%    2nd: 45%    3rd: 20%    4th: 9%
+#
+# Ranked by source rather than by individual modifier so that ONE ability
+# buffing two stats at once (team_double_buff -- Nexus's ultimate, the
+# avatar Amplifier's Overdrive) is one entry on the ladder and lands in
+# full. That is the deliberate reward for a well-designed single kit, and
+# it is exactly what stacking three separate Amplifiers no longer gets.
+# Re-applying the SAME buff to the SAME stat still steps down the ladder,
+# so spamming one Amplifier's skill can't dodge the rule either.
+#
+# Note what this does NOT touch, all on purpose:
+#   * DEBUFFS stack in full (see below). DEF shred, vulnerability marks
+#     and break are the Support DPS's multiplier, and they are now the
+#     only untaxed one in the game -- which is what makes that class a
+#     slot rather than a flavour.
+#   * DEFENSIVE buffs are exempt (NO_FALLOFF_STATS), so Sustains stay
+#     whole.
+#   * A character's own ramping passives (stacking_buff, ramp_percent)
+#     are not StatModifiers and never enter the ladder, so a DPS still
+#     snowballs its own damage at full value.
+#
+# 0.45, not the 0.65 this started at. At 0.65 the second Amplifier still
+# beat the Support DPS for the same slot in the deepest region (52% vs
+# 40% clear rate over rotated squads), which is the original bug in
+# miniature -- doubling up on one support class was still the play. The
+# steeper ladder is paired with a matching rise in Amplifier magnitudes
+# (skills.py's AMPLIFIER_BUFF_MULTIPLIER), so the FIRST Amplifier is
+# unchanged by the two moves together and only the stacking is taxed.
+BUFF_STACK_FALLOFF = 0.45
+
+# The stats that compete for the shared budget above: everything a buff
+# can touch that makes the squad hit HARDER. Kept as an explicit set
+# rather than "not NO_FALLOFF_STATS" so that adding a new stat to the
+# game is a deliberate decision about which side of the line it sits on.
+AMPLIFICATION_STATS = frozenset({
+    "attack", "elemental", "crit_rate", "crit_damage", "speed", "recharge",
+})
 
 
 # DEFENSIVE stats are exempt. The problem being solved is stacked
@@ -72,8 +118,29 @@ BUFF_STACK_FALLOFF = 0.65
 # healer work rather than the damage work.
 NO_FALLOFF_STATS = frozenset({"defense", "max_hp"})
 
+# STATS THAT ARE ALREADY MEASURED IN PERCENTAGE POINTS.
+#
+# crit_rate 5 means "5% of hits crit"; crit_damage 50 means "+50% damage
+# on a crit"; recharge 20 means "+20% energy gain". They are not
+# magnitudes like ATK -- they ARE percentages.
+#
+# So a buff reading "+30% Crit Rate" has to ADD 30 points, not multiply
+# the existing value by 1.30. Multiplying was what the code did, and on
+# a 5-point base it delivered 5 -> 6.5: an advertised +30% that was
+# worth +1.5% in practice, and which got BETTER the more crit you
+# already had -- the exact opposite of how every player reads it. It
+# also made crit buffs nearly worthless early and quietly strong late.
+#
+# Everything else stays multiplicative, which is right: +30% ATK on 200
+# ATK should be +60, not +30.
+ADDITIVE_POINT_STATS = frozenset({"crit_rate", "crit_damage", "recharge"})
+
 
 def _stacked_percent(percents: list[float], stat: str | None = None) -> float:
+    """Same-stat falloff, kept for callers that only have a bare list of
+    percentages (serialisation round-trips, tests, tooling). The live
+    combat path uses amplified_percent below, which sees every modifier
+    at once and can therefore apply the SHARED budget."""
     if stat in NO_FALLOFF_STATS:
         return sum(percents)
     positives = sorted((p for p in percents if p > 0), reverse=True)
@@ -81,6 +148,47 @@ def _stacked_percent(percents: list[float], stat: str | None = None) -> float:
     total = sum(negatives)
     for index, value in enumerate(positives):
         total += value * (BUFF_STACK_FALLOFF ** index)
+    return total
+
+
+def amplified_percent(modifiers: list, stat: str) -> float:
+    """Total percent modification to `stat`, after the shared
+    amplification budget described above.
+
+    `modifiers` is the owner's WHOLE StatModifier list, not just the
+    entries for `stat` -- seeing all of them at once is the entire point,
+    since the budget is shared across stats.
+    """
+    negatives = sum(m.percent for m in modifiers
+                    if m.stat == stat and m.percent <= 0)
+
+    if stat in NO_FALLOFF_STATS:
+        return negatives + sum(m.percent for m in modifiers
+                               if m.stat == stat and m.percent > 0)
+
+    # Group every positive OFFENSIVE buff by the ability that applied it.
+    by_source: dict[str, list] = {}
+    for modifier in modifiers:
+        if modifier.percent > 0 and modifier.stat in AMPLIFICATION_STATS:
+            by_source.setdefault(modifier.source, []).append(modifier)
+
+    # Biggest contributor takes rank 0 (the untaxed slot). Sorting
+    # player-favourably is a deliberate choice: the ladder is meant to
+    # cap how much total amplification a squad can hold, not to punish
+    # the player for the order their turns happened to come up in.
+    order = sorted(by_source, key=lambda src: -max(m.percent for m in by_source[src]))
+
+    total = negatives
+    for rank, source in enumerate(order):
+        # Within one source, buffs to DIFFERENT stats share the rank
+        # (one ability, one slot on the ladder); a repeat buff to the
+        # SAME stat steps down, so re-casting can't dodge the budget.
+        seen: dict[str, int] = {}
+        for modifier in sorted(by_source[source], key=lambda m: -m.percent):
+            duplicate = seen.get(modifier.stat, 0)
+            seen[modifier.stat] = duplicate + 1
+            if modifier.stat == stat:
+                total += modifier.percent * (BUFF_STACK_FALLOFF ** (rank + duplicate))
     return total
 
 
@@ -146,6 +254,11 @@ class Combatant:
     # once and popping from the front makes every telegraphed move
     # binding, however far ahead it was shown.
     pending_intents: list = field(default_factory=list)
+
+    # The level this combatant was built at. Feeds the defence formula
+    # (see formulas.mitigation_k): mitigation has to know how strong the
+    # ATTACKER is, or defence quietly outscales the whole game.
+    level: int = 1
 
     # ENEMY-ONLY sustain decay counters. See heal() / gain_shield().
     # Named for what they are so a save file is readable; they stay 0 for
@@ -285,7 +398,11 @@ class Combatant:
     # does (see self_shield_percent_max_hp / team_shield_percent_max_hp /
     # shield_regen in bot/game/combat/effects.py). Consumed first, in full
     # or in part, on every hit; never expires on its own -- it just runs out.
-    shield: float = 0.0
+    # INT, not float. The shield pool is displayed next to HP and is
+    # spent in whole points of damage, so it has no business carrying
+    # a fractional part -- every call site was already round()-ing it
+    # for display, which is the tell that the type was wrong.
+    shield: int = 0
 
     # Cycle-based turn order (see battle.py): every living combatant gets
     # exactly one action per cycle by default, ordered fastest-to-slowest,
@@ -425,9 +542,7 @@ class Combatant:
         combat logs and UI (e.g. 143.79999999999998); nothing in this game
         needs sub-cent precision on a stat value."""
         base = self.base_stats.get(stat, 0)
-        percent_total = _stacked_percent(
-            [m.percent for m in self.modifiers if m.stat == stat], stat
-        )
+        percent_total = amplified_percent(self.modifiers, stat)
 
         if stat in ("attack", "elemental") and self.ramp_percent_per_turn and self.ramp_stacks:
             percent_total += self.ramp_percent_per_turn * self.ramp_stacks
@@ -438,7 +553,11 @@ class Combatant:
                 stacks = self.stacks.get(ability["id"], 0)
                 percent_total += effect["percent_per_stack"] * stacks
 
-        value = max(0.0, base * (1 + percent_total / 100))
+        # POINT STATS ARE ADDITIVE. See ADDITIVE_POINT_STATS.
+        if stat in ADDITIVE_POINT_STATS:
+            value = max(0.0, base + percent_total)
+        else:
+            value = max(0.0, base * (1 + percent_total / 100))
 
         # Stat conversion: gain a percentage of one stat as another (e.g.
         # Refender turning DEF into ATK). Added AFTER percent modifiers so
@@ -454,7 +573,10 @@ class Combatant:
                 continue
             src = effect["from_stat"]
             src_base = self.base_stats.get(src, 0)
-            src_percent = sum(m.percent for m in self.modifiers if m.stat == src)
+            # Budgeted, like every other read of a buffed stat -- summing
+            # raw here would have made stat_conversion a way to launder
+            # stacked buffs past the falloff ladder.
+            src_percent = amplified_percent(self.modifiers, src)
             src_value = max(0.0, src_base * (1 + src_percent / 100))
             value += src_value * effect["percent"] / 100
 
@@ -481,8 +603,12 @@ class Combatant:
         than 20 copies of `current_hp = min(max_hp, current_hp + n)`
         scattered through the effect dispatcher, and it's where the
         overheal clamp lives."""
+        # ROUNDED AFTER the falloff, not before. Rounding first and then
+        # multiplying by 0.45 puts the fraction straight back (1000 ->
+        # 450.0 -> 202.5), which is how "202.5 HP restored" reached the
+        # combat log. HP is a whole number everywhere else in the game.
+        amount = self._enemy_sustain_falloff(max(0.0, amount), "heal")
         amount = max(0, int(round(amount)))
-        amount = self._enemy_sustain_falloff(amount, "heal")
         healed = min(self.max_hp - self.current_hp, amount)
         self.current_hp += healed
         return healed
@@ -529,7 +655,12 @@ class Combatant:
         """Adds to this combatant's shield pool -- sibling choke point to
         heal(), and likewise no longer scaled. Returns the amount added so
         callers can log the real number."""
+        # Same rounding rule as heal(): the shield pool is displayed as a
+        # number beside HP, so it has to BE a number. This never rounded
+        # at all, so a 15%-of-max-HP shield on an odd HP total produced
+        # trailing decimals that then accumulated across every stack.
         amount = self._enemy_sustain_falloff(max(0.0, amount), "shield")
+        amount = max(0, int(round(amount)))
         self.shield += amount
         return amount
 

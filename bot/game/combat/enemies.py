@@ -669,6 +669,11 @@ ENEMY_TEMPLATES: list[dict] = [
         # rooms actually vary.
         "name": "Permafrost Guardian",
         "role": "elite",
+        # Chapter 1's closing fight, and it measured at 6.5% of a
+        # squad's health against 24.2% for the trash three missions
+        # earlier. Two actions a cycle puts the capstone above the
+        # corridor, which is the whole point of a capstone.
+        "actions_per_cycle": 2,
         "regions": ['Glacier 15'],
         "base_stats": {
             "attack": 13, "defense": 24, "elemental": 12, "speed": 6,
@@ -2438,6 +2443,18 @@ ENEMY_TEMPLATES: list[dict] = [
         # 100% for any squad that turns up: it is a lesson, not a wall.
         "name": "The Lector of Ledgers",
         "role": "boss",
+        # TWO ACTIONS A CYCLE. Measured: solo at one action it cost a
+        # level-appropriate squad 8.9% of its health and ended in 4.4
+        # cycles -- the SHORTEST and CHEAPEST fight in its own chapter,
+        # after trash encounters that cost 22-26%. A climax that is
+        # easier than the corridor leading to it isn't a climax.
+        #
+        # Acting twice rather than hitting harder is the right lever for
+        # THIS boss specifically: its damage is damage-over-time, so a
+        # bigger number per hit does nothing to the shape of the fight,
+        # while a second action means a second stack of rot landing
+        # every cycle. Same identity, twice the pressure.
+        "actions_per_cycle": 2,
         "base_stats": {
             "attack": 22, "defense": 14, "elemental": 26, "speed": 10,
             "max_hp": 560, "max_mana": 999, "crit_rate": 10, "crit_damage": 160, "recharge": 24,
@@ -2458,6 +2475,13 @@ ENEMY_TEMPLATES: list[dict] = [
         # acting on the turn it winds up rather than eating the hit.
         "name": "The Auditor",
         "role": "elite",
+        # Two actions a cycle, for the same reason the Lector and the
+        # Permafrost Guardian got them: it headlines Chapter 3, and a
+        # single-action elite is measurably gentler than three ordinary
+        # bodies no matter what level it is written at. Solo at level 26
+        # it cost a level-appropriate squad 8.5%; the chapter before it
+        # ends at 45%.
+        "actions_per_cycle": 2,
         "base_stats": {
             "attack": 24, "defense": 17, "elemental": 12, "speed": 16,
             "max_hp": 250, "max_mana": 999, "crit_rate": 15, "crit_damage": 175, "recharge": 24,

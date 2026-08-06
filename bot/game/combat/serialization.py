@@ -32,6 +32,7 @@ def combatant_to_dict(c: Combatant) -> dict:
         "current_hp": c.current_hp,
         "max_hp": c.max_hp,
         "character_id": c.character_id,
+        "level": c.level,
         "character_class": c.character_class,
         "short_name": c.short_name,
         "mana": c.mana,
@@ -97,6 +98,7 @@ def combatant_from_dict(data: dict) -> Combatant:
         current_hp=data["current_hp"],
         max_hp=data["max_hp"],
         character_id=data.get("character_id"),
+        level=data.get("level", 1),
         character_class=data.get("character_class"),
         # Absent on saves from before short names existed -- an empty
         # string just means "use the full name", which is what those

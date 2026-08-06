@@ -24,7 +24,7 @@ from bot.database.session import SessionLocal
 from bot.game.abyss import abyss_config as ac
 from bot.game.combat.battle import Battle
 from bot.game.combat.enemies import get_template_by_name
-from bot.game.combat.factory import build_enemy_combatant, build_party_combatants
+from bot.game.combat.factory import build_enemy_combatant
 from bot.game.combat.serialization import battle_from_dict, battle_to_dict
 from bot.services import abyss_service, character_service, combat_service
 from bot.services.player_service import get_player
@@ -263,10 +263,12 @@ def _open_battle(db, player):
     else:
         owned = {pc.id: pc for pc in character_service.list_owned_characters(db, player)}
         squad = [owned[cid] for cid in chamber["team"] if cid in owned]
-        equipped = character_service.get_equipped_items_by_character(db, [c.id for c in squad])
-        party = build_party_combatants(squad, equipped)
-        for member in party:
-            member.current_hp = member.max_hp
+        # Same builder as every other mode, with the chamber's team
+        # passed in -- the Abyss is the one place that doesn't fight
+        # with the active squad. Previously built inline, so shrine
+        # bonuses were missing here too.
+        party = combat_service.build_player_party(
+            db, player, full_hp=True, squad=squad)
         enemies = [build_enemy_combatant(get_template_by_name(n), chamber["floor"]["level"])
                    for n in chamber["enemies"]]
         battle = Battle(party, enemies)

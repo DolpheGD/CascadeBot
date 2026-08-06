@@ -33,6 +33,17 @@ import sys
 
 BEAT_KINDS = {"dialogue", "choice", "battle", "encounter", "reward", "unlock"}
 
+# Beat keys whose value is shown to the player as prose. Every one of
+# them must be a STRING.
+#
+# This exists because of a one-character bug: a trailing comma after a
+# parenthesised multi-line string makes it a TUPLE, and Python is
+# perfectly happy with that. The beat still loads, every other check
+# still passes, and the player is shown ("Twenty-four volumes...",) --
+# brackets, quotes and all. Invisible in a diff, invisible at import,
+# and only visible on the one screen it ruins.
+TEXT_KEYS = ("text", "intro", "prompt", "on_win", "on_lose", "summary", "label")
+
 
 def _check_maps() -> list[str]:
     """Validate every overworld area.
@@ -344,6 +355,143 @@ def _check_maps() -> list[str]:
     return failures
 
 
+def _check_chapter_climaxes(failures: list[str]) -> list[tuple[str, str, float]]:
+    """A chapter's LAST fight must be its hardest.
+
+    This was not true of either written chapter, and it was invisible
+    from the data: Chapter 2's boss sat at level 12 after two missions
+    at 14 and 16, and Chapter 1's capstone at 11 after a level-4 pack of
+    three. Level alone doesn't reveal it either -- a solo boss at a
+    higher level can still be gentler than three mobs at a lower one,
+    because three bodies act three times a cycle and one acts once.
+
+    So difficulty is MEASURED, by simulating each fight against a
+    level-appropriate squad and recording the share of the squad's
+    health it costs. Measured that way, both chapters ended on their
+    easiest encounter: 8.9% for Chapter 2's boss against 22-26% for the
+    trash leading to it.
+
+    Cheap to compute and worth the seconds: a chapter that ends on its
+    easiest fight has no payoff, and nothing else in this file could
+    ever have told you so.
+    """
+    import random
+
+    from bot.game.combat.battle import Battle
+    from bot.game.combat.combatant import Combatant
+    from bot.game.combat.enemies import get_template_by_name
+    from bot.game.combat.factory import build_enemy_combatant
+    from bot.game.story import story_config as sc
+
+    def squad(level: int) -> list:
+        hp = 150 + level * 22
+        return [
+            Combatant(
+                name=f"P{i}", is_player=True,
+                base_stats={"attack": 18 + level * 4, "defense": 14 + level * 3,
+                            "speed": 90, "elemental": 18 + level * 4,
+                            "crit_rate": 10, "crit_damage": 60, "recharge": 20,
+                            "max_hp": hp},
+                current_hp=hp, max_hp=hp, character_id=i + 1, level=level,
+            )
+            for i in range(4)
+        ]
+
+    def cost(enemies: list[str], level: int, squad_level: int, seeds: int = 24) -> float:
+        losses = []
+        for seed in range(seeds):
+            party = squad(squad_level)
+            total = sum(m.max_hp for m in party)
+            built = [build_enemy_combatant(get_template_by_name(n), level) for n in enemies]
+            battle = Battle(party, built, rng=random.Random(seed))
+            for _ in range(200):
+                if battle.is_over():
+                    break
+                if battle.current_actor() in battle.party:
+                    battle.take_party_action("attack")
+                else:
+                    battle.take_enemy_turn()
+            standing = sum(max(0, m.current_hp) for m in battle.party)
+            losses.append((total - standing) / total * 100)
+        return sum(losses) / len(losses)
+
+    measured: list[tuple[str, str, float]] = []
+    for chapter in sc.CHAPTERS:
+        fights = [
+            (mission["name"], beat)
+            for mission in chapter["missions"]
+            for beat in mission.get("beats", [])
+            if beat.get("kind") == "battle"
+        ]
+        if len(fights) < 2:
+            continue
+        # Squad level the chapter is played at, approximated from the
+        # levels its own encounters are authored to.
+        #
+        # The MEAN, not the max. Using the max meant one deliberately
+        # steep capstone dragged the assumed squad down and made every
+        # other fight in the chapter look harder than it plays -- the
+        # prologue, whose fights are levels 2, 3 and 10, was being
+        # measured against a level-4 squad that no prologue player has.
+        levels = [b.get("level", 1) for _, b in fights]
+        squad_level = max(3, round(sum(levels) / len(levels)))
+        scored = [
+            (name, b, cost(b["enemies"], b.get("level", 1), squad_level))
+            for name, b in fights
+        ]
+        for name, _b, value in scored:
+            measured.append((chapter["name"], name, value))
+
+        hardest = max(scored, key=lambda row: row[2])
+        finale = scored[-1]
+        if finale[2] < hardest[2] - 1e-9:
+            failures.append(
+                f"'{chapter['name']}' ends on '{finale[0]}' costing {finale[2]:.0f}% of "
+                f"the squad's health, but '{hardest[0]}' earlier in the chapter costs "
+                f"{hardest[2]:.0f}% -- the chapter's climax is easier than its corridor"
+            )
+    return measured
+
+
+def _check_map_is_navigable(failures: list[str]) -> tuple[int, int]:
+    """Every room must be REACHABLE and LEAVABLE in both directions.
+
+    The map was a one-way linked list: 15 of 16 rooms had exactly one
+    exit, forward, and the last had none. You could not walk back to a
+    cache you'd skipped, re-read a note, or revisit a room whose meaning
+    changed once you knew something -- and a map you can only ever move
+    forward through is a corridor with extra steps, not a place.
+
+    So: every room except the first has a way back to the room that
+    leads to it. That's the minimum for the grid to be worth having.
+    """
+    from bot.game.story import map_config as mc
+
+    forward: dict[str, list[str]] = {}
+    for area_id, area in mc.AREAS.items():
+        forward[area_id] = [
+            content["to_area"]
+            for content in (area.get("legend") or {}).values()
+            if content.get("kind") == "exit" and content.get("to_area")
+        ]
+
+    one_way = 0
+    for area_id, destinations in forward.items():
+        for destination in destinations:
+            if destination not in mc.AREAS:
+                failures.append(f"area '{area_id}' exits to unknown area '{destination}'")
+                continue
+            if area_id not in forward.get(destination, []):
+                failures.append(
+                    f"'{area_id}' -> '{destination}' is ONE-WAY: once the player walks "
+                    f"through, they can never return to '{area_id}'"
+                )
+                one_way += 1
+
+    links = sum(len(v) for v in forward.values())
+    return links, one_way
+
+
 def main() -> int:
     from bot.database.models.enums import Rarity
     from bot.game.characters.character_seed_data import CHARACTER_TEMPLATES
@@ -356,6 +504,34 @@ def main() -> int:
     rarities = {r.value for r in Rarity}
     failures: list[str] = []
 
+    for _mission in sc.all_missions():
+        for _key in ("summary",):
+            if _mission.get(_key) is not None and not isinstance(_mission[_key], str):
+                failures.append(
+                    f"mission '{_mission['id']}' {_key} is a "
+                    f"{type(_mission[_key]).__name__}, not a string -- a trailing comma "
+                    f"after a parenthesised string makes it a tuple"
+                )
+        for _beat in _mission.get("beats", []):
+            for _key in TEXT_KEYS:
+                _value = _beat.get(_key)
+                if _value is not None and not isinstance(_value, str):
+                    failures.append(
+                        f"mission '{_mission['id']}' {_beat.get('kind')} beat: {_key} is a "
+                        f"{type(_value).__name__}, not a string -- a trailing comma after "
+                        f"a parenthesised string makes it a tuple"
+                    )
+            for _option in _beat.get("options", []) or []:
+                for _key in TEXT_KEYS:
+                    _value = _option.get(_key)
+                    if _value is not None and not isinstance(_value, str):
+                        failures.append(
+                            f"mission '{_mission['id']}' option '{_option.get('id')}': "
+                            f"{_key} is a {type(_value).__name__}, not a string"
+                        )
+
+    map_links, _one_way = _check_map_is_navigable(failures)
+    climax = _check_chapter_climaxes(failures)
     missions = sc.all_missions()
     ids = [m["id"] for m in missions]
     for duplicate in {i for i in ids if ids.count(i) > 1}:
@@ -463,6 +639,17 @@ def main() -> int:
 
     gated = [f for f in sc.FEATURES if sc.feature_unlocked_by(f)]
     print(f"chapters : {len(sc.CHAPTERS)}")
+    from bot.game.story import map_config as _mc
+    print(f"map      : {len(_mc.AREAS)} rooms, {map_links} exits "
+          f"({map_links / max(1, len(_mc.AREAS)):.1f} per room, all two-way)")
+    if climax:
+        print("fights   : cost to a level-appropriate squad, in % of its health")
+        last_chapter = None
+        for chapter_name, fight_name, value in climax:
+            if chapter_name != last_chapter:
+                print(f"           {chapter_name}")
+                last_chapter = chapter_name
+            print(f"             {fight_name[:30]:32}{value:>5.0f}%")
     print(f"missions : {len(missions)}")
     print(f"beats    : {sum(len(m['beats']) for m in missions)}")
     print(f"flags    : {len(written_flags)} written ({', '.join(sorted(written_flags)) or 'none'})")

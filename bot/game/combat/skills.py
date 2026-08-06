@@ -137,6 +137,8 @@ bot/game/combat/factory.py resolves all three into a built Combatant.
 
 from __future__ import annotations
 
+import re
+
 from bot.database.models.enums import CharacterClass
 from bot.game.combat.combatant import ULTIMATE_COOLDOWN
 
@@ -179,16 +181,19 @@ CLASS_KIT_MAP: dict[CharacterClass, dict[str, dict]] = {
         "skill": {
             "id": "avatar_support_dps_skill", "name": "Suppressing Fire",
             "resource_type": "mana", "resource_cost": 20, "cooldown": 1,
-            "description": "Deal 90% ATK damage to all enemies, with a 50% chance to reduce each hit target's DEF by 15% for 2 turns.",
+            # Text said 15% / 20% while the effects did 28% / 48% -- stale
+            # from an earlier retune, same as the Amplifier ultimate
+            # above, and invisible for the same reason.
+            "description": "Deal 90% ATK damage to all enemies, with a 50% chance to reduce each hit target's DEF by 28% for 2 turns.",
             "effect": {"kind": "aoe_damage_chance_debuff", "damage_percent": 90, "damage_stat": "attack",
-                       "debuff_chance_percent": 50, "debuff_stat": "defense", "debuff_percent": -15, "duration": 2},
+                       "debuff_chance_percent": 50, "debuff_stat": "defense", "debuff_percent": -28, "duration": 2},
         },
         "ultimate": {
             "id": "avatar_support_dps_ultimate", "name": "Coordinated Barrage",
             "resource_type": "energy", "resource_cost": 50, "cooldown": ULTIMATE_COOLDOWN, "is_ultimate": True,
-            "description": "Deal 140% ATK damage to all enemies and reduce each of their DEF by 20% for 2 turns.",
+            "description": "Deal 140% ATK damage to all enemies and reduce each of their DEF by 48% for 2 turns.",
             "effect": {"kind": "aoe_damage_chance_debuff", "damage_percent": 140, "damage_stat": "attack",
-                       "debuff_chance_percent": 100, "debuff_stat": "defense", "debuff_percent": -35, "duration": 2},
+                       "debuff_chance_percent": 100, "debuff_stat": "defense", "debuff_percent": -48, "duration": 2},
         },
         "passive": {
             "id": "avatar_support_dps_passive", "name": "Steady Aim", "trigger": "on_turn_start",
@@ -209,7 +214,10 @@ CLASS_KIT_MAP: dict[CharacterClass, dict[str, dict]] = {
             # Buffs BOTH offensive stats so the avatar Amplifier is a
             # universal fit for either an ATK squad or an ELE squad -- it's
             # the one Amplifier a player can't choose not to have.
-            "description": "Boost the whole team's ATK and ELE by 45% for 3 turns.",
+            # Text said 45% for 3 turns while the effect did 75% for 4 --
+            # stale from an earlier retune. check_descriptions.py doesn't
+            # walk the avatar class kits, so nothing caught it.
+            "description": "Boost the whole team's ATK and ELE by 75% for 4 turns.",
             "effect": {"kind": "team_double_buff", "buff_stat_1": "attack", "buff_percent_1": 75,
                        "buff_stat_2": "elemental", "buff_percent_2": 75, "duration": 4},
         },
@@ -338,36 +346,36 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     # --- 3-star ---
     "lily_lovelace_skill": _skill(
         "lily_lovelace_skill", "Hearty Meal", 18, 1,
-        "Heal an ally for 25% of YOUR max HP.",
-        {"kind": "heal_from_stat", "stat": "max_hp", "percent": 40},
+        "Heal an ally for 55% of LILY'S max HP. Build her tanky and she heals for more.",
+        {"kind": "heal_from_stat", "stat": "max_hp", "percent": 55},
     ),
     "lily_lovelace_ultimate": _ultimate(
         "lily_lovelace_ultimate", "Feast for the Brave",
-        "Heal the whole team for 22% of each member's max HP.",
-        {"kind": "team_heal_from_stat", "stat": "max_hp", "percent": 27},
+        "Heal the whole team for 38% of LILY'S max HP each.",
+        {"kind": "team_heal_from_stat", "stat": "max_hp", "percent": 38},
     ),
     "nexus_skill": _skill(
         "nexus_skill", "Trending Now", 20, 2,
-        "Boost the whole team's Crit Rate by 30% for 3 turns.",
+        "Boost the whole team's Crit Rate by 18% for 3 turns.",
         {"kind": "team_buff", "buff_stat": "crit_rate", "buff_percent": 18, "duration": 3},
     ),
     "nexus_ultimate": _ultimate(
         "nexus_ultimate", "Gone Viral",
-        "Boost the whole team's Crit Rate by 30% and Crit DMG by 35% for 3 turns.",
+        "Boost the whole team's Crit Rate by 55 points and Crit DMG by 60 points for 4 turns.",
         {"kind": "team_double_buff", "buff_stat_1": "crit_rate", "buff_percent_1": 55,
          "buff_stat_2": "crit_damage", "buff_percent_2": 60, "duration": 4},
     ),
     "fax_skill": _skill(
         "fax_skill", "Wide Strafing Run", 18, 1,
-        "Deal 70% ATK damage to all enemies, with a 40% chance to reduce each hit target's DEF by 15% for 2 turns.",
+        "Deal 70% ATK damage to all enemies, with a 40% chance to reduce each hit target's DEF by 28% for 2 turns.",
         {"kind": "aoe_damage_chance_debuff", "damage_percent": 70, "damage_stat": "attack",
-         "debuff_chance_percent": 40, "debuff_stat": "defense", "debuff_percent": -15, "duration": 2},
+         "debuff_chance_percent": 40, "debuff_stat": "defense", "debuff_percent": -28, "duration": 2},
     ),
     "fax_ultimate": _ultimate(
         "fax_ultimate", "Cargo Bomb Run",
-        "Deal 100% ATK damage to all enemies and reduce each of their DEF by 15% for 2 turns.",
+        "Deal 100% ATK damage to all enemies and reduce each of their DEF by 28% for 2 turns.",
         {"kind": "aoe_damage_chance_debuff", "damage_percent": 100, "damage_stat": "attack",
-         "debuff_chance_percent": 100, "debuff_stat": "defense", "debuff_percent": -15, "duration": 2},
+         "debuff_chance_percent": 100, "debuff_stat": "defense", "debuff_percent": -28, "duration": 2},
     ),
     # ELEMENTAL scaling (see the elemental-scaling pass in this module's
     # docstring). His bio is literally "channeling elemental energy
@@ -379,34 +387,48 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     # match.
     "arkiver_skill": _skill(
         "arkiver_skill", "Twin Fang Strike", 18, 1,
-        "Deal 110% ELE damage, or 280% ELE damage if the target is already weakened by a debuff.",
-        # Bonus raised from +90 to +170. The condition was already right
-        # -- it just wasn't worth building around, which is the same
-        # failure as having no condition at all.
-        {"kind": "damage_bonus_if_debuffed", "damage_percent": 110,
-         "bonus_damage_percent": 170, "damage_stat": "elemental"},
+        "Deal 95% ELE damage, or 200% ELE damage if the target is already weakened by a debuff.",
+        # Bonus was +170 (110/280). That overshot: Arkiver ended up the
+        # highest-damage character in the game while ALSO having the
+        # easiest condition to satisfy -- any debuff at all, from any
+        # source, including ones his own team applies for free. The
+        # conditional is kept and still generous; it just no longer
+        # pays more than characters whose conditions are hard.
+        {"kind": "damage_bonus_if_debuffed", "damage_percent": 95,
+         "bonus_damage_percent": 105, "damage_stat": "elemental"},
     ),
     "arkiver_ultimate": _ultimate(
         "arkiver_ultimate", "Elemental Fury",
-        "Deal 380% ELE damage to the target.",
-        {"kind": "damage_multiplier", "damage_percent": 380, "damage_stat": "elemental"},
+        "Deal 290% ELE damage to the target.",
+        {"kind": "damage_multiplier", "damage_percent": 290, "damage_stat": "elemental"},
     ),
     "slikrz_skill": _skill(
         "slikrz_skill", "Blank Stare", 18, 1,
-        "Deal 70% ATK damage to all enemies, with a 40% chance to inflict a bleed on each hit target for 12% ATK per turn over 3 turns.",
+        "Deal 70% ATK damage to all enemies, with a 70% chance to inflict a bleed on each hit target for 24% ATK per turn over 4 turns.",
         {"kind": "aoe_damage_chance_dot", "damage_percent": 70, "damage_stat": "attack",
-         "dot_chance_percent": 40, "dot_stat": "attack", "dot_percent": 12, "duration": 3},
+         "dot_chance_percent": 70, "dot_stat": "attack", "dot_percent": 24, "duration": 4},
     ),
     "slikrz_ultimate": _ultimate(
         "slikrz_ultimate", "Flatline Frenzy",
-        "Deal 100% ATK damage to all enemies and inflict a bleed on each of them for 15% ATK per turn over 3 turns.",
-        {"kind": "aoe_damage_chance_dot", "damage_percent": 100, "damage_stat": "attack",
-         "dot_chance_percent": 100, "dot_stat": "attack", "dot_percent": 15, "duration": 3},
+        "Mark every enemy: all damage-over-time on them hits 70% harder, stacking up to 3 times.",
+        # SLIKRZ IS NOW A DoT AMPLIFIER, not a second DoT applier.
+        #
+        # team_dot_amplify existed in the engine and NO character used it
+        # -- it was reachable only from an artifact nobody was guaranteed
+        # to own. So "build around damage over time" had appliers
+        # (Blueflame, Slikrz, the bleed weapons) and nothing to multiply
+        # them with, which is why DoT read as a worse direct-damage
+        # build. A second applier adds arithmetic; a multiplier is what
+        # makes the archetype a DECISION.
+        #
+        # His skill still applies bleed, so he sets up his own payoff and
+        # gets better the more DoT the rest of the squad brings.
+        {"kind": "team_dot_amplify", "percent": 70, "max_stacks": 3, "duration": 4},
     ),
     "evz_skill": _skill(
         "evz_skill", "Bedside Manner", 18, 1,
-        "Cleanse all negative effects from the lowest-HP ally and heal them for 20% of their max HP.",
-        {"kind": "cleanse_ally_and_heal", "heal_percent": 60},
+        "Cleanse every negative effect from the lowest-HP ally and heal them for 80% of THEIR max HP.",
+        {"kind": "cleanse_ally_and_heal", "heal_percent": 80},
     ),
     # SUSTAIN contract: this was an ATK buff -- an Amplifier's job on a
     # Sustain's ultimate. Kept the Blood-Sustain sacrifice identity
@@ -431,13 +453,13 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     # Crit Rate buff (team_buff_and_resource).
     "caandy_skill": _skill(
         "caandy_skill", "Visor Sync", 20, 2,
-        "Feed the squad live targeting data: +32% Crit Rate for 3 turns, and restore 8 energy and 10 SP to each of them.",
+        "Feed the squad live targeting data: +20 Crit Rate for 3 turns, and restore 8 energy and 10 SP to each of them.",
         {"kind": "team_buff_and_resource", "buff_stat": "crit_rate", "buff_percent": 20,
          "duration": 3, "energy_amount": 8, "mana_amount": 10},
     ),
     "caandy_ultimate": _ultimate(
         "caandy_ultimate", "AI Overclock",
-        "Boost the whole team's SPD by 35% and Crit Rate by 20% for 3 turns.",
+        "Boost the whole team's SPD by 55% and Crit Rate by 40 points for 4 turns.",
         {"kind": "team_double_buff", "buff_stat_1": "speed", "buff_percent_1": 55,
          "buff_stat_2": "crit_rate", "buff_percent_2": 40, "duration": 4},
     ),
@@ -450,7 +472,7 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         "Deal 125% ELE damage and reduce the target's ATK and DEF by 15% each for 2 turns.",
         {"kind": "damage_and_double_debuff", "damage_percent": 125, "damage_stat": "elemental",
          "debuff_stat_1": "attack", "debuff_percent_1": -15,
-         "debuff_stat_2": "defense", "debuff_percent_2": -15, "duration": 2},
+         "debuff_stat_2": "defense", "debuff_percent_2": -28, "duration": 2},
     ),
     "axel_ultimate": _ultimate(
         "axel_ultimate", "Exposed Wound",
@@ -479,13 +501,13 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     # efficiently, and her ultimate becomes the team shield + cleanse.
     "bee_jee_skill": _skill(
         "bee_jee_skill", "Field Triage", 20, 1,
-        "Shield one ally for 30% of their max HP -- pick who's about to be hit.",
-        {"kind": "shield_ally_percent_max_hp", "percent": 30},
+        "Shield one ally for 42% of their max HP -- pick who's about to be hit.",
+        {"kind": "shield_ally_percent_max_hp", "percent": 42},
     ),
     "bee_jee_ultimate": _ultimate(
         "bee_jee_ultimate", "Antidote Protocol",
-        "Shield the whole team for 28% of each member's max HP and purge every negative effect from them.",
-        {"kind": "team_shield_and_cleanse", "shield_percent": 28},
+        "Shield the whole team for 38% of each member's max HP and purge every negative effect from them.",
+        {"kind": "team_shield_and_cleanse", "shield_percent": 38},
     ),
     "sader_vorae_skill": _skill(
         "sader_vorae_skill", "Wide Strafing Pass", 20, 1,
@@ -521,21 +543,21 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     ),
     "nebula_ultimate": _ultimate(
         "nebula_ultimate", "Summit Advantage",
-        "Boost the whole team's SPD by 40% and DEF by 30% for 3 turns.",
+        "Boost the whole team's SPD by 65% and DEF by 50% for 4 turns.",
         {"kind": "team_double_buff", "buff_stat_1": "speed", "buff_percent_1": 65,
          "buff_stat_2": "defense", "buff_percent_2": 50, "duration": 4},
     ),
     "andy_skill": _skill(
         "andy_skill", "Wide Command Strafe", 20, 1,
-        "Deal 75% ATK damage to all enemies, with a 45% chance to reduce each hit target's DEF by 18% for 2 turns.",
+        "Deal 75% ATK damage to all enemies, with a 45% chance to reduce each hit target's DEF by 30% for 2 turns.",
         {"kind": "aoe_damage_chance_debuff", "damage_percent": 75, "damage_stat": "attack",
-         "debuff_chance_percent": 45, "debuff_stat": "defense", "debuff_percent": -18, "duration": 2},
+         "debuff_chance_percent": 45, "debuff_stat": "defense", "debuff_percent": -30, "duration": 2},
     ),
     "andy_ultimate": _ultimate(
         "andy_ultimate", "Squadron Bombardment",
-        "Deal 110% ATK damage to all enemies and reduce each of their DEF by 18% for 2 turns.",
+        "Deal 110% ATK damage to all enemies and reduce each of their DEF by 30% for 2 turns.",
         {"kind": "aoe_damage_chance_debuff", "damage_percent": 110, "damage_stat": "attack",
-         "debuff_chance_percent": 100, "debuff_stat": "defense", "debuff_percent": -18, "duration": 2},
+         "debuff_chance_percent": 100, "debuff_stat": "defense", "debuff_percent": -30, "duration": 2},
     ),
     "star_skill": _skill(
         # STAR WAS THE PROBLEM CHARACTER. A flat 220% with no condition
@@ -553,7 +575,7 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         # "Never in a hurry, never needs to be -- Star takes his time
         # lining up a swing." The kit now does what the bio always said.
         "star_skill", "Lazy Haymaker", 20, 1,
-        "Deal 90% ATK damage — or 160% if the target is still above 60% HP.",
+        "Deal 105% ATK damage — or 185% if the target is still above 60% HP.",
         # Lowered again: 130/300 -> 105/230. Star is the most accessible
         # 4-star carry and was still topping the damage table outright,
         # which made "pull Star, buff his crit" the answer to every
@@ -562,8 +584,12 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         # was still enough to delete a target outright once crit
         # multipliers landed on top. A carry that can one-shot removes
         # the fight, and a removed fight cannot be balanced around.
-        {"kind": "damage_bonus_if_target_healthy", "damage_percent": 90,
-         "bonus_damage_percent": 70, "hp_threshold_percent": 60,
+        # Nudged back up from 90/160. The third nerf was deliberate
+        # overcorrection and it landed: Star stopped one-shotting, but
+        # he also stopped being worth a slot. 105/185 puts him back in
+        # the pack rather than on top of it or under it.
+        {"kind": "damage_bonus_if_target_healthy", "damage_percent": 105,
+         "bonus_damage_percent": 80, "hp_threshold_percent": 60,
          "damage_stat": "attack"},
     ),
     "star_ultimate": _ultimate(
@@ -572,19 +598,19 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         # a stacked crit build, deleted bosses from full-ish HP. The
         # execute stays -- it's his identity -- but at a number that
         # finishes a fight rather than skipping it.
-        "Deal 180% ATK damage to the target, or 260% if they're below 30% HP.",
-        {"kind": "execute_below_threshold", "damage_percent": 180, "execute_damage_percent": 260,
+        "Deal 205% ATK damage to the target, or 300% if they're below 30% HP.",
+        {"kind": "execute_below_threshold", "damage_percent": 205, "execute_damage_percent": 300,
          "hp_threshold_percent": 30, "damage_stat": "attack"},
     ),
     "kotori_skill": _skill(
         "kotori_skill", "Vein Offering", 18, 1,
-        "Sacrifice 6% of your own max HP to heal the lowest-HP ally for 30% of their max HP.",
-        {"kind": "sacrifice_hp_heal_lowest_ally_percent_max_hp", "self_cost_percent": 6, "heal_percent": 75},
+        "Spend 6% of your own max HP to heal the lowest-HP ally for 95% of THEIR max HP.",
+        {"kind": "sacrifice_hp_heal_lowest_ally_percent_max_hp", "self_cost_percent": 6, "heal_percent": 95},
     ),
     "kotori_ultimate": _ultimate(
         "kotori_ultimate", "Crimson Devotion",
-        "Sacrifice 20% of your own max HP to heal the whole team for 35% of each member's max HP.",
-        {"kind": "sacrifice_hp_heal_team_percent_max_hp", "self_cost_percent": 10, "heal_percent": 80},
+        "Spend 10% of your own max HP to heal the whole team for 100% of each member's max HP.",
+        {"kind": "sacrifice_hp_heal_team_percent_max_hp", "self_cost_percent": 10, "heal_percent": 100},
     ),
     # DEDICATED SHIELDER + TANK. Jofrog moved from AMPLIFIER to SUSTAIN
     # (see character_seed_data.py) -- "a former robotic bodyguard who
@@ -607,13 +633,13 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     ),
     "aura_skill": _skill(
         "aura_skill", "Field Dressing", 18, 1,
-        "Cleanse all negative effects from the lowest-HP ally and heal them for 25% of their max HP.",
-        {"kind": "heal_from_stat", "stat": "elemental", "percent": 800},
+        "Heal the lowest-HP ally for 1100% of AURA'S ELE.",
+        {"kind": "heal_from_stat", "stat": "elemental", "percent": 1100},
     ),
     "aura_ultimate": _ultimate(
         "aura_ultimate", "Triage Surge",
-        "Heal the whole team for 28% of each member's max HP.",
-        {"kind": "team_heal_from_stat", "stat": "elemental", "percent": 530},
+        "Heal the whole team for 730% of AURA'S ELE each.",
+        {"kind": "team_heal_from_stat", "stat": "elemental", "percent": 730},
     ),
 
     # --- 5-star ---
@@ -642,8 +668,8 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     ),
     "refender_ultimate": _ultimate(
         "refender_ultimate", "Perfect Balance",
-        "Heal the whole team for 24% of each member's max HP and raise their DEF by 35% for 3 turns.",
-        {"kind": "team_heal_from_stat", "stat": "defense", "percent": 420,
+        "Heal the whole team for 580% of REFENDER'S DEF each, and raise their DEF by 35% for 3 turns.",
+        {"kind": "team_heal_from_stat", "stat": "defense", "percent": 580,
          "buff_stat": "defense", "buff_percent": 35, "duration": 3},
     ),
     "dolphe_skill": _skill(
@@ -659,15 +685,15 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     ),
     "caliper_skill": _skill(
         "caliper_skill", "Twin Trigger Sweep", 22, 1,
-        "Deal 80% ATK damage to all enemies, with a 50% chance to reduce each hit target's DEF by 20% for 2 turns.",
+        "Deal 80% ATK damage to all enemies, with a 50% chance to reduce each hit target's DEF by 48% for 2 turns.",
         {"kind": "aoe_damage_chance_debuff", "damage_percent": 80, "damage_stat": "attack",
-         "debuff_chance_percent": 50, "debuff_stat": "defense", "debuff_percent": -35, "duration": 2},
+         "debuff_chance_percent": 50, "debuff_stat": "defense", "debuff_percent": -48, "duration": 2},
     ),
     "caliper_ultimate": _ultimate(
         "caliper_ultimate", "Full Auto Barrage",
-        "Deal 130% ATK damage to all enemies and reduce each of their DEF by 20% for 2 turns.",
+        "Deal 130% ATK damage to all enemies and reduce each of their DEF by 48% for 2 turns.",
         {"kind": "aoe_damage_chance_debuff", "damage_percent": 130, "damage_stat": "attack",
-         "debuff_chance_percent": 100, "debuff_stat": "defense", "debuff_percent": -35, "duration": 2},
+         "debuff_chance_percent": 100, "debuff_stat": "defense", "debuff_percent": -48, "duration": 2},
     ),
     # Nyrvite was the game's one energy-drain character. Drain is gone
     # (see bot/game/combat/effects.py for why), so her kit was rebuilt
@@ -684,8 +710,15 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     ),
     "nyrvite_ultimate": _ultimate(
         "nyrvite_ultimate", "Blackout Protocol",
-        "Shatter the enemy line's composure -- chip 5 Poise from every enemy at once, breaking any that can't take it.",
-        {"kind": "team_poise_strike", "poise_damage": 5},
+        "Shatter the enemy line's composure -- chip 9 Poise from every enemy at once and permanently "
+        "strip 2 more, breaking any that can't take it.",
+        # The roster's BREAK ENABLER. 5 poise across a line whose elites
+        # carry 12 and bosses 16 meant a break needed three ultimates to
+        # arrive, by which point the fight was decided. 9 plus a
+        # permanent shred of 2 makes the second application land, which
+        # is what turns break from a thing that occasionally happens into
+        # a thing you can plan a turn around.
+        {"kind": "team_poise_strike", "poise_damage": 9, "poise_shred": 2},
     ),
     # AMPLIFIER contract: his skill was a pure resource restore. Now an
     # ELE buff with the drone-resupply flavor riding on it -- and as a
@@ -700,7 +733,7 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     ),
     "virtual_ultimate": _ultimate(
         "virtual_ultimate", "Full Swarm Protocol",
-        "Boost the whole team's ELE by 50% and ATK by 30% for 3 turns.",
+        "Boost the whole team's ELE by 80% and ATK by 55% for 4 turns.",
         {"kind": "team_double_buff", "buff_stat_1": "elemental", "buff_percent_1": 80,
          "buff_stat_2": "attack", "buff_percent_2": 55, "duration": 4},
     ),
@@ -712,15 +745,19 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     # ELE vulnerability mark, Nyrvite's destabilise) to build around.
     "blueflame_skill": _skill(
         "blueflame_skill", "Kindling Spray", 20, 1,
-        "Deal 75% ELE damage to all enemies, with a 45% chance to set each hit target ablaze for 12% ELE per turn over 3 turns.",
+        "Deal 75% ELE damage to all enemies, with a 70% chance to set each hit target ablaze for 26% ELE per turn over 4 turns.",
         {"kind": "aoe_damage_chance_dot", "damage_percent": 75, "damage_stat": "elemental",
-         "dot_chance_percent": 45, "dot_stat": "elemental", "dot_percent": 12, "duration": 3},
+         "dot_chance_percent": 70, "dot_stat": "elemental", "dot_percent": 26, "duration": 4},
     ),
     "blueflame_ultimate": _ultimate(
         "blueflame_ultimate", "Wildfire Purge",
-        "Deal 105% ELE damage to all enemies and set each of them ablaze for 15% ELE per turn over 3 turns.",
+        "Deal 105% ELE damage to all enemies and set each of them ablaze for 34% ELE per turn over 4 turns.",
+        # The premier DoT APPLIER, buffed to be worth amplifying. 15%/3
+        # turns was 45% ELE total spread over three turns -- less than a
+        # single skill, so the burn was flavour. 26%/4 makes it 104%,
+        # which a Slikrz mark turns into something worth building.
         {"kind": "aoe_damage_chance_dot", "damage_percent": 105, "damage_stat": "elemental",
-         "dot_chance_percent": 100, "dot_stat": "elemental", "dot_percent": 15, "duration": 3},
+         "dot_chance_percent": 100, "dot_stat": "elemental", "dot_percent": 34, "duration": 4},
     ),
     # ==================================================================
     # ROSTER EXPANSION -- five characters, each built on a mechanic no
@@ -787,8 +824,8 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     ),
     "chary_skill": _skill(
         "chary_skill", "Confidence Trick", 22, 2,
-        "Strip 24% DEF from every enemy for 3 turns.",
-        {"kind": "team_debuff", "debuff_stat": "defense", "debuff_percent": -24, "duration": 3},
+        "Strip 36% DEF from every enemy for 3 turns.",
+        {"kind": "team_debuff", "debuff_stat": "defense", "debuff_percent": -36, "duration": 3},
     ),
     "chary_ultimate": _ultimate(
         "chary_ultimate", "House Always Wins",
@@ -1054,6 +1091,291 @@ CHARACTER_PASSIVE_MAP: dict[str, dict] = {
         {"kind": "stacking_buff", "buff_stat": "attack", "percent_per_stack": 6, "max_stacks": 6},
     ),
 }
+
+
+# ---------------------------------------------------------------------
+# ONE AMPLIFIER SHOULD BE STRONG. THREE SHOULD NOT BE THREE TIMES AS
+# STRONG.
+# ---------------------------------------------------------------------
+# The shared amplification budget (see combatant.py's block) fixed the
+# half of that sentence that was broken: stacked Amplifiers used to
+# multiply out untaxed because they each buffed a DIFFERENT stat, and
+# "3 Amplifiers + 1 DPS" beat every other squad in the game.
+#
+# Taxing the ladder on its own overshot, though, and measurably so: with
+# the budget in and magnitudes untouched, a squad that swapped its one
+# Amplifier for a second Support DPS cleared Abyssnia roughly twice as
+# often. That is the same bug with the sign flipped -- the class went
+# from mandatory-in-triplicate to not worth a slot -- because a single
+# Amplifier also spends its second buff at 65% now.
+#
+# So magnitudes come UP to meet the tax. The two changes are designed as
+# a pair and only make sense together:
+#
+#   one Amplifier    1.50 x (1.00 + 0.45)          = 2.18 units  (was 2.00)
+#   three Amplifiers 1.50 x (1.00 + 0.45 + 0.20
+#                            + 0.09 + 0.04 + 0.02) = 2.70 units  (was 6.00)
+#
+# The first Amplifier is slightly BETTER than before this pass. The
+# second is worth having. The third is nearly nothing -- which is the
+# whole point, and is what makes the fourth slot go to a Sustain or a
+# Support DPS instead.
+#
+# Applied as a multiplier over the authored numbers, in one place, for
+# the same reason character_seed_data.py scales growth rates that way:
+# retuning this is one constant, and the authored values stay readable
+# as the design intent they were written to be.
+AMPLIFIER_BUFF_MULTIPLIER = 1.5
+
+_BUFF_PERCENT_KEYS = ("buff_percent", "buff_percent_1", "buff_percent_2")
+
+
+def _scale_amplifier_buffs(ability: dict | None, multiplier: float) -> None:
+    """Scales the buff magnitudes on one Amplifier ability, in place.
+
+    Only touches POSITIVE buff percentages: a couple of Amplifier kits
+    debuff the enemy as a rider (Chary), and those belong to the untaxed
+    debuff economy -- scaling them here would quietly hand the Amplifier
+    the Support DPS's job on top of its own.
+
+    The player-facing DESCRIPTION is rewritten with the new number in the
+    same pass. That isn't cosmetic: the description is the only thing the
+    player ever sees, and a scaling constant that silently left the text
+    quoting the old value would reintroduce exactly the drift
+    tools/check_descriptions.py exists to catch.
+    """
+    if not ability:
+        return
+    effect = ability.get("effect") or {}
+    for key in _BUFF_PERCENT_KEYS:
+        value = effect.get(key)
+        if not isinstance(value, (int, float)) or value <= 0:
+            continue
+        scaled = round(value * multiplier)
+        effect[key] = scaled
+        description = ability.get("description")
+        if description and scaled != value:
+            # Only where the old number is quoted AS a magnitude -- "38%"
+            # or "55 points" -- so a duration ("for 3 turns") that
+            # happens to share the digits is never touched.
+            ability["description"] = re.sub(
+                rf"\b{value:g}\b(?=\s*(?:%|point))", str(scaled), description, count=1,
+            )
+
+
+def _apply_amplifier_buff_multiplier() -> None:
+    """Scale every AMPLIFIER-class kit, character and avatar alike.
+
+    Membership is read from the character catalog rather than hardcoded
+    here so a character who changes class (several have -- see the
+    class-identity pass in this module's docstring) is picked up
+    automatically instead of drifting out of sync with their own label.
+    """
+    from bot.game.characters.character_seed_data import CHARACTER_TEMPLATES
+
+    for template in CHARACTER_TEMPLATES:
+        if template.get("character_class") != CharacterClass.AMPLIFIER:
+            continue
+        for key in ("skill_id", "ultimate_id"):
+            _scale_amplifier_buffs(CHARACTER_KIT_MAP.get(template.get(key)),
+                                   AMPLIFIER_BUFF_MULTIPLIER)
+
+    avatar_kit = CLASS_KIT_MAP[CharacterClass.AMPLIFIER]
+    for key in ("skill", "ultimate"):
+        _scale_amplifier_buffs(avatar_kit.get(key), AMPLIFIER_BUFF_MULTIPLIER)
+
+
+_apply_amplifier_buff_multiplier()
+
+
+# ---------------------------------------------------------------------
+# SUPPORT DPS POWER PASS -- the class had no reason to exist.
+# ---------------------------------------------------------------------
+# Measured over full expedition runs with the amplification budget in
+# place: swapping the Support DPS out of a one-of-each squad for a
+# SECOND Amplifier took Abyssnia from 32% to 55%. The role wasn't
+# slightly behind, it was the worst of the four things you could put in
+# a slot, and a player who noticed that was right to drop it.
+#
+# The class's contribution is DEBUFFS -- DEF shred, vulnerability marks,
+# break setup -- and debuffs are deliberately exempt from the
+# amplification budget, so on paper they're the only multiplier in the
+# game that still stacks in full. Three things stopped that mattering:
+#
+#   1. THEY EXPIRED IMMEDIATELY. Debuffs ran 2 turns against Amplifier
+#      buffs at 3-4. On a cycle turn order a 2-turn debuff is often gone
+#      before the carry's next turn, so the squad spent a turn setting
+#      up a window it then didn't get to use. Floored at 3.
+#   2. THEY WERE A COIN FLIP. The primary (spammable) skill applied its
+#      debuff 40-50% of the time. An unreliable multiplier can't be
+#      built around -- you can't plan a turn on it -- so it read as an
+#      AOE attack that sometimes did something. Floored at 70%.
+#   3. THEY WERE SMALL. Magnitudes up 25%, the same treatment the
+#      Amplifiers got, so the untaxed multiplier is actually worth the
+#      turn it costs.
+#
+# What this pass deliberately does NOT do is give the class more raw
+# damage. If Support DPS earns its slot by hitting harder it is just a
+# worse DPS, and the roster already has a DPS. It earns the slot by
+# making everyone ELSE's damage land harder, which is the one job no
+# other class does.
+SUPPORT_DPS_DEBUFF_MULTIPLIER = 1.25
+SUPPORT_DPS_MIN_DEBUFF_DURATION = 3
+SUPPORT_DPS_MIN_DEBUFF_CHANCE = 70
+
+_DEBUFF_PERCENT_KEYS = ("debuff_percent", "debuff_percent_1", "debuff_percent_2")
+
+
+def _retext(ability: dict, old, new, unit: str) -> None:
+    """Rewrite one number in an ability's player-facing description.
+
+    `unit` anchors the match so only the number being quoted AS that kind
+    of value is touched -- a duration of 2 and a magnitude of 2 in the
+    same sentence are different numbers and must not be swapped for each
+    other. Same reasoning as the Amplifier pass: the description is the
+    only thing the player sees, and a silent scaling constant that left
+    stale text behind is the exact drift tools/check_descriptions.py
+    exists to catch.
+    """
+    description = ability.get("description")
+    if not description or old == new:
+        return
+    ability["description"] = re.sub(
+        rf"\b{abs(old):g}\b(?=\s*{unit})", str(abs(new)), description, count=1,
+    )
+
+
+def _strengthen_support_dps(ability: dict | None) -> None:
+    if not ability:
+        return
+    effect = ability.get("effect") or {}
+
+    for key in _DEBUFF_PERCENT_KEYS:
+        value = effect.get(key)
+        # Debuffs are stored NEGATIVE (a -48 DEF debuff). Scaling has to
+        # push further from zero, so the multiplier applies to the
+        # magnitude and the sign is preserved.
+        if isinstance(value, (int, float)) and value < 0:
+            scaled = -round(abs(value) * SUPPORT_DPS_DEBUFF_MULTIPLIER)
+            effect[key] = scaled
+            _retext(ability, value, scaled, "%")
+
+    # Vulnerability marks are the same job in a different shape -- they
+    # make the target take more damage instead of making it defend less
+    # -- so they get the same scaling.
+    for key in ("percent_per_stack",):
+        value = effect.get(key)
+        if isinstance(value, (int, float)) and value > 0:
+            scaled = round(value * SUPPORT_DPS_DEBUFF_MULTIPLIER)
+            effect[key] = scaled
+            _retext(ability, value, scaled, "%")
+
+    chance = effect.get("debuff_chance_percent")
+    if isinstance(chance, (int, float)) and chance < SUPPORT_DPS_MIN_DEBUFF_CHANCE:
+        _retext(ability, chance, SUPPORT_DPS_MIN_DEBUFF_CHANCE, "%")
+        effect["debuff_chance_percent"] = SUPPORT_DPS_MIN_DEBUFF_CHANCE
+
+    # Only debuff-carrying abilities get the duration floor. Duration on
+    # a DoT ability is how long the burn ticks, which is a damage number,
+    # not a debuff window -- see the note above about not handing this
+    # class more raw damage.
+    carries_debuff = any(effect.get(key) for key in _DEBUFF_PERCENT_KEYS)
+    duration = effect.get("duration")
+    if carries_debuff and isinstance(duration, int) and duration < SUPPORT_DPS_MIN_DEBUFF_DURATION:
+        _retext(ability, duration, SUPPORT_DPS_MIN_DEBUFF_DURATION, "turn")
+        effect["duration"] = SUPPORT_DPS_MIN_DEBUFF_DURATION
+
+
+def _apply_support_dps_pass() -> None:
+    from bot.game.characters.character_seed_data import CHARACTER_TEMPLATES
+
+    for template in CHARACTER_TEMPLATES:
+        if template.get("character_class") != CharacterClass.SUPPORT_DPS:
+            continue
+        for key in ("skill_id", "ultimate_id"):
+            _strengthen_support_dps(CHARACTER_KIT_MAP.get(template.get(key)))
+
+    avatar_kit = CLASS_KIT_MAP[CharacterClass.SUPPORT_DPS]
+    for key in ("skill", "ultimate"):
+        _strengthen_support_dps(avatar_kit.get(key))
+
+
+_apply_support_dps_pass()
+
+
+# ---------------------------------------------------------------------
+# SUSTAIN THROUGHPUT -- a healer has to out-heal the fight it's in.
+# ---------------------------------------------------------------------
+# Making enemies hit harder (see factory.py's attack curve) is what makes
+# a healer NECESSARY, but on its own it can just as easily make one
+# POINTLESS -- and measurably did. If incoming damage is 500 a cycle and
+# the Sustain's turn returns 180 of it to a single ally, bringing one
+# costs a damage slot to lose slightly more slowly, so racing the enemy
+# down with a fourth attacker is still the better play. A healer is only
+# worth a slot in the band where their throughput is a real share of the
+# damage taken; below that band the class is decoration no matter how
+# dangerous the enemies are.
+#
+# So healing and shielding magnitudes come up with the enemy curve, as
+# the other half of the same change. This is what the gear-sustain
+# scaling (effects.py's GEAR_SUSTAIN_MULTIPLIER) is measured against
+# too: a Sustain's on-demand heal is now several times what an armour
+# passive trickles, which is the gap that makes the class irreplaceable
+# rather than merely present.
+#
+# Scaled, not rewritten, for the same reason as the passes above: one
+# constant to retune, and the authored numbers stay legible as intent.
+SUSTAIN_OUTPUT_MULTIPLIER = 1.4
+
+# Every key that means "how much HP this restores or absorbs". Note what
+# is NOT here: self_cost_percent (the Blood-Sustain family pays part of
+# its own HP for its heals -- scaling the COST with the benefit would
+# leave those characters exactly where they started) and hp_threshold
+# style keys, which are conditions rather than magnitudes.
+_SUSTAIN_OUTPUT_KEYS = (
+    "percent", "heal_percent", "shield_percent",
+    "percent_max_hp_per_turn", "heal_percent_max_hp",
+)
+
+
+def _strengthen_sustain(ability: dict | None) -> None:
+    if not ability:
+        return
+    effect = ability.get("effect") or {}
+    # Heals expressed as a share of the PATIENT'S OWN max HP are capped
+    # at a full bar. Scaling Kotori's 100% team heal to 140% doesn't heal
+    # anyone for more -- Combatant.heal clamps at max_hp -- it just prints
+    # a promise the game can't keep. Heals that scale off the HEALER'S
+    # stat (Aura's 1540% of ELE, Refender's 812% of DEF) are NOT capped:
+    # those percentages are of a stat, not of a health bar, and a big
+    # number there is doing real work.
+    scales_off_patient_hp = "percent_max_hp" in effect.get("kind", "") or "heal_percent" in effect
+    for key in _SUSTAIN_OUTPUT_KEYS:
+        value = effect.get(key)
+        if not isinstance(value, (int, float)) or value <= 0:
+            continue
+        scaled = round(value * SUSTAIN_OUTPUT_MULTIPLIER)
+        if scales_off_patient_hp:
+            scaled = min(scaled, 100)
+        effect[key] = scaled
+        _retext(ability, value, scaled, "%")
+
+
+def _apply_sustain_pass() -> None:
+    from bot.game.characters.character_seed_data import CHARACTER_TEMPLATES
+
+    for template in CHARACTER_TEMPLATES:
+        if template.get("character_class") != CharacterClass.SUSTAIN:
+            continue
+        for key in ("skill_id", "ultimate_id"):
+            _strengthen_sustain(CHARACTER_KIT_MAP.get(template.get(key)))
+
+    avatar_kit = CLASS_KIT_MAP[CharacterClass.SUSTAIN]
+    for key in ("skill", "ultimate"):
+        _strengthen_sustain(avatar_kit.get(key))
+
+
+_apply_sustain_pass()
 
 
 def get_class_kit(character_class: CharacterClass) -> dict[str, dict]:

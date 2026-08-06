@@ -246,11 +246,7 @@ def start_challenge(db, player, domain_id: str, tier_id: str) -> Battle:
     # Done BEFORE building combatants, since factory reads current_hp.
     combat_service.restore_squad_to_full_hp(db, squad)
 
-    equipped_by_char = character_service.get_equipped_items_by_character(db, [pc.id for pc in squad])
-    from bot.services import research_service
-    party_combatants = build_party_combatants(squad, equipped_by_char,
-        starting_energy=research_service.perk_value(db, player.id, "starting_energy"))
-    base_service.apply_shrine_bonuses(db, player, party_combatants)
+    party_combatants = combat_service.build_player_party(db, player, squad=squad)
 
     # Enemy level is derived from the squad actually walking in, not
     # hardcoded per tier -- see domain_config's SCALING block. This is

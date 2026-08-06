@@ -26,11 +26,10 @@ from discord import app_commands
 from bot.utils import responses
 from bot.database.session import SessionLocal
 from bot.game.combat.battle import Battle
-from bot.game.combat.factory import build_enemy_combatant, build_party_combatants
+from bot.game.combat.factory import build_enemy_combatant
 from bot.game.combat.enemies import get_template_by_name
 from bot.game.combat.serialization import battle_from_dict, battle_to_dict
-from bot.services import (character_service, combat_service, map_service,
-                          story_service)
+from bot.services import combat_service, map_service, story_service
 from bot.services.player_service import get_player
 from bot.utils import combat_ui, embedder
 from bot.utils.guild_decorator import guild_decorator
@@ -51,6 +50,32 @@ class ContinueView(OwnedView):
     @discord.ui.button(label="Continue ▶", style=discord.ButtonStyle.primary)
     async def continue_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await _advance_and_render(interaction)
+
+
+class RetryBattleView(OwnedView):
+    """The button shown after LOSING a required fight.
+
+    It re-renders the beat you are already on. ContinueView was used
+    here, and ContinueView calls _advance_and_render -- so the button
+    labelled "Try again" walked you PAST the fight you had just lost,
+    collected the on_win text, and carried on. Losing was strictly
+    faster than winning.
+
+    The beat pointer was never moved on a loss (advance() only runs when
+    won), so re-rendering is all that's needed: the player lands back on
+    the same battle intro and fights it again.
+    """
+
+    def __init__(self, owner_id: int | None = None):
+        super().__init__(timeout=600, owner_id=owner_id)
+
+    @discord.ui.button(label="⚔️ Try again", style=discord.ButtonStyle.primary)
+    async def retry(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await _render_current(interaction, edit=True)
+
+    @discord.ui.button(label="◀ Back to the map", style=discord.ButtonStyle.secondary)
+    async def leave(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await _render_map(interaction, edit=True)
 
 
 class ChoiceView(OwnedView):
@@ -167,11 +192,9 @@ def _open_hunt(db, player):
     if story.combat_state:
         battle = battle_from_dict(story.combat_state)
     else:
-        squad = character_service.get_squad(db, player)
-        equipped = character_service.get_equipped_items_by_character(db, [c.id for c in squad])
-        party = build_party_combatants(squad, equipped)
-        for member in party:
-            member.current_hp = member.max_hp
+        # Shrines, gear and Research Lab energy, exactly as adventure
+        # builds them -- see combat_service.build_player_party.
+        party = combat_service.build_player_party(db, player, full_hp=True)
         enemies = [build_enemy_combatant(get_template_by_name(n), hunt["level"])
                    for n in hunt["enemies"]]
         battle = Battle(party, enemies)
@@ -610,14 +633,16 @@ def _open_battle(db, player, mission: dict, beat: dict):
     if story.combat_state:
         battle = battle_from_dict(story.combat_state)
     else:
-        squad = character_service.get_squad(db, player)
-        equipped = character_service.get_equipped_items_by_character(db, [c.id for c in squad])
-        party = build_party_combatants(squad, equipped)
         # Story fights always start the squad at full HP. A scripted
         # beat you must clear to progress is the wrong place to inherit
         # attrition from an unrelated expedition.
-        for member in party:
-            member.current_hp = member.max_hp
+        #
+        # Built through combat_service so shrine bonuses and the Research
+        # Lab's starting energy apply here too -- building the party
+        # inline meant every shrine level the player had paid for did
+        # nothing in story mode, which is why story stats didn't match
+        # adventure stats for the same character.
+        party = combat_service.build_player_party(db, player, full_hp=True)
         enemies = [
             build_enemy_combatant(get_template_by_name(name), beat.get("level", 5))
             for name in beat["enemies"]
@@ -641,6 +666,10 @@ def _advance_to_player_turn(battle: Battle) -> bool:
 
 
 class StoryCombatView(OwnedView):
+    # Which resolver every control in this view reports to. Subclasses
+    # override it once here instead of re-listing every component.
+    combat_handler = staticmethod(lambda *a, **k: _story_combat_action(*a, **k))
+
     def __init__(self, owner_id: int | None = None, battle: Battle | None = None):
         super().__init__(timeout=900, owner_id=owner_id)
         if battle is None:
@@ -660,7 +689,7 @@ class StoryCombatView(OwnedView):
                 value=ability["id"], description=ability["description"][:100],
             ))
         if options:
-            self.add_item(_StoryAbilitySelect(options))
+            self.add_item(_StoryAbilitySelect(options, self.combat_handler))
 
     @discord.ui.button(label="⚔️ Attack", style=discord.ButtonStyle.danger)
     async def attack_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -691,12 +720,26 @@ class StoryCombatView(OwnedView):
 
 
 class _StoryAbilitySelect(discord.ui.Select):
-    def __init__(self, options: list[discord.SelectOption]):
+    """The skill dropdown, told WHICH resolver it belongs to.
+
+    It used to hardcode _story_combat_action. HuntCombatView overrides
+    the three buttons to use _hunt_action but inherits this Select from
+    StoryCombatView.__init__ -- so clearing an OPTIONAL fight with a
+    skill ran the MISSION resolver, which calls story_service.advance()
+    and reads on_win off whatever beat you happened to be sitting on.
+    An optional side fight advanced the main story.
+
+    Attack/Ultimate/Guard were fine, which is why it looked intermittent:
+    it only broke when the killing blow was a skill.
+    """
+
+    def __init__(self, options: list[discord.SelectOption], handler):
         super().__init__(placeholder="Use a skill...", options=options,
                          min_values=1, max_values=1)
+        self._handler = handler
 
     async def callback(self, interaction: discord.Interaction):
-        await _story_combat_action(interaction, "ability", ability_id=self.values[0])
+        await self._handler(interaction, "ability", ability_id=self.values[0])
 
 
 async def _story_combat_action(interaction: discord.Interaction, action: str,
@@ -761,10 +804,11 @@ async def _story_combat_action(interaction: discord.Interaction, action: str,
         await responses.edit(interaction,
             embed=discord.Embed(
                 title="💀 Driven back",
-                description=(text or "You're forced back.") + "\n\nTry the fight again.",
+                description=(text or "You're forced back.")
+                            + "\n\n**You have to clear this one to go on.**",
                 color=discord.Color.dark_red(),
             ),
-            view=ContinueView(owner_id=interaction.user.id, label="Try again ▶"),
+            view=RetryBattleView(owner_id=interaction.user.id),
         )
         return
 
@@ -804,6 +848,8 @@ class Story(commands.Cog):
 
 class HuntCombatView(StoryCombatView):
     """Identical controls to a story fight; only the resolution differs."""
+
+    combat_handler = staticmethod(lambda *a, **k: _hunt_action(*a, **k))
 
     @discord.ui.button(label="⚔️ Attack", style=discord.ButtonStyle.danger)
     async def attack_button(self, interaction, button):

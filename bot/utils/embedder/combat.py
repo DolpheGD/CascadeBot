@@ -489,24 +489,61 @@ def combat_embed(battle, avatar_url: str | None = None) -> discord.Embed:
     return embed
 
 
-def battle_log_embed(battle) -> discord.Embed:
-    """The full battle log, shown via the 📜 Log button -- unlike the main
-    battle message's brief "Recent Actions" tail (see combat_embed /
-    _recent_log_lines, just the last handful of lines), this shows
-    everything that's happened so far, trimmed from the oldest end only
-    if it would overflow an embed description (4096 chars)."""
+# Characters of log per page. Under Discord's 4096-char description
+# ceiling with room for the header line.
+LOG_PAGE_CHARS = 3600
+
+
+def log_pages(battle) -> list[list[str]]:
+    """The battle log split into pages, oldest first.
+
+    Pages are built by CHARACTER COUNT rather than a fixed number of
+    lines, because log lines vary from "Guard." to a four-clause
+    ultimate resolution, and a fixed line count produces pages that are
+    either half-empty or over the limit.
+    """
+    pages: list[list[str]] = []
+    current: list[str] = []
+    size = 0
+    for line in battle.log:
+        # +1 for the newline it will be joined with.
+        if current and size + len(line) + 1 > LOG_PAGE_CHARS:
+            pages.append(current)
+            current, size = [], 0
+        current.append(line)
+        size += len(line) + 1
+    if current:
+        pages.append(current)
+    return pages or [[]]
+
+
+def battle_log_embed(battle, page: int | None = None) -> discord.Embed:
+    """The battle log, PAGED, shown via the 📜 Log button.
+
+    It used to render the whole log into one embed and, when that
+    overflowed, delete lines from the oldest end -- so the longer and
+    more interesting the fight, the more of its opening was silently
+    thrown away. A boss fight that turned on something that happened in
+    cycle two would lose exactly that.
+
+    `page` defaults to the LAST page: the newest lines are what a player
+    hitting the log button mid-fight almost always wants, and paging
+    back from there is the deliberate act. Passing an explicit page is
+    what the prev/next buttons do.
+    """
+    pages = log_pages(battle)
+    if page is None:
+        page = len(pages) - 1
+    page = max(0, min(page, len(pages) - 1))
+
     embed = discord.Embed(title="📜 Battle Log", color=discord.Color.dark_grey())
     if not battle.log:
         embed.description = "*Nothing has happened yet.*"
         return embed
 
-    lines = list(battle.log)
-    text = "\n".join(lines)
-    if len(text) > 4000:
-        while lines and len("\n".join(lines)) > 3900:
-            lines.pop(0)
-        text = "*(earlier entries truncated)*\n" + "\n".join(lines)
-    embed.description = text
+    embed.description = "\n".join(pages[page])
+    if len(pages) > 1:
+        embed.set_footer(text=f"Page {page + 1} of {len(pages)} · oldest first")
     return embed
 
 
@@ -609,6 +646,15 @@ def _effect_lines(c) -> list[str]:
     for v in c.vulnerabilities:
         stat_label = "damage-over-time" if v.damage_stat == "dot" else STAT_LABEL.get(v.damage_stat, v.damage_stat)
         lines.append(f"☣️ +{v.percent_per_stack * v.stacks:g}% {stat_label} taken ({v.stacks}/{v.max_stacks}) — {v.source}")
+    # EXPOSED is derived from the debuffs listed just above rather than
+    # stored anywhere, so it has to be rendered explicitly or the player
+    # sees the debuffs and never learns what they bought. It is the
+    # Support DPS's whole contribution -- leaving it implicit is how that
+    # class ended up looking like "an AOE attack that sometimes does
+    # something" in the first place.
+    exposed = effects.exposed_bonus_percent(c)
+    if exposed:
+        lines.append(f"🎯 Exposed +{exposed:g}% damage taken — from every attacker, while debuffed")
     if c.shield > 0:
         lines.append(f"🔷 Shield absorbing {round(c.shield)} damage")
     if c.is_taunting():

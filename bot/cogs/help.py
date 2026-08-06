@@ -133,11 +133,16 @@ _PAGES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
             ),
             (
                 "Classes",
-                "⚔️ **DPS** / 🎯 **Support DPS** deal the damage.\n"
-                "📡 **Amplifier** buffs the squad's offence — a good one is worth more than a "
-                "fourth attacker.\n"
-                "💚 **Sustain** keeps you alive by healing, shielding, or hardening.\n"
-                "Running at least one Amplifier and one Sustain is the strongest shape.",
+                "⚔️ **DPS** is your damage. 🎯 **Support DPS** debuffs — a **debuffed enemy "
+                "takes more damage from everyone**, which is the one multiplier that never "
+                "gets taxed for stacking.\n"
+                "📡 **Amplifier** buffs the squad's offence, but a character only gets full "
+                "value from their **strongest** buff — the next one counts for about half, the "
+                "one after that a fifth. Two Amplifiers largely overwrite each other.\n"
+                "💚 **Sustain** keeps you alive by healing, shielding, or hardening. Gear can "
+                "top you up between their turns; it can't replace them.\n"
+                "**One of each is the strongest shape.** Doubling up on any role runs into its "
+                "own diminishing returns before it beats bringing the role you're missing.",
             ),
         ],
     ),

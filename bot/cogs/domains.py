@@ -331,7 +331,8 @@ async def _handle_combat_log(interaction: discord.Interaction):
     if battle is None:
         await responses.send(interaction, "You're not in a domain battle right now.", ephemeral=True)
         return
-    await responses.send(interaction, embed=embedder.battle_log_embed(battle), ephemeral=True)
+    embed, view = combat_ui.log_response(battle)
+    await responses.send(interaction, embed=embed, view=view, ephemeral=True)
 
 
 async def _handle_combat_action(interaction: discord.Interaction, action: str, ability_id: str | None = None):

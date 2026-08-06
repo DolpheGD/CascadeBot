@@ -284,11 +284,7 @@ def start_attack(db, player, raid: GuildRaid, difficulty_id: str = DEFAULT_RAID_
     # combat_service.restore_squad_to_full_hp.
     combat_service.restore_squad_to_full_hp(db, squad)
 
-    equipped_by_char = character_service.get_equipped_items_by_character(db, [pc.id for pc in squad])
-    from bot.services import research_service
-    party = build_party_combatants(squad, equipped_by_char,
-        starting_energy=research_service.perk_value(db, player.id, "starting_energy"))
-    base_service.apply_shrine_bonuses(db, player, party)
+    party = combat_service.build_player_party(db, player, squad=squad)
 
     tier = get_tier(raid.tier)
     boss = build_enemy_combatant(

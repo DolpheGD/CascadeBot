@@ -77,14 +77,9 @@ def start_battle(db, expedition, player, enemy_templates: list, level: int) -> B
     off the region's combat_level_offset while elites use the standard
     level_offset).
     """
-    squad = character_service.get_squad(db, player)
-    equipped_by_char = character_service.get_equipped_items_by_character(
-        db, [pc.id for pc in squad]
-    )
-    from bot.services import research_service
-    party_combatants = build_party_combatants(squad, equipped_by_char,
-        starting_energy=research_service.perk_value(db, player.id, "starting_energy"))
-    base_service.apply_shrine_bonuses(db, player, party_combatants)
+    # Expeditions do NOT reset HP -- carrying damage between rooms is
+    # the whole shape of a run.
+    party_combatants = build_player_party(db, player)
     # Run-scoped relics, applied after shrines so their percentages are
     # computed against the fully-equipped, fully-shrined stat line -- the
     # same ordering gear substats already use.
@@ -125,6 +120,47 @@ def clear_battle(db, expedition) -> None:
 # they are one hit from going down again and the player still has to
 # spend a campfire or a heal on them. Dying costs something either way.
 REVIVE_HP_AFTER_BATTLE = 1
+
+
+def build_player_party(db, player, *, full_hp: bool = False, squad: list | None = None) -> list:
+    """THE ONE WAY TO BUILD A PLAYER'S SQUAD FOR A FIGHT.
+
+    Squad -> gear -> Research Lab starting energy -> shrine bonuses, in
+    that order (shrines last so their percentages apply to the fully
+    equipped stat line, the same ordering gear substats already use).
+
+    This exists because the sequence was copy-pasted into three services
+    and then NOT copy-pasted into two cogs. Story missions, story hunts
+    and Abyss chambers all built their party with plain
+    build_party_combatants and never called apply_shrine_bonuses, so the
+    same character had different stats depending on which mode you
+    fought in -- every shrine level the player had paid for silently did
+    nothing in story mode. That is invisible from inside any one file,
+    which is exactly why it survived: each call site looked complete.
+
+    `full_hp` clears the persisted HP first, for the self-contained
+    fights (domains, raids, story, Abyss) that shouldn't inherit an
+    expedition's damage. Expeditions pass False -- carrying HP between
+    rooms is the point of a run.
+
+    `squad` overrides the active squad, for the one mode that doesn't
+    use it: the Abyss fields a different hand-picked team per chamber.
+    """
+    from bot.services import base_service, research_service
+
+    if squad is None:
+        squad = character_service.get_squad(db, player)
+    if full_hp:
+        restore_squad_to_full_hp(db, squad)
+    equipped = character_service.get_equipped_items_by_character(
+        db, [pc.id for pc in squad]
+    )
+    party = build_party_combatants(
+        squad, equipped,
+        starting_energy=research_service.perk_value(db, player.id, "starting_energy"),
+    )
+    base_service.apply_shrine_bonuses(db, player, party)
+    return party
 
 
 def sync_party_hp_to_characters(db, battle: Battle, revive_downed: bool | None = None) -> None:

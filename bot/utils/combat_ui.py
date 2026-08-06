@@ -83,6 +83,65 @@ class _InfoJumpSelect(discord.ui.Select):
         await self.view._rerender(interaction, int(self.values[0]))
 
 
+class LogPageView(discord.ui.View):
+    """Pager for the 📜 Battle Log.
+
+    Same shape and same reasoning as InfoPageView above: no game state,
+    only ever attached to an ephemeral per-player message, so capturing
+    the Battle directly is safe and it never needs to survive a restart.
+
+    Exists because the log used to be one embed that dropped its OLDEST
+    lines when it outgrew Discord's 4096-character description -- so the
+    longer a fight ran, the more of its opening vanished. Paging keeps
+    all of it and defaults to the newest page, which is what someone
+    hitting the button mid-fight is looking for.
+    """
+
+    def __init__(self, battle, page: int | None = None):
+        super().__init__(timeout=300)
+        self.battle = battle
+        self.pages = embedder.log_pages(battle)
+        self.total = len(self.pages)
+        self.page = self.total - 1 if page is None else max(0, min(page, self.total - 1))
+
+        self.first_button.disabled = self.page == 0
+        self.prev_button.disabled = self.page == 0
+        self.next_button.disabled = self.page >= self.total - 1
+        self.last_button.disabled = self.page >= self.total - 1
+        # A single-page log doesn't need controls at all.
+        if self.total <= 1:
+            self.clear_items()
+
+    async def _rerender(self, interaction: discord.Interaction, page: int):
+        view = LogPageView(self.battle, page)
+        await interaction.response.edit_message(
+            embed=embedder.battle_log_embed(self.battle, page), view=view
+        )
+
+    @discord.ui.button(label="⏮", style=discord.ButtonStyle.secondary)
+    async def first_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._rerender(interaction, 0)
+
+    @discord.ui.button(label="◀", style=discord.ButtonStyle.secondary)
+    async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._rerender(interaction, self.page - 1)
+
+    @discord.ui.button(label="▶", style=discord.ButtonStyle.secondary)
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._rerender(interaction, self.page + 1)
+
+    @discord.ui.button(label="⏭", style=discord.ButtonStyle.secondary)
+    async def last_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._rerender(interaction, self.total - 1)
+
+
+def log_response(battle, page: int | None = None) -> tuple[discord.Embed, LogPageView]:
+    """(embed, view) for the 📜 Log button. One call site per cog, the
+    same way info_response is."""
+    view = LogPageView(battle, page)
+    return embedder.battle_log_embed(battle, view.page), view
+
+
 def info_response(battle, page: int = 0) -> tuple[discord.Embed, InfoPageView]:
     """(embed, view) for the Info button. One call site per cog."""
     return embedder.battle_info_embed(battle, page), InfoPageView(battle, page)

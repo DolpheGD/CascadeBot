@@ -754,7 +754,8 @@ async def _handle_combat_log(interaction: discord.Interaction):
             return
 
         battle = combat_service.load_battle(expedition)
-        await responses.send(interaction, embed=embedder.battle_log_embed(battle), ephemeral=True)
+        embed, view = combat_ui.log_response(battle)
+        await responses.send(interaction, embed=embed, view=view, ephemeral=True)
     finally:
         db.close()
 
