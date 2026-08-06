@@ -35,10 +35,82 @@ def _energy_bar_line(db, player) -> str:
     return line
 
 
+def _energy_source_line(db, player) -> str:
+    """WHERE THE CEILING COMES FROM, AND HOW TO RAISE IT.
+
+    The cap has scaled with Cascade HQ since it stopped being a flat 120
+    (see the block above DOMAIN_ENERGY_BY_HQ_LEVEL), but nothing on any
+    screen ever said so. From the player's side the number just sat
+    there: no stated source, no way to tell it could move, and no hint
+    that the base -- a completely different command -- was the lever. A
+    stat you can upgrade but can't discover is one nobody upgrades.
+
+    So this itemises the bar the way a receipt does: what each source
+    contributes now, and what the next step of each is worth. The regen
+    rate is stated too, because it is the most common wrong assumption
+    about the system -- a bigger bar stores more attempts, it does not
+    earn energy faster, and a player who upgrades HQ expecting a faster
+    refill has been misled by the bar alone."""
+    from bot.services import base_service, research_service
+    from bot.game.economy.domain_config import (
+        DOMAIN_ENERGY_BY_HQ_LEVEL, ENERGY_REGEN_MINUTES_PER_POINT, max_domain_energy,
+    )
+
+    hq_level = base_service.get_hq_level(db, player)
+    from_hq = max_domain_energy(hq_level)
+    from_lab = int(research_service.perk_value(db, player.id, "domain_energy"))
+
+    parts = [f"🏠 **Cascade HQ level {hq_level}** — {from_hq} energy"]
+    if from_lab:
+        parts.append(f"🔬 **Research Lab** (Expansion branch) — +{from_lab}")
+
+    # What the next rung of each track is actually worth, in energy.
+    top_hq = max(DOMAIN_ENERGY_BY_HQ_LEVEL)
+    if hq_level < top_hq:
+        gain = max_domain_energy(hq_level + 1) - from_hq
+        parts.append(
+            f"→ `/base hq` — upgrading to HQ {hq_level + 1} adds **+{gain}**"
+        )
+    else:
+        parts.append("→ HQ is maxed for energy purposes.")
+    if from_lab < _MAX_LAB_DOMAIN_ENERGY:
+        parts.append(
+            f"→ `/base lab` — the Expansion branch adds up to "
+            f"**+{_MAX_LAB_DOMAIN_ENERGY}** in total"
+        )
+
+    hours = cap_refill_hours(domain_service.energy_cap(db, player))
+    parts.append(
+        f"*Regen is a flat 1 per {ENERGY_REGEN_MINUTES_PER_POINT} min at every HQ "
+        f"level — a full bar takes ~{hours}h. Upgrading stores more attempts, "
+        f"it doesn't earn faster.*"
+    )
+    return "\n".join(parts)
+
+
+def cap_refill_hours(cap: int) -> int:
+    from bot.game.economy.domain_config import ENERGY_REGEN_MINUTES_PER_POINT
+    return round(cap * ENERGY_REGEN_MINUTES_PER_POINT / 60)
+
+
+def _max_lab_domain_energy() -> int:
+    from bot.game.economy.research_config import RESEARCH_PROJECTS
+    return sum(p.get("value", 0) for p in RESEARCH_PROJECTS
+               if p.get("perk") == "domain_energy")
+
+
+_MAX_LAB_DOMAIN_ENERGY = _max_lab_domain_energy()
+
+
 def domain_menu_embed(db, player) -> discord.Embed:
     """Top-level /domains screen: energy status + every domain type."""
     embed = discord.Embed(title="🌀 Domains", color=discord.Color.dark_purple())
     embed.add_field(name="Energy", value=_energy_bar_line(db, player), inline=False)
+    # The menu is where a player decides whether domains are worth their
+    # time, so it's where the ceiling needs explaining. The tier screen
+    # gets the short version -- by then they're already spending.
+    embed.add_field(name="Where your energy cap comes from",
+                    value=_energy_source_line(db, player), inline=False)
     for domain in DOMAIN_TYPES:
         embed.add_field(name=f"{domain['icon']} {domain['name']}", value=domain["description"], inline=False)
     embed.set_footer(text="Pick a domain below to see its difficulty tiers.")
@@ -83,9 +155,13 @@ def domain_tier_embed(db, domain: dict, player, lock_reasons: dict[str, str | No
             reward_text = f"*Enemies at squad Lv{sign}{offset}*\n{reward_text}"
         embed.add_field(name=name, value=reward_text, inline=True)
 
+    # Short form of the source note. The menu screen itemises it; here
+    # the player is mid-decision and only needs to know the ceiling isn't
+    # fixed and which command moves it.
     embed.set_footer(
         text="Domain enemies scale to your squad's average level -- levelling up raises the "
-             "challenge as well as your power."
+             "challenge as well as your power.\n"
+             "Energy capacity comes from your Cascade HQ level -- raise it with /base hq."
     )
     return embed
 

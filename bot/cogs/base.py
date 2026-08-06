@@ -120,6 +120,26 @@ def _build_hq_embed(db, player) -> discord.Embed:
     cost_text = ", ".join(format_currency(currency, amount) for currency, amount in cost.items())
     embed.add_field(name="Next level cost", value=cost_text, inline=False)
 
+    # WHAT THE UPGRADE ACTUALLY BUYS, in a number.
+    #
+    # The description above lists the systems HQ unlocks, but none of
+    # them state a figure, so "upgrade Cascade HQ" reads as a chore with
+    # a vague payoff. Domain energy is the one benefit that IS a concrete
+    # number at every level, and it was the least discoverable of the
+    # lot -- the domain screen never named HQ as its source and this
+    # screen never mentioned domains. Naming it on both sides closes the
+    # loop: the player can now find the lever from either end.
+    from bot.game.economy.domain_config import max_domain_energy
+    gain = max_domain_energy(base.hq_level + 1) - max_domain_energy(base.hq_level)
+    if gain > 0:
+        embed.add_field(
+            name="Next level grants",
+            value=(f"⚡ **+{gain} domain energy** capacity "
+                   f"({max_domain_energy(base.hq_level)} → "
+                   f"{max_domain_energy(base.hq_level + 1)}) — see `/domains`"),
+            inline=False,
+        )
+
     missing = base_service.missing_hq_requirements(db, player)
     if missing:
         preview = "\n".join(f"- {item}" for item in missing[:8])
