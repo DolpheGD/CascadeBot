@@ -21,6 +21,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
+from bot.utils import responses
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
 from bot.services import domain_service
@@ -252,11 +253,11 @@ async def _handle_show_menu(interaction: discord.Interaction):
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
         embed = embedder.domain_menu_embed(db, player)
         view = DomainMenuView(owner_id=player.id)
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
     finally:
         db.close()
 
@@ -266,11 +267,11 @@ async def _handle_show_tiers(interaction: discord.Interaction, domain_id: str):
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
         domain = get_domain_type(domain_id)
         if domain is None:
-            await interaction.response.send_message("No such domain.", ephemeral=True)
+            await responses.send(interaction, "No such domain.", ephemeral=True)
             return
         # Resolved once here and passed down to both the embed and the
         # view, so the two can never disagree about what's locked and the
@@ -282,7 +283,7 @@ async def _handle_show_tiers(interaction: discord.Interaction, domain_id: str):
         embed = embedder.domain_tier_embed(db, domain, player, lock_reasons)
         view = DomainTierView(domain_id, player, lock_reasons,
                               domain_service.get_current_energy(db, player), owner_id=player.id)
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
     finally:
         db.close()
 
@@ -292,13 +293,13 @@ async def _handle_start_domain(interaction: discord.Interaction, domain_id: str,
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
 
         try:
             battle = domain_service.start_challenge(db, player, domain_id, tier_id)
         except domain_service.DomainChallengeError as exc:
-            await interaction.response.send_message(str(exc), ephemeral=True)
+            await responses.send(interaction, str(exc), ephemeral=True)
             return
 
         avatar_url = interaction.user.display_avatar.url
@@ -306,10 +307,10 @@ async def _handle_start_domain(interaction: discord.Interaction, domain_id: str,
         embed = embedder.combat_embed(battle, avatar_url=avatar_url)
 
         if summary is not None:
-            await interaction.response.edit_message(embed=embed, view=None)
+            await responses.edit(interaction, embed=embed, view=None)
             await interaction.followup.send(embed=embedder.domain_result_embed(summary))
         else:
-            await interaction.response.edit_message(embed=embed, view=_build_domain_combat_view(battle, player.id))
+            await responses.edit(interaction, embed=embed, view=_build_domain_combat_view(battle, player.id))
     finally:
         db.close()
 
@@ -318,19 +319,19 @@ async def _handle_combat_info(interaction: discord.Interaction):
     player_id = interaction.user.id
     battle = domain_service.get_active_battle(player_id)
     if battle is None:
-        await interaction.response.send_message("You're not in a domain battle right now.", ephemeral=True)
+        await responses.send(interaction, "You're not in a domain battle right now.", ephemeral=True)
         return
     embed, view = combat_ui.info_response(battle)
-    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+    await responses.send(interaction, embed=embed, view=view, ephemeral=True)
 
 
 async def _handle_combat_log(interaction: discord.Interaction):
     player_id = interaction.user.id
     battle = domain_service.get_active_battle(player_id)
     if battle is None:
-        await interaction.response.send_message("You're not in a domain battle right now.", ephemeral=True)
+        await responses.send(interaction, "You're not in a domain battle right now.", ephemeral=True)
         return
-    await interaction.response.send_message(embed=embedder.battle_log_embed(battle), ephemeral=True)
+    await responses.send(interaction, embed=embedder.battle_log_embed(battle), ephemeral=True)
 
 
 async def _handle_combat_action(interaction: discord.Interaction, action: str, ability_id: str | None = None):
@@ -339,10 +340,10 @@ async def _handle_combat_action(interaction: discord.Interaction, action: str, a
         player = get_player(db, interaction.user.id)
         battle = domain_service.get_active_battle(interaction.user.id) if player else None
         if player is None or battle is None:
-            await interaction.response.send_message("You're not in a domain battle right now.", ephemeral=True)
+            await responses.send(interaction, "You're not in a domain battle right now.", ephemeral=True)
             return
         if battle.current_actor() not in battle.party:
-            await interaction.response.send_message("It's not your turn yet.", ephemeral=True)
+            await responses.send(interaction, "It's not your turn yet.", ephemeral=True)
             return
 
         battle.take_party_action(action, ability_id=ability_id)
@@ -350,10 +351,10 @@ async def _handle_combat_action(interaction: discord.Interaction, action: str, a
         avatar_url = interaction.user.display_avatar.url
 
         if summary is not None:
-            await interaction.response.edit_message(embed=embedder.combat_embed(battle, avatar_url=avatar_url), view=None)
+            await responses.edit(interaction, embed=embedder.combat_embed(battle, avatar_url=avatar_url), view=None)
             await interaction.followup.send(embed=embedder.domain_result_embed(summary))
         else:
-            await interaction.response.edit_message(
+            await responses.edit(interaction,
                 embed=embedder.combat_embed(battle, avatar_url=avatar_url),
                 view=_build_domain_combat_view(battle, player.id),
             )
@@ -365,15 +366,15 @@ async def _handle_select_target(interaction: discord.Interaction, target_index: 
     player_id = interaction.user.id
     battle = domain_service.get_active_battle(player_id)
     if battle is None:
-        await interaction.response.send_message("You're not in a domain battle right now.", ephemeral=True)
+        await responses.send(interaction, "You're not in a domain battle right now.", ephemeral=True)
         return
     if battle.current_actor() not in battle.party:
-        await interaction.response.send_message("It's not your turn yet.", ephemeral=True)
+        await responses.send(interaction, "It's not your turn yet.", ephemeral=True)
         return
 
     battle.select_target(target_index)
     avatar_url = interaction.user.display_avatar.url
-    await interaction.response.edit_message(
+    await responses.edit(interaction,
         embed=embedder.combat_embed(battle, avatar_url=avatar_url),
         view=_build_domain_combat_view(battle, player_id),
     )
@@ -387,15 +388,15 @@ async def _handle_select_ally(interaction: discord.Interaction, party_index: int
     player_id = interaction.user.id
     battle = domain_service.get_active_battle(player_id)
     if battle is None:
-        await interaction.response.send_message("You're not in a domain battle right now.", ephemeral=True)
+        await responses.send(interaction, "You're not in a domain battle right now.", ephemeral=True)
         return
     if battle.current_actor() not in battle.party:
-        await interaction.response.send_message("It's not your turn yet.", ephemeral=True)
+        await responses.send(interaction, "It's not your turn yet.", ephemeral=True)
         return
 
     battle.select_ally_target(party_index)
     avatar_url = interaction.user.display_avatar.url
-    await interaction.response.edit_message(
+    await responses.edit(interaction,
         embed=embedder.combat_embed(battle, avatar_url=avatar_url),
         view=_build_domain_combat_view(battle, player_id),
     )
@@ -406,12 +407,12 @@ async def _handle_forfeit(interaction: discord.Interaction):
     try:
         player = get_player(db, interaction.user.id)
         if player is None or not domain_service.has_active_challenge(interaction.user.id):
-            await interaction.response.send_message("You're not in a domain battle right now.", ephemeral=True)
+            await responses.send(interaction, "You're not in a domain battle right now.", ephemeral=True)
             return
         domain_service.abandon_challenge(db, player)
         embed = embedder.domain_menu_embed(db, player)
         view = DomainMenuView(owner_id=player.id)
-        await interaction.response.edit_message(
+        await responses.edit(interaction,
             content="You forfeit the domain challenge. No reward, but nothing further lost.",
             embed=embed, view=view,
         )
@@ -426,6 +427,7 @@ class Domains(commands.Cog):
 
     @app_commands.command(name="domains", description="Spend energy on single-battle challenges for direct rewards.")
     async def domains(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
@@ -445,14 +447,14 @@ class Domains(commands.Cog):
                 summary = _advance_domain_battle(db, player, battle)
                 avatar_url = ctx.user.display_avatar.url
                 if summary is not None:
-                    await ctx.response.send_message(
+                    await responses.send(ctx,
                         content="Your domain challenge just resolved.",
                         embed=embedder.domain_result_embed(summary),
                     )
                     return
                 embed = embedder.combat_embed(battle, avatar_url=avatar_url)
                 view = _build_domain_combat_view(battle, player.id)
-                await ctx.response.send_message(
+                await responses.send(ctx,
                     content="You're already mid-challenge -- picking up where you left off.",
                     embed=embed, view=view,
                 )
@@ -462,7 +464,7 @@ class Domains(commands.Cog):
             view = DomainMenuView(owner_id=player.id)
         finally:
             db.close()
-        await ctx.response.send_message(embed=embed, view=view)
+        await responses.send(ctx, embed=embed, view=view)
 
 
 async def setup(bot):

@@ -5,6 +5,7 @@ from discord import app_commands
 
 from bot.utils import names
 from bot.database.models.enums import CLASS_EMOJI, CharacterClass
+from bot.utils import responses
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_or_create_player, get_player
 from bot.services.currency_service import add_currency
@@ -72,7 +73,7 @@ async def _render_profile_page(interaction: discord.Interaction, page: int, char
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
 
         owned = character_service.list_owned_characters(db, player)
@@ -92,7 +93,7 @@ async def _render_profile_page(interaction: discord.Interaction, page: int, char
     finally:
         db.close()
 
-    await interaction.response.edit_message(embed=embed, view=view)
+    await responses.edit(interaction, embed=embed, view=view)
 
 
 @guild_decorator
@@ -107,11 +108,12 @@ class Profile(commands.Cog):
         description="Begin your CascadeBot journey."
     )
     async def start(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
         db = SessionLocal()
         try:
             existing = get_player(db, ctx.user.id)
             if existing is not None:
-                await ctx.response.send_message(
+                await responses.send(ctx,
                     f"You've already begun your journey, {existing.username}. "
                     "Use `/profile` to check your progress.",
                     ephemeral=True,
@@ -134,7 +136,7 @@ class Profile(commands.Cog):
         # system at the point you have a reason to care about it. Handing
         # over a pile of currency the player can't yet spend on anything
         # was never the welcome it looked like.
-        await ctx.response.send_message(
+        await responses.send(ctx,
             embed=discord.Embed(
                 title=f"Welcome to the Cascade, {ctx.user.display_name}",
                 description=(
@@ -155,6 +157,7 @@ class Profile(commands.Cog):
     )
     @app_commands.describe(name="Your new name (letters, numbers, spaces, ' - . -- max 32 characters)")
     async def rename(self, ctx: discord.Interaction, name: str | None = None):
+        await responses.defer(ctx)
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
@@ -165,7 +168,7 @@ class Profile(commands.Cog):
         finally:
             db.close()
 
-        await ctx.response.send_message(message, ephemeral=not ok)
+        await responses.send(ctx, message, ephemeral=not ok)
 
     # COMMAND: /class
     # Lets the player freely switch their own avatar between the 4 roles
@@ -185,6 +188,7 @@ class Profile(commands.Cog):
         app_commands.Choice(name="Sustain", value=CharacterClass.SUSTAIN.value),
     ])
     async def class_(self, ctx: discord.Interaction, role: app_commands.Choice[str]):
+        await responses.defer(ctx)
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
@@ -193,7 +197,7 @@ class Profile(commands.Cog):
 
             expedition = dungeon_service.get_active_expedition(db, player.id)
             if expedition is not None:
-                await ctx.response.send_message(
+                await responses.send(ctx,
                     "You can't switch roles during an active run -- finish or abandon your expedition first.",
                     ephemeral=True,
                 )
@@ -206,7 +210,7 @@ class Profile(commands.Cog):
         finally:
             db.close()
 
-        await ctx.response.send_message(message, ephemeral=not ok)
+        await responses.send(ctx, message, ephemeral=not ok)
 
     # COMMAND: /characters
     # The full per-character sheet: Overview, Equipment (every slot, empty
@@ -222,6 +226,7 @@ class Profile(commands.Cog):
         description="View any character you own: stats, equipment, and abilities."
     )
     async def characters(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
@@ -242,7 +247,7 @@ class Profile(commands.Cog):
         finally:
             db.close()
 
-        await ctx.response.send_message(embed=embed, view=view)
+        await responses.send(ctx, embed=embed, view=view)
 
     # COMMAND: /profile
     # The ACCOUNT view -- account level, roster completion, power, and
@@ -253,6 +258,7 @@ class Profile(commands.Cog):
         description="Your account: level, roster, power and currencies."
     )
     async def profile(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
@@ -265,7 +271,7 @@ class Profile(commands.Cog):
         finally:
             db.close()
 
-        await ctx.response.send_message(embed=embed)
+        await responses.send(ctx, embed=embed)
 
     # COMMAND: /gift
     # Sends another player a package of materials or gold. See
@@ -286,20 +292,27 @@ class Profile(commands.Cog):
     ])
     async def gift(self, ctx: discord.Interaction, player: discord.User,
                    currency: str, amount: int, note: str | None = None):
+        await responses.defer(ctx)
         if player.bot:
-            await ctx.response.send_message("Bots have no use for materials.", ephemeral=True)
+            await responses.send(ctx, "Bots have no use for materials.", ephemeral=True)
             return
         db = SessionLocal()
         try:
             sender = get_player(db, ctx.user.id)
             if not await require_player(ctx, sender):
                 return
-            if not await require_feature(ctx, db, player, 'gifting'):
+            # SENDER, not `player` -- `player` is the discord.User being
+            # gifted TO, so this gated the feature on the RECIPIENT.
+            # A discord.User has no story row at all, which means the
+            # check was relying entirely on require_feature's deliberate
+            # fail-open to not explode: the gate was doing nothing, and
+            # a player who hadn't unlocked gifting could still gift.
+            if not await require_feature(ctx, db, sender, 'gifting'):
                 return
             try:
                 sent = gift_service.send_gift(db, sender, player.id, {currency: amount}, note)
             except gift_service.GiftError as exc:
-                await ctx.response.send_message(str(exc), ephemeral=True)
+                await responses.send(ctx, str(exc), ephemeral=True)
                 return
             embed = embedder.gift_sent_embed(
                 sent, player.mention, gift_service.sends_remaining(db, sender.id)
@@ -307,12 +320,13 @@ class Profile(commands.Cog):
         finally:
             db.close()
 
-        await ctx.response.send_message(embed=embed)
+        await responses.send(ctx, embed=embed)
 
     # COMMAND: /gifts
     # The inbox. Shows what's waiting, then collects it all on a button.
     @app_commands.command(name="gifts", description="See and collect gifts other players sent you.")
     async def gifts(self, ctx: discord.Interaction):
+        await responses.defer(ctx, ephemeral=True)
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
@@ -326,7 +340,7 @@ class Profile(commands.Cog):
         finally:
             db.close()
 
-        await ctx.response.send_message(embed=embed, view=view, ephemeral=True)
+        await responses.send(ctx, embed=embed, view=view, ephemeral=True)
 
 
 class GiftCollectView(OwnedView):
@@ -344,17 +358,17 @@ class GiftCollectView(OwnedView):
         try:
             player = get_player(db, interaction.user.id)
             if player is None:
-                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
             try:
                 result = gift_service.collect_all(db, player)
             except gift_service.GiftError as exc:
-                await interaction.response.edit_message(content=str(exc), embed=None, view=None)
+                await responses.edit(interaction, content=str(exc), embed=None, view=None)
                 return
             embed = embedder.gift_collected_embed(result)
         finally:
             db.close()
-        await interaction.response.edit_message(embed=embed, view=None)
+        await responses.edit(interaction, embed=embed, view=None)
 
 
 async def setup(bot):

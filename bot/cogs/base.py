@@ -10,6 +10,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
+from bot.utils import responses
 from bot.database.session import SessionLocal
 from bot.database.models.hq_model import ShopListing, ShrineTemplate
 from bot.database.models.economy_model import HarvesterTemplate
@@ -76,12 +77,12 @@ class HQUpgradeButton(discord.ui.DynamicItem[discord.ui.Button], template=r"casc
         try:
             player = get_player(db, interaction.user.id)
             if player is None:
-                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
 
             expedition = dungeon_service.get_active_expedition(db, player.id)
             if dungeon_service.is_in_combat(expedition):
-                await interaction.response.send_message(
+                await responses.send(interaction,
                     "You can't manage Cascade HQ mid-battle -- finish the fight first!",
                     ephemeral=True,
                 )
@@ -90,7 +91,7 @@ class HQUpgradeButton(discord.ui.DynamicItem[discord.ui.Button], template=r"casc
             ok, message = base_service.upgrade_hq(db, player)
             embed = _build_hq_embed(db, player)
             view = _build_hq_view(db, player)
-            await interaction.response.edit_message(content=message, embed=embed, view=view)
+            await responses.edit(interaction, content=message, embed=embed, view=view)
         finally:
             db.close()
 
@@ -192,12 +193,12 @@ class ShrineActionButton(discord.ui.DynamicItem[discord.ui.Button], template=r"c
         try:
             player = get_player(db, interaction.user.id)
             if player is None:
-                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
 
             expedition = dungeon_service.get_active_expedition(db, player.id)
             if dungeon_service.is_in_combat(expedition):
-                await interaction.response.send_message(
+                await responses.send(interaction,
                     "You can't manage shrines mid-battle -- finish the fight first!",
                     ephemeral=True,
                 )
@@ -219,7 +220,7 @@ class ShrineActionButton(discord.ui.DynamicItem[discord.ui.Button], template=r"c
 
             embed = _build_shrine_embed(db, player)
             view = _build_shrine_view(db, player)
-            await interaction.response.edit_message(content=message, embed=embed, view=view)
+            await responses.edit(interaction, content=message, embed=embed, view=view)
         finally:
             db.close()
 
@@ -416,12 +417,12 @@ async def _handle_harvester_action(interaction: discord.Interaction, template_id
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
 
         expedition = dungeon_service.get_active_expedition(db, player.id)
         if dungeon_service.is_in_combat(expedition):
-            await interaction.response.send_message(
+            await responses.send(interaction,
                 "You can't manage harvesters mid-battle -- finish the fight first!",
                 ephemeral=True,
             )
@@ -443,7 +444,7 @@ async def _handle_harvester_action(interaction: discord.Interaction, template_id
 
         embed = _build_harvester_embed(db, player)
         view = _build_harvester_view(db, player)
-        await interaction.response.edit_message(content=message, embed=embed, view=view)
+        await responses.edit(interaction, content=message, embed=embed, view=view)
     finally:
         db.close()
 
@@ -453,12 +454,12 @@ async def _handle_harvester_collect_all(interaction: discord.Interaction):
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
 
         expedition = dungeon_service.get_active_expedition(db, player.id)
         if dungeon_service.is_in_combat(expedition):
-            await interaction.response.send_message(
+            await responses.send(interaction,
                 "You can't manage harvesters mid-battle -- finish the fight first!",
                 ephemeral=True,
             )
@@ -481,7 +482,7 @@ async def _handle_harvester_collect_all(interaction: discord.Interaction):
 
         embed = _build_harvester_embed(db, player)
         view = _build_harvester_view(db, player)
-        await interaction.response.edit_message(content=message, embed=embed, view=view)
+        await responses.edit(interaction, content=message, embed=embed, view=view)
     finally:
         db.close()
 
@@ -510,12 +511,12 @@ class ShopBuyButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascad
         try:
             player = get_player(db, interaction.user.id)
             if player is None:
-                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
 
             expedition = dungeon_service.get_active_expedition(db, player.id)
             if dungeon_service.is_in_combat(expedition):
-                await interaction.response.send_message(
+                await responses.send(interaction,
                     "You can't shop mid-battle -- finish the fight first!",
                     ephemeral=True,
                 )
@@ -535,7 +536,7 @@ class ShopBuyButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascad
 
             embed = _build_shop_embed(db, player, category)
             view = _build_shop_view(db, player, category)
-            await interaction.response.edit_message(content=message, embed=embed, view=view)
+            await responses.edit(interaction, content=message, embed=embed, view=view)
         finally:
             db.close()
 
@@ -615,11 +616,11 @@ class ShopCategoryButton(discord.ui.DynamicItem[discord.ui.Button], template=r"c
         try:
             player = get_player(db, interaction.user.id)
             if player is None:
-                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
             embed = _build_shop_embed(db, player, self.category)
             view = _build_shop_view(db, player, self.category)
-            await interaction.response.edit_message(content=None, embed=embed, view=view)
+            await responses.edit(interaction, content=None, embed=embed, view=view)
         finally:
             db.close()
 
@@ -754,14 +755,14 @@ class ResearchStartButton(discord.ui.DynamicItem[discord.ui.Button],
         try:
             player = get_player(db, interaction.user.id)
             if player is None:
-                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
             try:
                 result = research_service.start_research(db, player, self.project_id)
                 message = f"🔬 Started **{result['project']['name']}**."
             except research_service.ResearchError as exc:
                 message = str(exc)
-            await interaction.response.edit_message(
+            await responses.edit(interaction,
                 content=message, embed=_build_lab_embed(db, player), view=_build_lab_view(db, player),
             )
         finally:
@@ -787,7 +788,7 @@ class ResearchCollectButton(discord.ui.DynamicItem[discord.ui.Button], template=
         try:
             player = get_player(db, interaction.user.id)
             if player is None:
-                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
             try:
                 unlocked = research_service.collect_research(db, player)
@@ -795,7 +796,7 @@ class ResearchCollectButton(discord.ui.DynamicItem[discord.ui.Button], template=
                 message = f"🔬 Research complete: {names}"
             except research_service.ResearchError as exc:
                 message = str(exc)
-            await interaction.response.edit_message(
+            await responses.edit(interaction,
                 content=message, embed=_build_lab_embed(db, player), view=_build_lab_view(db, player),
             )
         finally:
@@ -821,10 +822,10 @@ class LabUpgradeButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cas
         try:
             player = get_player(db, interaction.user.id)
             if player is None:
-                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
             _, message = research_service.upgrade_lab(db, player)
-            await interaction.response.edit_message(
+            await responses.edit(interaction,
                 content=message, embed=_build_lab_embed(db, player), view=_build_lab_view(db, player),
             )
         finally:
@@ -946,10 +947,10 @@ class ForgeUpgradeButton(discord.ui.DynamicItem[discord.ui.Button], template=r"c
         try:
             player = get_player(db, interaction.user.id)
             if player is None:
-                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
             _, message = forge_service.upgrade_forge(db, player)
-            await interaction.response.edit_message(
+            await responses.edit(interaction,
                 content=message, embed=_build_forge_embed(db, player), view=_build_forge_view(db, player),
             )
         finally:
@@ -977,7 +978,7 @@ class ForgeCraftButton(discord.ui.DynamicItem[discord.ui.Button],
         try:
             player = get_player(db, interaction.user.id)
             if player is None:
-                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
             try:
                 item_obj = forge_service.craft_item(
@@ -986,7 +987,7 @@ class ForgeCraftButton(discord.ui.DynamicItem[discord.ui.Button],
                 message = f"🔨 Forged **{item_obj.display_name}**!"
             except forge_service.ForgeError as exc:
                 message = str(exc)
-            await interaction.response.edit_message(
+            await responses.edit(interaction,
                 content=message, embed=_build_forge_embed(db, player), view=_build_forge_view(db, player),
             )
         finally:
@@ -1009,9 +1010,9 @@ class ForgeSlotSelect(discord.ui.Select):
         try:
             player = get_player(db, interaction.user.id)
             if player is None:
-                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
-            await interaction.response.edit_message(
+            await responses.edit(interaction,
                 embed=_build_forge_embed(db, player, self.values[0]),
                 view=_build_forge_view(db, player, self.values[0]),
             )
@@ -1079,17 +1080,17 @@ class ForgeModeSelect(discord.ui.Select):
         try:
             player = get_player(db, interaction.user.id)
             if player is None:
-                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
             mode = self.values[0]
             forge = forge_service.get_or_create_forge(db, player)
             if not forge_config.operation_unlocked(mode, forge.level):
                 need = forge_config.FORGE_UNLOCKS.get(mode, 1)
-                await interaction.response.send_message(
+                await responses.send(interaction,
                     f"{mode.title()} unlocks at Forge level {need}.", ephemeral=True
                 )
                 return
-            await interaction.response.edit_message(
+            await responses.edit(interaction,
                 embed=_build_forge_embed(db, player, mode=mode),
                 view=_build_forge_view(db, player, mode=mode),
             )
@@ -1117,7 +1118,7 @@ class ForgeItemSelect(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         if self.values[0] == "none":
-            await interaction.response.send_message(
+            await responses.send(interaction,
                 "You have no unequipped gear the Forge can work on.", ephemeral=True
             )
             return
@@ -1127,11 +1128,11 @@ class ForgeItemSelect(discord.ui.Select):
 
             player = get_player(db, interaction.user.id)
             if player is None:
-                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
             item = db.get(InventoryItem, int(self.values[0]))
             if item is None or item.player_id != player.id:
-                await interaction.response.send_message("You don't own that item.", ephemeral=True)
+                await responses.send(interaction, "You don't own that item.", ephemeral=True)
                 return
 
             message = ""
@@ -1150,7 +1151,7 @@ class ForgeItemSelect(discord.ui.Select):
                 elif self.mode == "transfer":
                     # First half of transfer: remember the source and show
                     # the target picker, which only lists same-type items.
-                    await interaction.response.edit_message(
+                    await responses.edit(interaction,
                         embed=_build_forge_embed(db, player, mode="transfer", source=item),
                         view=_build_forge_view(db, player, mode="transfer", source=item),
                     )
@@ -1158,7 +1159,7 @@ class ForgeItemSelect(discord.ui.Select):
             except forge_service.ForgeError as exc:
                 message = str(exc)
 
-            await interaction.response.edit_message(
+            await responses.edit(interaction,
                 content=message,
                 embed=_build_forge_embed(db, player, mode=self.mode),
                 view=_build_forge_view(db, player, mode=self.mode),
@@ -1185,7 +1186,7 @@ class ForgeTransferTargetSelect(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         if self.values[0] == "none":
-            await interaction.response.send_message(
+            await responses.send(interaction,
                 "You have no other unequipped item of that type to transfer onto.", ephemeral=True
             )
             return
@@ -1195,19 +1196,19 @@ class ForgeTransferTargetSelect(discord.ui.Select):
 
             player = get_player(db, interaction.user.id)
             if player is None:
-                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
             source = db.get(InventoryItem, self.source_id)
             target = db.get(InventoryItem, int(self.values[0]))
             if source is None or target is None or {source.player_id, target.player_id} != {player.id}:
-                await interaction.response.send_message("You don't own those items.", ephemeral=True)
+                await responses.send(interaction, "You don't own those items.", ephemeral=True)
                 return
             try:
                 result = forge_service.transfer_ability(db, player, source, target)
                 message = f"🔗 Ability moved onto **{result.display_name}**. The donor was consumed."
             except forge_service.ForgeError as exc:
                 message = str(exc)
-            await interaction.response.edit_message(
+            await responses.edit(interaction,
                 content=message,
                 embed=_build_forge_embed(db, player, mode="transfer"),
                 view=_build_forge_view(db, player, mode="transfer"),
@@ -1389,6 +1390,7 @@ class Base(commands.GroupCog, name="base", description="Cascade HQ base-building
 
     @app_commands.command(name="hq", description="View and upgrade your Cascade HQ.")
     async def hq_cmd(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
@@ -1400,10 +1402,11 @@ class Base(commands.GroupCog, name="base", description="Cascade HQ base-building
             view = _build_hq_view(db, player)
         finally:
             db.close()
-        await ctx.response.send_message(embed=embed, view=view)
+        await responses.send(ctx, embed=embed, view=view)
 
     @app_commands.command(name="shrines", description="View, build, and upgrade your shrines.")
     async def shrines_cmd(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
@@ -1415,10 +1418,11 @@ class Base(commands.GroupCog, name="base", description="Cascade HQ base-building
             view = _build_shrine_view(db, player)
         finally:
             db.close()
-        await ctx.response.send_message(embed=embed, view=view)
+        await responses.send(ctx, embed=embed, view=view)
 
     @app_commands.command(name="harvesters", description="View, buy, upgrade, and collect your harvesters.")
     async def harvesters_cmd(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
@@ -1432,10 +1436,11 @@ class Base(commands.GroupCog, name="base", description="Cascade HQ base-building
         finally:
             db.close()
 
-        await ctx.response.send_message(embed=embed, view=view)
+        await responses.send(ctx, embed=embed, view=view)
 
     @app_commands.command(name="shop", description="Browse the local shop.")
     async def shop_cmd(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
@@ -1447,10 +1452,11 @@ class Base(commands.GroupCog, name="base", description="Cascade HQ base-building
             view = _build_shop_view(db, player)
         finally:
             db.close()
-        await ctx.response.send_message(embed=embed, view=view)
+        await responses.send(ctx, embed=embed, view=view)
 
     @app_commands.command(name="lab", description="Research permanent, account-wide upgrades.")
     async def lab_cmd(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
@@ -1462,10 +1468,11 @@ class Base(commands.GroupCog, name="base", description="Cascade HQ base-building
             view = _build_lab_view(db, player)
         finally:
             db.close()
-        await ctx.response.send_message(embed=embed, view=view)
+        await responses.send(ctx, embed=embed, view=view)
 
     @app_commands.command(name="forge", description="Craft gear in the slot and rarity you choose.")
     async def forge_cmd(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
@@ -1477,7 +1484,7 @@ class Base(commands.GroupCog, name="base", description="Cascade HQ base-building
             view = _build_forge_view(db, player)
         finally:
             db.close()
-        await ctx.response.send_message(embed=embed, view=view)
+        await responses.send(ctx, embed=embed, view=view)
 
 
 async def setup(bot):

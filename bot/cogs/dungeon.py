@@ -3,6 +3,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
+from bot.utils import responses
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
 from bot.services import character_service, combat_service, dungeon_service, relic_service
@@ -484,7 +485,7 @@ async def _handle_start_battle(interaction: discord.Interaction):
         player = get_player(db, interaction.user.id)
         expedition = dungeon_service.get_active_expedition(db, player.id) if player else None
         if player is None or expedition is None or not expedition.combat_state:
-            await interaction.response.send_message("You're not in a battle right now.", ephemeral=True)
+            await responses.send(interaction, "You're not in a battle right now.", ephemeral=True)
             return
 
         expedition.pending_interaction = None
@@ -492,7 +493,7 @@ async def _handle_start_battle(interaction: discord.Interaction):
 
         avatar_url = interaction.user.display_avatar.url
         embed, view, summary = _combat_entry_view_and_embed(db, expedition, player, avatar_url)
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
 
         if summary is not None:
             follow_up_text = _battle_end_message(summary)
@@ -555,13 +556,13 @@ async def _handle_encounter_choice(interaction: discord.Interaction, choice_id: 
         player = get_player(db, interaction.user.id)
         expedition = dungeon_service.get_active_expedition(db, player.id) if player else None
         if player is None or expedition is None or not expedition.pending_interaction:
-            await interaction.response.send_message("There's nothing to resolve here right now.", ephemeral=True)
+            await responses.send(interaction, "There's nothing to resolve here right now.", ephemeral=True)
             return
 
         result = dungeon_service.resolve_encounter_choice(db, expedition, player, choice_id)
         avatar_url = interaction.user.display_avatar.url
         embed, view = _render_room(db, expedition, player, result["kind"], result["message"], avatar_url)
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
     finally:
         db.close()
 
@@ -572,13 +573,13 @@ async def _handle_campfire_choice(interaction: discord.Interaction, choice: str,
         player = get_player(db, interaction.user.id)
         expedition = dungeon_service.get_active_expedition(db, player.id) if player else None
         if player is None or expedition is None or not expedition.pending_interaction:
-            await interaction.response.send_message("There's nothing to resolve here right now.", ephemeral=True)
+            await responses.send(interaction, "There's nothing to resolve here right now.", ephemeral=True)
             return
 
         result = dungeon_service.resolve_campfire_choice(db, expedition, player, choice, relic_id=relic_id)
         avatar_url = interaction.user.display_avatar.url
         embed, view = _render_room(db, expedition, player, result["kind"], result["message"], avatar_url)
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
     finally:
         db.close()
 
@@ -588,19 +589,19 @@ async def _handle_move(interaction: discord.Interaction, target_node_id: str):
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
 
         expedition = dungeon_service.get_active_expedition(db, player.id)
         if expedition is None:
-            await interaction.response.send_message(
+            await responses.send(interaction,
                 "You don't have an active expedition. Use `/adventure`.", ephemeral=True
             )
             return
 
         ok, msg = dungeon_service.move_to_node(db, expedition, target_node_id)
         if not ok:
-            await interaction.response.send_message(msg, ephemeral=True)
+            await responses.send(interaction, msg, ephemeral=True)
             return
 
         result = dungeon_service.enter_node(db, expedition, player)
@@ -608,7 +609,7 @@ async def _handle_move(interaction: discord.Interaction, target_node_id: str):
 
         if result["kind"] == "combat":
             embed, view, summary = _combat_entry_view_and_embed(db, expedition, player, avatar_url)
-            await interaction.response.edit_message(embed=embed, view=view)
+            await responses.edit(interaction, embed=embed, view=view)
 
             if summary is not None:
                 follow_up_text = _battle_end_message(summary)
@@ -624,7 +625,7 @@ async def _handle_move(interaction: discord.Interaction, target_node_id: str):
                     await interaction.followup.send(embed=embedder.expedition_summary_embed(ledger, won))
         else:
             embed, view = _render_room(db, expedition, player, result["kind"], result["message"], avatar_url)
-            await interaction.response.edit_message(embed=embed, view=view)
+            await responses.edit(interaction, embed=embed, view=view)
     finally:
         db.close()
 
@@ -637,10 +638,10 @@ async def _handle_dungeon_map(interaction: discord.Interaction):
         player = get_player(db, interaction.user.id)
         expedition = dungeon_service.get_active_expedition(db, player.id) if player else None
         if player is None or expedition is None:
-            await interaction.response.send_message("You don't have an active expedition.", ephemeral=True)
+            await responses.send(interaction, "You don't have an active expedition.", ephemeral=True)
             return
 
-        await interaction.response.send_message(embed=embedder.dungeon_map_graph_embed(expedition), ephemeral=True)
+        await responses.send(interaction, embed=embedder.dungeon_map_graph_embed(expedition), ephemeral=True)
     finally:
         db.close()
 
@@ -654,10 +655,10 @@ async def _handle_forfeit_prompt(interaction: discord.Interaction):
         player = get_player(db, interaction.user.id)
         expedition = dungeon_service.get_active_expedition(db, player.id) if player else None
         if player is None or expedition is None:
-            await interaction.response.send_message("You don't have an active expedition.", ephemeral=True)
+            await responses.send(interaction, "You don't have an active expedition.", ephemeral=True)
             return
         if expedition.combat_state or expedition.pending_interaction:
-            await interaction.response.send_message(
+            await responses.send(interaction,
                 "You can't forfeit right now -- finish what you're doing first.", ephemeral=True
             )
             return
@@ -672,7 +673,7 @@ async def _handle_forfeit_prompt(interaction: discord.Interaction):
             ),
             color=discord.Color.orange(),
         )
-        await interaction.response.edit_message(embed=embed, view=ForfeitConfirmView(owner_id=expedition.player_id))
+        await responses.edit(interaction, embed=embed, view=ForfeitConfirmView(owner_id=expedition.player_id))
     finally:
         db.close()
 
@@ -683,12 +684,12 @@ async def _handle_forfeit_confirm(interaction: discord.Interaction):
         player = get_player(db, interaction.user.id)
         expedition = dungeon_service.get_active_expedition(db, player.id) if player else None
         if player is None or expedition is None:
-            await interaction.response.send_message("You don't have an active expedition.", ephemeral=True)
+            await responses.send(interaction, "You don't have an active expedition.", ephemeral=True)
             return
 
         result = dungeon_service.abandon_expedition(db, expedition, player)
         if not result["ok"]:
-            await interaction.response.send_message(result["message"], ephemeral=True)
+            await responses.send(interaction, result["message"], ephemeral=True)
             return
 
         avatar_url = interaction.user.display_avatar.url
@@ -696,7 +697,7 @@ async def _handle_forfeit_confirm(interaction: discord.Interaction):
             db, expedition, player, "resolved",
             "🏳️ You forfeit the expedition and make your way back.", avatar_url,
         )
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
         await interaction.followup.send(
             embed=embedder.expedition_summary_embed(result["ledger"], won=False, forfeited=True)
         )
@@ -710,12 +711,12 @@ async def _handle_forfeit_cancel(interaction: discord.Interaction):
         player = get_player(db, interaction.user.id)
         expedition = dungeon_service.get_active_expedition(db, player.id) if player else None
         if player is None or expedition is None:
-            await interaction.response.send_message("You don't have an active expedition.", ephemeral=True)
+            await responses.send(interaction, "You don't have an active expedition.", ephemeral=True)
             return
 
         avatar_url = interaction.user.display_avatar.url
         embed, view = _render_room(db, expedition, player, "resolved", "Forfeit cancelled.", avatar_url)
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
     finally:
         db.close()
 
@@ -730,12 +731,12 @@ async def _handle_combat_info(interaction: discord.Interaction):
         player = get_player(db, interaction.user.id)
         expedition = dungeon_service.get_active_expedition(db, player.id) if player else None
         if player is None or expedition is None or not expedition.combat_state:
-            await interaction.response.send_message("You're not in a battle right now.", ephemeral=True)
+            await responses.send(interaction, "You're not in a battle right now.", ephemeral=True)
             return
 
         battle = combat_service.load_battle(expedition)
         embed, view = combat_ui.info_response(battle)
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        await responses.send(interaction, embed=embed, view=view, ephemeral=True)
     finally:
         db.close()
 
@@ -749,11 +750,11 @@ async def _handle_combat_log(interaction: discord.Interaction):
         player = get_player(db, interaction.user.id)
         expedition = dungeon_service.get_active_expedition(db, player.id) if player else None
         if player is None or expedition is None or not expedition.combat_state:
-            await interaction.response.send_message("You're not in a battle right now.", ephemeral=True)
+            await responses.send(interaction, "You're not in a battle right now.", ephemeral=True)
             return
 
         battle = combat_service.load_battle(expedition)
-        await interaction.response.send_message(embed=embedder.battle_log_embed(battle), ephemeral=True)
+        await responses.send(interaction, embed=embedder.battle_log_embed(battle), ephemeral=True)
     finally:
         db.close()
 
@@ -763,19 +764,19 @@ async def _handle_combat_action(interaction: discord.Interaction, action: str, a
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
 
         expedition = dungeon_service.get_active_expedition(db, player.id)
         if expedition is None or not expedition.combat_state:
-            await interaction.response.send_message(
+            await responses.send(interaction,
                 "You're not in a battle right now.", ephemeral=True
             )
             return
 
         battle = combat_service.load_battle(expedition)
         if battle.current_actor() not in battle.party:
-            await interaction.response.send_message("It's not your turn yet.", ephemeral=True)
+            await responses.send(interaction, "It's not your turn yet.", ephemeral=True)
             return
 
         battle.take_party_action(action, ability_id=ability_id)
@@ -783,7 +784,7 @@ async def _handle_combat_action(interaction: discord.Interaction, action: str, a
         avatar_url = interaction.user.display_avatar.url
 
         if summary is not None:
-            await interaction.response.edit_message(
+            await responses.edit(interaction,
                 embed=embedder.combat_embed(battle, avatar_url=avatar_url), view=None
             )
 
@@ -799,7 +800,7 @@ async def _handle_combat_action(interaction: discord.Interaction, action: str, a
                 ledger, won = exp_summary
                 await interaction.followup.send(embed=embedder.expedition_summary_embed(ledger, won))
         else:
-            await interaction.response.edit_message(
+            await responses.edit(interaction,
                 embed=embedder.combat_embed(battle, avatar_url=avatar_url), view=_build_combat_view(battle, expedition.player_id)
             )
     finally:
@@ -812,24 +813,24 @@ async def _handle_select_target(interaction: discord.Interaction, target_index: 
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
 
         expedition = dungeon_service.get_active_expedition(db, player.id)
         if expedition is None or not expedition.combat_state:
-            await interaction.response.send_message("You're not in a battle right now.", ephemeral=True)
+            await responses.send(interaction, "You're not in a battle right now.", ephemeral=True)
             return
 
         battle = combat_service.load_battle(expedition)
         if battle.current_actor() not in battle.party:
-            await interaction.response.send_message("It's not your turn yet.", ephemeral=True)
+            await responses.send(interaction, "It's not your turn yet.", ephemeral=True)
             return
 
         battle.select_target(target_index)
         combat_service.save_battle(db, expedition, battle)
 
         avatar_url = interaction.user.display_avatar.url
-        await interaction.response.edit_message(
+        await responses.edit(interaction,
             embed=embedder.combat_embed(battle, avatar_url=avatar_url), view=_build_combat_view(battle, expedition.player_id)
         )
     finally:
@@ -848,24 +849,24 @@ async def _handle_select_ally(interaction: discord.Interaction, party_index: int
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
 
         expedition = dungeon_service.get_active_expedition(db, player.id)
         if expedition is None or not expedition.combat_state:
-            await interaction.response.send_message("You're not in a battle right now.", ephemeral=True)
+            await responses.send(interaction, "You're not in a battle right now.", ephemeral=True)
             return
 
         battle = combat_service.load_battle(expedition)
         if battle.current_actor() not in battle.party:
-            await interaction.response.send_message("It's not your turn yet.", ephemeral=True)
+            await responses.send(interaction, "It's not your turn yet.", ephemeral=True)
             return
 
         battle.select_ally_target(party_index)
         combat_service.save_battle(db, expedition, battle)
 
         avatar_url = interaction.user.display_avatar.url
-        await interaction.response.edit_message(
+        await responses.edit(interaction,
             embed=embedder.combat_embed(battle, avatar_url=avatar_url), view=_build_combat_view(battle, expedition.player_id)
         )
     finally:
@@ -893,11 +894,12 @@ class Dungeon(commands.Cog):
         app_commands.Choice(name="Abyssnia (Nightmare)", value="Abyssnia"),
     ])
     async def adventure(self, ctx: discord.Interaction, region: str = "Glacier 15"):
+        await responses.defer(ctx)
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
             if player is None:
-                await ctx.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(ctx, "Use `/start` first.", ephemeral=True)
                 return
             if not await require_feature(ctx, db, player, "adventure"):
                 return
@@ -909,7 +911,7 @@ class Dungeon(commands.Cog):
             if expedition is None:
                 unlocked, required_region = dungeon_service.is_region_unlocked(db, player.id, region)
                 if not unlocked:
-                    await ctx.response.send_message(
+                    await responses.send(ctx,
                         f"**{region}** is locked -- fully clear an expedition in "
                         f"**{required_region}** (defeat its final boss) to unlock it.",
                         ephemeral=True,
@@ -956,7 +958,7 @@ class Dungeon(commands.Cog):
         finally:
             db.close()
 
-        await ctx.response.send_message(embed=embed, view=view)
+        await responses.send(ctx, embed=embed, view=view)
         if resume_region_note and expedition.combat_state:
             await ctx.followup.send(resume_region_note, ephemeral=True)
         if follow_up_text:

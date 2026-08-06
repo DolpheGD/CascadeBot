@@ -19,6 +19,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
+from bot.utils import responses
 from bot.database.session import SessionLocal
 from bot.game.abyss import abyss_config as ac
 from bot.game.combat.battle import Battle
@@ -102,12 +103,12 @@ async def _open_floor(interaction: discord.Interaction, floor_number: int):
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
         floor = ac.get_floor(floor_number)
         locked = abyss_service.floor_locked_reason(db, player, floor)
         if locked:
-            await interaction.response.send_message(locked, ephemeral=True)
+            await responses.send(interaction, locked, ephemeral=True)
             return
         state = abyss_service.get_or_create(db, player)
         rotation = abyss_service.current_rotation()
@@ -134,7 +135,7 @@ async def _open_floor(interaction: discord.Interaction, floor_number: int):
         view = _FloorEntryView(floor_number, owner_id=player.id)
     finally:
         db.close()
-    await interaction.response.edit_message(embed=embed, view=view)
+    await responses.edit(interaction, embed=embed, view=view)
 
 
 class _FloorEntryView(OwnedView):
@@ -200,7 +201,7 @@ async def _render_picker(interaction: discord.Interaction, floor_number: int,
         view = _PickerView(floor_number, chamber, total, owned, owner_id=player.id)
     finally:
         db.close()
-    await interaction.response.edit_message(embed=embed, view=view)
+    await responses.edit(interaction, embed=embed, view=view)
 
 
 class _PickerView(OwnedView):
@@ -240,7 +241,7 @@ class _TeamSelect(discord.ui.Select):
             try:
                 abyss_service.begin_floor(db, player, view.floor_number, teams)
             except abyss_service.AbyssError as exc:
-                await interaction.response.send_message(str(exc), ephemeral=True)
+                await responses.send(interaction, str(exc), ephemeral=True)
                 return
         finally:
             db.close()
@@ -335,11 +336,11 @@ async def _combat_action(interaction: discord.Interaction, action: str,
         player = get_player(db, interaction.user.id)
         state = abyss_service.get_or_create(db, player)
         if not state.combat_state:
-            await interaction.response.send_message("No fight in progress.", ephemeral=True)
+            await responses.send(interaction, "No fight in progress.", ephemeral=True)
             return
         battle = battle_from_dict(state.combat_state)
         if battle.current_actor() not in battle.party:
-            await interaction.response.send_message("It's not your turn.", ephemeral=True)
+            await responses.send(interaction, "It's not your turn.", ephemeral=True)
             return
 
         battle.take_party_action(action, ability_id=ability_id)
@@ -366,10 +367,10 @@ async def _combat_action(interaction: discord.Interaction, action: str,
         db.close()
 
     if outcome is None:
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
         return
     if not outcome["won"]:
-        await interaction.response.edit_message(
+        await responses.edit(interaction,
             embed=discord.Embed(
                 title="🕳️ The floor takes it back",
                 description=(
@@ -392,7 +393,7 @@ async def _combat_action(interaction: discord.Interaction, action: str,
         done.add_field(name="Rewards", value="\n".join(outcome["rewards"])[:1024], inline=False)
     else:
         done.set_footer(text="Reward already claimed — stars still counted.")
-    await interaction.response.edit_message(embed=done, view=None)
+    await responses.edit(interaction, embed=done, view=None)
 
 
 async def _render_chamber(interaction: discord.Interaction, edit: bool):
@@ -406,9 +407,9 @@ async def _render_chamber(interaction: discord.Interaction, edit: bool):
         await _render_overview(interaction, edit=edit)
         return
     if edit:
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
     else:
-        await interaction.response.send_message(embed=embed, view=view)
+        await responses.send(interaction, embed=embed, view=view)
 
 
 async def _render_overview(interaction: discord.Interaction, edit: bool):
@@ -420,9 +421,9 @@ async def _render_overview(interaction: discord.Interaction, edit: bool):
     finally:
         db.close()
     if edit:
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
     else:
-        await interaction.response.send_message(embed=embed, view=view)
+        await responses.send(interaction, embed=embed, view=view)
 
 
 @guild_decorator
@@ -433,6 +434,7 @@ class Abyss(commands.Cog):
     @app_commands.command(name="abyss",
                           description="The Void Abyss -- the hardest content in the game.")
     async def abyss(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)

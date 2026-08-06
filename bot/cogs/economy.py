@@ -5,6 +5,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
+from bot.utils import responses
 from bot.database.session import SessionLocal
 from bot.game.economy import resonance_config
 from bot.services import character_service, dungeon_service, echo_exchange_service, lootbox_service
@@ -36,6 +37,7 @@ class Economy(commands.Cog):
     # bonus shards + lootboxes every 7/30 days.
     @app_commands.command(name="daily", description="Claim your daily reward.")
     async def daily(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
@@ -49,7 +51,7 @@ class Economy(commands.Cog):
             except DailyOnCooldown as exc:
                 hours, remainder = divmod(int(exc.time_remaining.total_seconds()), 3600)
                 minutes = remainder // 60
-                await ctx.response.send_message(
+                await responses.send(ctx,
                     f"You've already claimed today. Come back in {hours}h {minutes}m.",
                     ephemeral=True,
                 )
@@ -73,7 +75,7 @@ class Economy(commands.Cog):
         )
         if materials_text:
             message += f"\nMaterials: {materials_text}"
-        await ctx.response.send_message(message)
+        await responses.send(ctx, message)
 
 
     # COMMAND: /pull
@@ -86,6 +88,7 @@ class Economy(commands.Cog):
         app_commands.Choice(name="10x Pull", value=10),
     ])
     async def pull(self, ctx: discord.Interaction, count: int = 1):
+        await responses.defer(ctx)
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
@@ -96,7 +99,7 @@ class Economy(commands.Cog):
 
             expedition = dungeon_service.get_active_expedition(db, player.id)
             if dungeon_service.is_in_combat(expedition):
-                await ctx.response.send_message(
+                await responses.send(ctx,
                     "You can't pull mid-battle -- finish the fight first!", ephemeral=True
                 )
                 return
@@ -108,7 +111,7 @@ class Economy(commands.Cog):
                     success, message, results = pull_multi(db, player, count=count)
 
                 if not success:
-                    await ctx.response.send_message(message, ephemeral=True)
+                    await responses.send(ctx, message, ephemeral=True)
                     return
 
                 embed = embedder.gacha_pull_embed(results, player=player)
@@ -117,7 +120,7 @@ class Economy(commands.Cog):
                 # interaction failed" -- makes any future regression here
                 # immediately diagnosable instead of a mystery report.
                 logger.exception("`/pull` failed for player %s (count=%s)", player.id, count)
-                await ctx.response.send_message(
+                await responses.send(ctx,
                     "Something went wrong generating your pull results. This has been logged -- "
                     "please report it if it keeps happening.",
                     ephemeral=True,
@@ -126,12 +129,13 @@ class Economy(commands.Cog):
         finally:
             db.close()
 
-        await ctx.response.send_message(embed=embed)
+        await responses.send(ctx, embed=embed)
 
     # COMMAND: /pull_rates
     # Shows gacha odds by star rating, cost, and the duplicate-conversion rule.
     @app_commands.command(name="pull_rates", description="View gacha odds, pity progress, and pull costs.")
     async def pull_rates(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
         db = SessionLocal()
         try:
             # Player is optional here on purpose -- someone who hasn't run
@@ -148,7 +152,7 @@ class Economy(commands.Cog):
             embed = embedder.gacha_rates_embed(player=player)
         except Exception:
             logger.exception("`/pull_rates` failed to build its embed")
-            await ctx.response.send_message(
+            await responses.send(ctx,
                 "Something went wrong loading gacha rates. This has been logged -- "
                 "please report it if it keeps happening.",
                 ephemeral=True,
@@ -156,7 +160,7 @@ class Economy(commands.Cog):
             return
         finally:
             db.close()
-        await ctx.response.send_message(embed=embed, ephemeral=True)
+        await responses.send(ctx, embed=embed, ephemeral=True)
 
     # COMMAND: /open
     # Opens every lootbox of the chosen tier at once, rolling gold/shards
@@ -171,6 +175,7 @@ class Economy(commands.Cog):
         app_commands.Choice(name="Mythic", value="mythic"),
     ])
     async def open_lootbox(self, ctx: discord.Interaction, tier: str):
+        await responses.defer(ctx)
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
@@ -181,7 +186,7 @@ class Economy(commands.Cog):
 
             expedition = dungeon_service.get_active_expedition(db, player.id)
             if dungeon_service.is_in_combat(expedition):
-                await ctx.response.send_message(
+                await responses.send(ctx,
                     "You can't open lootboxes mid-battle -- finish the fight first!",
                     ephemeral=True,
                 )
@@ -190,7 +195,7 @@ class Economy(commands.Cog):
             owned = lootbox_service.list_player_lootboxes(db, player.id)
             entry = next((o for o in owned if o.template.tier == tier), None)
             if entry is None:
-                await ctx.response.send_message(
+                await responses.send(ctx,
                     f"You don't have any {tier.title()} Lootboxes.", ephemeral=True
                 )
                 return
@@ -199,7 +204,7 @@ class Economy(commands.Cog):
                 db, player, tier, count=entry.quantity
             )
             if not ok:
-                await ctx.response.send_message(message, ephemeral=True)
+                await responses.send(ctx, message, ephemeral=True)
                 return
 
             embed = discord.Embed(title=message, color=discord.Color.purple())
@@ -214,7 +219,7 @@ class Economy(commands.Cog):
         finally:
             db.close()
 
-        await ctx.response.send_message(embed=embed)
+        await responses.send(ctx, embed=embed)
 
 
     # COMMAND: /exchange
@@ -225,6 +230,7 @@ class Economy(commands.Cog):
         description="Spend Echoes from duplicate pulls on any character you want.",
     )
     async def exchange(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
@@ -238,7 +244,7 @@ class Economy(commands.Cog):
         finally:
             db.close()
 
-        await ctx.response.send_message(embed=embed, view=view)
+        await responses.send(ctx, embed=embed, view=view)
 
     # COMMAND: /resonance
     # One character's duplicate-upgrade track. Separate from /profile
@@ -250,6 +256,7 @@ class Economy(commands.Cog):
         description="See what duplicate copies have unlocked for a character.",
     )
     async def resonance(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
@@ -265,7 +272,7 @@ class Economy(commands.Cog):
         finally:
             db.close()
 
-        await ctx.response.send_message(embed=embed, view=view)
+        await responses.send(ctx, embed=embed, view=view)
 
 
 # ----------------------------------------------------------------------
@@ -305,12 +312,12 @@ class EchoExchangeSelect(discord.ui.Select):
         try:
             player = get_player(db, interaction.user.id)
             if player is None:
-                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
             try:
                 result = echo_exchange_service.purchase(db, player, int(self.values[0]))
             except echo_exchange_service.ExchangeError as exc:
-                await interaction.response.send_message(str(exc), ephemeral=True)
+                await responses.send(interaction, str(exc), ephemeral=True)
                 return
 
             # The purchase renders through the ordinary pull embed, so a
@@ -326,7 +333,7 @@ class EchoExchangeSelect(discord.ui.Select):
         finally:
             db.close()
 
-        await interaction.response.edit_message(embed=shop_embed, view=view)
+        await responses.edit(interaction, embed=shop_embed, view=view)
         await interaction.followup.send(embed=result_embed, ephemeral=True)
 
 
@@ -361,7 +368,7 @@ class ResonancePickerSelect(discord.ui.Select):
         try:
             player = get_player(db, interaction.user.id)
             if player is None:
-                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
             owned = character_service.list_owned_characters(db, player)
             chosen = next((pc for pc in owned if pc.id == int(self.values[0])), owned[0])
@@ -369,7 +376,7 @@ class ResonancePickerSelect(discord.ui.Select):
             view = ResonancePickerView(owned, chosen.id, owner_id=player.id)
         finally:
             db.close()
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
 
 
 class ResonancePickerView(OwnedView):

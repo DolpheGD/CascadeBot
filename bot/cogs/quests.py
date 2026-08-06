@@ -10,6 +10,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
+from bot.utils import responses
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
 from bot.services import quest_service
@@ -68,7 +69,7 @@ async def _handle_roll_quest(interaction: discord.Interaction):
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
 
         active = quest_service.get_active_basic_quests(db, player)
@@ -80,19 +81,19 @@ async def _handle_roll_quest(interaction: discord.Interaction):
         except quest_service.QuestOnCooldown as exc:
             hours, remainder = divmod(int(exc.time_remaining.total_seconds()), 3600)
             minutes = remainder // 60
-            await interaction.response.send_message(
+            await responses.send(interaction,
                 f"That quest isn't reroll-able yet -- come back in {hours}h {minutes}m.",
                 ephemeral=True,
             )
             return
         except quest_service.QuestSlotsFull:
-            await interaction.response.send_message(
+            await responses.send(interaction,
                 "All your quest slots are full and on cooldown -- try again later.", ephemeral=True,
             )
             return
 
         embed, view = _quest_embed_and_view(db, player)
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
     finally:
         db.close()
 
@@ -104,6 +105,7 @@ class Quests(commands.Cog):
 
     @app_commands.command(name="quests", description="View your beginner and basic quests.")
     async def quests(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
@@ -114,7 +116,7 @@ class Quests(commands.Cog):
             embed, view = _quest_embed_and_view(db, player)
         finally:
             db.close()
-        await ctx.response.send_message(embed=embed, view=view)
+        await responses.send(ctx, embed=embed, view=view)
 
 
 async def setup(bot):

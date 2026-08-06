@@ -24,6 +24,41 @@ class CascadeBot(commands.Bot):
 
         super().__init__(command_prefix=COMMAND_PREFIX, intents=intents)
 
+        # LAST LINE OF DEFENCE FOR AN EXPIRED INTERACTION.
+        #
+        # Every command now defers before touching the database (see
+        # bot/utils/responses.py), which is what actually prevents this.
+        # But deferring can only help once the handler has been ENTERED
+        # -- if the process is blocked for three seconds before dispatch
+        # (a gateway resume, or SQLite holding its database-wide write
+        # lock while an expedition commits), the token is already dead
+        # and there is no reply to be made through any code path.
+        #
+        # There is no user-visible difference between logging that and
+        # raising it: the reply was never going to arrive either way. The
+        # difference is in the log, where a five-frame traceback for "the
+        # network was slow" buries the bugs that are worth reading. So
+        # 10062 becomes one line, and everything else still raises.
+        self.tree.on_error = self._on_app_command_error
+
+    async def _on_app_command_error(self, interaction: discord.Interaction, error):
+        from discord import app_commands
+
+        from bot.utils.responses import UNKNOWN_INTERACTION
+
+        original = getattr(error, "original", error)
+        if isinstance(original, discord.NotFound) \
+                and getattr(original, "code", None) == UNKNOWN_INTERACTION:
+            name = interaction.command.qualified_name if interaction.command else "?"
+            logger.warning(
+                "/%s: interaction expired before it could be answered "
+                "(the bot was busy for >3s; nothing was sent)", name,
+            )
+            return
+        if isinstance(error, app_commands.CheckFailure):
+            return  # already reported to the user by the check itself
+        raise error
+
     async def setup_hook(self):
         logger.info("Initializing database...")
         init_db()

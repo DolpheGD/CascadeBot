@@ -28,6 +28,7 @@ worth doing and in what order, which is authored knowledge.
 import discord
 
 from discord.ext import commands
+from bot.utils import responses
 from discord import app_commands
 
 from bot.utils.guild_decorator import guild_decorator
@@ -52,7 +53,7 @@ _PAGES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
                 "`/start` — create your profile and your own avatar character\n"
                 "`/story` — **the main mode.** Start here.\n"
                 "`/squad` — set your 4-character team (slot 1 is always your avatar)\n"
-                
+
                 "`/class` — switch your avatar between DPS / Support DPS / Amplifier / Sustain\n"
                 "`/rename` — name your avatar\n"
                 "`/profile` — your account: level, roster, power and currencies\n"
@@ -292,7 +293,7 @@ class HelpView(discord.ui.View):
         self.add_item(HelpPageSelect(page))
 
     async def show(self, interaction: discord.Interaction, page: int):
-        await interaction.response.edit_message(
+        await responses.edit(interaction,
             embed=_build_help_embed(page, interaction.client.user.display_avatar.url),
             view=HelpView(page),
         )
@@ -318,8 +319,9 @@ class Help(commands.Cog):
     async def help(self, ctx: discord.Interaction, section: str | None = None):
         """`section` lets a returning player jump straight to the page
         they want instead of paging through the intro every time."""
+        await responses.defer(ctx, ephemeral=True)
         page = _PAGE_INDEX.get(section, 0)
-        await ctx.response.send_message(
+        await responses.send(ctx,
             embed=_build_help_embed(page, ctx.client.user.display_avatar.url),
             view=HelpView(page),
             ephemeral=True,

@@ -21,6 +21,7 @@ from discord import app_commands
 
 from bot.utils import names
 from bot.database.models.enums import CLASS_DISPLAY_NAME
+from bot.utils import responses
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
 from bot.services import character_service, dungeon_service
@@ -74,12 +75,12 @@ class SquadSlotSelect(discord.ui.Select):
         try:
             player = get_player(db, interaction.user.id)
             if player is None:
-                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
 
             expedition = dungeon_service.get_active_expedition(db, player.id)
             if expedition is not None:
-                await interaction.response.send_message(
+                await responses.send(interaction,
                     "You can't change your squad during an active run -- finish or abandon your expedition first.",
                     ephemeral=True,
                 )
@@ -96,7 +97,7 @@ class SquadSlotSelect(discord.ui.Select):
 
             embed = _build_squad_embed(db, player)
             view = _build_squad_view(db, player)
-            await interaction.response.edit_message(content=message if not ok else None, embed=embed, view=view)
+            await responses.edit(interaction, content=message if not ok else None, embed=embed, view=view)
         finally:
             db.close()
 
@@ -139,6 +140,7 @@ class Squad(commands.Cog):
     # owned roster.
     @app_commands.command(name="squad", description="View and manage your 4-character active squad.")
     async def squad(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
@@ -152,7 +154,7 @@ class Squad(commands.Cog):
         finally:
             db.close()
 
-        await ctx.response.send_message(embed=embed, view=view)
+        await responses.send(ctx, embed=embed, view=view)
 
     # NOTE: /characters used to live here as a flat list of names and
     # levels. It's now the full per-character sheet in bot/cogs/profile.py

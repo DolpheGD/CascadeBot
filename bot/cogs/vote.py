@@ -28,6 +28,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from bot.config import TOPGG_BOT_ID
+from bot.utils import responses
 from bot.database.session import SessionLocal
 from bot.services import topgg_client, vote_service
 from bot.services.player_service import get_player
@@ -72,15 +73,16 @@ class Vote(commands.Cog):
         description="Vote for CascadeBot on top.gg for a big Shard bonus (every 12h).",
     )
     async def vote(self, ctx: discord.Interaction):
+        await responses.defer(ctx, ephemeral=True)
         if not topgg_client.is_configured():
-            await ctx.response.send_message(
+            await responses.send(ctx,
                 embed=embedder.vote_unconfigured_embed(), ephemeral=True
             )
             return
 
         bot_id = self._bot_id()
         if bot_id is None:
-            await ctx.response.send_message(
+            await responses.send(ctx,
                 "Still starting up -- try again in a moment.", ephemeral=True
             )
             return

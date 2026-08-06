@@ -20,6 +20,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
+from bot.utils import responses
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
 from bot.services import domain_service, dungeon_service, leaderboard_service, raid_service
@@ -38,7 +39,7 @@ from bot.utils.ui_guard import require_feature, OwnedView, check_message_owner, 
 
 async def _reject_dm(interaction: discord.Interaction) -> bool:
     if interaction.guild_id is None:
-        await interaction.response.send_message(
+        await responses.send(interaction,
             "Raids and leaderboards are per-server -- run this in a server channel, not a DM.",
             ephemeral=True,
         )
@@ -98,12 +99,12 @@ class RaidSummonButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cas
         try:
             player = get_player(db, interaction.user.id)
             if player is None:
-                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
             try:
                 raid = raid_service.start_raid(db, player, interaction.guild_id, self.tier_id)
             except raid_service.RaidError as exc:
-                await interaction.response.send_message(str(exc), ephemeral=True)
+                await responses.send(interaction, str(exc), ephemeral=True)
                 return
 
             embed = embedder.raid_status_embed(
@@ -113,7 +114,7 @@ class RaidSummonButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cas
             # Sent to the channel rather than edited in place: a summon is
             # a server-wide event, and the whole point is that other
             # people find out about it.
-            await interaction.response.edit_message(
+            await responses.edit(interaction,
                 content=f"🐉 **{interaction.user.display_name}** summoned a raid! Everyone can join in with `/raid`.",
                 embed=embed, view=RaidActionView(owner_id=player.id),
             )
@@ -170,7 +171,7 @@ class RaidActionView(OwnedView):
                     tier = get_raid_tier(raid.tier)
             finally:
                 db.close()
-        await interaction.response.send_message(
+        await responses.send(interaction,
             embed=embedder.raid_tiers_help_embed(tier), ephemeral=True
         )
 
@@ -284,18 +285,18 @@ class RaidCombatView(OwnedView):
     async def info_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         battle = raid_service.get_active_battle(interaction.user.id)
         if battle is None:
-            await interaction.response.send_message("You're not in a raid attack right now.", ephemeral=True)
+            await responses.send(interaction, "You're not in a raid attack right now.", ephemeral=True)
             return
         embed, view = combat_ui.info_response(battle)
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        await responses.send(interaction, embed=embed, view=view, ephemeral=True)
 
     @discord.ui.button(label="📜 Log", style=discord.ButtonStyle.secondary, custom_id="cascade_raid_c_log", row=4)
     async def log_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         battle = raid_service.get_active_battle(interaction.user.id)
         if battle is None:
-            await interaction.response.send_message("You're not in a raid attack right now.", ephemeral=True)
+            await responses.send(interaction, "You're not in a raid attack right now.", ephemeral=True)
             return
-        await interaction.response.send_message(embed=embedder.battle_log_embed(battle), ephemeral=True)
+        await responses.send(interaction, embed=embedder.battle_log_embed(battle), ephemeral=True)
 
     @discord.ui.button(label="🏳️ Retreat", style=discord.ButtonStyle.secondary, custom_id="cascade_raid_c_retreat", row=4)
     async def retreat_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -365,12 +366,12 @@ async def _resume_raid_attack(interaction: discord.Interaction, db, player, batt
     embed = embedder.combat_embed(battle, avatar_url=interaction.user.display_avatar.url)
     if over:
         result = raid_service.resolve_attack(db, player)
-        await interaction.response.send_message(
+        await responses.send(interaction,
             content="Your raid attack had already finished.", embed=embed, ephemeral=True
         )
         await interaction.followup.send(embed=embedder.raid_attack_result_embed(result))
         return
-    await interaction.response.send_message(
+    await responses.send(interaction,
         content="Picking up your raid attack where you left off.",
         embed=embed, view=_build_raid_combat_view(battle, player.id), ephemeral=True,
     )
@@ -387,7 +388,7 @@ async def _handle_choose_difficulty(interaction: discord.Interaction):
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
 
         existing = raid_service.get_active_battle(player.id)
@@ -397,25 +398,25 @@ async def _handle_choose_difficulty(interaction: discord.Interaction):
 
         raid = raid_service.get_active_raid(db, interaction.guild_id)
         if raid is None:
-            await interaction.response.send_message("There's no raid running right now.", ephemeral=True)
+            await responses.send(interaction, "There's no raid running right now.", ephemeral=True)
             return
 
         left = raid_service.attacks_remaining(db, raid, player)
         if left <= 0:
-            await interaction.response.send_message(
+            await responses.send(interaction,
                 "You've used all your attacks on this raid. Someone else will have to finish it.",
                 ephemeral=True,
             )
             return
         cooldown = raid_service.time_until_next_attack(db, raid, player)
         if cooldown is not None:
-            await interaction.response.send_message(
+            await responses.send(interaction,
                 f"You're still regrouping -- {describe_wait(cooldown)} before your next attack.",
                 ephemeral=True,
             )
             return
 
-        await interaction.response.send_message(
+        await responses.send(interaction,
             content=(
                 f"**{raid.boss_name}** — pick how hard you want to fight it.\n"
                 "Higher difficulty means a stronger boss but more contribution credit; "
@@ -436,7 +437,7 @@ async def _handle_raid_attack(interaction: discord.Interaction, difficulty_id: s
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
 
         # Already mid-attack (usually: they dismissed the ephemeral combat
@@ -448,20 +449,20 @@ async def _handle_raid_attack(interaction: discord.Interaction, difficulty_id: s
 
         expedition = dungeon_service.get_active_expedition(db, player.id)
         if dungeon_service.is_in_combat(expedition):
-            await interaction.response.send_message(
+            await responses.send(interaction,
                 "You're already in an expedition battle -- finish that first.", ephemeral=True
             )
             return
 
         raid = raid_service.get_active_raid(db, interaction.guild_id)
         if raid is None:
-            await interaction.response.send_message("There's no raid running right now.", ephemeral=True)
+            await responses.send(interaction, "There's no raid running right now.", ephemeral=True)
             return
 
         try:
             battle = raid_service.start_attack(db, player, raid, difficulty_id)
         except raid_service.RaidError as exc:
-            await interaction.response.send_message(str(exc), ephemeral=True)
+            await responses.send(interaction, str(exc), ephemeral=True)
             return
 
         over = _advance_raid_battle(battle)
@@ -471,10 +472,10 @@ async def _handle_raid_attack(interaction: discord.Interaction, difficulty_id: s
             result = raid_service.resolve_attack(db, player)
             # Ephemeral: the fight is this one player's, but the RESULT
             # is server news, so the outcome embed goes to the channel.
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            await responses.send(interaction, embed=embed, ephemeral=True)
             await interaction.followup.send(embed=embedder.raid_attack_result_embed(result))
         else:
-            await interaction.response.send_message(
+            await responses.send(interaction,
                 embed=embed, view=_build_raid_combat_view(battle, player.id), ephemeral=True
             )
     finally:
@@ -487,10 +488,10 @@ async def _handle_combat_action(interaction: discord.Interaction, action: str, a
         player = get_player(db, interaction.user.id)
         battle = raid_service.get_active_battle(interaction.user.id) if player else None
         if player is None or battle is None:
-            await interaction.response.send_message("You're not in a raid attack right now.", ephemeral=True)
+            await responses.send(interaction, "You're not in a raid attack right now.", ephemeral=True)
             return
         if battle.current_actor() not in battle.party:
-            await interaction.response.send_message("It's not your turn yet.", ephemeral=True)
+            await responses.send(interaction, "It's not your turn yet.", ephemeral=True)
             return
 
         battle.take_party_action(action, ability_id=ability_id)
@@ -499,10 +500,10 @@ async def _handle_combat_action(interaction: discord.Interaction, action: str, a
 
         if over:
             result = raid_service.resolve_attack(db, player)
-            await interaction.response.edit_message(embed=embed, view=None)
+            await responses.edit(interaction, embed=embed, view=None)
             await interaction.followup.send(embed=embedder.raid_attack_result_embed(result))
         else:
-            await interaction.response.edit_message(
+            await responses.edit(interaction,
                 embed=embed, view=_build_raid_combat_view(battle, player.id)
             )
     finally:
@@ -515,14 +516,14 @@ async def _handle_select_ally(interaction: discord.Interaction, party_index: int
     whole persistence step."""
     battle = raid_service.get_active_battle(interaction.user.id)
     if battle is None:
-        await interaction.response.send_message("You're not in a raid attack right now.", ephemeral=True)
+        await responses.send(interaction, "You're not in a raid attack right now.", ephemeral=True)
         return
     if battle.current_actor() not in battle.party:
-        await interaction.response.send_message("It's not your turn yet.", ephemeral=True)
+        await responses.send(interaction, "It's not your turn yet.", ephemeral=True)
         return
 
     battle.select_ally_target(party_index)
-    await interaction.response.edit_message(
+    await responses.edit(interaction,
         embed=embedder.combat_embed(battle, avatar_url=interaction.user.display_avatar.url),
         view=_build_raid_combat_view(battle, interaction.user.id),
     )
@@ -533,10 +534,10 @@ async def _handle_retreat(interaction: discord.Interaction):
     try:
         player = get_player(db, interaction.user.id)
         if player is None or not raid_service.has_active_attack(player.id):
-            await interaction.response.send_message("You're not in a raid attack right now.", ephemeral=True)
+            await responses.send(interaction, "You're not in a raid attack right now.", ephemeral=True)
             return
         result = raid_service.resolve_attack(db, player)
-        await interaction.response.edit_message(
+        await responses.edit(interaction,
             content="You pull back -- but the damage you already did still counts.",
             embed=embedder.raid_attack_result_embed(result), view=None,
         )
@@ -551,11 +552,11 @@ async def _handle_raid_refresh(interaction: discord.Interaction):
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
         raid = raid_service.get_active_raid(db, interaction.guild_id)
         if raid is None:
-            await interaction.response.send_message(
+            await responses.send(interaction,
                 "That raid is over. Use `/raid` to see what's next.", ephemeral=True
             )
             return
@@ -563,7 +564,7 @@ async def _handle_raid_refresh(interaction: discord.Interaction):
             raid, raid_service.leaderboard(db, raid), viewer_id=player.id,
             attacks_left=raid_service.attacks_remaining(db, raid, player),
         )
-        await interaction.response.edit_message(
+        await responses.edit(interaction,
             embed=embed, view=RaidActionView(defeated=raid.status == "defeated")
         )
     finally:
@@ -577,14 +578,14 @@ async def _handle_raid_claim(interaction: discord.Interaction):
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
         if not await require_feature(interaction, db, player, "raids"):
             return
 
         claimable = raid_service.claimable_raids(db, player, interaction.guild_id)
         if not claimable:
-            await interaction.response.send_message(
+            await responses.send(interaction,
                 "You've got nothing to claim right now.", ephemeral=True
             )
             return
@@ -598,9 +599,9 @@ async def _handle_raid_claim(interaction: discord.Interaction):
             embeds.append(embedder.raid_claim_embed(result, raid))
 
         if not embeds:
-            await interaction.response.send_message("You've got nothing to claim right now.", ephemeral=True)
+            await responses.send(interaction, "You've got nothing to claim right now.", ephemeral=True)
             return
-        await interaction.response.send_message(embeds=embeds[:10], ephemeral=True)
+        await responses.send(interaction, embeds=embeds[:10], ephemeral=True)
     finally:
         db.close()
 
@@ -640,7 +641,7 @@ async def _handle_leaderboard(interaction: discord.Interaction, board: str, edit
         # yet is the opposite of the prologue's job.
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
         if not await require_feature(interaction, db, player, "raids"):
             return
@@ -655,9 +656,9 @@ async def _handle_leaderboard(interaction: discord.Interaction, board: str, edit
         embed = embedder.leaderboard_embed(data, label, desc, interaction.guild.name)
         view = LeaderboardView(board, owner_id=interaction.user.id)
         if edit:
-            await interaction.response.edit_message(embed=embed, view=view)
+            await responses.edit(interaction, embed=embed, view=view)
         else:
-            await interaction.response.send_message(embed=embed, view=view)
+            await responses.send(interaction, embed=embed, view=view)
     finally:
         db.close()
 
@@ -669,6 +670,7 @@ class Raids(commands.Cog):
 
     @app_commands.command(name="raid", description="Take on this server's co-op raid boss with everyone else.")
     async def raid(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
         if await _reject_dm(ctx):
             return
         db = SessionLocal()
@@ -695,7 +697,7 @@ class Raids(commands.Cog):
                     attacks_left=raid_service.attacks_remaining(db, raid, player),
                 )
                 view = RaidActionView(defeated=False)
-                await ctx.response.send_message(embed=embed, view=view)
+                await responses.send(ctx, embed=embed, view=view)
                 return
 
             # No active raid -- but there may be a finished one still owing
@@ -712,12 +714,13 @@ class Raids(commands.Cog):
                     inline=False,
                 )
             view = RaidMenuView({t["id"] for t in available}, owner_id=player.id)
-            await ctx.response.send_message(embed=embed, view=view)
+            await responses.send(ctx, embed=embed, view=view)
         finally:
             db.close()
 
     @app_commands.command(name="raid_claim", description="Claim your share of rewards from finished raids.")
     async def raid_claim(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
         await _handle_raid_claim(ctx)
 
     @app_commands.command(name="leaderboard", description="See how you rank against everyone else in this server.")
@@ -728,6 +731,7 @@ class Raids(commands.Cog):
         app_commands.Choice(name="Collection", value="collection"),
     ])
     async def leaderboard(self, ctx: discord.Interaction, board: str = leaderboard_service.DEFAULT_BOARD):
+        await responses.defer(ctx)
         await _handle_leaderboard(ctx, board)
 
 

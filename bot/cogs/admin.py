@@ -13,6 +13,7 @@ from discord.ext import commands
 from discord import app_commands
 
 from bot.config import ADMIN_USER_IDS
+from bot.utils import responses
 from bot.database.session import SessionLocal
 from bot.services import lootbox_service
 from bot.services.currency_service import add_currency
@@ -50,8 +51,9 @@ class Admin(commands.Cog):
     )
     @app_commands.describe(user="The user to grant the booster kit to.")
     async def admin_boosterkit(self, ctx: discord.Interaction, user: discord.Member):
+        await responses.defer(ctx, ephemeral=True)
         if not _is_admin(ctx):
-            await ctx.response.send_message(
+            await responses.send(ctx,
                 "You need Administrator permission (or be a configured bot admin) to use this.",
                 ephemeral=True,
             )

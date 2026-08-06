@@ -1,6 +1,7 @@
 import discord
 
 from discord.ext import commands
+from bot.utils import responses
 from discord import app_commands
 
 from bot.services import encyclopedia_service as enc
@@ -75,7 +76,7 @@ class CategorySelect(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         embed, view = _render_list(self.values[0], 0, interaction.user.id)
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
 
 
 class EncyclopediaCategoryView(OwnedView):
@@ -101,7 +102,7 @@ class EntrySelect(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         embed, view = _render_detail(self.category, self.values[0], interaction.user.id)
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
 
 
 class EncyclopediaListView(OwnedView):
@@ -122,17 +123,17 @@ class EncyclopediaListView(OwnedView):
     @discord.ui.button(label="◀ Prev", style=discord.ButtonStyle.secondary, row=1)
     async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         embed, view = _render_list(self.category, self.page - 1, interaction.user.id)
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
 
     @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary, row=1)
     async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         embed, view = _render_list(self.category, self.page + 1, interaction.user.id)
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
 
     @discord.ui.button(label="🏷️ Categories", style=discord.ButtonStyle.primary, row=1)
     async def categories_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         embed, view = _render_categories(interaction.user.id)
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
 
 
 # ------------------------------------------------------------------
@@ -155,24 +156,24 @@ class EncyclopediaDetailView(OwnedView):
     async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         new_key = self.keys[(self.idx - 1) % len(self.keys)]
         embed, view = _render_detail(self.category, new_key, interaction.user.id)
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
 
     @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary, row=0)
     async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         new_key = self.keys[(self.idx + 1) % len(self.keys)]
         embed, view = _render_detail(self.category, new_key, interaction.user.id)
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
 
     @discord.ui.button(label="📋 List View", style=discord.ButtonStyle.secondary, row=0)
     async def list_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         page = self.idx // embedder.ENCYCLOPEDIA_ENTRIES_PER_PAGE
         embed, view = _render_list(self.category, page, interaction.user.id)
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
 
     @discord.ui.button(label="🏷️ Categories", style=discord.ButtonStyle.primary, row=0)
     async def categories_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         embed, view = _render_categories(interaction.user.id)
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
 
 
 # ----------------------------------------------------------------------
@@ -190,8 +191,9 @@ class Encyclopedia(commands.Cog):
     # this is pure game-content reference, open to anyone.
     @app_commands.command(name="encyclopedia", description="Browse info on characters, enemies, abilities, items, and more.")
     async def encyclopedia(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
         embed, view = _render_categories(ctx.user.id)
-        await ctx.response.send_message(embed=embed, view=view)
+        await responses.send(ctx, embed=embed, view=view)
 
 
 async def setup(bot):

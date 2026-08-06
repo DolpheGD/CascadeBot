@@ -4,6 +4,7 @@ from discord.ext import commands
 from discord import app_commands
 
 from bot.utils import names
+from bot.utils import responses
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
 from bot.services import character_service, dungeon_service, inventory_service, item_upgrade_service, lootbox_service
@@ -98,14 +99,14 @@ class ToListButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade
         try:
             player = get_player(db, interaction.user.id)
             if player is None:
-                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
             idx, _total = inventory_service.entry_index_and_total(db, player.id, self.entry_id)
             page = idx // embedder.ITEMS_PER_LIST_PAGE
             embed, view = await _render_list_page(db, player, page)
         finally:
             db.close()
-        await interaction.response.edit_message(content=None, embed=embed, view=view)
+        await responses.edit(interaction, content=None, embed=embed, view=view)
 
 
 class EquipTargetSelect(discord.ui.Select):
@@ -124,23 +125,23 @@ class EquipTargetSelect(discord.ui.Select):
         try:
             player = get_player(db, interaction.user.id)
             if player is None:
-                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
 
             item = inventory_service.get_item(db, self.item_id, player.id)
             if item is None:
-                await interaction.response.send_message("Item not found.", ephemeral=True)
+                await responses.send(interaction, "Item not found.", ephemeral=True)
                 return
 
             if self.values[0] != "cancel":
                 guard = _no_loadout_change_during_run_guard(db, player)
                 if guard:
-                    await interaction.response.send_message(guard, ephemeral=True)
+                    await responses.send(interaction, guard, ephemeral=True)
                     return
 
             if self.values[0] == "cancel":
                 embed, view = await _render_detail_page(db, player, f"item:{item.id}")
-                await interaction.response.edit_message(content=None, embed=embed, view=view)
+                await responses.edit(interaction, content=None, embed=embed, view=view)
                 return
 
             character = next(
@@ -148,12 +149,12 @@ class EquipTargetSelect(discord.ui.Select):
                 None,
             )
             if character is None:
-                await interaction.response.send_message("That character isn't in your squad anymore.", ephemeral=True)
+                await responses.send(interaction, "That character isn't in your squad anymore.", ephemeral=True)
                 return
 
             ok, message = inventory_service.equip_item(db, character, item)
             embed, view = await _render_detail_page(db, player, f"item:{item.id}")
-            await interaction.response.edit_message(content=message, embed=embed, view=view)
+            await responses.edit(interaction, content=message, embed=embed, view=view)
         finally:
             db.close()
 
@@ -182,7 +183,7 @@ class SellByRarityConfirmView(OwnedView):
 
     @discord.ui.button(label="❌ Cancel", style=discord.ButtonStyle.secondary, custom_id="cascade_sell_rarity_cancel")
     async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.edit_message(content="Mass sell cancelled -- nothing was sold.", embed=None, view=None)
+        await responses.edit(interaction, content="Mass sell cancelled -- nothing was sold.", embed=None, view=None)
 
 
 class EntryEquipToggleButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade_entry_equip:(?P<item_id>\d+)"):
@@ -298,18 +299,18 @@ class JumpModal(discord.ui.Modal, title="Jump to Item #"):
         try:
             player = get_player(db, interaction.user.id)
             if player is None:
-                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
 
             entries = inventory_service.list_combined_entries(db, player.id)
             try:
                 number = int(str(self.entry_number.value).strip())
             except ValueError:
-                await interaction.response.send_message("That's not a number.", ephemeral=True)
+                await responses.send(interaction, "That's not a number.", ephemeral=True)
                 return
 
             if not entries or not (1 <= number <= len(entries)):
-                await interaction.response.send_message(
+                await responses.send(interaction,
                     f"Enter a number between 1 and {len(entries)}.", ephemeral=True
                 )
                 return
@@ -319,7 +320,7 @@ class JumpModal(discord.ui.Modal, title="Jump to Item #"):
         finally:
             db.close()
 
-        await interaction.response.edit_message(content=None, embed=embed, view=view)
+        await responses.edit(interaction, content=None, embed=embed, view=view)
 
 
 class JumpButton(discord.ui.Button):
@@ -361,12 +362,12 @@ class InventorySelectEntry(discord.ui.Select):
         try:
             player = get_player(db, interaction.user.id)
             if player is None:
-                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
             embed, view = await _render_detail_page(db, player, self.values[0])
         finally:
             db.close()
-        await interaction.response.edit_message(content=None, embed=embed, view=view)
+        await responses.edit(interaction, content=None, embed=embed, view=view)
 
 
 class ListPageButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade_list_page:(?P<direction>prev|next):(?P<page>\d+)"):
@@ -390,13 +391,13 @@ class ListPageButton(discord.ui.DynamicItem[discord.ui.Button], template=r"casca
         try:
             player = get_player(db, interaction.user.id)
             if player is None:
-                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
             target_page = self.page - 1 if self.direction == "prev" else self.page + 1
             embed, view = await _render_list_page(db, player, target_page)
         finally:
             db.close()
-        await interaction.response.edit_message(content=None, embed=embed, view=view)
+        await responses.edit(interaction, content=None, embed=embed, view=view)
 
 
 class InventoryListView(OwnedView):
@@ -506,10 +507,10 @@ async def _handle_nav(interaction: discord.Interaction, entry_id: str, direction
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
         embed, view = await _render_detail_page(db, player, entry_id)
-        await interaction.response.edit_message(content=None, embed=embed, view=view)
+        await responses.edit(interaction, content=None, embed=embed, view=view)
     finally:
         db.close()
 
@@ -519,23 +520,23 @@ async def _handle_equip_toggle(interaction: discord.Interaction, item_id: int):
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
 
         guard = _in_combat_guard(db, player) or _no_loadout_change_during_run_guard(db, player)
         if guard:
-            await interaction.response.send_message(guard, ephemeral=True)
+            await responses.send(interaction, guard, ephemeral=True)
             return
 
         item = inventory_service.get_item(db, item_id, player.id)
         if item is None:
-            await interaction.response.send_message("Item not found.", ephemeral=True)
+            await responses.send(interaction, "Item not found.", ephemeral=True)
             return
 
         if item.is_equipped:
             ok, message = inventory_service.unequip_item(db, item)
             embed, view = await _render_detail_page(db, player, f"item:{item.id}")
-            await interaction.response.edit_message(content=message, embed=embed, view=view)
+            await responses.edit(interaction, content=message, embed=embed, view=view)
             return
 
         owned = character_service.list_owned_characters(db, player)
@@ -543,7 +544,7 @@ async def _handle_equip_toggle(interaction: discord.Interaction, item_id: int):
             character = character_service.ensure_avatar_character(db, player)
             ok, message = inventory_service.equip_item(db, character, item)
             embed, view = await _render_detail_page(db, player, f"item:{item.id}")
-            await interaction.response.edit_message(content=message, embed=embed, view=view)
+            await responses.edit(interaction, content=message, embed=embed, view=view)
             return
 
         squad_ids = {pc.id for pc in character_service.get_squad(db, player)}
@@ -562,7 +563,7 @@ async def _handle_equip_toggle(interaction: discord.Interaction, item_id: int):
         options.append(discord.SelectOption(label="Cancel", value="cancel", emoji="✖️"))
         view = EquipTargetView(item.id, options, owner_id=player.id)
         embed = embedder.item_detail_embed(item)
-        await interaction.response.edit_message(
+        await responses.edit(interaction,
             content=f"Which squad member should equip {item.display_name}?",
             embed=embed, view=view,
         )
@@ -576,19 +577,19 @@ async def _handle_level_up(interaction: discord.Interaction, item_id: int):
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
 
         item = inventory_service.get_item(db, item_id, player.id)
         if item is None:
-            await interaction.response.send_message("Item not found.", ephemeral=True)
+            await responses.send(interaction, "Item not found.", ephemeral=True)
             return
 
         ok, message = item_upgrade_service.level_up_item(db, player, item)
         db.refresh(item)
 
         embed, view = await _render_detail_page(db, player, f"item:{item.id}")
-        await interaction.response.edit_message(content=message, embed=embed, view=view)
+        await responses.edit(interaction, content=message, embed=embed, view=view)
     finally:
         db.close()
 
@@ -598,19 +599,19 @@ async def _handle_reroll(interaction: discord.Interaction, item_id: int):
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
 
         item = inventory_service.get_item(db, item_id, player.id)
         if item is None:
-            await interaction.response.send_message("Item not found.", ephemeral=True)
+            await responses.send(interaction, "Item not found.", ephemeral=True)
             return
 
         ok, message = item_upgrade_service.reroll_item(db, player, item)
         db.refresh(item)
 
         embed, view = await _render_detail_page(db, player, f"item:{item.id}")
-        await interaction.response.edit_message(content=message, embed=embed, view=view)
+        await responses.edit(interaction, content=message, embed=embed, view=view)
     finally:
         db.close()
 
@@ -620,19 +621,19 @@ async def _handle_add_substat(interaction: discord.Interaction, item_id: int):
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
 
         item = inventory_service.get_item(db, item_id, player.id)
         if item is None:
-            await interaction.response.send_message("Item not found.", ephemeral=True)
+            await responses.send(interaction, "Item not found.", ephemeral=True)
             return
 
         ok, message = item_upgrade_service.add_substat_to_item(db, player, item)
         db.refresh(item)
 
         embed, view = await _render_detail_page(db, player, f"item:{item.id}")
-        await interaction.response.edit_message(content=message, embed=embed, view=view)
+        await responses.edit(interaction, content=message, embed=embed, view=view)
     finally:
         db.close()
 
@@ -642,12 +643,12 @@ async def _handle_sell(interaction: discord.Interaction, item_id: int):
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
 
         item = inventory_service.get_item(db, item_id, player.id)
         if item is None:
-            await interaction.response.send_message("Item not found.", ephemeral=True)
+            await responses.send(interaction, "Item not found.", ephemeral=True)
             return
 
         ok, message = inventory_service.sell_item(db, player, item)
@@ -655,7 +656,7 @@ async def _handle_sell(interaction: discord.Interaction, item_id: int):
         # gracefully falls back to the next available entry (or an empty
         # state) when asked for an entry_id that no longer exists.
         embed, view = await _render_detail_page(db, player, f"item:{item_id}")
-        await interaction.response.edit_message(content=message, embed=embed, view=view)
+        await responses.edit(interaction, content=message, embed=embed, view=view)
     finally:
         db.close()
 
@@ -665,11 +666,11 @@ async def _handle_sell_rarity_confirm(interaction: discord.Interaction, rarity: 
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
 
         ok, message, count, total_value = inventory_service.sell_by_rarity(db, player, Rarity(rarity))
-        await interaction.response.edit_message(content=message, embed=None, view=None)
+        await responses.edit(interaction, content=message, embed=None, view=None)
     finally:
         db.close()
 
@@ -679,12 +680,12 @@ async def _handle_open_lootbox(interaction: discord.Interaction, tier: str):
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
 
         guard = _in_combat_guard(db, player)
         if guard:
-            await interaction.response.send_message(guard, ephemeral=True)
+            await responses.send(interaction, guard, ephemeral=True)
             return
 
         owned = next(
@@ -692,14 +693,14 @@ async def _handle_open_lootbox(interaction: discord.Interaction, tier: str):
             None,
         )
         if owned is None or owned.quantity <= 0:
-            await interaction.response.send_message(f"You don't have any {tier.title()} Lootboxes.", ephemeral=True)
+            await responses.send(interaction, f"You don't have any {tier.title()} Lootboxes.", ephemeral=True)
             return
 
         ok, message, rewards = lootbox_service.open_lootboxes(
             db, player, tier, count=owned.quantity
         )
         if not ok:
-            await interaction.response.send_message(message, ephemeral=True)
+            await responses.send(interaction, message, ephemeral=True)
             return
 
         if rewards["items"]:
@@ -710,7 +711,7 @@ async def _handle_open_lootbox(interaction: discord.Interaction, tier: str):
             message += f"\nItems: {names}"
 
         embed, view = await _render_stash(db, player)
-        await interaction.response.edit_message(content=message, embed=embed, view=view)
+        await responses.edit(interaction, content=message, embed=embed, view=view)
     finally:
         db.close()
 
@@ -731,6 +732,7 @@ class Inventory(commands.Cog):
     # substats, or open a lootbox stack.
     @app_commands.command(name="inventory", description="Browse your items -- equip, sell, level up, or reroll.")
     async def inventory(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
@@ -741,7 +743,7 @@ class Inventory(commands.Cog):
 
             entries = inventory_service.list_combined_entries(db, player.id)
             if not entries:
-                await ctx.response.send_message(
+                await responses.send(ctx,
                     "You don't have any items yet. Try `/adventure`, `/pull`, or `/open`.",
                     ephemeral=True,
                 )
@@ -751,7 +753,7 @@ class Inventory(commands.Cog):
         finally:
             db.close()
 
-        await ctx.response.send_message(embed=embed, view=view)
+        await responses.send(ctx, embed=embed, view=view)
 
     # COMMAND: /stash
     # The general inventory: currencies, materials, and lootboxes. None of
@@ -759,6 +761,7 @@ class Inventory(commands.Cog):
     # upgrade/harvester flows, and lootboxes just get opened here.
     @app_commands.command(name="stash", description="View your gold, shards, materials, and lootboxes.")
     async def stash(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
@@ -771,7 +774,7 @@ class Inventory(commands.Cog):
         finally:
             db.close()
 
-        await ctx.response.send_message(embed=embed, view=view)
+        await responses.send(ctx, embed=embed, view=view)
 
     # COMMAND: /sell_rarity
     # Mass-sells every UNEQUIPPED item at one rarity in a single action --
@@ -790,6 +793,7 @@ class Inventory(commands.Cog):
         app_commands.Choice(name="Divine", value="divine"),
     ])
     async def sell_rarity(self, ctx: discord.Interaction, rarity: str):
+        await responses.defer(ctx, ephemeral=True)
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
@@ -801,7 +805,7 @@ class Inventory(commands.Cog):
             rarity_enum = Rarity(rarity)
             count, total_value = inventory_service.preview_sell_by_rarity(db, player.id, rarity_enum)
             if count == 0:
-                await ctx.response.send_message(
+                await responses.send(ctx,
                     f"You don't have any unequipped {rarity_enum.value.title()} items to sell.",
                     ephemeral=True,
                 )
@@ -819,7 +823,7 @@ class Inventory(commands.Cog):
                 color=discord.Color.orange(),
             )
             view = SellByRarityConfirmView(rarity, owner_id=player.id)
-            await ctx.response.send_message(embed=embed, view=view, ephemeral=True)
+            await responses.send(ctx, embed=embed, view=view, ephemeral=True)
         finally:
             db.close()
 

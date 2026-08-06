@@ -23,6 +23,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
+from bot.utils import responses
 from bot.database.session import SessionLocal
 from bot.game.combat.battle import Battle
 from bot.game.combat.factory import build_enemy_combatant, build_party_combatants
@@ -85,13 +86,13 @@ class StoryMenuView(OwnedView):
         try:
             player = get_player(db, interaction.user.id)
             if player is None:
-                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
             story = story_service.get_or_create(db, player)
             if not story.active_mission:
                 nxt = story_service.next_mission(db, player)
                 if nxt is None:
-                    await interaction.response.send_message(
+                    await responses.send(interaction,
                         "Nothing left to play just yet.", ephemeral=True
                     )
                     return
@@ -110,7 +111,7 @@ class StoryMenuView(OwnedView):
             story_service.abandon(db, player)
         finally:
             db.close()
-        await interaction.response.edit_message(
+        await responses.edit(interaction,
             content="Mission abandoned. Anything you decided along the way still stands.",
             embed=None, view=None,
         )
@@ -194,7 +195,7 @@ async def _render_hunt(interaction: discord.Interaction, edit: bool = True):
     if embed is None:
         await _render_map(interaction, edit=True)
         return
-    await interaction.response.edit_message(embed=embed, view=view)
+    await responses.edit(interaction, embed=embed, view=view)
 
 
 async def _hunt_action(interaction: discord.Interaction, action: str,
@@ -206,11 +207,11 @@ async def _hunt_action(interaction: discord.Interaction, action: str,
         player = get_player(db, interaction.user.id)
         story = story_service.get_or_create(db, player)
         if not story.combat_state or not story.pending_hunt:
-            await interaction.response.send_message("No fight in progress.", ephemeral=True)
+            await responses.send(interaction, "No fight in progress.", ephemeral=True)
             return
         battle = battle_from_dict(story.combat_state)
         if battle.current_actor() not in battle.party:
-            await interaction.response.send_message("It's not your turn.", ephemeral=True)
+            await responses.send(interaction, "It's not your turn.", ephemeral=True)
             return
         battle.take_party_action(action, ability_id=ability_id)
         _advance_to_player_turn(battle)
@@ -231,11 +232,11 @@ async def _hunt_action(interaction: discord.Interaction, action: str,
         db.close()
 
     if finished is None:
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
         return
     won, rewards = finished
     if not won:
-        await interaction.response.edit_message(
+        await responses.edit(interaction,
             embed=discord.Embed(
                 title="Driven off",
                 description=("You back out of it. Nothing is lost — it was optional, and "
@@ -243,7 +244,7 @@ async def _hunt_action(interaction: discord.Interaction, action: str,
                 color=discord.Color.dark_grey()),
             view=BackToMapView(owner_id=interaction.user.id))
         return
-    await interaction.response.edit_message(
+    await responses.edit(interaction,
         embed=discord.Embed(
             title="⚔️ Cleared",
             description=_reward_block(rewards, None).strip() or "Done.",
@@ -354,7 +355,7 @@ class MapView(OwnedView):
         try:
             player = get_player(db, interaction.user.id)
             if player is None:
-                await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
             story = story_service.get_or_create(db, player)
             nxt = story_service.next_mission(db, player)
@@ -363,7 +364,7 @@ class MapView(OwnedView):
             db.close()
         # Ephemeral so the map message stays put -- the journal is a
         # thing you glance at, not a place you navigate to.
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await responses.send(interaction, embed=embed, ephemeral=True)
 
 
 class BackToMapView(OwnedView):
@@ -402,15 +403,15 @@ async def _render_map(interaction: discord.Interaction, edit: bool):
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
         embed, view = _map_screen(db, player)
     finally:
         db.close()
     if edit:
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
     else:
-        await interaction.response.send_message(embed=embed, view=view)
+        await responses.send(interaction, embed=embed, view=view)
 
 
 async def _move(interaction: discord.Interaction, direction: str):
@@ -418,18 +419,18 @@ async def _move(interaction: discord.Interaction, direction: str):
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
         story = story_service.get_or_create(db, player)
         try:
             map_service.move(db, story, direction)
         except map_service.MapError as exc:
-            await interaction.response.send_message(str(exc), ephemeral=True)
+            await responses.send(interaction, str(exc), ephemeral=True)
             return
         embed, view = _map_screen(db, player)
     finally:
         db.close()
-    await interaction.response.edit_message(embed=embed, view=view)
+    await responses.edit(interaction, embed=embed, view=view)
 
 
 async def _interact(interaction: discord.Interaction):
@@ -446,18 +447,18 @@ async def _interact(interaction: discord.Interaction):
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
         story = story_service.get_or_create(db, player)
         result = map_service.interact(db, story)
         kind = result["kind"]
 
         if kind == "nothing":
-            await interaction.response.send_message("There's nothing here.", ephemeral=True)
+            await responses.send(interaction, "There's nothing here.", ephemeral=True)
             return
 
         if kind in ("locked", "done", "spent"):
-            await interaction.response.send_message(result["text"], ephemeral=True)
+            await responses.send(interaction, result["text"], ephemeral=True)
             return
 
         if kind == "cache":
@@ -491,7 +492,7 @@ async def _interact(interaction: discord.Interaction):
                 story_service.start_mission(db, player, result["mission"])
                 started = True
             except story_service.StoryError as exc:
-                await interaction.response.send_message(str(exc), ephemeral=True)
+                await responses.send(interaction, str(exc), ephemeral=True)
                 return
 
         if kind == "hunt":
@@ -509,7 +510,7 @@ async def _interact(interaction: discord.Interaction):
     if started:
         await _render_current(interaction, edit=True)
         return
-    await interaction.response.edit_message(embed=embed, view=view)
+    await responses.edit(interaction, embed=embed, view=view)
 
 
 # ----------------------------------------------------------------------
@@ -522,7 +523,7 @@ async def _render_current(interaction: discord.Interaction, edit: bool, extra_te
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
 
         state = story_service.current_beat(db, player)
@@ -549,9 +550,9 @@ async def _render_current(interaction: discord.Interaction, edit: bool, extra_te
         db.close()
 
     if edit:
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
     else:
-        await interaction.response.send_message(embed=embed, view=view)
+        await responses.send(interaction, embed=embed, view=view)
 
 
 async def _advance_and_render(interaction: discord.Interaction, choice_id: str | None = None):
@@ -561,14 +562,14 @@ async def _advance_and_render(interaction: discord.Interaction, choice_id: str |
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
         state = story_service.current_beat(db, player)
         mission = state[0] if state else None
         try:
             result = story_service.advance(db, player, choice_id=choice_id)
         except story_service.StoryError as exc:
-            await interaction.response.send_message(str(exc), ephemeral=True)
+            await responses.send(interaction, str(exc), ephemeral=True)
             return
         if result["finished"]:
             finished = result
@@ -576,7 +577,7 @@ async def _advance_and_render(interaction: discord.Interaction, choice_id: str |
         db.close()
 
     if finished is not None and mission is not None:
-        await interaction.response.edit_message(
+        await responses.edit(interaction,
             embed=embedder.story_mission_complete_embed(mission, finished),
             view=BackToMapView(owner_id=interaction.user.id),
         )
@@ -594,9 +595,9 @@ async def _send_menu(interaction: discord.Interaction, db, player, edit: bool):
     embed = embedder.story_menu_embed(story, nxt, player)
     view = StoryMenuView(bool(story.active_mission), nxt is not None, owner_id=player.id)
     if edit:
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
     else:
-        await interaction.response.send_message(embed=embed, view=view)
+        await responses.send(interaction, embed=embed, view=view)
 
 
 # ----------------------------------------------------------------------
@@ -680,13 +681,13 @@ class StoryCombatView(OwnedView):
             player = get_player(db, interaction.user.id)
             story = story_service.get_or_create(db, player) if player else None
             if story is None or not story.combat_state:
-                await interaction.response.send_message("No fight in progress.", ephemeral=True)
+                await responses.send(interaction, "No fight in progress.", ephemeral=True)
                 return
             battle = battle_from_dict(story.combat_state)
         finally:
             db.close()
         embed, view = combat_ui.info_response(battle)
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        await responses.send(interaction, embed=embed, view=view, ephemeral=True)
 
 
 class _StoryAbilitySelect(discord.ui.Select):
@@ -705,16 +706,16 @@ async def _story_combat_action(interaction: discord.Interaction, action: str,
     try:
         player = get_player(db, interaction.user.id)
         if player is None:
-            await interaction.response.send_message("Use `/start` first.", ephemeral=True)
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
             return
         story = story_service.get_or_create(db, player)
         if not story.combat_state:
-            await interaction.response.send_message("No fight in progress.", ephemeral=True)
+            await responses.send(interaction, "No fight in progress.", ephemeral=True)
             return
 
         battle = battle_from_dict(story.combat_state)
         if battle.current_actor() not in battle.party:
-            await interaction.response.send_message("It's not your turn.", ephemeral=True)
+            await responses.send(interaction, "It's not your turn.", ephemeral=True)
             return
 
         battle.take_party_action(action, ability_id=ability_id)
@@ -752,12 +753,12 @@ async def _story_combat_action(interaction: discord.Interaction, action: str,
         db.close()
 
     if outcome is None:
-        await interaction.response.edit_message(embed=embed, view=view)
+        await responses.edit(interaction, embed=embed, view=view)
         return
 
     status, text, result, mission = outcome
     if status == "lost":
-        await interaction.response.edit_message(
+        await responses.edit(interaction,
             embed=discord.Embed(
                 title="💀 Driven back",
                 description=(text or "You're forced back.") + "\n\nTry the fight again.",
@@ -768,7 +769,7 @@ async def _story_combat_action(interaction: discord.Interaction, action: str,
         return
 
     if result and result.get("finished") and mission is not None:
-        await interaction.response.edit_message(
+        await responses.edit(interaction,
             embed=embedder.story_mission_complete_embed(mission, result),
             view=BackToMapView(owner_id=interaction.user.id),
         )
@@ -783,6 +784,7 @@ class Story(commands.Cog):
 
     @app_commands.command(name="story", description="Play the story -- the main mode.")
     async def story(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
         db = SessionLocal()
         try:
             player = get_player(db, ctx.user.id)
