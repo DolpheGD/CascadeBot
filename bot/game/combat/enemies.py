@@ -163,7 +163,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands', 'Voidcrest Desert'],
         "base_stats": {
             "attack": 100, "defense": 1, "elemental": 2, "speed": 1,
-            "max_hp": 2, "max_mana": 999, "crit_rate": 6, "crit_damage": 155, "recharge": 70,
+            "max_hp": 10, "max_mana": 999, "crit_rate": 6, "crit_damage": 155, "recharge": 70,
         },
         "level_scale_percent": 4,
         "active_abilities": [],
@@ -1139,7 +1139,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss_group_member",
         "base_stats": {
             "attack": 10, "defense": 40, "elemental": 8, "speed": 4,
-            "max_hp": 620, "max_mana": 999, "crit_rate": 3, "crit_damage": 120, "recharge": 16,
+            "max_hp": 530, "max_mana": 999, "crit_rate": 3, "crit_damage": 120, "recharge": 16,
         },
         "level_scale_percent": 4,
         "active_abilities": [
@@ -1902,8 +1902,8 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "combat",
         "regions": ['Glacier 15', 'The Wastelands', 'The Hotlands', 'Voidcrest Desert'],
         "base_stats": {
-            "attack": 46, "defense": 1, "elemental": 40, "speed": 21,
-            "max_hp": 12, "max_mana": 999, "crit_rate": 30, "crit_damage": 240, "recharge": 30,
+            "attack": 67, "defense": 1, "elemental": 40, "speed": 21,
+            "max_hp": 12, "max_mana": 999, "crit_rate": 30, "crit_damage": 150, "recharge": 30,
         },
         "level_scale_percent": 4,
         "max_poise": 2,
