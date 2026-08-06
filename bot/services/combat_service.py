@@ -127,7 +127,7 @@ def clear_battle(db, expedition) -> None:
 REVIVE_HP_AFTER_BATTLE = 1
 
 
-def sync_party_hp_to_characters(db, battle: Battle, revive_downed: bool = True) -> None:
+def sync_party_hp_to_characters(db, battle: Battle, revive_downed: bool | None = None) -> None:
     """Writes each surviving/defeated party Combatant's HP back onto its
     PlayerCharacter row, so the next battle (or the profile/squad view)
     reflects real HP instead of resetting to full every time.
@@ -144,12 +144,30 @@ def sync_party_hp_to_characters(db, battle: Battle, revive_downed: bool = True) 
         quietly standing back up at 1 HP would contradict it.
 
     That's the whole distinction: a death you fought past, versus the
-    death that ended the run."""
+    death that ended the run.
+
+    DEFAULT IS AUTO (`None`), and it should stay that way. The rule the
+    game actually wants is "you get up unless EVERYONE went down", and
+    that's derivable from the party itself -- so callers don't have to
+    remember to pass the right flag, and can't get it wrong. Every mode
+    (expedition, story, hunt, Abyss) therefore behaves identically:
+    survive with anyone standing and the fallen are back at 1 HP; wipe
+    and the whole squad reads 0/max on the roster, which is the only
+    honest thing to show after a wipe.
+
+    The explicit boolean remains for the rare caller that needs to force
+    the outcome."""
     from bot.database.models.character_model import PlayerCharacter
 
     character_ids = [c.character_id for c in battle.party if c.character_id is not None]
     if not character_ids:
         return
+    if revive_downed is None:
+        # A wipe is "nobody is left standing", not "the Battle object said
+        # lost" -- results can also be set by fleeing or a cycle timeout,
+        # and a squad that walked away with survivors should not have
+        # those survivors' corpses displayed.
+        revive_downed = any(c.current_hp > 0 for c in battle.party)
     rows = {
         pc.id: pc
         for pc in db.query(PlayerCharacter).filter(PlayerCharacter.id.in_(character_ids)).all()

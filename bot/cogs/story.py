@@ -28,7 +28,8 @@ from bot.game.combat.battle import Battle
 from bot.game.combat.factory import build_enemy_combatant, build_party_combatants
 from bot.game.combat.enemies import get_template_by_name
 from bot.game.combat.serialization import battle_from_dict, battle_to_dict
-from bot.services import character_service, map_service, story_service
+from bot.services import (character_service, combat_service, map_service,
+                          story_service)
 from bot.services.player_service import get_player
 from bot.utils import combat_ui, embedder
 from bot.utils.guild_decorator import guild_decorator
@@ -217,6 +218,7 @@ async def _hunt_action(interaction: discord.Interaction, action: str,
         db.commit()
         if battle.is_over():
             hunt = dict(story.pending_hunt)
+            combat_service.sync_party_hp_to_characters(db, battle)
             story.combat_state = None
             db.commit()
             rewards = map_service.finish_hunt(
@@ -724,6 +726,13 @@ async def _story_combat_action(interaction: discord.Interaction, action: str,
             state = story_service.current_beat(db, player)
             beat = state[1] if state else {}
             won = battle.result == "won"
+            # Write HP back: downed characters get up at 1 HP after a
+            # fight the squad survived, and a WIPE writes 0 through so the
+            # roster actually shows them dead. Story fights start at full
+            # HP regardless (see _open_battle), so this costs the player
+            # nothing mechanically -- it just stops the display lying
+            # about who is standing.
+            combat_service.sync_party_hp_to_characters(db, battle)
             story.combat_state = None
             db.commit()
             if won:

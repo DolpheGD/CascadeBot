@@ -407,11 +407,17 @@ RAID_TIERS: list[dict] = [
         "emoji": "🕳️",
         "boss_pool": [
             "Borehole", "Rupture", "Gatekeeper", "The Chairman",
-            "The Auditor", "The Censor", "The Lector of Ledgers",
-            "Stubby's Failsafe", "Acatrya Prime Enforcer",
+            "Acatrya Prime Enforcer",
             "Boss John's Driller Prototype", "Ocellios Train", "X-RR"
         ],
         "boss_level": 70,
+        # The pool's smallest members can't survive two on-target attacks
+        # at the shared 8.0x multiplier -- the raid would end before most
+        # of the server could join it, which is the whole point of a raid.
+        # Scaled per TIER rather than by inflating the templates, because
+        # several of them (Rupture, Ocellios Train) are sized for content
+        # elsewhere and would be wrong there if fattened for this.
+        "boss_hp_multiplier": 11.0,
         "hp_per_attack": 10_000,
         "min_roster_levels": 300,
         "description": "A tougher boss and a much bigger pool. Bring the server.",
@@ -434,8 +440,8 @@ RAID_TIERS: list[dict] = [
         # cycle, 34 poise) and a raid is the only place a squad gets to
         # fight something that size cooperatively.
         "boss_pool": [
-            "Xender", "Rohan", "X-RR", "Eris Sentinel",
-            "Acatrya Prime Enforcer", "Stubby's Failsafe", "The Chairman",
+            "Xender", "Rohan", "X-RR",
+            "Acatrya Prime Enforcer", "The Chairman",
             "Gatekeeper", "Ocellios Train", "Boss John's Driller Prototype"
         ],
         "boss_level": 95,
@@ -445,6 +451,11 @@ RAID_TIERS: list[dict] = [
         # tools/check_raid_pools.py caught this the moment he was added
         # to the pool -- at 26,000 an on-target attack needed 66% of his
         # health bar, over the healthy limit.
+        # The pool's smallest members could not survive two on-target
+        # attacks at the shared 8.0x multiplier, which ends the raid
+        # before anyone else can join it. Scaled per tier rather than
+        # by inflating templates that are sized for the Abyss.
+        "boss_hp_multiplier": 12.0,
         "hp_per_attack": 17_500,
         "min_roster_levels": 650,
         "description": "Xender himself. The hardest thing in the game.",

@@ -642,7 +642,7 @@ class Battle:
         return [
             (row["enemy"], row["intent"])
             for row in self.peek_enemy_intent_schedule()
-            if row["imminent"] and row["slot"] == 0
+            if row["imminent"]
         ]
 
     def _projected_intent(self, enemy: Combatant, sim: dict) -> dict:

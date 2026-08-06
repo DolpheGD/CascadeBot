@@ -25,7 +25,7 @@ from bot.game.combat.battle import Battle
 from bot.game.combat.enemies import get_template_by_name
 from bot.game.combat.factory import build_enemy_combatant, build_party_combatants
 from bot.game.combat.serialization import battle_from_dict, battle_to_dict
-from bot.services import abyss_service, character_service
+from bot.services import abyss_service, character_service, combat_service
 from bot.services.player_service import get_player
 from bot.utils import combat_ui, embedder
 from bot.utils.guild_decorator import guild_decorator
@@ -351,6 +351,9 @@ async def _combat_action(interaction: discord.Interaction, action: str,
         if battle.is_over():
             deaths = sum(1 for m in battle.party if m.current_hp <= 0)
             cycles = getattr(battle, "cycle", 0) or 0
+            # Same rule as everywhere else: survive and the downed get up
+            # at 1 HP, wipe and the roster shows them at 0.
+            combat_service.sync_party_hp_to_characters(db, battle)
             state.combat_state = None
             db.commit()
             outcome = abyss_service.record_chamber_result(

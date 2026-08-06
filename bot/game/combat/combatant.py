@@ -147,6 +147,12 @@ class Combatant:
     # binding, however far ahead it was shown.
     pending_intents: list = field(default_factory=list)
 
+    # ENEMY-ONLY sustain decay counters. See heal() / gain_shield().
+    # Named for what they are so a save file is readable; they stay 0 for
+    # every player character because nothing ever increments them there.
+    enemy_heals_used: int = 0
+    enemy_shields_used: int = 0
+
     @property
     def pending_intent(self) -> dict | None:
         """The next queued action, or None. Kept as a read-only alias so
@@ -476,15 +482,54 @@ class Combatant:
         scattered through the effect dispatcher, and it's where the
         overheal clamp lives."""
         amount = max(0, int(round(amount)))
+        amount = self._enemy_sustain_falloff(amount, "heal")
         healed = min(self.max_hp - self.current_hp, amount)
         self.current_hp += healed
         return healed
+
+    # ------------------------------------------------------------------
+    # ENEMY SUSTAIN DECAY -- asymmetric on purpose.
+    #
+    # PLAYERS HAVE NO DECAY AT ALL. What an ability says it heals or
+    # shields is what it does, every time, forever. That transparency was
+    # a deliberate decision and is not being walked back: a player who
+    # cannot predict their own healer cannot plan around them.
+    #
+    # ENEMIES DECAY HARD. An enemy that can heal or shield on a loop
+    # doesn't make a fight difficult, it makes it LONG -- the player has
+    # already won on damage and is now just clicking until the arithmetic
+    # agrees. Repeated enemy sustain is therefore punished steeply:
+    #
+    #     1st  100%     2nd   45%     3rd   20%
+    #     4th    9%     5th+   4%  (floored, never zero)
+    #
+    # So an enemy healer is a real threat the first time and a nuisance
+    # by the third, which is the shape that keeps a boss dangerous
+    # without making it a war of attrition.
+    #
+    # Counters live per-combatant and are serialized, so a fight resumed
+    # after a restart doesn't hand the boss a fresh set of full heals.
+    # ------------------------------------------------------------------
+    ENEMY_SUSTAIN_FALLOFF = 0.45
+    ENEMY_SUSTAIN_FLOOR = 0.04
+
+    def _enemy_sustain_falloff(self, amount: float, kind: str) -> float:
+        if self.is_player or amount <= 0:
+            return amount
+        if kind == "heal":
+            used = self.enemy_heals_used
+            self.enemy_heals_used = used + 1
+        else:
+            used = self.enemy_shields_used
+            self.enemy_shields_used = used + 1
+        multiplier = max(self.ENEMY_SUSTAIN_FLOOR, self.ENEMY_SUSTAIN_FALLOFF ** used)
+        return amount * multiplier
 
     def gain_shield(self, amount: float) -> float:
         """Adds to this combatant's shield pool -- sibling choke point to
         heal(), and likewise no longer scaled. Returns the amount added so
         callers can log the real number."""
-        amount = max(0.0, amount)
+        amount = self._enemy_sustain_falloff(max(0.0, amount), "shield")
         self.shield += amount
         return amount
 

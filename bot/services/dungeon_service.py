@@ -665,9 +665,7 @@ def resolve_battle_end(db, expedition: Expedition, player, battle) -> dict:
     # A LOSS ends the run, and the defeat screen names who fell -- so the
     # 0 HP is written through rather than revived. Anything else is a
     # fight the run survived, and downed members get back up at 1 HP.
-    combat_service.sync_party_hp_to_characters(
-        db, battle, revive_downed=battle.result != "lost"
-    )
+    combat_service.sync_party_hp_to_characters(db, battle)
 
     if battle.result == "won":
         room_type = expedition.graph["nodes"][expedition.current_node_id]["room_type"]

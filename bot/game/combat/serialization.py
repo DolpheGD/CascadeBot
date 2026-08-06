@@ -63,6 +63,12 @@ def combatant_to_dict(c: Combatant) -> dict:
         "shield": c.shield,
         "ramp_percent_per_turn": c.ramp_percent_per_turn,
         "ramp_stacks": c.ramp_stacks,
+        # Enemy-only sustain decay counters. Persisted so a fight resumed
+        # after a restart doesn't hand the boss a fresh set of full-value
+        # heals -- the decay is the mechanic, and a mechanic you can reset
+        # by waiting is not one.
+        "enemy_heals_used": c.enemy_heals_used,
+        "enemy_shields_used": c.enemy_shields_used,
         # NOTE: the five heal/shield/energy decay counters that used to be
         # persisted here are gone with the mechanics that read them (see
         # the NO HIDDEN DIMINISHING RETURNS block in combatant.py). Saves
@@ -133,10 +139,40 @@ def combatant_from_dict(data: dict) -> Combatant:
         break_tick_armed=data.get("break_tick_armed", False),
         bonus_poise_damage=data.get("bonus_poise_damage", 0),
         guarding=data.get("guarding", False),
+        # .get with a default: saves written before enemy sustain decay
+        # existed simply resume with the counters at zero.
+        enemy_heals_used=data.get("enemy_heals_used", 0),
+        enemy_shields_used=data.get("enemy_shields_used", 0),
     )
 
 
 def battle_to_dict(battle: Battle) -> dict:
+    # PIN THE TELEGRAPHED INTENTS BEFORE CAPTURING STATE.
+    #
+    # peek_enemy_intent_schedule() is what DECIDES an enemy's next move
+    # (it pins into Combatant.pending_intents), and the only caller is
+    # the combat embed -- i.e. the intents come into existence while the
+    # screen is being drawn. But every cog draws the screen AFTER saving:
+    #
+    #     story.combat_state = battle_to_dict(battle)   # saved here
+    #     embed = embedder.combat_embed(battle)         # decided here
+    #
+    # so the pin landed on an object that was about to be thrown away.
+    # The next interaction reloaded the un-pinned blob and re-rolled the
+    # decision against fresh RNG and, crucially, a fuller energy bar --
+    # which is exactly how a telegraphed skill turned into an ultimate
+    # partway through. Measured before this line: 44 of 60 renders
+    # changed across a single save/reload.
+    #
+    # Doing it here rather than fixing the call order in each cog is
+    # deliberate. Ordering is invisible at the call site and there is no
+    # way to notice getting it wrong; this makes "what was saved" and
+    # "what will be shown" the same thing by construction, for every
+    # caller that exists now or later. It's idempotent -- the peek only
+    # appends when the queue is short, and never rewrites a decision.
+    if not battle.is_over():
+        battle.peek_enemy_intent_schedule()
+
     all_combatants = battle.party + battle.enemies
     return {
         "party": [combatant_to_dict(c) for c in battle.party],

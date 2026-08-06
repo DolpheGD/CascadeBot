@@ -1115,10 +1115,10 @@ ENEMY_TEMPLATES: list[dict] = [
         "region_roles": {'The Wastelands': 'final'},
         "base_stats": {
             "attack": 26, "defense": 16, "elemental": 26, "speed": 11,
-            "max_hp": 420, "max_mana": 999, "crit_rate": 12, "crit_damage": 170, "recharge": 13,
+            "max_hp": 470, "max_mana": 999, "crit_rate": 12, "crit_damage": 170, "recharge": 13,
         },
         "level_scale_percent": 4,
-        "escorts": ["Ocellios Train", "Broskm", "Duko"],
+        "escorts": ["Duko"],
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "guard_splitter"),
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
@@ -1175,7 +1175,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss_group_member",
         "base_stats": {
             "attack": 12, "defense": 5, "elemental": 42, "speed": 14,
-            "max_hp": 180, "max_mana": 999, "crit_rate": 20, "crit_damage": 200, "recharge": 9,
+            "max_hp": 250, "max_mana": 999, "crit_rate": 20, "crit_damage": 200, "recharge": 9,
         },
         "level_scale_percent": 4,
         "active_abilities": [
@@ -1200,7 +1200,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "region_roles": {'The Hotlands': 'final'},
         "base_stats": {
             "attack": 46, "defense": 12, "elemental": 40, "speed": 28,
-            "max_hp": 1050, "max_mana": 999, "crit_rate": 12, "crit_damage": 175, "recharge": 24,
+            "max_hp": 1205, "max_mana": 999, "crit_rate": 12, "crit_damage": 175, "recharge": 24,
         },
         "level_scale_percent": 4,
         "actions_per_cycle": 2,
@@ -1234,7 +1234,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "region_roles": {'Voidcrest Desert': 'final'},
         "base_stats": {
             "attack": 56, "defense": 14, "elemental": 40, "speed": 28,
-            "max_hp": 1350, "max_mana": 999, "crit_rate": 15, "crit_damage": 195, "recharge": 28,
+            "max_hp": 1780, "max_mana": 999, "crit_rate": 15, "crit_damage": 195, "recharge": 28,
         },
         "level_scale_percent": 4,
         "active_abilities": [
@@ -1450,7 +1450,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "region_roles": {'Abyssnia': 'final'},
         "base_stats": {
             "attack": 67, "defense": 20, "elemental": 44, "speed": 18,
-            "max_hp": 1800, "max_mana": 999, "crit_rate": 18, "crit_damage": 210, "recharge": 28,
+            "max_hp": 2530, "max_mana": 999, "crit_rate": 18, "crit_damage": 210, "recharge": 28,
         },
         "level_scale_percent": 4,
         "active_abilities": [
@@ -1632,7 +1632,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "combat",
         "regions": ["Glacier 15", "The Wastelands"],
         "base_stats": {"attack": 7, "defense": 11, "elemental": 2, "speed": 6,
-                       "max_hp": 78, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 12},
+                       "max_hp": 90, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 12},
         "level_scale_percent": 4,
         # Introduced early and cheaply on purpose: this is where a player
         # first meets forced targeting, on an enemy slow and weak enough
@@ -1728,7 +1728,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "combat",
         "regions": ["Glacier 15", "The Hotlands"],
         "base_stats": {"attack": 10, "defense": 5, "elemental": 4, "speed": 13,
-                       "max_hp": 44, "max_mana": 999, "crit_rate": 6, "crit_damage": 150, "recharge": 15},
+                       "max_hp": 52, "max_mana": 999, "crit_rate": 6, "crit_damage": 150, "recharge": 15},
         "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "emp_burst")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "static_discharge")],
@@ -2357,6 +2357,214 @@ ENEMY_TEMPLATES: list[dict] = [
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "focused_lens")],
     },
+
+    # ------------------------------------------------------------------
+    # ROHAN'S LEDGER -- the bureaucracy.
+    #
+    # These eight were referenced by story_config and abyss_config before
+    # any of them existed, so every fight that named one raised KeyError
+    # from get_template_by_name. Chapter 2's finale and Abyss floors 3,
+    # 4, 5, 7, 11 and 12 were all unplayable.
+    #
+    # Written as a SET rather than eight one-offs, because they're the
+    # same institution at different ranks: Rohan doesn't field monsters,
+    # he fields process. Each one is built around a mechanic the recent
+    # rebalance made matter -- DEF shred, DoT, poise break, team buffs,
+    # shields -- so meeting one teaches the counter to it rather than
+    # just presenting a bigger number. Deliberately given no "regions"
+    # key, which keeps them out of the adventure roll (see
+    # get_templates_by_role): they belong to scripted content, and a
+    # random Wastelands encounter spawning Acatrya's Chairman would
+    # spoil both the fight and the story.
+    # ------------------------------------------------------------------
+    {
+        # Abyss floor 3, and again on 12 at the Chairman's side.
+        # Where the set starts: it strips DEF and then punishes you for
+        # being stripped, which is the whole family's thesis in miniature.
+        "name": "Ledger Warden",
+        "role": "elite",
+        "base_stats": {
+            "attack": 21, "defense": 19, "elemental": 8, "speed": 11,
+            "max_hp": 215, "max_mana": 999, "crit_rate": 12, "crit_damage": 165, "recharge": 22,
+        },
+        "level_scale_percent": 4,
+        "max_poise": 16,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "guard_splitter"),
+            get_ability_by_id(ARTIFACT_SKILLS, "weakpoint_scanner"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "sundering_edge")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "null_strike"),
+    },
+    {
+        # Abyss floor 4, paired with the Propaganda Broadcast Unit.
+        # A PRIORITY TARGET on purpose: it does very little by itself and
+        # a lot to everything standing near it, so the fight is really a
+        # question about focus fire. Left alone for three cycles it turns
+        # a manageable pair into the hardest thing on the floor.
+        "name": "Hater Ringleader",
+        "role": "elite",
+        "base_stats": {
+            "attack": 18, "defense": 13, "elemental": 11, "speed": 15,
+            "max_hp": 195, "max_mana": 999, "crit_rate": 14, "crit_damage": 170, "recharge": 26,
+        },
+        "level_scale_percent": 4,
+        "max_poise": 12,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "rousing_signal"),
+            get_ability_by_id(WEAPON_SKILLS, "opportunist_strike"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "rallying_plate")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "storm_of_blades"),
+    },
+    {
+        # Chapter 2's closing fight (level 12, alone) and Abyss floor 5
+        # (level 40, alone). THE GAME'S DOT LESSON, and the reason it is
+        # fought solo at both: a damage-over-time boss with company kills
+        # you before the mechanic has finished explaining itself.
+        #
+        # It does almost nothing on the turn it acts. Everything it does
+        # arrives two turns later, stacked and amplified, which is what
+        # makes cleansing and sustained healing the answer instead of
+        # racing it down. Stats are deliberately soft for a boss -- the
+        # threat is the rot, not the hit.
+        #
+        # 560 rather than the 330 first written: at 330 the fight ended in
+        # three cycles, which is not long enough for a damage-over-time
+        # boss to be a damage-over-time boss -- the rot was still ticking
+        # when it died, so the mechanic never got to matter and the beat
+        # played as a plain damage race. 560 buys roughly five cycles at
+        # the level Chapter 2 hands you, without moving the win rate off
+        # 100% for any squad that turns up: it is a lesson, not a wall.
+        "name": "The Lector of Ledgers",
+        "role": "boss",
+        "base_stats": {
+            "attack": 22, "defense": 14, "elemental": 26, "speed": 10,
+            "max_hp": 560, "max_mana": 999, "crit_rate": 10, "crit_damage": 160, "recharge": 24,
+        },
+        "level_scale_percent": 4,
+        "max_poise": 20,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "creeping_rot"),
+            get_ability_by_id(ARTIFACT_SKILLS, "corrosive_mark"),
+            get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "accelerant_coating")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "voidstorm"),
+    },
+    {
+        # Abyss floor 7, and both endgame floors. The poise specialist:
+        # it breaks YOU rather than out-damaging you, so the counter is
+        # acting on the turn it winds up rather than eating the hit.
+        "name": "The Auditor",
+        "role": "elite",
+        "base_stats": {
+            "attack": 24, "defense": 17, "elemental": 12, "speed": 16,
+            "max_hp": 250, "max_mana": 999, "crit_rate": 15, "crit_damage": 175, "recharge": 24,
+        },
+        "level_scale_percent": 4,
+        "max_poise": 18,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "emp_burst"),
+            get_ability_by_id(ARTIFACT_SKILLS, "jamming_array"),
+            get_ability_by_id(WEAPON_SKILLS, "twin_fracture_strike"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "guard_breaker")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "null_strike"),
+    },
+    {
+        # Abyss floor 7 and both endgame floors. Suppression: it debuffs
+        # your whole side and shields its own.
+        #
+        # Its ultimate is a team shield, which is precisely the thing
+        # ENEMY sustain decay exists to keep honest (see
+        # Combatant._enemy_sustain_falloff). First cast is a wall; the
+        # fourth is worth 9% of the first. So the fight rewards pushing
+        # through rather than waiting it out, and can't stall forever.
+        "name": "The Censor",
+        "role": "elite",
+        "base_stats": {
+            "attack": 19, "defense": 22, "elemental": 20, "speed": 12,
+            "max_hp": 280, "max_mana": 999, "crit_rate": 10, "crit_damage": 160, "recharge": 26,
+        },
+        "level_scale_percent": 4,
+        "max_poise": 22,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "static_field"),
+            get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
+            get_ability_by_id(ARTIFACT_SKILLS, "arcane_burst"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "reinforced_barrier")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "aegis_protocol"),
+    },
+    {
+        # The bottom of the Abyss. Acatrya's actual head, and the only
+        # member of the set that acts twice a cycle -- which is what
+        # makes the buff amplifier frightening rather than flavour: it
+        # can raise the whole board and then immediately use it.
+        "name": "The Chairman",
+        "role": "boss",
+        "actions_per_cycle": 2,
+        "base_stats": {
+            "attack": 38, "defense": 24, "elemental": 30, "speed": 17,
+            "max_hp": 560, "max_mana": 999, "crit_rate": 18, "crit_damage": 185, "recharge": 26,
+        },
+        "level_scale_percent": 4,
+        "max_poise": 30,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "overmind_surge"),
+            get_ability_by_id(ARTIFACT_SKILLS, "meteor_shower"),
+            get_ability_by_id(WEAPON_SKILLS, "sunder_the_weak"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "conductors_baton")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "world_ender"),
+    },
+    {
+        # Eris, on the endgame floor. A wall rather than a threat: it
+        # taunts, shields itself, and chips you with true damage that
+        # ignores every defensive stat you brought. You cannot out-tank
+        # it, only out-last it.
+        "name": "Eris Sentinel",
+        "role": "elite",
+        "base_stats": {
+            "attack": 20, "defense": 30, "elemental": 18, "speed": 9,
+            "max_hp": 340, "max_mana": 999, "crit_rate": 8, "crit_damage": 150, "recharge": 20,
+        },
+        "level_scale_percent": 4,
+        "max_poise": 26,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "iron_vigil"),
+            get_ability_by_id(ARTIFACT_SKILLS, "guardian_challenge"),
+            get_ability_by_id(ARTIFACT_SKILLS, "absolute_zero"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "adaptive_plating")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "aegis_protocol"),
+    },
+    {
+        # Already had a short name on file (see ENEMY_SHORT_NAMES) and no
+        # template -- the clearest sign this whole set was referenced
+        # before it was written.
+        #
+        # Stubby's last-resort machine, and it fights like one: hardest
+        # when it is nearly dead, and it refuses the first killing blow.
+        # The counter is burst, not attrition, which makes it the exact
+        # inverse of the Lector at the other end of the ladder.
+        "name": "Stubby's Failsafe",
+        "role": "elite",
+        "base_stats": {
+            "attack": 27, "defense": 14, "elemental": 22, "speed": 14,
+            "max_hp": 230, "max_mana": 999, "crit_rate": 16, "crit_damage": 180, "recharge": 28,
+        },
+        "level_scale_percent": 4,
+        "max_poise": 14,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "desperate_swing"),
+            get_ability_by_id(ARTIFACT_SKILLS, "kinetic_feedback"),
+            get_ability_by_id(ARTIFACT_SKILLS, "system_purge"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "undying_will")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "cataclysm"),
+    },
 ]
 
 # Named multi-enemy boss encounters. Each entry is a list of template names
@@ -2557,6 +2765,11 @@ ENEMY_SHORT_NAMES: dict[str, str] = {
     "Romain's Body Pillow": "Body Pillow",
     "Entrospire Soldier": "Entrospire Sol.",
     "Xender Spy Camera": "Spy Camera",
+    # Flagged by tools/check_ui_labels: over 16 chars with no short
+    # form, so every menu and Incoming row truncated them mid-word.
+    "Josh Hater Ringleader": "Hater Ringldr",
+    "Negadom Destroyer": "Negadom Destr.",
+    "Rohan's Catastrophe Soldier": "Catastrophe Sol.",
 }
 
 

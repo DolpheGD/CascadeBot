@@ -48,14 +48,41 @@ def main() -> int:
                 if (t.get("region_roles") or {}).get(region) == role]
 
     # --- final boss ladder
-    finals: list[tuple[str, str, int]] = []
-    for region in regions:
-        for t in role_in(region, "final"):
-            finals.append((region, t["name"], t["base_stats"]["max_hp"]))
+    #
+    # MEASURED AS THE WHOLE ENCOUNTER, AT THE LEVEL IT IS ACTUALLY FOUGHT.
+    #
+    # This used to compare raw base_stats["max_hp"], which is not a
+    # difficulty at all -- it ignores both the region's level_offset and
+    # every escort the boss brings. It was wrong in both directions at
+    # once: it failed Glacier -> Wastelands (510 vs 420 base), where the
+    # real numbers climb 816 -> 2669 and are fine, while passing
+    # Wastelands -> Hotlands (420 vs 1050 base), where the real numbers
+    # FALL 2669 -> 2352 because NF arrives with three escorts and X-RR
+    # arrives alone. The one genuine inversion on the ladder was the one
+    # the check couldn't see, and it had been reported as healthy for as
+    # long as the check has existed.
+    #
+    # So: build the encounter, escorts included, at level_offset + 15
+    # (mid-region depth), and compare that. It's the number the player
+    # walks into.
+    from bot.game.combat.factory import build_enemy_combatant
+    from bot.game.combat.enemies import get_template_by_name
+
+    MID_REGION_FLOOR = 15
+
+    def encounter_hp(template: dict, level: int) -> int:
+        group = [template] + [get_template_by_name(name)
+                              for name in (template.get("escorts") or [])]
+        return sum(build_enemy_combatant(t, level).max_hp for t in group)
 
     best: dict[str, int] = {}
-    for region, name, hp in finals:
-        best[region] = max(best.get(region, 0), hp)
+    best_name: dict[str, str] = {}
+    for region in regions:
+        level = REGION_DIFFICULTY[region]["level_offset"] + MID_REGION_FLOOR
+        for t in role_in(region, "final"):
+            hp = encounter_hp(t, level)
+            if hp > best.get(region, 0):
+                best[region], best_name[region] = hp, t["name"]
 
     previous_hp, previous_region = 0, None
     for region in regions:
@@ -64,8 +91,9 @@ def main() -> int:
             continue
         if hp < previous_hp:
             failures.append(
-                f"'{region}' capstone is {hp} HP but '{previous_region}' before it is "
-                f"{previous_hp} -- the ladder goes DOWN, and every region past "
+                f"'{region}' capstone ({best_name[region]}) is {hp:,} effective HP but "
+                f"'{previous_region}' ({best_name[previous_region]}) before it is "
+                f"{previous_hp:,} -- the ladder goes DOWN, and every region past "
                 f"'{previous_region}' is gated behind the harder earlier one"
             )
         previous_hp, previous_region = hp, region
@@ -79,11 +107,15 @@ def main() -> int:
         high = max(hp for _, hp in pool)
         if low and high / low > MAX_REGULAR_BOSS_SPREAD:
             worst = max(pool, key=lambda x: x[1])[0]
-            best_name = min(pool, key=lambda x: x[1])[0]
+            # NOT `best_name` -- that name holds the capstone-per-region
+            # dict this function reports with at the end, and rebinding it
+            # to a string here silently corrupted the summary line for
+            # every run where a spread failure fired.
+            mildest = min(pool, key=lambda x: x[1])[0]
             failures.append(
                 f"'{region}' regular bosses span {low}-{high} HP "
                 f"({high / low:.1f}x, max {MAX_REGULAR_BOSS_SPREAD:.1f}x): drawing "
-                f"{worst} instead of {best_name} decides the run before it starts"
+                f"{worst} instead of {mildest} decides the run before it starts"
             )
 
     # --- offsets rise
@@ -99,7 +131,25 @@ def main() -> int:
             previous, previous_region = value, region
 
     print(f"regions   : {len(regions)}")
-    print("capstones : " + " -> ".join(f"{best.get(r, '?')}" for r in regions))
+    print("capstones : " + " -> ".join(
+        f"{best[r]:,}" for r in regions if r in best) + "  (effective HP, escorts included)")
+    print("            " + " -> ".join(best_name[r] for r in regions if r in best))
+    steps = [best[r] for r in regions if r in best]
+    if len(steps) > 1:
+        print("steps     : " + " -> ".join(
+            f"{b / a:.2f}x" for a, b in zip(steps, steps[1:])))
+    # Abyssnia fields TWO finals and `best` reports only the larger, so
+    # the last step reads as a cliff when it is really two rungs: the
+    # region's own capstone, and then Rohan, who is the end of the game
+    # and is supposed to be a wall rather than a rung.
+    for region in regions:
+        others = sorted((encounter_hp(t, REGION_DIFFICULTY[region]["level_offset"]
+                                      + MID_REGION_FLOOR), t["name"])
+                        for t in role_in(region, "final"))
+        if len(others) > 1:
+            print(f"note      : '{region}' fields "
+                  + ", ".join(f"{n} ({h:,})" for h, n in others)
+                  + " -- the last is the end of the game, not a rung")
     print()
     if failures:
         for line in dict.fromkeys(failures):
