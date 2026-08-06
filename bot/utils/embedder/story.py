@@ -61,9 +61,16 @@ def map_embed(area: dict, grid: str, legend: list[str], standing_on: str | None,
     connected to anything. Dropping either one was tried and the map
     immediately reads as decoration.
     """
+    # THE ROOM NAME IS THE HEADLINE, and the region sits above it.
+    #
+    # A grid of emoji with no label is a puzzle; the same grid titled
+    # "Sector 9 — Containment" inside "OCELLIOS LAB" is a place you can
+    # navigate by memory. Every room names itself and its region, so a
+    # player always knows both where they are and where that is.
+    region = area.get("region")
     embed = discord.Embed(
         title=f"🗺️ {area['name']}",
-        description=area.get("blurb", ""),
+        description=(f"*{region}*\n\n" if region else "") + area.get("blurb", ""),
         color=STORY_COLOR,
     )
     embed.add_field(name="​", value=grid, inline=False)

@@ -598,9 +598,75 @@ Two exemptions, both load-bearing:
 Result: strategy spread **2.4x -> 1.6x**, with the alternatives moving
 from 42-45% of the best comp to 61-64%.
 
-### Caveat
+### The ladder, re-cut against the post-falloff numbers
 
-Overall player power is now lower than when the region ladder was last
-cut, and the geared clear rates have drifted (Hotlands ~38% at entry).
-The ladder wants one more compensating pass against the post-falloff
-numbers.
+Diminishing returns lowered overall player power, so every difficulty
+number set before it was stale. Re-measured and re-cut. Two real faults
+turned up:
+
+* **The Wastelands was EASIER than Glacier 15 before it** (80% vs 63%) --
+  the same inversion that shipped once already, back again because the
+  ladder was tuned in pieces rather than as a whole.
+* **Abyssnia was effectively shut** at 3%.
+
+Offsets are now 2/1, 19/15, 20/16, 31/25, 38/34. Geared clear rate at
+each region's entry level, and 15 levels later:
+
+| region | at entry | +15 levels |
+|---|---|---|
+| Glacier 15 | 77% | 100% |
+| The Wastelands | 77% | 95% |
+| The Hotlands | 48% | 70% |
+| Voidcrest Desert | 50% | 73% |
+| Abyssnia | 12% | 27% |
+
+The step from Wastelands to Hotlands is sharp rather than smooth. That is
+the intended shape -- tier 3 is where a squad that coasted has to
+actually build -- but it is a step, not a slope, and worth revisiting if
+it reads as a wall in play.
+
+`tools/check_progression.py` caught an ordering mistake mid-pass (Hotlands
+combat offset below the Wastelands offset before it), which is exactly
+the class of error that produced the original inverted ladder.
+
+
+## Rooms redesigned: a journey, not three halls
+
+The overworld was three 13x7 halls per chapter with every important thing
+in each one. That is neither readable on a phone nor sensible in the
+world -- a lab, a glacier and a basement do not each contain one of
+everything.
+
+**16 rooms now, averaging 14 tiles**, each named and placed in a region,
+connected in a line you travel along. The opening room is **3x3**: you
+wake in a box that is coming down and the first question the game asks is
+"which way out".
+
+    Ocellios Lab            Containment -> East Corridor -> Staging
+    Glacier 15              The Shelf -> The Ridge -> The Drift Line
+    Cascade Forward Base    The Workshop -> Operations
+    Cryosphere Divide       Cascade Camp -> Fence Line -> Cold Workshop
+    The Outpost             Atrium -> Stairhead
+    The Wastelands          The Picket
+    Entrospire City         Chary's Table -> The Night Yard
+
+**Every room states its region**, so the screen answers both "where am I"
+and "where is that" without the player holding a map in their head.
+
+### The clutter was caused by a rule I wrote
+
+`MIN_DENSITY = 0.28` with `MAX_DISTANCE_TO_CONTENT = 2` forced every
+walkable tile to sit within two steps of something interactive. It was
+written to stop sparse maps being a boring walk and it overcorrected into
+"every tile is interactive and every tile has a paragraph" -- 77 notes
+across 7 areas, all of which the checker *demanded*.
+
+The fix is smaller rooms rather than denser ones: a 5x5 room with three
+things in it is dense by construction and needs no rule. So the floor
+dropped (0.12), the reach widened (4), and a new `MAX_ROOM_TILES = 40`
+pushes back the other way. Notes are down from **77 to 28**.
+
+The legend under the grid now shows missions and exits always, everything
+else up to `MAX_LEGEND_LINES = 6` -- that list was the "menu is too big"
+problem, and scenery is discoverable by walking onto it, which is what
+the map is for.

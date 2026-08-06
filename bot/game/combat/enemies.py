@@ -105,7 +105,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 10, "defense": 3, "elemental": 1, "speed": 7,
             "max_hp": 32, "max_mana": 999, "crit_rate": 4, "crit_damage": 140, "recharge": 15,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "quickdraw_slash")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "scrap_armor")],
     },
@@ -119,7 +119,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 3, "defense": 4, "elemental": 3, "speed": 10,
             "max_hp": 12, "max_mana": 999, "crit_rate": 6, "crit_damage": 155, "recharge": 36,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "fracture_field"),
                              get_ability_by_id(WEAPON_SKILLS, "opportunist_strike")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "thornmail")],
@@ -135,7 +135,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 12, "defense": 5, "elemental": 3, "speed": 8,
             "max_hp": 42, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 16,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "shield_bash")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "static_discharge")],
     },
@@ -149,7 +149,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 15, "defense": 7, "elemental": 5, "speed": 9,
             "max_hp": 52, "max_mana": 999, "crit_rate": 6, "crit_damage": 155, "recharge": 18,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "flame_strike"),
             get_ability_by_id(WEAPON_SKILLS, "opportunist_strike"),
@@ -165,7 +165,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 100, "defense": 1, "elemental": 2, "speed": 1,
             "max_hp": 2, "max_mana": 999, "crit_rate": 6, "crit_damage": 155, "recharge": 70,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [],
         "passive_abilities": [],
     },
@@ -178,7 +178,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 1, "defense": 1, "elemental": 1, "speed": 100,
             "max_hp": 50, "max_mana": 999, "crit_rate": 1, "crit_damage": 500, "recharge": 70,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "actions_per_cycle": 5,
         "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "flurry_slash")],
         "passive_abilities": [],
@@ -193,7 +193,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 10, "defense": 9, "elemental": 5, "speed": 6,
             "max_hp": 58, "max_mana": 999, "crit_rate": 4, "crit_damage": 150, "recharge": 15,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "arcane_burst"),
             get_ability_by_id(ARTIFACT_SKILLS, "overclock_repair"),
@@ -210,7 +210,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 15, "defense": 10, "elemental": 3, "speed": 5,
             "max_hp": 60, "max_mana": 999, "crit_rate": 4, "crit_damage": 150, "recharge": 15,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "shield_bash")],
         "passive_abilities": [
             get_ability_by_id(ARMOR_PASSIVES, "retaliation_plating"),
@@ -227,7 +227,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 7, "defense": 6, "elemental": 14, "speed": 8,
             "max_hp": 48, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 15,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "frost_lance")],
         "passive_abilities": [],
     },
@@ -247,7 +247,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 12, "defense": 3, "elemental": 9, "speed": 12,
             "max_hp": 30, "max_mana": 999, "crit_rate": 8, "crit_damage": 160, "recharge": 20,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "actions_per_cycle": 2,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "frost_lance"),
@@ -266,7 +266,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 13, "defense": 5, "elemental": 2, "speed": 9,
             "max_hp": 45, "max_mana": 999, "crit_rate": 6, "crit_damage": 150, "recharge": 25,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "sunder_strike"),
             get_ability_by_id(WEAPON_SKILLS, "berserker_rage"),
@@ -283,7 +283,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 14, "defense": 12, "elemental": 12, "speed": 3,
             "max_hp": 65, "max_mana": 999, "crit_rate": 3, "crit_damage": 150, "recharge": 20,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "flame_strike")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "iron_skin")],
     },
@@ -297,7 +297,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 13, "defense": 8, "elemental": 3, "speed": 7,
             "max_hp": 50, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 15,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "shield_bash")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "soul_harvest")],
     },
@@ -313,7 +313,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 15, "defense": 4, "elemental": 2, "speed": 11,
             "max_hp": 38, "max_mana": 999, "crit_rate": 9, "crit_damage": 165, "recharge": 25,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "riftcutter"),
             get_ability_by_id(WEAPON_SKILLS, "flurry_slash"),
@@ -331,7 +331,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 12, "defense": 5, "elemental": 8, "speed": 7,
             "max_hp": 44, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 15,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "power_strike"),
             get_ability_by_id(WEAPON_SKILLS, "guard_splitter"),
@@ -351,7 +351,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 4, "defense": 6, "elemental": 5, "speed": 8,
             "max_hp": 65, "max_mana": 999, "crit_rate": 4, "crit_damage": 150, "recharge": 26,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "combat_medic"),
             get_ability_by_id(ARTIFACT_SKILLS, "regenerative_field"),
@@ -370,7 +370,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 7, "defense": 7, "elemental": 6, "speed": 7,
             "max_hp": 60, "max_mana": 999, "crit_rate": 4, "crit_damage": 150, "recharge": 35,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "rousing_signal"),
             get_ability_by_id(ARTIFACT_SKILLS, "static_field"),
@@ -392,7 +392,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 14, "defense": 15, "elemental": 4, "speed": 4,
             "max_hp": 55, "max_mana": 999, "crit_rate": 3, "crit_damage": 145, "recharge": 14,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "shield_bash")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "iron_skin")],
     },
@@ -409,7 +409,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 12, "defense": 4, "elemental": 6, "speed": 10,
             "max_hp": 40, "max_mana": 999, "crit_rate": 7, "crit_damage": 155, "recharge": 15,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "tempest_edge")],
         "passive_abilities": [],
     },
@@ -424,7 +424,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 15, "defense": 4, "elemental": 15, "speed": 6,
             "max_hp": 76, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 15,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "flame_strike")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "scrap_armor")],
     },
@@ -437,7 +437,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 8, "defense": 12, "elemental": 24, "speed": 13,
             "max_hp": 78, "max_mana": 999, "crit_rate": 10, "crit_damage": 165, "recharge": 16,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "arcane_burst")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "static_discharge")],
     },
@@ -452,7 +452,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 17, "defense": 8, "elemental": 4, "speed": 9,
             "max_hp": 60, "max_mana": 999, "crit_rate": 6, "crit_damage": 155, "recharge": 15,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "rending_cleave")],
         "passive_abilities": [],
     },
@@ -468,7 +468,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 7, "defense": 4, "elemental": 16, "speed": 8,
             "max_hp": 42, "max_mana": 999, "crit_rate": 6, "crit_damage": 155, "recharge": 16,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "void_grasp")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "undying_will")],
     },
@@ -481,7 +481,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 1, "defense": 9, "elemental": 1, "speed": 100,
             "max_hp": 70, "max_mana": 999, "crit_rate": 50, "crit_damage": 101, "recharge": 70,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "jamming_array"),
                              get_ability_by_id(ARTIFACT_SKILLS, "null_field_projector")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "capacitor_shell")],
@@ -495,7 +495,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 1, "defense": 9, "elemental": 1, "speed": 100,
             "max_hp": 75, "max_mana": 999, "crit_rate": 50, "crit_damage": 101, "recharge": 70,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "focused_support_beam"),
                              get_ability_by_id(ARTIFACT_SKILLS, "emergency_relay")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "support_matrix")],
@@ -509,7 +509,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 1, "defense": 1, "elemental": 1, "speed": 100,
             "max_hp": 90, "max_mana": 999, "crit_rate": 50, "crit_damage": 101, "recharge": 70,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "vitality_offering"),
                              get_ability_by_id(ARTIFACT_SKILLS, "sacrificial_aegis"),
                              get_ability_by_id(ARTIFACT_SKILLS, "purge_beacon"),],
@@ -531,7 +531,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 23, "defense": 28, "elemental": 6, "speed": 7,
             "max_hp": 170, "max_mana": 999, "crit_rate": 7, "crit_damage": 155, "recharge": 22,
         },
-        "level_scale_percent": 10,
+        "level_scale_percent": 5,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "shield_bash"),
             get_ability_by_id(WEAPON_SKILLS, "rending_cleave"),
@@ -553,7 +553,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 12, "defense": 14, "elemental": 22, "speed": 9,
             "max_hp": 140, "max_mana": 999, "crit_rate": 8, "crit_damage": 160, "recharge": 16,
         },
-        "level_scale_percent": 10,
+        "level_scale_percent": 5,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
             get_ability_by_id(ARTIFACT_SKILLS, "emp_burst"),
@@ -570,7 +570,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 8, "defense": 8, "elemental": 9, "speed": 20,
             "max_hp": 100, "max_mana": 999, "crit_rate": 15, "crit_damage": 170, "recharge": 27,
         },
-        "level_scale_percent": 10,
+        "level_scale_percent": 5,
         "actions_per_cycle": 3,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
@@ -592,7 +592,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 25, "defense": 12, "elemental": 5, "speed": 10,
             "max_hp": 180, "max_mana": 999, "crit_rate": 14, "crit_damage": 180, "recharge": 19,
         },
-        "level_scale_percent": 10,
+        "level_scale_percent": 5,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "rending_cleave"),
             get_ability_by_id(WEAPON_SKILLS, "cleave_smash"),
@@ -612,7 +612,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 13, "defense": 9, "elemental": 23, "speed": 11,
             "max_hp": 135, "max_mana": 999, "crit_rate": 9, "crit_damage": 165, "recharge": 20,
         },
-        "level_scale_percent": 10,
+        "level_scale_percent": 5,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
             get_ability_by_id(ARTIFACT_SKILLS, "soul_siphon"),
@@ -631,7 +631,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 16, "defense": 10, "elemental": 20, "speed": 9,
             "max_hp": 145, "max_mana": 999, "crit_rate": 10, "crit_damage": 165, "recharge": 19,
         },
-        "level_scale_percent": 10,
+        "level_scale_percent": 5,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "emp_burst"),
             get_ability_by_id(ARTIFACT_SKILLS, "empowering_ritual"),
@@ -651,7 +651,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "max_hp": 180, "max_mana": 999, "crit_rate": 8, "crit_damage": 160, "recharge": 17,
         },
         "actions_per_cycle": 2,
-        "level_scale_percent": 10,
+        "level_scale_percent": 5,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "weakpoint_scanner"),
             get_ability_by_id(WEAPON_SKILLS, "frost_lance"),
@@ -674,7 +674,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 13, "defense": 24, "elemental": 12, "speed": 6,
             "max_hp": 205, "max_mana": 999, "crit_rate": 6, "crit_damage": 155, "recharge": 26,
         },
-        "level_scale_percent": 10,
+        "level_scale_percent": 5,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "arc_lightning"),
             get_ability_by_id(ARTIFACT_SKILLS, "arcane_burst"),
@@ -703,7 +703,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 24, "defense": 10, "elemental": 5, "speed": 12,
             "max_hp": 220, "max_mana": 999, "crit_rate": 12, "crit_damage": 170, "recharge": 17,
         },
-        "level_scale_percent": 10,
+        "level_scale_percent": 5,
         "actions_per_cycle": 2,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "sunder_strike"),
@@ -722,7 +722,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 17, "defense": 3, "elemental": 6, "speed": 23,
             "max_hp": 230, "max_mana": 999, "crit_rate": 10, "crit_damage": 280, "recharge": 25,
         },
-        "level_scale_percent": 10,
+        "level_scale_percent": 5,
         "actions_per_cycle": 3,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "null_field_projector"),
@@ -741,7 +741,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 4, "defense": 1, "elemental": 4, "speed": 23,
             "max_hp": 300, "max_mana": 999, "crit_rate": 10, "crit_damage": 280, "recharge": 40,
         },
-        "level_scale_percent": 10,
+        "level_scale_percent": 5,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "fracture_field"),
         ],
@@ -762,7 +762,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 20, "defense": 10, "elemental": 22, "speed": 14,
             "max_hp": 240, "max_mana": 999, "crit_rate": 12, "crit_damage": 190, "recharge": 22,
         },
-        "level_scale_percent": 10,
+        "level_scale_percent": 5,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "ruin_breaker"),
             get_ability_by_id(WEAPON_SKILLS, "voidpiercer"),
@@ -795,10 +795,10 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss",
         "region_roles": {'Glacier 15': 'regular', 'The Wastelands': 'regular', 'The Hotlands': 'regular'},
         "base_stats": {
-            "attack": 20, "defense": 10, "elemental": 9, "speed": 14,
-            "max_hp": 300, "max_mana": 999, "crit_rate": 14, "crit_damage": 170, "recharge": 20,
+            "attack": 26, "defense": 10, "elemental": 12, "speed": 14,
+            "max_hp": 320, "max_mana": 999, "crit_rate": 14, "crit_damage": 170, "recharge": 20,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "actions_per_cycle": 2,
         "escorts": ["XG-23A", "XG-23B"],
         "active_abilities": [
@@ -817,10 +817,10 @@ ENEMY_TEMPLATES: list[dict] = [
         "name": "XG-23A",
         "role": "boss_group_member",
         "base_stats": {
-            "attack": 9, "defense": 5, "elemental": 4, "speed": 9,
+            "attack": 11, "defense": 12, "elemental": 4, "speed": 9,
             "max_hp": 105, "max_mana": 999, "crit_rate": 4, "crit_damage": 140, "recharge": 18,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "rousing_signal")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "support_matrix")],
     },
@@ -831,10 +831,10 @@ ENEMY_TEMPLATES: list[dict] = [
         "name": "XG-23B",
         "role": "boss_group_member",
         "base_stats": {
-            "attack": 10, "defense": 5, "elemental": 4, "speed": 8,
+            "attack": 18, "defense": 5, "elemental": 4, "speed": 8,
             "max_hp": 85, "max_mana": 999, "crit_rate": 4, "crit_damage": 140, "recharge": 18,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "aegis_broadcast")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "regen_field_generator")],
     },
@@ -853,10 +853,10 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss",
         "region_roles": {'The Wastelands': 'regular', 'The Hotlands': 'regular', 'Voidcrest Desert': 'regular'},
         "base_stats": {
-            "attack": 29, "defense": 12, "elemental": 14, "speed": 4,
-            "max_hp": 520, "max_mana": 999, "crit_rate": 9, "crit_damage": 190, "recharge": 30,
+            "attack": 37, "defense": 12, "elemental": 32, "speed": 4,
+            "max_hp": 520, "max_mana": 999, "crit_rate": 19, "crit_damage": 170, "recharge": 30,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "fracture_field"),
             get_ability_by_id(ARTIFACT_SKILLS, "rousing_signal"),
@@ -875,11 +875,11 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss",
         "region_roles": {'The Wastelands': 'regular', 'Voidcrest Desert': 'regular'},
         "base_stats": {
-            "attack": 14, "defense": 8, "elemental": 24, "speed": 14,
-            "max_hp": 410, "max_mana": 999, "crit_rate": 10, "crit_damage": 165, "recharge": 26,
+            "attack": 24, "defense": 8, "elemental": 40, "speed": 14,
+            "max_hp": 460, "max_mana": 999, "crit_rate": 10, "crit_damage": 150, "recharge": 26,
         },
         "actions_per_cycle": 2,
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "starfall"),
             get_ability_by_id(WEAPON_SKILLS, "rending_cleave"),
@@ -899,10 +899,10 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss",
         "region_roles": {'The Hotlands': 'regular', 'Voidcrest Desert': 'regular'},
         "base_stats": {
-            "attack": 28, "defense": 10, "elemental": 21, "speed": 10,
-            "max_hp": 360, "max_mana": 999, "crit_rate": 13, "crit_damage": 175, "recharge": 13,
+            "attack": 30, "defense": 10, "elemental": 33, "speed": 10,
+            "max_hp": 440, "max_mana": 999, "crit_rate": 13, "crit_damage": 175, "recharge": 13,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "escorts": ["Dolpo", "Xero"],
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "crossfire_salvo"),
@@ -920,10 +920,10 @@ ENEMY_TEMPLATES: list[dict] = [
         "name": "Dolpo",
         "role": "boss_group_member",
         "base_stats": {
-            "attack": 14, "defense": 9, "elemental": 10, "speed": 15,
-            "max_hp": 160, "max_mana": 999, "crit_rate": 10, "crit_damage": 165, "recharge": 18,
+            "attack": 18, "defense": 9, "elemental": 10, "speed": 15,
+            "max_hp": 190, "max_mana": 999, "crit_rate": 10, "crit_damage": 165, "recharge": 18,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "tempest_edge"),
             get_ability_by_id(ARTIFACT_SKILLS, "power_transfer"),
@@ -937,10 +937,10 @@ ENEMY_TEMPLATES: list[dict] = [
         "name": "Xero",
         "role": "boss_group_member",
         "base_stats": {
-            "attack": 13, "defense": 11, "elemental": 12, "speed": 11,
-            "max_hp": 170, "max_mana": 999, "crit_rate": 8, "crit_damage": 150, "recharge": 19,
+            "attack": 22, "defense": 11, "elemental": 12, "speed": 11,
+            "max_hp": 220, "max_mana": 999, "crit_rate": 8, "crit_damage": 150, "recharge": 19,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "frost_lance"),
             get_ability_by_id(ARTIFACT_SKILLS, "focused_support_beam"),
@@ -959,10 +959,10 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss",
         "region_roles": {'Voidcrest Desert': 'regular'},
         "base_stats": {
-            "attack": 17, "defense": 9, "elemental": 19, "speed": 22,
+            "attack": 19, "defense": 9, "elemental": 22, "speed": 22,
             "max_hp": 420, "max_mana": 999, "crit_rate": 8, "crit_damage": 180, "recharge": 18,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "actions_per_cycle": 3,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "flurry_slash"),
@@ -980,11 +980,11 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss",
         "region_roles": {'Glacier 15': 'regular', 'The Wastelands': 'regular', 'The Hotlands': 'regular'},
         "base_stats": {
-            "attack": 19, "defense": 11, "elemental": 9, "speed": 10,
-            "max_hp": 280, "max_mana": 999, "crit_rate": 2, "crit_damage": 500, "recharge": 22,
+            "attack": 29, "defense": 11, "elemental": 12, "speed": 10,
+            "max_hp": 300, "max_mana": 999, "crit_rate": 4, "crit_damage": 200, "recharge": 22,
         },
         "actions_per_cycle": 2,
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "escorts": ["THE BILLIAN"],
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "flurry_slash"),
@@ -1002,7 +1002,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "name": "THE BILLIAN",
         "role": "boss_group_member",
         "base_stats": {
-            "attack": 3, "defense": 20, "elemental": 9, "speed": 3,
+            "attack": 11, "defense": 20, "elemental": 9, "speed": 3,
             "max_hp": 260, "max_mana": 999, "crit_rate": 2, "crit_damage": 500, "recharge": 20,
         },
         "level_scale_percent": 4,
@@ -1021,9 +1021,9 @@ ENEMY_TEMPLATES: list[dict] = [
         "region_roles": {'Glacier 15': 'regular', 'The Hotlands': 'regular'},
         "base_stats": {
             "attack": 17, "defense": 6, "elemental": 11, "speed": 10,
-            "max_hp": 270, "max_mana": 999, "crit_rate": 6, "crit_damage": 150, "recharge": 18,
+            "max_hp": 320, "max_mana": 999, "crit_rate": 6, "crit_damage": 150, "recharge": 18,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "actions_per_cycle": 2,
         "escorts": ["Loona"],
         "active_abilities": [
@@ -1046,10 +1046,10 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss_group_member",
         "region_roles": {'Glacier 15': 'regular'},
         "base_stats": {
-            "attack": 17, "defense": 8, "elemental": 11, "speed": 15,
-            "max_hp": 170, "max_mana": 999, "crit_rate": 6, "crit_damage": 150, "recharge": 18,
+            "attack": 27, "defense": 8, "elemental": 21, "speed": 15,
+            "max_hp": 210, "max_mana": 999, "crit_rate": 6, "crit_damage": 150, "recharge": 18,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "actions_per_cycle": 2,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "opportunist_strike"),
@@ -1087,10 +1087,10 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss",
         "region_roles": {'Glacier 15': 'final'},
         "base_stats": {
-            "attack": 27, "defense": 8, "elemental": 19, "speed": 11,
-            "max_hp": 380, "max_mana": 999, "crit_rate": 16, "crit_damage": 185, "recharge": 20,
+            "attack": 34, "defense": 8, "elemental": 22, "speed": 11,
+            "max_hp": 510, "max_mana": 999, "crit_rate": 16, "crit_damage": 185, "recharge": 25,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "crossfire_salvo"),
             get_ability_by_id(WEAPON_SKILLS, "frost_lance"),
@@ -1117,7 +1117,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 26, "defense": 16, "elemental": 26, "speed": 11,
             "max_hp": 420, "max_mana": 999, "crit_rate": 12, "crit_damage": 170, "recharge": 13,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "escorts": ["Ocellios Train", "Broskm", "Duko"],
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "guard_splitter"),
@@ -1141,7 +1141,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 10, "defense": 40, "elemental": 8, "speed": 4,
             "max_hp": 620, "max_mana": 999, "crit_rate": 3, "crit_damage": 120, "recharge": 16,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "rousing_signal"),
             get_ability_by_id(ARTIFACT_SKILLS, "focused_support_beam"),
@@ -1159,7 +1159,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 8, "defense": 14, "elemental": 16, "speed": 9,
             "max_hp": 260, "max_mana": 999, "crit_rate": 6, "crit_damage": 140, "recharge": 10,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "combat_medic"),
             get_ability_by_id(ARTIFACT_SKILLS, "purge_beacon"),
@@ -1177,7 +1177,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 12, "defense": 5, "elemental": 42, "speed": 14,
             "max_hp": 180, "max_mana": 999, "crit_rate": 20, "crit_damage": 200, "recharge": 9,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "starfall"),
             get_ability_by_id(WEAPON_SKILLS, "riftcutter"),
@@ -1199,10 +1199,10 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss",
         "region_roles": {'The Hotlands': 'final'},
         "base_stats": {
-            "attack": 36, "defense": 12, "elemental": 20, "speed": 18,
-            "max_hp": 950, "max_mana": 999, "crit_rate": 12, "crit_damage": 175, "recharge": 24,
+            "attack": 46, "defense": 12, "elemental": 40, "speed": 28,
+            "max_hp": 1050, "max_mana": 999, "crit_rate": 12, "crit_damage": 175, "recharge": 24,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "actions_per_cycle": 2,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "rending_cleave"),
@@ -1229,14 +1229,14 @@ ENEMY_TEMPLATES: list[dict] = [
         # Combatant.actions_per_cycle()), so no separate
         # "actions_per_cycle": 2 is set here to avoid stacking two
         # extra-action sources into three actions a cycle.
-        "name": "Eris Sentinel",
+        "name": "Boss John",
         "role": "boss",
         "region_roles": {'Voidcrest Desert': 'final'},
         "base_stats": {
-            "attack": 30, "defense": 14, "elemental": 26, "speed": 15,
-            "max_hp": 1050, "max_mana": 999, "crit_rate": 15, "crit_damage": 195, "recharge": 28,
+            "attack": 56, "defense": 14, "elemental": 40, "speed": 28,
+            "max_hp": 1350, "max_mana": 999, "crit_rate": 15, "crit_damage": 195, "recharge": 28,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "cataclysms_edge"),
             get_ability_by_id(WEAPON_SKILLS, "apex_predator"),
@@ -1265,7 +1265,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 16, "defense": 10, "elemental": 4, "speed": 11,
             "max_hp": 65, "max_mana": 999, "crit_rate": 8, "crit_damage": 155, "recharge": 16,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "quickdraw_slash"),
             get_ability_by_id(WEAPON_SKILLS, "guard_splitter"),
@@ -1282,7 +1282,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 10, "defense": 5, "elemental": 14, "speed": 18,
             "max_hp": 50, "max_mana": 999, "crit_rate": 10, "crit_damage": 160, "recharge": 14,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "actions_per_cycle": 2,
         "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "flurry_slash")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "static_discharge")],
@@ -1298,7 +1298,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 14, "defense": 6, "elemental": 3, "speed": 10,
             "max_hp": 58, "max_mana": 999, "crit_rate": 7, "crit_damage": 155, "recharge": 16,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "opportunist_strike")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "vampiric_edge")],
     },
@@ -1310,7 +1310,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 19, "defense": 14, "elemental": 5, "speed": 7,
             "max_hp": 85, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 18,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "shield_bash"),
             get_ability_by_id(WEAPON_SKILLS, "power_strike"),
@@ -1327,7 +1327,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 15, "defense": 8, "elemental": 8, "speed": 12,
             "max_hp": 60, "max_mana": 999, "crit_rate": 9, "crit_damage": 160, "recharge": 15,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "rousing_signal")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "momentum")],
     },
@@ -1339,7 +1339,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 12, "defense": 9, "elemental": 6, "speed": 6,
             "max_hp": 70, "max_mana": 999, "crit_rate": 4, "crit_damage": 150, "recharge": 20,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "overclock_repair")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "scrap_armor")],
     },
@@ -1351,7 +1351,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 26, "defense": 16, "elemental": 6, "speed": 13,
             "max_hp": 260, "max_mana": 999, "crit_rate": 13, "crit_damage": 175, "recharge": 22,
         },
-        "level_scale_percent": 10,
+        "level_scale_percent": 5,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "rending_cleave"),
             get_ability_by_id(WEAPON_SKILLS, "guard_splitter"),
@@ -1370,7 +1370,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 18, "defense": 12, "elemental": 18, "speed": 11,
             "max_hp": 230, "max_mana": 999, "crit_rate": 11, "crit_damage": 170, "recharge": 20,
         },
-        "level_scale_percent": 10,
+        "level_scale_percent": 5,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "rousing_signal"),
             get_ability_by_id(ARTIFACT_SKILLS, "static_field"),
@@ -1386,7 +1386,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 24, "defense": 13, "elemental": 8, "speed": 20,
             "max_hp": 240, "max_mana": 999, "crit_rate": 15, "crit_damage": 185, "recharge": 20,
         },
-        "level_scale_percent": 10,
+        "level_scale_percent": 5,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "tempest_edge"),
             get_ability_by_id(WEAPON_SKILLS, "sweeping_volley"),
@@ -1401,17 +1401,18 @@ ENEMY_TEMPLATES: list[dict] = [
         # Ocellios Labs founder Stubby's contingency plan, in case his own
         # creations ever needed to be put down. Nobody's needed to use it
         # until now.
-        "name": "Stubby's Failsafe",
+        "name": "Rohan's Catastrophe Soldier",
         "role": "boss",
         "region_roles": {'Abyssnia': 'regular'},
         "base_stats": {
             "attack": 28, "defense": 15, "elemental": 22, "speed": 12,
             "max_hp": 480, "max_mana": 999, "crit_rate": 13, "crit_damage": 180, "recharge": 22,
         },
-        "level_scale_percent": 9,
+        "level_scale_percent": 5,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "crossfire_salvo"),
             get_ability_by_id(ARTIFACT_SKILLS, "system_purge"),
+            get_ability_by_id(ARTIFACT_SKILLS, "arc_lightning"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "adaptive_plating")],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "null_strike"),
@@ -1427,10 +1428,11 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 32, "defense": 17, "elemental": 10, "speed": 14,
             "max_hp": 520, "max_mana": 999, "crit_rate": 15, "crit_damage": 190, "recharge": 20,
         },
-        "level_scale_percent": 9,
+        "level_scale_percent": 5,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "riftcutter"),
             get_ability_by_id(ARTIFACT_SKILLS, "weakpoint_marker"),
+            get_ability_by_id(ARTIFACT_SKILLS, "arc_lightning"),
         ],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "executioner")],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "executioners_reckoning"),
@@ -1447,10 +1449,10 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss",
         "region_roles": {'Abyssnia': 'final'},
         "base_stats": {
-            "attack": 38, "defense": 20, "elemental": 34, "speed": 18,
-            "max_hp": 1500, "max_mana": 999, "crit_rate": 18, "crit_damage": 210, "recharge": 28,
+            "attack": 67, "defense": 20, "elemental": 44, "speed": 18,
+            "max_hp": 1800, "max_mana": 999, "crit_rate": 18, "crit_damage": 210, "recharge": 28,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "apex_predator"),
             get_ability_by_id(ARTIFACT_SKILLS, "absolute_zero"),
@@ -1474,7 +1476,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 58, "defense": 12, "elemental": 16, "speed": 5,
             "max_hp": 530, "max_mana": 999, "crit_rate": 6, "crit_damage": 150, "recharge": 26,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "twin_fracture_strike"),
             get_ability_by_id(WEAPON_SKILLS, "riftcutter"),
@@ -1500,7 +1502,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "max_hp": 420, "max_mana": 999, "crit_rate": 14, "crit_damage": 175, "recharge": 27,
         },
         "actions_per_cycle": 2,
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "guard_splitter"),
             get_ability_by_id(WEAPON_SKILLS, "opportunist_strike"),
@@ -1525,7 +1527,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 23, "defense": 16, "elemental": 30, "speed": 8,
             "max_hp": 680, "max_mana": 999, "crit_rate": 50, "crit_damage": 120, "recharge": 28,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "aegis_broadcast"),
             get_ability_by_id(ARTIFACT_SKILLS, "emergency_relay"),
@@ -1549,13 +1551,13 @@ ENEMY_TEMPLATES: list[dict] = [
     # on them, the censor silences whoever's causing the most trouble.
     # ---------------------------------------------------------------
     {
-        "name": "The Chairman",
+        "name": "Exiled Acid",
         "role": "boss_group_member",
         "base_stats": {
             "attack": 30, "defense": 22, "elemental": 10, "speed": 8,
             "max_hp": 700, "max_mana": 999, "crit_rate": 10, "crit_damage": 160, "recharge": 24,
         },
-        "level_scale_percent": 9,
+        "level_scale_percent": 5,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "rending_cleave"),
             get_ability_by_id(ARTIFACT_SKILLS, "empowering_ritual"),
@@ -1567,13 +1569,13 @@ ENEMY_TEMPLATES: list[dict] = [
         # Strips defenses down first, then her own ultimate (null_strike's
         # damage_bonus_if_debuffed) capitalizes on exactly the DEF debuffs
         # she just applied -- a self-contained combo in one kit.
-        "name": "The Auditor",
+        "name": "Exiled APS",
         "role": "boss_group_member",
         "base_stats": {
             "attack": 22, "defense": 14, "elemental": 20, "speed": 12,
             "max_hp": 480, "max_mana": 999, "crit_rate": 12, "crit_damage": 170, "recharge": 22,
         },
-        "level_scale_percent": 9,
+        "level_scale_percent": 5,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
             get_ability_by_id(ARTIFACT_SKILLS, "static_field"),
@@ -1582,13 +1584,13 @@ ENEMY_TEMPLATES: list[dict] = [
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "null_strike"),
     },
     {
-        "name": "The Censor",
+        "name": "Exiled JP",
         "role": "boss_group_member",
         "base_stats": {
             "attack": 18, "defense": 12, "elemental": 24, "speed": 15,
             "max_hp": 450, "max_mana": 999, "crit_rate": 14, "crit_damage": 175, "recharge": 20,
         },
-        "level_scale_percent": 9,
+        "level_scale_percent": 5,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "emp_burst"),
             get_ability_by_id(ARTIFACT_SKILLS, "jamming_array"),
@@ -1631,7 +1633,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ["Glacier 15", "The Wastelands"],
         "base_stats": {"attack": 7, "defense": 11, "elemental": 2, "speed": 6,
                        "max_hp": 78, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 12},
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         # Introduced early and cheaply on purpose: this is where a player
         # first meets forced targeting, on an enemy slow and weak enough
         # that learning the rule costs them very little.
@@ -1644,7 +1646,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ["The Hotlands", "Voidcrest Desert"],
         "base_stats": {"attack": 15, "defense": 16, "elemental": 6, "speed": 9,
                        "max_hp": 240, "max_mana": 999, "crit_rate": 8, "crit_damage": 160, "recharge": 15},
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "max_poise": 14,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "guardian_challenge"),
@@ -1659,7 +1661,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ["Abyssnia"],
         "base_stats": {"attack": 19, "defense": 18, "elemental": 9, "speed": 14,
                        "max_hp": 265, "max_mana": 999, "crit_rate": 9, "crit_damage": 165, "recharge": 16},
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "max_poise": 16,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "guardian_challenge"),
@@ -1676,7 +1678,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ["The Wastelands", "The Hotlands"],
         "base_stats": {"attack": 6, "defense": 5, "elemental": 8, "speed": 10,
                        "max_hp": 46, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 14},
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         # Low HP and high value -- exactly the target a player wants to
         # burst, which is what makes a taunter standing in front of it a
         # real problem rather than a stat check.
@@ -1689,7 +1691,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ["Abyssnia"],
         "base_stats": {"attack": 11, "defense": 9, "elemental": 14, "speed": 12,
                        "max_hp": 70, "max_mana": 999, "crit_rate": 7, "crit_damage": 160, "recharge": 16},
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "rallying_bulwark")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "support_matrix")],
     },
@@ -1701,7 +1703,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ["The Wastelands", "Voidcrest Desert"],
         "base_stats": {"attack": 9, "defense": 4, "elemental": 11, "speed": 12,
                        "max_hp": 52, "max_mana": 999, "crit_rate": 6, "crit_damage": 155, "recharge": 14},
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "corrosive_mark")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "accelerant_coating")],
     },
@@ -1711,7 +1713,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ["Voidcrest Desert", "Abyssnia"],
         "base_stats": {"attack": 14, "defense": 9, "elemental": 21, "speed": 18,
                        "max_hp": 215, "max_mana": 999, "crit_rate": 10, "crit_damage": 170, "recharge": 18},
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "blight_cloud"),
             get_ability_by_id(ARTIFACT_SKILLS, "corrosive_mark"),
@@ -1727,7 +1729,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ["Glacier 15", "The Hotlands"],
         "base_stats": {"attack": 10, "defense": 5, "elemental": 4, "speed": 13,
                        "max_hp": 44, "max_mana": 999, "crit_rate": 6, "crit_damage": 150, "recharge": 15},
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "emp_burst")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "static_discharge")],
     },
@@ -1737,7 +1739,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ["The Hotlands", "Voidcrest Desert"],
         "base_stats": {"attack": 20, "defense": 8, "elemental": 6, "speed": 16,
                        "max_hp": 200, "max_mana": 999, "crit_rate": 13, "crit_damage": 175, "recharge": 16},
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "jamming_array")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "executioner")],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "storm_of_blades"),
@@ -1750,7 +1752,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ["Voidcrest Desert"],
         "base_stats": {"attack": 12, "defense": 4, "elemental": 6, "speed": 17,
                        "max_hp": 48, "max_mana": 999, "crit_rate": 12, "crit_damage": 170, "recharge": 14},
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "flurry_slash")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "momentum")],
     },
@@ -1760,7 +1762,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ["Abyssnia"],
         "base_stats": {"attack": 15, "defense": 9, "elemental": 8, "speed": 11,
                        "max_hp": 68, "max_mana": 999, "crit_rate": 8, "crit_damage": 160, "recharge": 15},
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "power_strike")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "retaliation_plating")],
     },
@@ -1770,7 +1772,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ["Abyssnia"],
         "base_stats": {"attack": 16, "defense": 11, "elemental": 6, "speed": 8,
                        "max_hp": 82, "max_mana": 999, "crit_rate": 7, "crit_damage": 160, "recharge": 13},
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "guardian_challenge")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "iron_skin")],
     },
@@ -1780,7 +1782,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "regions": ["The Hotlands", "Abyssnia"],
         "base_stats": {"attack": 10, "defense": 6, "elemental": 15, "speed": 12,
                        "max_hp": 58, "max_mana": 999, "crit_rate": 8, "crit_damage": 160, "recharge": 16},
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "arcane_burst")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "focused_lens")],
     },
@@ -1792,15 +1794,15 @@ ENEMY_TEMPLATES: list[dict] = [
         # escorts. The intended solution is the mechanic the player has
         # by now -- break the wardens to drop the taunt, or bring AOE,
         # which taunt explicitly does not redirect.
-        "name": "The Lector of Ledgers",
+        "name": "Rohan's Negadom",
         "role": "boss",
         "region_roles": {"Voidcrest Desert": "regular", "Abyssnia": "regular"},
         "base_stats": {"attack": 26, "defense": 12, "elemental": 30, "speed": 15,
-                       "max_hp": 430, "max_mana": 999, "crit_rate": 12, "crit_damage": 175, "recharge": 20},
-        "level_scale_percent": 8,
+                       "max_hp": 830, "max_mana": 999, "crit_rate": 12, "crit_damage": 175, "recharge": 20},
+        "level_scale_percent": 4,
         "actions_per_cycle": 2,
         "max_poise": 18,
-        "escorts": ["Ledger Warden", "Ledger Warden"],
+        "escorts": ["Negadom Destroyer", "Negadom Destroyer"],
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "blight_cloud"),
             get_ability_by_id(ARTIFACT_SKILLS, "corrosive_mark"),
@@ -1809,12 +1811,12 @@ ENEMY_TEMPLATES: list[dict] = [
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "cataclysm"),
     },
     {
-        "name": "Ledger Warden",
+        "name": "Negadom Destroyer",
         "role": "boss_group_member",
         "regions": [],
         "base_stats": {"attack": 13, "defense": 17, "elemental": 5, "speed": 10,
-                       "max_hp": 190, "max_mana": 999, "crit_rate": 6, "crit_damage": 155, "recharge": 14},
-        "level_scale_percent": 8,
+                       "max_hp": 290, "max_mana": 999, "crit_rate": 6, "crit_damage": 155, "recharge": 14},
+        "level_scale_percent": 4,
         "max_poise": 12,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "guardian_challenge"),
@@ -1847,7 +1849,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 23, "defense": 10, "elemental": 19, "speed": 12,
             "max_hp": 165, "max_mana": 999, "crit_rate": 10, "crit_damage": 165, "recharge": 20,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "jamming_array"),
             get_ability_by_id(ARTIFACT_SKILLS, "static_field"),
@@ -1863,7 +1865,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 13, "defense": 6, "elemental": 4, "speed": 9,
             "max_hp": 44, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 14,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "power_strike")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "rallying_plate")],
     },
@@ -1879,7 +1881,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 26, "defense": 9, "elemental": 6, "speed": 19,
             "max_hp": 265, "max_mana": 999, "crit_rate": 20, "crit_damage": 210, "recharge": 16,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "max_poise": 16,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "seven_cuts"),
@@ -1903,7 +1905,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 46, "defense": 1, "elemental": 40, "speed": 21,
             "max_hp": 12, "max_mana": 999, "crit_rate": 30, "crit_damage": 240, "recharge": 30,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "max_poise": 2,
         "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "desperate_swing")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "executioner")],
@@ -1919,7 +1921,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 11, "defense": 22, "elemental": 5, "speed": 7,
             "max_hp": 190, "max_mana": 999, "crit_rate": 4, "crit_damage": 140, "recharge": 12,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "max_poise": 14,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "guardian_challenge"),
@@ -1941,7 +1943,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 21, "defense": 26, "elemental": 14, "speed": 3,
             "max_hp": 230, "max_mana": 999, "crit_rate": 2, "crit_damage": 150, "recharge": 8,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "max_poise": 30,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "cleave_smash"),
@@ -1957,7 +1959,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 18, "defense": 9, "elemental": 8, "speed": 14,
             "max_hp": 92, "max_mana": 999, "crit_rate": 12, "crit_damage": 170, "recharge": 18,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "sunder_the_weak"),
             get_ability_by_id(ARTIFACT_SKILLS, "hunters_mark"),
@@ -1976,7 +1978,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 19, "defense": 13, "elemental": 17, "speed": 17,
             "max_hp": 300, "max_mana": 999, "crit_rate": 9, "crit_damage": 175, "recharge": 20,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "max_poise": 18,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "overclock_repair"),
@@ -1997,7 +1999,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 8, "defense": 16, "elemental": 9, "speed": 5,
             "max_hp": 70, "max_mana": 999, "crit_rate": 2, "crit_damage": 140, "recharge": 10,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "creeping_rot")],
         "passive_abilities": [
             get_ability_by_id(ARMOR_PASSIVES, "thornmail"),
@@ -2013,7 +2015,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 16, "defense": 18, "elemental": 6, "speed": 8,
             "max_hp": 175, "max_mana": 999, "crit_rate": 5, "crit_damage": 150, "recharge": 14,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "max_poise": 16,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "crossfire_salvo"),
@@ -2030,7 +2032,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 20, "defense": 8, "elemental": 10, "speed": 20,
             "max_hp": 105, "max_mana": 999, "crit_rate": 22, "crit_damage": 185, "recharge": 26,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "quickdraw_slash"),
             get_ability_by_id(ARTIFACT_SKILLS, "rousing_signal"),
@@ -2046,7 +2048,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 22, "defense": 12, "elemental": 18, "speed": 11,
             "max_hp": 160, "max_mana": 999, "crit_rate": 7, "crit_damage": 165, "recharge": 16,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "max_poise": 13,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "sweeping_volley"),
@@ -2062,7 +2064,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 25, "defense": 14, "elemental": 21, "speed": 13,
             "max_hp": 185, "max_mana": 999, "crit_rate": 9, "crit_damage": 170, "recharge": 18,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "max_poise": 13,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "arc_lightning"),
@@ -2083,7 +2085,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 6, "defense": 12, "elemental": 12, "speed": 2,
             "max_hp": 58, "max_mana": 999, "crit_rate": 1, "crit_damage": 130, "recharge": 10,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "corrosive_mark"),
             get_ability_by_id(ARTIFACT_SKILLS, "blight_cloud"),
@@ -2098,7 +2100,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 15, "defense": 6, "elemental": 8, "speed": 16,
             "max_hp": 40, "max_mana": 999, "crit_rate": 10, "crit_damage": 160, "recharge": 20,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "opportunist_strike")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "accelerant_coating")],
     },
@@ -2110,7 +2112,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 14, "defense": 7, "elemental": 5, "speed": 11,
             "max_hp": 48, "max_mana": 999, "crit_rate": 8, "crit_damage": 155, "recharge": 16,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "gutting_thrust")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "grim_resolve")],
     },
@@ -2122,7 +2124,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 19, "defense": 11, "elemental": 9, "speed": 13,
             "max_hp": 112, "max_mana": 999, "crit_rate": 13, "crit_damage": 175, "recharge": 18,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "guard_splitter"),
             get_ability_by_id(ARTIFACT_SKILLS, "weakpoint_scanner"),
@@ -2141,10 +2143,10 @@ ENEMY_TEMPLATES: list[dict] = [
         "region_roles": {"Abyssnia": "final"},
         "actions_per_cycle": 4,
         "base_stats": {
-            "attack": 34, "defense": 22, "elemental": 34, "speed": 26,
-            "max_hp": 520, "max_mana": 999, "crit_rate": 24, "crit_damage": 220, "recharge": 24,
+            "attack": 44, "defense": 32, "elemental": 34, "speed": 26,
+            "max_hp": 9999, "max_mana": 999, "crit_rate": 24, "crit_damage": 220, "recharge": 24,
         },
-        "level_scale_percent": 9,
+        "level_scale_percent": 5,
         "max_poise": 34,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "cataclysms_edge"),
@@ -2170,7 +2172,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 38, "defense": 17, "elemental": 24, "speed": 4,
             "max_hp": 200, "max_mana": 999, "crit_rate": 6, "crit_damage": 200, "recharge": 12,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "max_poise": 15,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "glacier_cleaver"),
@@ -2188,7 +2190,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 4, "defense": 4, "elemental": 6, "speed": 18,
             "max_hp": 18, "max_mana": 999, "crit_rate": 2, "crit_damage": 130, "recharge": 22,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "max_poise": 3,
         "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "weakpoint_marker")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "focused_lens")],
@@ -2219,7 +2221,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 14, "defense": 24, "elemental": 5, "speed": 8,
             "max_hp": 235, "max_mana": 999, "crit_rate": 3, "crit_damage": 140, "recharge": 12,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "max_poise": 12,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "guardian_challenge"),
@@ -2239,7 +2241,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 9, "defense": 11, "elemental": 6, "speed": 15,
             "max_hp": 105, "max_mana": 999, "crit_rate": 4, "crit_damage": 145, "recharge": 22,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "max_poise": 7,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "rally_standard"),
@@ -2255,7 +2257,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 10, "defense": 13, "elemental": 10, "speed": 10,
             "max_hp": 115, "max_mana": 999, "crit_rate": 3, "crit_damage": 140, "recharge": 16,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "max_poise": 8,
         "active_abilities": [
             get_ability_by_id(ARTIFACT_SKILLS, "corrosive_mark"),
@@ -2272,7 +2274,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 15, "defense": 9, "elemental": 13, "speed": 12,
             "max_hp": 100, "max_mana": 999, "crit_rate": 6, "crit_damage": 150, "recharge": 18,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "max_poise": 7,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "sweeping_volley"),
@@ -2291,7 +2293,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 33, "defense": 8, "elemental": 24, "speed": 17,
             "max_hp": 92, "max_mana": 999, "crit_rate": 22, "crit_damage": 205, "recharge": 20,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "max_poise": 6,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "mercy_stroke"),
@@ -2323,7 +2325,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 27, "defense": 20, "elemental": 25, "speed": 18,
             "max_hp": 395, "max_mana": 999, "crit_rate": 15, "crit_damage": 195, "recharge": 20,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "max_poise": 26,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "cleave_smash"),
@@ -2347,7 +2349,7 @@ ENEMY_TEMPLATES: list[dict] = [
             "attack": 20, "defense": 10, "elemental": 16, "speed": 13,
             "max_hp": 72, "max_mana": 999, "crit_rate": 8, "crit_damage": 160, "recharge": 18,
         },
-        "level_scale_percent": 8,
+        "level_scale_percent": 4,
         "max_poise": 6,
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "crossfire_salvo"),
@@ -2363,7 +2365,7 @@ ENEMY_TEMPLATES: list[dict] = [
 # of the usual single boss template.
 BOSS_GROUPS: dict[str, list[str]] = {
     "eruptor_trio": ["Borehole", "Rupture", "Gatekeeper"],
-    "acatrya_board": ["The Chairman", "The Auditor", "The Censor"],
+    "acatrya_board": ["Exiled Acid", "Exiled APS", "Exiled JP"],
     # Five bodies -- the largest group in the game, and the only one where
     # the difficulty is target priority rather than raw statlines.
     "josh_hater_army": [

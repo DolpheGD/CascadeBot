@@ -114,6 +114,21 @@ def _check_maps() -> list[str]:
                 f"{mc.MAX_FIELD_CHARS}-char field limit -- it would be silently truncated"
             )
 
+        # ROOM SIZE. Small connected rooms beat a few big halls: easier to
+        # read on a phone, and a journey through named places is what the
+        # story actually is.
+        walkable_count = len(mc.walkable_tiles(area))
+        if walkable_count > mc.MAX_ROOM_TILES:
+            failures.append(
+                f"area '{area_id}': {walkable_count} walkable tiles (max "
+                f"{mc.MAX_ROOM_TILES}) -- split it into connected rooms"
+            )
+        if not area.get("region"):
+            failures.append(
+                f"area '{area_id}': no `region` -- every room states where it is, so the "
+                f"player always knows both the place and the part of the world it's in"
+            )
+
         # Spawn
         spawns = sum(row.count(mc.SPAWN_CHAR) for row in grid)
         if spawns != 1:

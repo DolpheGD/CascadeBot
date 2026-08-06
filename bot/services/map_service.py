@@ -482,10 +482,25 @@ def legend_lines(db, story) -> list[str]:
     area = mc.get_area(area_id)
     completed = story.completed_missions or []
 
+    # ONLY WHAT MATTERS, and never more than MAX_LEGEND_LINES.
+    #
+    # This listed every tile in the area, which on a 13x7 room meant a
+    # dozen lines of scenery under the grid -- the "menu is too big"
+    # problem. Missions and exits are how you make progress and are
+    # always listed; scenery is discoverable by walking onto it, which is
+    # what the map is for.
+    priority = {"mission": 0, "exit": 1, "hunt": 2, "cache": 3, "note": 4}
+    entries = sorted(
+        (area.get("legend") or {}).items(),
+        key=lambda kv: priority.get(kv[1].get("kind"), 9),
+    )
+
     lines: list[str] = []
-    for char, content in (area.get("legend") or {}).items():
+    for char, content in entries:
         if content.get("kind") in ("note", "cache", "hunt") and has_read(story, area_id, char):
             continue  # already had; stop advertising it
+        if len(lines) >= mc.MAX_LEGEND_LINES and content.get("kind") not in ("mission", "exit"):
+            continue
         emoji = content.get("emoji", "")
         name = content.get("name", char)
         if tile_locked(db, story, content):
