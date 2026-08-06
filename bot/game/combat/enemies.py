@@ -2215,7 +2215,7 @@ ENEMY_TEMPLATES: list[dict] = [
     # ==================================================================
     {
         # The loudest one. Taunts, and is built to survive doing it.
-        "name": "Hater Ringleader",
+        "name": "Josh Hater Ringleader",
         "role": "boss_group_member",
         "base_stats": {
             "attack": 14, "defense": 24, "elemental": 5, "speed": 8,
@@ -2239,7 +2239,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss_group_member",
         "base_stats": {
             "attack": 9, "defense": 11, "elemental": 6, "speed": 15,
-            "max_hp": 105, "max_mana": 999, "crit_rate": 4, "crit_damage": 145, "recharge": 22,
+            "max_hp": 75, "max_mana": 999, "crit_rate": 4, "crit_damage": 145, "recharge": 22,
         },
         "level_scale_percent": 4,
         "max_poise": 7,
@@ -2272,7 +2272,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss_group_member",
         "base_stats": {
             "attack": 15, "defense": 9, "elemental": 13, "speed": 12,
-            "max_hp": 100, "max_mana": 999, "crit_rate": 6, "crit_damage": 150, "recharge": 18,
+            "max_hp": 60, "max_mana": 999, "crit_rate": 6, "crit_damage": 150, "recharge": 18,
         },
         "level_scale_percent": 4,
         "max_poise": 7,
@@ -2291,7 +2291,7 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss_group_member",
         "base_stats": {
             "attack": 33, "defense": 8, "elemental": 24, "speed": 17,
-            "max_hp": 92, "max_mana": 999, "crit_rate": 22, "crit_damage": 205, "recharge": 20,
+            "max_hp": 52, "max_mana": 999, "crit_rate": 22, "crit_damage": 205, "recharge": 20,
         },
         "level_scale_percent": 4,
         "max_poise": 6,
@@ -2322,8 +2322,8 @@ ENEMY_TEMPLATES: list[dict] = [
         "actions_per_cycle": 3,
         "escorts": ["Mech Gunpod", "Mech Gunpod"],
         "base_stats": {
-            "attack": 27, "defense": 20, "elemental": 25, "speed": 18,
-            "max_hp": 395, "max_mana": 999, "crit_rate": 15, "crit_damage": 195, "recharge": 20,
+            "attack": 47, "defense": 20, "elemental": 25, "speed": 18,
+            "max_hp": 495, "max_mana": 999, "crit_rate": 15, "crit_damage": 195, "recharge": 20,
         },
         "level_scale_percent": 4,
         "max_poise": 26,
@@ -2369,7 +2369,7 @@ BOSS_GROUPS: dict[str, list[str]] = {
     # Five bodies -- the largest group in the game, and the only one where
     # the difficulty is target priority rather than raw statlines.
     "josh_hater_army": [
-        "Hater Ringleader", "Chant Leader", "Placard Bearer",
+        "Josh Hater Ringleader", "Chant Leader", "Placard Bearer",
         "Megaphone Guy", "The Quiet Hater",
     ],
 }

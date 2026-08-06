@@ -78,13 +78,13 @@ from bot.game.combat.skills import (
 #      burst down cleanly.
 # ---------------------------------------------------------------------
 DEFENSE_MULTIPLIER_BY_ROLE = {
-    "combat": 1.15,
-    "elite": 1.2,
-    "boss": 1.15,
+    "combat": 1.3,
+    "elite": 1.4,
+    "boss": 1.2,
     "boss_group_member": 1.05,
 }
-ELITE_POWER_MULTIPLIER = {"attack": 1.4, "elemental": 1.6, "max_hp": 1.25}
-NORMAL_POWER_MULTIPLIER = {"attack": 1.5, "elemental": 1.7, "max_hp": 1.45}
+ELITE_POWER_MULTIPLIER = {"attack": 1.4, "elemental": 1.6, "max_hp": 1.2}
+NORMAL_POWER_MULTIPLIER = {"attack": 1.5, "elemental": 1.7, "max_hp": 1.4}
 ATTACK_RAMP_PERCENT_PER_TURN_BY_ROLE = {
     "combat": 1.0,
     "elite": 1.4,
