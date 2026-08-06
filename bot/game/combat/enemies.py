@@ -1138,8 +1138,8 @@ ENEMY_TEMPLATES: list[dict] = [
         "name": "Ocellios Train",
         "role": "boss_group_member",
         "base_stats": {
-            "attack": 10, "defense": 40, "elemental": 8, "speed": 4,
-            "max_hp": 530, "max_mana": 999, "crit_rate": 3, "crit_damage": 120, "recharge": 16,
+            "attack": 12, "defense": 30, "elemental": 8, "speed": 4,
+            "max_hp": 530, "max_mana": 999, "crit_rate": 3, "crit_damage": 120, "recharge": 10,
         },
         "level_scale_percent": 4,
         "active_abilities": [
