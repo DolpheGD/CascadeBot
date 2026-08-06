@@ -97,7 +97,7 @@ REGION_DIFFICULTY: dict[str, dict] = {
     },
     "The Wastelands": {
         "tier": 2, "difficulty_label": "Normal",
-        "level_offset": 8, "combat_level_offset": 12, "reward_multiplier": 1.8,
+        "level_offset": 9, "combat_level_offset": 13, "reward_multiplier": 1.8,
         "max_item_rarity": Rarity.EPIC, "max_lootbox_tier": "epic",
         "rarity_weight_bonus": 60,
         "combat_squad_weights": {1: 10, 2: 30, 3: 35, 4: 20, 5: 5},
@@ -105,7 +105,7 @@ REGION_DIFFICULTY: dict[str, dict] = {
     },
     "The Hotlands": {
         "tier": 3, "difficulty_label": "Hard",
-        "level_offset": 15, "combat_level_offset": 20, "reward_multiplier": 2.8,
+        "level_offset": 17, "combat_level_offset": 22, "reward_multiplier": 2.8,
         "max_item_rarity": Rarity.LEGENDARY, "max_lootbox_tier": "legendary",
         "rarity_weight_bonus": 130,
         "combat_squad_weights": {2: 20, 3: 35, 4: 30, 5: 15},
@@ -113,7 +113,7 @@ REGION_DIFFICULTY: dict[str, dict] = {
     },
     "Voidcrest Desert": {
         "tier": 4, "difficulty_label": "Insane",
-        "level_offset": 25, "combat_level_offset": 31, "reward_multiplier": 4.5,
+        "level_offset": 27, "combat_level_offset": 36, "reward_multiplier": 4.5,
         "max_item_rarity": Rarity.MYTHIC, "max_lootbox_tier": "mythic",
         "rarity_weight_bonus": 220,
         "combat_squad_weights": {2: 10, 3: 25, 4: 35, 5: 30},
@@ -131,7 +131,7 @@ REGION_DIFFICULTY: dict[str, dict] = {
         # loot ceiling: a genuine "hardest content in the game" tier
         # rather than a "strictly better loot" tier.
         "tier": 5, "difficulty_label": "Nightmare",
-        "level_offset": 34, "combat_level_offset": 38, "reward_multiplier": 6.5,
+        "level_offset": 40, "combat_level_offset": 50, "reward_multiplier": 6.5,
         "max_item_rarity": Rarity.DIVINE, "max_lootbox_tier": "mythic",
         "rarity_weight_bonus": 320,
         "combat_squad_weights": {3: 10, 4: 35, 5: 55},
