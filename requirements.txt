@@ -1,3 +1,10 @@
 discord.py>=2.4.0
 SQLAlchemy>=2.0.30
 python-dotenv>=1.0.1
+
+# Dev-only, but listed because tools/check_runtime.py SILENTLY SKIPS its
+# undefined-name pass when pyflakes is missing -- and an optional check
+# that quietly does nothing is worse than no check at all. It let a real
+# NameError (an unimported character_service in bot/cogs/base.py) through
+# a green run of the whole suite.
+pyflakes>=3.0

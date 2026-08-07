@@ -735,8 +735,20 @@ CHAPTERS: list[dict] = [
                         # Entrospire.
                         # ------------------------------------------------
                         "kind": "battle",
-                        "enemies": ["Ledger Warden"],
-                        "level": 10,
+                        "enemies": ["Rohan's Warden"],
+                        # Level 7, down from 10. The prologue's capstone,
+                        # and it is an ELITE template -- which carries a
+                        # 1.4x attack and 1.4x defence multiplier on top
+                        # of its own numbers (see factory.py). Measured
+                        # against the squad a player actually has here, a
+                        # geared THREE-character party finished the fight
+                        # on 0% HP and only a full four had any room. The
+                        # fight is meant to teach that you need to pull a
+                        # squad, not that you need a perfect one.
+                        #
+                        # The Warden stays, because meeting one of
+                        # Rohan's people this early is the point.
+                        "level": 7,
                         "intro": (
                             "The door does not open. The door is *cut* — one pass, top to "
                             "bottom, clean.\n\n"
@@ -966,7 +978,21 @@ CHAPTERS: list[dict] = [
                     },
                     {
                         "kind": "battle",
-                        "enemies": ["Xender Tank", "Xender Henchmen", "Xender Henchmen"],
+                        # ONE HENCHMAN, not two. This is Chapter 1's FIRST
+                        # fight, and it was tuned for a squad the player
+                        # does not have yet: measured against an elite
+                        # plus two goons, four characters finish on 67% HP
+                        # and three finish on 4%. Coming out of the
+                        # prologue you have two or three, so the intended
+                        # first taste of Chapter 1 was a fight you win
+                        # with everyone on their knees.
+                        #
+                        # The Tank stays -- it's the encounter's identity
+                        # and the first elite the player meets. Dropping
+                        # the second goon takes about a quarter of the
+                        # incoming damage out without changing what the
+                        # scene is.
+                        "enemies": ["Xender Tank", "Xender Henchmen"],
                         "level": 4,
                         "intro": "The rear guard came back for the equipment. You're standing in it.",
                         "on_win": (
@@ -2069,7 +2095,7 @@ CHAPTERS: list[dict] = [
                         # Rohan doesn't keep soldiers, he keeps clerks.
                         # ------------------------------------------------
                         "kind": "battle",
-                        "enemies": ["Ledger Warden", "Ledger Warden"],
+                        "enemies": ["Rohan's Warden", "Rohan's Warden"],
                         "level": 17,
                         "intro": (
                             "Two of them step out of the dark on either side of him, and "
@@ -2118,7 +2144,7 @@ CHAPTERS: list[dict] = [
                         # thing and sits back down.
                         # ------------------------------------------------
                         "kind": "battle",
-                        "enemies": ["The Lector of Ledgers"],
+                        "enemies": ["Rohan's Herald"],
                         "level": 22,
                         "intro": (
                             "He gestures, and the thing that has been standing in the "
@@ -2495,7 +2521,7 @@ CHAPTERS: list[dict] = [
                     },
                     {
                         "kind": "battle",
-                        "enemies": ["Ledger Warden", "Ledger Warden"],
+                        "enemies": ["Rohan's Warden", "Rohan's Warden"],
                         "level": 22,
                         "intro": (
                             "Two wardens come out from between the shelters at an "
@@ -2592,7 +2618,7 @@ CHAPTERS: list[dict] = [
                         # the story: 55% of a level-appropriate squad's
                         # health, against Chapter 2's 45%.
                         #
-                        # The Auditor with two wardens rather than alone.
+                        # Rohan's Assessor with two wardens rather than alone.
                         # A solo elite -- even at two actions a cycle and
                         # a high level -- measured gentler than three
                         # ordinary bodies, because bodies are actions and
@@ -2602,7 +2628,7 @@ CHAPTERS: list[dict] = [
                         # way an office defends a filing system.
                         # ------------------------------------------------
                         "kind": "battle",
-                        "enemies": ["The Auditor", "Ledger Warden", "Ledger Warden"],
+                        "enemies": ["Rohan's Assessor", "Rohan's Warden", "Rohan's Warden"],
                         "level": 25,
                         "intro": (
                             "It has been at the desk the whole time.\n\n"

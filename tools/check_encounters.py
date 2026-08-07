@@ -143,6 +143,45 @@ def main() -> int:
             check_outcome(f"{where}/success", choice.get("on_success") or {})
             check_outcome(f"{where}/fail", choice.get("on_fail") or {})
 
+    # ------------------------------------------------------------------
+    # EVERY ENEMY TEMPLATE MUST BE SPAWNABLE.
+    #
+    # A boss_group_member is never rolled on its own -- it appears only
+    # via another boss's "escorts" list or as part of a BOSS_GROUPS
+    # entry. So one that appears in neither is dead content: fully
+    # statted, given a kit, a short name and balance comments, and
+    # unreachable by any code path.
+    #
+    # This is not hypothetical. The Ocellios Train and Broskm sat
+    # unreachable while NF -- the Wastelands FINAL boss, whose own stats
+    # had been deliberately reduced to pay for three companions -- went
+    # into the fight with one. The region's capstone was quietly a
+    # weakened boss with a single escort, and nothing in the config
+    # looked wrong, because each template was individually fine.
+    # ------------------------------------------------------------------
+    from bot.game.combat.enemies import BOSS_GROUPS, ENEMY_TEMPLATES
+
+    spawnable: set[str] = set()
+    known = {t["name"] for t in ENEMY_TEMPLATES}
+    for template in ENEMY_TEMPLATES:
+        for escort in template.get("escorts") or ():
+            spawnable.add(escort)
+            if escort not in known:
+                failures.append(
+                    f"{template['name']} escorts '{escort}', which is not an enemy template")
+    for group, members in BOSS_GROUPS.items():
+        for member in members:
+            spawnable.add(member)
+            if member not in known:
+                failures.append(f"BOSS_GROUPS[{group}] lists '{member}', which is not a template")
+
+    orphans = [t["name"] for t in ENEMY_TEMPLATES
+               if t.get("role") == "boss_group_member" and t["name"] not in spawnable]
+    for name in orphans:
+        failures.append(
+            f"'{name}' is a boss_group_member that no boss escorts and no BOSS_GROUPS "
+            f"entry includes -- nothing in the game can ever spawn it")
+
     by_room = {
         room: sum(1 for e in ENCOUNTERS if room in (e.get("room_types") or ()))
         for room in sorted(room_values)
@@ -152,6 +191,8 @@ def main() -> int:
           f"{len(ENCOUNTERS) - illustrated} text-only")
     print("per room   : " + ", ".join(f"{r}={n}" for r, n in by_room.items() if n))
     print(f"choices    : {sum(len(e.get('choices', [])) for e in ENCOUNTERS)}")
+    print(f"escorts    : {len(spawnable)} template(s) reachable only as escorts/group members, "
+          f"{len(orphans)} unreachable")
 
     print()
     if failures:

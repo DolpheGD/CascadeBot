@@ -633,12 +633,18 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     ),
     "aura_skill": _skill(
         "aura_skill", "Field Dressing", 18, 1,
-        "Heal the lowest-HP ally for 1100% of AURA'S ELE.",
+        # Quoted as a MULTIPLIER, not a percentage. ELE is a small stat
+        # next to a health bar, so a heal worth roughly half a bar is
+        # "1100% of ELE" -- arithmetically correct and read by players as
+        # a broken number. See MULTIPLIER_THRESHOLD in
+        # tools/check_descriptions.py, which now enforces this for every
+        # stat-scaled ability.
+        "Heal the lowest-HP ally for 11x AURA'S ELE.",
         {"kind": "heal_from_stat", "stat": "elemental", "percent": 1100},
     ),
     "aura_ultimate": _ultimate(
         "aura_ultimate", "Triage Surge",
-        "Heal the whole team for 730% of AURA'S ELE each.",
+        "Heal the whole team for 7.3x AURA'S ELE each.",
         {"kind": "team_heal_from_stat", "stat": "elemental", "percent": 730},
     ),
 
@@ -668,7 +674,7 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     ),
     "refender_ultimate": _ultimate(
         "refender_ultimate", "Perfect Balance",
-        "Heal the whole team for 580% of REFENDER'S DEF each, and raise their DEF by 35% for 3 turns.",
+        "Heal the whole team for 5.8x REFENDER'S DEF each, and raise their DEF by 35% for 3 turns.",
         {"kind": "team_heal_from_stat", "stat": "defense", "percent": 580,
          "buff_stat": "defense", "buff_percent": 35, "duration": 3},
     ),
@@ -1112,9 +1118,14 @@ CHARACTER_PASSIVE_MAP: dict[str, dict] = {
 # So magnitudes come UP to meet the tax. The two changes are designed as
 # a pair and only make sense together:
 #
-#   one Amplifier    1.50 x (1.00 + 0.45)          = 2.18 units  (was 2.00)
-#   three Amplifiers 1.50 x (1.00 + 0.45 + 0.20
-#                            + 0.09 + 0.04 + 0.02) = 2.70 units  (was 6.00)
+#   one Amplifier    1.45 x (1.00 + 0.80)          = 2.61 units  (was 2.00)
+#   three Amplifiers 1.45 x (1.00 + 0.80 + 0.08
+#                            + 0.03 + 0.02 + 0.01) = 2.81 units  (was 6.00)
+#
+# See combatant.py's BUFF_STACK_LADDER for why those two rows can now
+# differ by so little: the ladder is authored rather than geometric, so
+# it can be generous to one Amplifier's two buttons and brutal to a
+# second Amplifier's, which a single falloff constant could never do.
 #
 # The first Amplifier is slightly BETTER than before this pass. The
 # second is worth having. The third is nearly nothing -- which is the
@@ -1125,9 +1136,46 @@ CHARACTER_PASSIVE_MAP: dict[str, dict] = {
 # the same reason character_seed_data.py scales growth rates that way:
 # retuning this is one constant, and the authored values stay readable
 # as the design intent they were written to be.
-AMPLIFIER_BUFF_MULTIPLIER = 1.5
+AMPLIFIER_BUFF_MULTIPLIER = 1.45
+
+# Buff DURATIONS are deliberately left alone, which is worth recording
+# because the obvious next move is to extend them.
+#
+# The Amplifier's real cost is the turn, not the SP, so at Voidcrest --
+# where fights run two or three rounds -- a squad that dropped it for a
+# second attacker cleared 70% against 62%. Extending every Amplifier buff
+# by one turn was tried as the cheap fix: fewer re-casts, more attacking.
+# Measured, it did nothing for the gap (no-Amplifier stayed at 70%) and
+# moved one-of-each the wrong way. Uptime was not the binding constraint;
+# the buff simply lands on a squad where only one member converts it into
+# much damage. Reverted rather than kept as a change that sounded right
+# and didn't pay.
+AMPLIFIER_BUFF_DURATION_BONUS = 0
 
 _BUFF_PERCENT_KEYS = ("buff_percent", "buff_percent_1", "buff_percent_2")
+
+
+def _retext(ability: dict, old, new, unit: str) -> None:
+    """Rewrite one number in an ability's player-facing description.
+
+    `unit` anchors the match so only the number being quoted AS that kind
+    of value is touched -- a duration of 2 and a magnitude of 2 in the
+    same sentence are different numbers and must not be swapped for each
+    other. The description is the only thing the player ever sees, so a
+    silent scaling constant that left stale text behind is exactly the
+    drift tools/check_descriptions.py exists to catch.
+
+    Shared by all three class passes below, and defined up here because
+    the Amplifier pass runs first -- it was originally defined alongside
+    the Support DPS pass and the Amplifier duration bonus imported it
+    before Python had reached the definition.
+    """
+    description = ability.get("description")
+    if not description or old == new:
+        return
+    ability["description"] = re.sub(
+        rf"\b{abs(old):g}\b(?=\s*{unit})", str(abs(new)), description, count=1,
+    )
 
 
 def _scale_amplifier_buffs(ability: dict | None, multiplier: float) -> None:
@@ -1147,6 +1195,18 @@ def _scale_amplifier_buffs(ability: dict | None, multiplier: float) -> None:
     if not ability:
         return
     effect = ability.get("effect") or {}
+
+    # Duration first, and only on abilities that actually apply a buff --
+    # an Amplifier ability with a `duration` and no buff percentage is
+    # something else wearing the same key (a debuff rider, a shield).
+    if any(isinstance(effect.get(k), (int, float)) and effect[k] > 0
+           for k in _BUFF_PERCENT_KEYS):
+        duration = effect.get("duration")
+        if isinstance(duration, int) and duration > 0:
+            longer = duration + AMPLIFIER_BUFF_DURATION_BONUS
+            _retext(ability, duration, longer, "turn")
+            effect["duration"] = longer
+
     for key in _BUFF_PERCENT_KEYS:
         value = effect.get(key)
         if not isinstance(value, (int, float)) or value <= 0:
@@ -1226,22 +1286,22 @@ SUPPORT_DPS_MIN_DEBUFF_CHANCE = 70
 _DEBUFF_PERCENT_KEYS = ("debuff_percent", "debuff_percent_1", "debuff_percent_2")
 
 
-def _retext(ability: dict, old, new, unit: str) -> None:
-    """Rewrite one number in an ability's player-facing description.
+def _as_multiplier(percent: float) -> str:
+    """1100 -> '11', 1540 -> '15.4'. Trailing '.0' dropped, because
+    '11x' is the point and '11.0x' is just the four-digit percentage
+    wearing a hat."""
+    value = round(percent / 100, 1)
+    return f"{value:g}"
 
-    `unit` anchors the match so only the number being quoted AS that kind
-    of value is touched -- a duration of 2 and a magnitude of 2 in the
-    same sentence are different numbers and must not be swapped for each
-    other. Same reasoning as the Amplifier pass: the description is the
-    only thing the player sees, and a silent scaling constant that left
-    stale text behind is the exact drift tools/check_descriptions.py
-    exists to catch.
-    """
+
+def _retext_multiplier(ability: dict, old: float, new: float) -> None:
+    """The multiplier-form counterpart of _retext."""
     description = ability.get("description")
     if not description or old == new:
         return
     ability["description"] = re.sub(
-        rf"\b{abs(old):g}\b(?=\s*{unit})", str(abs(new)), description, count=1,
+        rf"\b{re.escape(_as_multiplier(old))}(?=\s*[x×]\b)",
+        _as_multiplier(new), description, count=1,
     )
 
 
@@ -1357,8 +1417,23 @@ def _strengthen_sustain(ability: dict | None) -> None:
         scaled = round(value * SUSTAIN_OUTPUT_MULTIPLIER)
         if scales_off_patient_hp:
             scaled = min(scaled, 100)
+        elif value >= 300:
+            # Stat-scaled magnitudes are shown to the player as a
+            # multiplier to one decimal place ("7.3x ELE"), and that
+            # rounding has to be lossless or the text and the effect
+            # disagree by a couple of points forever: 730 x 1.4 = 1022,
+            # which displays as 10.2x and means 1020. Snapping to a clean
+            # multiple of 10 keeps the two exactly equal, and nobody can
+            # tell the difference between healing for 1020% of a stat and
+            # 1022% of it.
+            scaled = round(scaled / 10) * 10
         effect[key] = scaled
         _retext(ability, value, scaled, "%")
+        # Stat-scaled heals quote a MULTIPLIER rather than a percentage
+        # (Aura's "11x ELE" for an effect of 1100), so the same rewrite
+        # has to happen in that unit or those descriptions silently keep
+        # the pre-multiplier number.
+        _retext_multiplier(ability, value, scaled)
 
 
 def _apply_sustain_pass() -> None:

@@ -104,8 +104,21 @@ REGION_DIFFICULTY: dict[str, dict] = {
         "elite_squad_weights": {1: 80, 2: 20},
     },
     "The Hotlands": {
+        # OFFSETS RAISED (17/22 -> 22/29). The Hotlands asked the player
+        # no question: measured over full runs, every one of nine squad
+        # compositions cleared it 100% of the time, including four
+        # deliberately bad ones. A region where the comp doesn't matter
+        # is a region with no difficulty, and this is the THIRD of five
+        # -- the point where the ladder is supposed to start biting.
+        #
+        # Its enemies were simply too low-level for the squad that
+        # arrives: a level-38 party against level 22-23 enemies. Raising
+        # the offsets is the region's own difficulty dial and scales
+        # every stat at once, rather than hand-editing the templates it
+        # shares with four other regions. Kept below Voidcrest's 27/36 so
+        # the ladder still rises.
         "tier": 3, "difficulty_label": "Hard",
-        "level_offset": 17, "combat_level_offset": 22, "reward_multiplier": 2.8,
+        "level_offset": 22, "combat_level_offset": 29, "reward_multiplier": 2.8,
         "max_item_rarity": Rarity.LEGENDARY, "max_lootbox_tier": "legendary",
         "rarity_weight_bonus": 130,
         "combat_squad_weights": {2: 20, 3: 35, 4: 30, 5: 15},

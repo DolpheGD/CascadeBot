@@ -37,6 +37,27 @@ import sys
 # excuse one.
 PERCENT_IN_TEXT = re.compile(r"(\d+(?:\.\d+)?)\s*%")
 
+# The multiplier form: "15.4x AURA's ELE" for an effect storing 1540.
+#
+# Effects that scale off a SMALL stat need enormous percentages -- ELE
+# and DEF are a fraction of a health bar, so a heal worth half a bar is
+# "1540% of ELE". That is arithmetically right and unreadable: the
+# player's takeaway from four digits is "this number is broken", not
+# "this is a strong heal". Percent is the wrong unit once it passes a
+# few hundred, so those descriptions say 15.4x instead.
+#
+# Checked here in the same one-directional way as percentages, so the
+# nicer unit doesn't become an excuse for the text to drift: whatever
+# multiplier the description quotes, the effect must actually hold that
+# number times 100.
+MULTIPLIER_IN_TEXT = re.compile(r"(\d+(?:\.\d+)?)\s*[x×]\b")
+
+# Above this, a percentage should be written as a multiplier instead.
+# 300 is a genuine judgement call rather than a derived number: "300%
+# ATK damage" is idiomatic for a big attack and reads fine, while
+# "1540%" does not.
+MULTIPLIER_THRESHOLD = 300
+
 # Effect keys whose value is a percentage the player might see quoted.
 def _effect_numbers(effect: dict) -> set[float]:
     out: set[float] = set()
@@ -80,6 +101,30 @@ def _check(label: str, ability: dict, failures: list[str]) -> None:
                 f"{label}: description says {raw}% but the effect has no such number "
                 f"({', '.join(f'{k}={v}' for k, v in effect.items() if isinstance(v, (int, float)))})"
             )
+
+    # Only for the stat-scaled family, which is the one that uses this
+    # notation. Elsewhere "Nx" in English is a COUNT, not a magnitude --
+    # "stacks up to 3x" means three stacks, and reading it as "300%"
+    # produced the only false positives this check has ever raised.
+    if "from_stat" in effect.get("kind", ""):
+        for raw in MULTIPLIER_IN_TEXT.findall(description):
+            value = round(float(raw) * 100, 6)
+            if value not in allowed:
+                failures.append(
+                    f"{label}: description says {raw}x (i.e. {value:g}%) but the effect has no "
+                    f"such number ({', '.join(f'{k}={v}' for k, v in effect.items() if isinstance(v, (int, float)))})"
+                )
+
+    # A heal that scales off a stat must not be quoted in four-digit
+    # percentages -- see MULTIPLIER_THRESHOLD.
+    if "from_stat" in effect.get("kind", ""):
+        for raw in PERCENT_IN_TEXT.findall(description):
+            if float(raw) >= MULTIPLIER_THRESHOLD:
+                failures.append(
+                    f"{label}: quotes {raw}% of a stat -- write it as "
+                    f"{float(raw) / 100:g}x instead, four-digit percentages read as a bug"
+                )
+                break
 
     # A stat-scaled heal has to name its stat.
     if effect.get("kind", "").endswith("heal_from_stat"):

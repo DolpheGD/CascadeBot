@@ -131,7 +131,7 @@ FLOORS: list[dict] = [
         "level": 24,
         "min_roster_levels": 110,
         "chambers": [
-            ["Ledger Warden", "Xender Convoy"],
+            ["Rohan's Warden", "Xender Convoy"],
             ["Voidwarp Construct", "Ocellios Test Subject", "Xendium Overcharge Drone"],
         ],
         "rewards": {"gold": 2_400, "shards": 140, "crystal": 50, "reroll_tokens": 10},
@@ -156,7 +156,7 @@ FLOORS: list[dict] = [
         "level": 40,
         "min_roster_levels": 220,
         "chambers": [
-            ["The Lector of Ledgers"],
+            ["Rohan's Herald"],
             ["Blightspire Adept", "Shatterjaw Reaver", "Ashplate Warden"],
         ],
         "rewards": {"gold": 4_200, "shards": 220, "xendium": 60, "reroll_tokens": 15},
@@ -181,7 +181,7 @@ FLOORS: list[dict] = [
         "level": 56,
         "min_roster_levels": 400,
         "chambers": [
-            ["The Auditor", "Acatrya Elite Guard"],
+            ["Rohan's Assessor", "Acatrya Elite Guard"],
             ["The Censor", "Abyssal Custodian"],
         ],
         "rewards": {"gold": 6_500, "shards": 300, "xendium": 100, "reroll_tokens": 22},
@@ -216,11 +216,11 @@ FLOORS: list[dict] = [
         "min_roster_levels": 650,
         "rotations": [
             [["Eris Sentinel"],
-             ["The Chairman", "Ledger Warden"],
+             ["The Chairman", "Rohan's Warden"],
              ["Gatekeeper", "Borehole"]],
             [["Stubby's Failsafe"],
              ["Acatrya Prime Enforcer", "Acatrya Elite Guard"],
-             ["Rupture", "The Auditor"]],
+             ["Rupture", "Rohan's Assessor"]],
             [["X-RR"],
              ["Corrupted Bli", "Xendium Overcharge Drone"],
              ["Dorve", "Mech Gunpod", "Mech Gunpod"]],
@@ -237,7 +237,7 @@ FLOORS: list[dict] = [
         "rotations": [
             [["Void Hydra", "Voidwarp Construct"],
              ["Eris Sentinel"],
-             ["The Censor", "The Auditor"]],
+             ["The Censor", "Rohan's Assessor"]],
             [["Boss John's Driller Prototype", "Xender Convoy"],
              ["X-RR"],
              ["The Chairman", "Abyssal Custodian"]],
@@ -256,7 +256,7 @@ FLOORS: list[dict] = [
         "min_roster_levels": 950,
         "rotations": [
             [["Acatrya Prime Enforcer", "Acatrya Elite Guard"],
-             ["The Chairman", "The Auditor"],
+             ["The Chairman", "Rohan's Assessor"],
              ["Eris Sentinel"]],
             [["X-RR", "Ashplate Warden"],
              ["Stubby's Failsafe", "Ocellios Train"],
@@ -279,7 +279,7 @@ FLOORS: list[dict] = [
              ["X-RR", "Ashplate Warden"],
              ["Rohan"]],
             [["Xender"],
-             ["The Chairman", "The Auditor", "The Censor"],
+             ["The Chairman", "Rohan's Assessor", "The Censor"],
              ["Rohan"]],
             [["Stubby's Failsafe", "Ocellios Train"],
              ["Acatrya Prime Enforcer", "Gatekeeper"],

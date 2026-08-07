@@ -15,7 +15,13 @@ from bot.database.session import SessionLocal
 from bot.database.models.hq_model import ShopListing, ShrineTemplate
 from bot.database.models.economy_model import HarvesterTemplate
 from bot.services.player_service import get_player
-from bot.services import base_service, dungeon_service, forge_service, research_service
+from bot.services import (
+    base_service,
+    character_service,
+    dungeon_service,
+    forge_service,
+    research_service,
+)
 from bot.game.economy import forge_config, research_config
 from bot.database.models.enums import EquipmentSlot, Rarity
 from bot.services.harvester_service import (
@@ -238,16 +244,32 @@ def _build_shrine_embed(db, player) -> discord.Embed:
     owned = {s.template_id: s for s in base_service.list_player_shrines(db, player.id)}
 
     embed = discord.Embed(title="Shrines", color=discord.Color.teal())
-    embed.description = "Shrines grant a flat bonus to your whole party's stats, on top of gear."
+    embed.description = (
+        "Shrines grant a flat bonus to your whole party's stats, on top of gear. "
+        "**Flat shrine bonuses grow with each character's level**, so they keep "
+        "up as your squad does."
+    )
+    # The squad's own levels decide what a flat shrine is actually worth
+    # (see base_service.shrine_recipient_multiplier), so the panel quotes
+    # the real number for this player rather than the base value -- a
+    # shrine page that says "+200 HP" while the game grants 440 is the
+    # same class of lie as a stale ability description.
+    squad = character_service.get_squad(db, player)
+    squad_level = max((c.level for c in squad), default=1)
+    scale = base_service.shrine_recipient_multiplier(squad_level)
+
     for template in templates:
         owned_shrine = owned.get(template.id)
         cap = base_service.shrine_effective_max_level(template, hq_level)
         if owned_shrine:
             bonus = base_service.shrine_bonus_at_level(template, owned_shrine.level)
-            suffix = "%" if template.bonus_type == "percent" else ""
+            is_percent = template.bonus_type == "percent"
+            suffix = "%" if is_percent else ""
+            shown = bonus if is_percent else bonus * scale
+            scaling = "" if is_percent else f" (at squad level {squad_level})"
             value = (
                 f"Owned - Level {owned_shrine.level}/{template.max_level} (cap {cap})\n"
-                f"+{bonus:g}{suffix} {template.stat} to the whole party"
+                f"+{shown:g}{suffix} {template.stat} to the whole party{scaling}"
             )
         else:
             value = f"Not built - Build cost: {format_currency('gold', template.build_cost_gold)}"

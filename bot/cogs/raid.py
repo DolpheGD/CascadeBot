@@ -306,23 +306,7 @@ class RaidCombatView(OwnedView):
 
 def _build_raid_combat_view(battle, owner_id: int) -> RaidCombatView:
     actor = battle.current_actor()
-    ability_options = []
-    for ability in actor.active_abilities:
-        ready = actor.ability_ready(ability)
-        unit = "SP" if ability["resource_type"] == "mana" else "EN"
-        if ready:
-            status = "Ready"
-        else:
-            cd = actor.cooldowns.get(ability["id"], 0)
-            if cd > 0:
-                status = f"ready in {cd}t"
-            else:
-                pool = actor.mana if ability["resource_type"] == "mana" else actor.energy
-                status = f"need {ability['resource_cost'] - pool} more {unit}"
-        ability_options.append(discord.SelectOption(
-            label=f"{ability['name']} -- {ability['resource_cost']} {unit} ({status})"[:100],
-            value=ability["id"], description=ability["description"][:100],
-        ))
+    ability_options = combat_ui.ability_select_options(actor)
 
     ally_options = combat_ui.ally_select_options(battle) if combat_ui.should_offer_ally_select(battle) else []
 

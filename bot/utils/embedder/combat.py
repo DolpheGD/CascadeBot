@@ -304,7 +304,13 @@ def _intent_lines(battle) -> str:
         elif scope == "self":
             target_label = "itself"
         else:
-            target_label = names.display_name(intent["target"])
+            # Asks the battle who this will ACTUALLY hit rather than
+            # reading the pinned target straight off the intent. A taunt
+            # cast after the intent was decided re-points the attack (see
+            # Battle.intended_target), and a telegraph that still named
+            # the original victim would be telling the player their taunt
+            # did nothing right up until it worked.
+            target_label = names.display_name(battle.intended_target(intent["target"]))
 
         # Back-to-back actions, called out because they all land before
         # you get to respond -- the one case where "this enemy acts

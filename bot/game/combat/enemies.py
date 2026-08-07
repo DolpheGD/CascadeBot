@@ -796,12 +796,38 @@ ENEMY_TEMPLATES: list[dict] = [
         # drones (XG-23A/XG-23B, below) -- its own ATK/ELE/HP were pulled
         # down from the old solo-fight numbers (28/12/310) to compensate
         # for the extra bodies and extra buffs/shields those drones bring.
+        # TONED DOWN, and specifically for GLACIER 15's sake.
+        #
+        # Measured as what each of a region's regular bosses COSTS rather
+        # than whether it's survivable, which is the number that matters
+        # for a mid-run fight where HP carries between rooms and there is
+        # no healing outside a campfire. At Glacier 15:
+        #
+        #     XG-23 Heavy Drone   43% of the squad's HP
+        #     Triv                18%
+        #     Thedoggyp           12%
+        #     Loona                2%
+        #
+        # Two and a half times the next-worst boss in the FIRST region --
+        # and the draw, not the player, decides which one shows up. Every
+        # ingredient is individually defensible and they multiply: it acts
+        # twice a cycle, it has the highest Speed in the region so it
+        # opens the fight, it crits often, and it is the only Glacier boss
+        # fielding three bodies, two of which exist to buff and shield it.
+        #
+        # ATK and crit come down rather than the escorts or the double
+        # action, because those two are its IDENTITY -- a fast drone that
+        # gets in twice is worth keeping, a fast drone that deletes half
+        # your run is not. It stays the most expensive regular boss in the
+        # region, just not by a multiple. Its later-region appearances are
+        # barely affected (it already cost ~10% by The Hotlands, where the
+        # squad has outscaled it).
         "name": "XG-23 Heavy Drone",
         "role": "boss",
         "region_roles": {'Glacier 15': 'regular', 'The Wastelands': 'regular', 'The Hotlands': 'regular'},
         "base_stats": {
-            "attack": 26, "defense": 10, "elemental": 12, "speed": 14,
-            "max_hp": 320, "max_mana": 999, "crit_rate": 14, "crit_damage": 170, "recharge": 20,
+            "attack": 19, "defense": 10, "elemental": 12, "speed": 14,
+            "max_hp": 320, "max_mana": 999, "crit_rate": 9, "crit_damage": 170, "recharge": 20,
         },
         "level_scale_percent": 4,
         "actions_per_cycle": 2,
@@ -1123,7 +1149,23 @@ ENEMY_TEMPLATES: list[dict] = [
             "max_hp": 470, "max_mana": 999, "crit_rate": 12, "crit_damage": 170, "recharge": 13,
         },
         "level_scale_percent": 4,
-        "escorts": ["Duko"],
+        # THE CREW IS FOUR. This read ["Duko"] and shipped the Wastelands
+        # final boss as a two-enemy fight, with the Ocellios Train and
+        # Broskm defined, statted, given kits, short names and abilities
+        # -- and unreachable by any code path in the game. They were the
+        # only two boss_group_member templates in the roster that nothing
+        # could ever spawn.
+        #
+        # It made the fight worse in both directions at once. NF's own
+        # base_stats were deliberately pulled DOWN from their solo-boss
+        # numbers to pay for three companions (see this module's
+        # docstring), so the region's capstone was a weakened boss with
+        # one escort. And the encounter design -- tank that shields and
+        # buffs, healer that keeps them up, glass cannon that hits hard
+        # -- collapsed to just the glass cannon, so the whole "break the
+        # support before it out-sustains you" shape of the fight never
+        # existed for anyone who played it.
+        "escorts": ["Ocellios Train", "Broskm", "Duko"],
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "guard_splitter"),
             get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
@@ -1200,12 +1242,31 @@ ENEMY_TEMPLATES: list[dict] = [
         # ~20% to compensate, same ratio used everywhere else, which also
         # brings its per-hit numbers back in line with its fellow final
         # bosses instead of dwarfing them.
+        # THE HOTLANDS WAS EASIER THAN THE WASTELANDS BEFORE IT.
+        #
+        # X-RR fights alone, and the region before it fields a four-body
+        # crew (see NF's escorts). Measured as the whole encounter at the
+        # level it's actually fought, the Wastelands capstone came to
+        # 2,899 effective HP and this one to 2,699 -- the ladder stepped
+        # DOWN into the harder region, which is worse than it sounds:
+        # every region past The Wastelands is gated behind clearing it,
+        # so the hardest wall in the early game sat one region too early.
+        #
+        # Solo bosses need more of their power in one body than a group
+        # does, so its HP comes up to 1,650 rather than the fight being
+        # padded with escorts it was never designed around. That puts the
+        # capstone ladder at 816 -> 2,899 -> 3,696 -> 4,699 -> 36,996:
+        # monotonic, with The Hotlands sitting where a third region
+        # should. Its offence is untouched -- X-RR already acts twice a
+        # cycle and hits harder than any other final boss, and the
+        # problem was never that it was too gentle, it was that it died
+        # too fast for a capstone.
         "name": "X-RR",
         "role": "boss",
         "region_roles": {'The Hotlands': 'final'},
         "base_stats": {
             "attack": 46, "defense": 12, "elemental": 40, "speed": 28,
-            "max_hp": 1205, "max_mana": 999, "crit_rate": 12, "crit_damage": 175, "recharge": 24,
+            "max_hp": 1650, "max_mana": 999, "crit_rate": 12, "crit_damage": 175, "recharge": 24,
         },
         "level_scale_percent": 4,
         "actions_per_cycle": 2,
@@ -2366,6 +2427,18 @@ ENEMY_TEMPLATES: list[dict] = [
     # ------------------------------------------------------------------
     # ROHAN'S LEDGER -- the bureaucracy.
     #
+    # NAMED FOR HIM, now. Three of these shipped as "Ledger Warden",
+    # "The Lector of Ledgers" and "The Auditor" -- job titles from an
+    # institution the player has no reason to have heard of, fought
+    # across six Abyss floors and Chapter 2's finale without ever
+    # connecting to the man at the end of the game. They are now Rohan's
+    # Warden, Rohan's Herald and Rohan's Assessor, which puts them in the
+    # same breath as Rohan's Bomb, Rohan's Negadom and Rohan's
+    # Catastrophe Soldier: every time the player meets one, the final
+    # boss's name is on it. Same fights, same mechanics, same tuning --
+    # the set was already designed as one institution at different
+    # ranks, and this just says whose institution it is.
+    #
     # These eight were referenced by story_config and abyss_config before
     # any of them existed, so every fight that named one raised KeyError
     # from get_template_by_name. Chapter 2's finale and Abyss floors 3,
@@ -2386,7 +2459,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # Abyss floor 3, and again on 12 at the Chairman's side.
         # Where the set starts: it strips DEF and then punishes you for
         # being stripped, which is the whole family's thesis in miniature.
-        "name": "Ledger Warden",
+        "name": "Rohan's Warden",
         "role": "elite",
         "base_stats": {
             "attack": 21, "defense": 19, "elemental": 8, "speed": 11,
@@ -2441,7 +2514,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # played as a plain damage race. 560 buys roughly five cycles at
         # the level Chapter 2 hands you, without moving the win rate off
         # 100% for any squad that turns up: it is a lesson, not a wall.
-        "name": "The Lector of Ledgers",
+        "name": "Rohan's Herald",
         "role": "boss",
         # TWO ACTIONS A CYCLE. Measured: solo at one action it cost a
         # level-appropriate squad 8.9% of its health and ended in 4.4
@@ -2473,7 +2546,7 @@ ENEMY_TEMPLATES: list[dict] = [
         # Abyss floor 7, and both endgame floors. The poise specialist:
         # it breaks YOU rather than out-damaging you, so the counter is
         # acting on the turn it winds up rather than eating the hit.
-        "name": "The Auditor",
+        "name": "Rohan's Assessor",
         "role": "elite",
         # Two actions a cycle, for the same reason the Lector and the
         # Permafrost Guardian got them: it headlines Chapter 3, and a
@@ -2754,7 +2827,9 @@ ENEMY_SHORT_NAMES: dict[str, str] = {
     "Corrupted Wastelander": "Wastelander",
     "Sacrificial Construct": "Sacr. Construct",
     "Ocellios Test Subject": "Test Subject",
-    "The Lector of Ledgers": "The Lector",
+    "Rohan's Herald": "The Herald",
+    "Rohan's Assessor": "The Assessor",
+    "Rohan's Warden": "The Warden",
     "Rogue Security Drone": "Security Drone",
     "Glacial Exterminator": "Glacial Exterm.",
     "Permafrost Automaton": "Frost Automaton",

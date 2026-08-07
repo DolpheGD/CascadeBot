@@ -345,7 +345,7 @@ RAID_TIERS: list[dict] = [
             "Permafrost Guardian", "Blightspire Adept",
             "Wasteland Colosseum Champion", "Sir Vengeance", "Samuel",
             "Triv", "Thedoggyp", "Bt03", "XG-23 Heavy Drone", "The Giveaway",
-            "Ledger Warden", "Hater Ringleader"
+            "Rohan's Warden", "Hater Ringleader"
         ],
         "boss_level": 38,
         "hp_per_attack": 1_750,

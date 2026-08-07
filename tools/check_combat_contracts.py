@@ -227,7 +227,41 @@ def check_revive_rule(failures: list[str]) -> str:
             f"after a FULL WIPE the squad was stored as {wiped} -- the roster would "
             f"show survivors from a fight nobody survived"
         )
-    return f"revive    : survived -> {survived}, wiped -> {wiped}"
+
+    # ------------------------------------------------------------------
+    # A SELF-CONTAINED FIGHT MUST NOT LEAVE DAMAGE ON THE SHARED ROWS.
+    #
+    # Story missions, story hunts and Abyss chambers all start at full HP
+    # (build_player_party(full_hp=True)). PlayerCharacter.current_hp is
+    # not a display field -- it is the EXPEDITION's saved HP. When those
+    # modes wrote their results back to it, losing a story beat left an
+    # open expedition's squad standing in the dungeon at 0/1 HP, wiping
+    # to the very next room.
+    #
+    # Checked here rather than trusted to the call sites, because the
+    # call sites are exactly what got this wrong: each one looked
+    # complete on its own and the damage was only visible across modes.
+    # ------------------------------------------------------------------
+    isolated_party = _party()
+    for combatant in isolated_party:
+        combatant.current_hp = 0
+    isolated_battle = Battle(isolated_party, [build_enemy_combatant(template, 10)],
+                             rng=random.Random(0))
+    isolated_rows = [_PC(c.character_id, c.max_hp) for c in isolated_party]
+    for row in isolated_rows:
+        row.current_hp = 999  # anything non-sentinel, to prove it gets cleared
+    combat_service.end_isolated_battle(_DB(isolated_rows), isolated_battle,
+                                       squad=isolated_rows)
+    isolated = [r.current_hp for r in isolated_rows]
+    if any(hp is not None for hp in isolated):
+        failures.append(
+            f"a self-contained battle (story/hunt/Abyss) left {isolated} on the "
+            f"PlayerCharacter rows instead of the full-HP sentinel -- that is an "
+            f"open expedition's saved HP, and a lost story beat would end the run"
+        )
+
+    return (f"revive    : survived -> {survived}, wiped -> {wiped}\n"
+            f"isolated  : self-contained fight leaves {isolated} (None == full)")
 
 
 def main() -> int:

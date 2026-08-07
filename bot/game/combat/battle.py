@@ -577,6 +577,40 @@ class Battle:
         """The living party member currently drawing enemy attacks."""
         return next((p for p in self.living_party() if p.is_taunting()), None)
 
+    def intended_target(self, target: Combatant | None) -> Combatant:
+        """The party member an enemy will ACTUALLY hit, given a target
+        that was decided earlier.
+
+        WHY A TAUNT USED TO "SOMETIMES NOT WORK". Enemy intents are
+        decided ahead of the turn and pinned, so the telegraph can't lie
+        (see peek_enemy_intent_schedule). The target was pinned along
+        with the move -- and it was pinned BEFORE the player took the
+        turn they were reacting to the telegraph with. So the sequence
+        the player actually experienced was:
+
+            "🗡 Rohan will strike Josh"  ->  player taunts with Jofrog
+            ->  Rohan strikes Josh anyway
+
+        Taunt looked broken roughly as often as the player used it in
+        response to a telegraph, which is to say: whenever they used it
+        correctly. The old code only re-picked when the pinned target had
+        DIED, so nothing else could ever move it.
+
+        Re-pointing an attack at a taunter does NOT weaken the binding
+        telegraph, because the promise the telegraph makes is about the
+        MOVE -- what is coming and how hard. Taunt is the one mechanic
+        whose entire purpose is to change who it lands on, it is
+        player-initiated, and it is visible on both combatants. Reading
+        it here rather than at intent-decision time is what makes it work
+        no matter when in the cycle the taunt went up.
+        """
+        taunter = self.taunting_ally()
+        if taunter is not None:
+            return taunter
+        if target is None or not target.is_alive():
+            return self._pick_party_target()
+        return target
+
     def _pick_enemy_target(self, target_index: int) -> Combatant:
         living = self.living_enemies()
         if not living:
@@ -858,11 +892,11 @@ class Battle:
         else:
             intent = self._decide_enemy_intent(enemy)
 
-        target = intent["target"]
-        if not target.is_alive():
-            # Died since the intent was decided/shown (e.g. a teammate's
-            # extra_turn_on_kill finished them off first) -- re-pick.
-            target = self._pick_party_target()
+        # Resolves both cases where a pinned target is no longer the right
+        # one: somebody taunted after the intent was decided, or the
+        # pinned target died in the meantime (e.g. a teammate's
+        # extra_turn_on_kill finished them off first). See intended_target.
+        target = self.intended_target(intent["target"])
         ability = intent["ability"]
 
         allies = [e for e in self.enemies if e is not enemy and e.is_alive()]

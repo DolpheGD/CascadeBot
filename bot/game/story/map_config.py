@@ -200,6 +200,40 @@ EMOJI_DONE = "✅"
 EMOJI_LOCKED = "🔒"
 
 
+# ----------------------------------------------------------------------
+# AREA SHAPES -- MAKE THEM DIFFERENT FROM EACH OTHER
+# ----------------------------------------------------------------------
+# Every area in this file used to be the same map. Not similar: the SAME
+# -- 9x5 or 7x5, one solid block of wall in the middle, four content
+# tiles around the outside. Nineteen areas, two footprints between them.
+# The story travels from a lab cell to a glacier to a freight yard to a
+# counting house and they all played identically, because the shape of a
+# room is most of what a room is when the only verb is "walk".
+#
+# The limits allow far more than that (MAX_WIDTH 13, MAX_HEIGHT 12,
+# MAX_ROOM_TILES 40 walkable), and they were never the constraint -- the
+# constraint was that the first map got copied eighteen times.
+#
+# So the shape is now part of the writing, and should stay that way:
+#
+#     ocellios_cell           5x5    a box, deliberately claustrophobic
+#     divide_shed             5x7    one cold room, taller than it is wide
+#     glacier_countinghouse   7x9    a stairwell of record rooms
+#     cascade_ops             9x7    a squarer room broken up by desks
+#     glacier_drift           9x8    irregular, picked through
+#     entrospire_yard         9x9    a perimeter with an office inside it
+#     glacier_ridge          11x5    a long walk with one drop off the side
+#     deadlands_crossing     11x7    a crossroads, drawn as one
+#     wastelands_picket      13x5    a long line, because it is a picket line
+#     glacier_shelf          13x6    wide and shallow
+#     divide_fence           13x5    the longest thin walk in the chapter
+#
+# The density rules below still bind -- a bigger map is only allowed if
+# it has the content to justify the walking. tools/check_story.py fails
+# the build otherwise, which is what stops "make it bigger" from
+# quietly becoming "make it emptier".
+# ----------------------------------------------------------------------
+
 AREAS: dict[str, dict] = {
 
     # ==================================================================
@@ -356,12 +390,15 @@ AREAS: dict[str, dict] = {
         "name": "The Shelf",
         "region": "Glacier 15",
         "blurb": "White to the horizon. A line of dead lamps going east.",
+        # A WIDE, SHALLOW SHELF -- 13x6. See the AREA SHAPES note at the
+        # top of AREAS for why the maps stopped all being the same ring.
         "grid": [
-            "#########",
-            "#@..B..t#",
-            "#<#####.#",
-            "#u..c..E#",
-            "#########",
+            "#############",
+            "#@...t.....B#",
+            "#.#########.#",
+            "#<....c....E#",
+            "#.#########.#",
+            "#u...########",
         ],
         "legend": {
             "B": {
@@ -416,12 +453,14 @@ AREAS: dict[str, dict] = {
         "name": "The Ridge",
         "region": "Glacier 15",
         "blurb": "Somebody up here has been watching you for a while.",
+        # A RIDGE -- 11x5, a single long walk along the top with one
+        # short drop off the side. Narrow because a ridge is narrow.
         "grid": [
-            "#######",
-            "#@<N.e#",
-            "#.###.#",
-            "#h...E#",
-            "#######",
+            "###########",
+            "#@<..N...e#",
+            "#####.#####",
+            "#h.......E#",
+            "###########",
         ],
         "legend": {
             "N": {
@@ -465,11 +504,16 @@ AREAS: dict[str, dict] = {
         "name": "The Drift Line",
         "region": "Glacier 15",
         "blurb": "Thin ice over something with a shape to it.",
+        # DRIFTED SNOW -- 9x8, an irregular shape rather than a corridor,
+        # so the drift reads as something you pick your way through.
         "grid": [
             "#########",
-            "#@..a..j#",
-            "#<#####.#",
-            "#q..W..E#",
+            "#@..a...#",
+            "#<..###.#",
+            "#....##j#",
+            "###.....#",
+            "#q..###.#",
+            "#..W...E#",
             "#########",
         ],
         "legend": {
@@ -586,11 +630,15 @@ AREAS: dict[str, dict] = {
         "name": "Operations",
         "region": "Cascade — Forward Base",
         "blurb": "A map table, a long table, and eleven photographs turned to the wall.",
+        # AN OPERATIONS ROOM -- 9x7, a squarer space broken by desks
+        # rather than one loop around a solid block.
         "grid": [
             "#########",
             "#@..M..m#",
-            "#<#####.#",
-            "#p..T..E#",
+            "#<.#.#..#",
+            "#..#.#..#",
+            "#p.....T#",
+            "#..###.E#",
             "#########",
         ],
         "legend": {
@@ -698,12 +746,14 @@ AREAS: dict[str, dict] = {
         "name": "The Divide — Fence Line",
         "region": "Cryosphere Divide",
         "blurb": "Four metres of razor wire, and every barb leans inward.",
+        # A FENCE LINE -- 13x5, the longest thin walk in the chapter: you
+        # follow it, you don't wander around it.
         "grid": [
-            "#########",
-            "#@..s..d#",
-            "#<#####.#",
-            "#y..C.ME#",
-            "#########",
+            "#############",
+            "#@..s......d#",
+            "#<#########.#",
+            "#y....C...ME#",
+            "#############",
         ],
         "legend": {
             "C": {
@@ -768,12 +818,17 @@ AREAS: dict[str, dict] = {
         "name": "The Cold Workshop",
         "region": "Cryosphere Divide",
         "blurb": "Bench, vice, power, roof. Virtual could cry.",
+        # DELIBERATELY SMALL and taller than it is wide -- 5x7. A cold
+        # one-room workshop should feel like one, and the size range only
+        # reads as a range if some areas stay cramped.
         "grid": [
-            "#######",
-            "#F...w#",
-            "#<.#..#",
-            "#@..bE#",
-            "#######",
+            "#####",
+            "#F.w#",
+            "#...#",
+            "#<.b#",
+            "#...#",
+            "#@.E#",
+            "#####",
         ],
         "legend": {
             "F": {
@@ -943,12 +998,14 @@ AREAS: dict[str, dict] = {
         "name": "The Line — The Picket",
         "region": "The Wastelands",
         "blurb": "Four hundred people sitting on the rails, nine days in.",
+        # A PICKET LINE IS LONG -- 13x5, two long parallel runs, because
+        # the fiction is people standing in a row across a freight bend.
         "grid": [
-            "#########",
-            "#@..F..s#",
-            "#<#####.#",
-            "#k..P..E#",
-            "#########",
+            "#############",
+            "#@.s.....k..#",
+            "#.#.#####.#.#",
+            "#<..F...P..E#",
+            "#############",
         ],
         "legend": {
             "F": {
@@ -1059,11 +1116,18 @@ AREAS: dict[str, dict] = {
         "name": "The Night Yard",
         "region": "Entrospire City",
         "blurb": "A yard that closed in '06 and has its lights on.",
+        # A YARD WITH AN INNER OFFICE -- 9x9. The biggest single space in
+        # the story so far, and the first that is taller than it is wide:
+        # you walk the perimeter, then go INTO the middle for the ledger.
         "grid": [
             "#########",
             "#@..e..j#",
-            "#<#####.#",
-            "#Y..MGNK#",
+            "#.#####.#",
+            "#.#Y.N#.#",
+            "#.#...#.#",
+            "#.#K.G#.#",
+            "#.##.##.#",
+            "#<..M...#",
             "#########",
         ],
         "legend": {
@@ -1128,7 +1192,12 @@ AREAS: dict[str, dict] = {
                 "emoji": "\U0001f6aa",
                 "name": "The north gate",
                 "to_area": "deadlands_crossing",
-                "to": [1, 1],
+                # The south arm of the crossroads. Was [1, 1], which is a
+                # wall now that The Crossing is drawn as a cross rather
+                # than a ring -- arriving from the north gate onto the
+                # southern approach also reads better than the old
+                # top-left corner.
+                "to": [5, 5],
                 "requires_mission": "c2m6_the_count",
                 "locked_text": (
                     "The key fits. Finish here first -- the ledger is still open "
@@ -1156,12 +1225,16 @@ AREAS: dict[str, dict] = {
         "name": "The Crossing",
         "region": "The Deadlands",
         "blurb": "North of the gate the ground stops agreeing to be ground.",
+        # A CROSSROADS, drawn as one -- 11x7, four short arms meeting in
+        # the middle, where the rope line is.
         "grid": [
-            "#########",
-            "#@..b..c#",
-            "#.#####.#",
-            "#<..A..E#",
-            "#########",
+            "###########",
+            "####@.b####",
+            "####.#.####",
+            "#<..A.c..E#",
+            "####.#.####",
+            "####...####",
+            "###########",
         ],
         "legend": {
             "A": {
@@ -1268,7 +1341,8 @@ AREAS: dict[str, dict] = {
                 "emoji": "\U0001f519",
                 "name": "Back to The Crossing",
                 "to_area": "deadlands_crossing",
-                "to": [1, 1],
+                # Just inside the west arm, beside the way back out.
+                "to": [2, 3],
             },
         },
     },
@@ -1277,12 +1351,18 @@ AREAS: dict[str, dict] = {
         "name": "The Counting House",
         "region": "Glacier 15",
         "blurb": "The only building with the lights on, and they have been on for two years.",
+        # A COUNTING HOUSE HAS FLOORS -- 7x9, tall and narrow, switching
+        # back on itself like a stairwell between record rooms.
         "grid": [
-            "#########",
-            "#@..f..C#",
-            "#.#####.#",
-            "#<..g..D#",
-            "#########",
+            "#######",
+            "#@...f#",
+            "#.###.#",
+            "#C...g#",
+            "#.###.#",
+            "#....D#",
+            "#.###.#",
+            "#<....#",
+            "#######",
         ],
         "legend": {
             "C": {

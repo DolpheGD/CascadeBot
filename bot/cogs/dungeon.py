@@ -315,29 +315,9 @@ def _build_dungeon_view(expedition) -> DungeonView | None:
 
 def _build_combat_view(battle, owner_id: int) -> CombatView:
     actor = battle.current_actor()
-    ability_options = []
-    for ability in actor.active_abilities:
-        ready = actor.ability_ready(ability)
-        source_icon = {"character": "🌀", "weapon": "⚔️", "artifact": "🔮"}.get(ability.get("source"), "✨")
-        unit = "SP" if ability["resource_type"] == "mana" else "EN"
-        cost_str = f"{ability['resource_cost']} {unit}"
-
-        if ready:
-            status = "Ready"
-        else:
-            cooldown_remaining = actor.cooldowns.get(ability["id"], 0)
-            if cooldown_remaining > 0:
-                status = f"ready in {cooldown_remaining}t"
-            else:
-                pool = actor.mana if ability["resource_type"] == "mana" else actor.energy
-                status = f"need {ability['resource_cost'] - pool} more {unit}"
-
-        label = f"{source_icon} {ability['name']} -- {cost_str} ({status})"
-        ability_options.append(discord.SelectOption(
-            label=label[:100],
-            value=ability["id"],
-            description=ability["description"][:100],
-        ))
+    # Shared so story/domain/raid can't drift from this again -- see
+    # combat_ui.ability_select_options.
+    ability_options = combat_ui.ability_select_options(actor)
 
     # Built by the shared helper so all three combat surfaces agree on
     # when targeting is unavailable -- notably while an enemy is taunting.

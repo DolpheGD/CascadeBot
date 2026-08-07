@@ -165,20 +165,64 @@ PERCENT_STAT_SCALE_FACTOR = 0.25
 PERCENT_STAT_CAPS = {"crit_rate": 50, "crit_damage": 300, "recharge": 60}
 
 
+# ----------------------------------------------------------------------
+# LEVELS GET BIGGER AS YOU CLIMB, INSTEAD OF SMALLER
+# ----------------------------------------------------------------------
+# Character growth was purely linear: every level added the same flat
+# amount forever. Linear growth against a base that starts small has a
+# specific, bad feel, and it is exactly the reported one -- "HP gains a
+# lot at the start but then plateaus". Level 2 adds ~7% of a 5-star's
+# health bar; level 90 adds under 1% of it. Nothing about the numbers
+# changes, but the player's sense of progress falls away to nothing
+# precisely when the content gets hardest.
+#
+# It also left levels as the weakest of the three power sources. Gear
+# multiplies, resonance multiplies, and levelling added a constant --
+# so "should I level this character or farm one more item" had the same
+# answer every time, and the answer wasn't levelling.
+#
+# Both of those are the same fix: a multiplier that grows WITH the level,
+# applied on top of the authored linear growth. Late levels are then
+# worth more than early ones in absolute terms, which is what makes the
+# climb feel like a climb, and it gives max HP a curve that can keep pace
+# with the enemy attack curve instead of falling behind it by a factor of
+# five.
+#
+# ANCHORED AT LEVEL 1, so it can only ever add. At the levels Glacier 15
+# is played at this is worth a few percent (level 8 -> 1.06x) and the
+# region the balance is judged against does not meaningfully move; by
+# level 100 it is 1.79x on top of linear, which is the point.
+#
+# Deliberately applied to the whole stat block rather than to max HP
+# alone. HP-only would fix the plateau and leave levelling still not
+# worth doing -- a character who only gets tankier as they level is not a
+# character who is getting stronger.
+LEVEL_POWER_PER_LEVEL = 0.008
+
+
+def level_power_multiplier(level: int) -> float:
+    """Compounding-ish bonus for character level. Exactly 1.0 at level 1."""
+    return 1 + LEVEL_POWER_PER_LEVEL * max(0, int(level or 1) - 1)
+
+
 def base_character_stats(player_character) -> dict:
-    """Template base stats + linear growth to the character's current
-    level. Only HP/ATK/DEF/ELE/MP/SPD grow with level (per the leveling
-    spec: 'marginally' -- crit rate/damage/recharge stay put and are gear's
-    job to move)."""
+    """Template base stats + growth to the character's current level.
+
+    Only HP/ATK/DEF/ELE/MP/SPD grow with level (per the leveling spec:
+    crit rate/damage/recharge stay put and are gear's job to move). The
+    authored growth is linear; level_power_multiplier then scales the
+    result so higher levels are worth progressively more -- see the block
+    above for why."""
     template = player_character.template
     levels = max(0, player_character.level - 1)
+    power = level_power_multiplier(player_character.level)
     return {
-        "attack": template.base_attack + template.growth_attack * levels,
-        "defense": template.base_defense + template.growth_defense * levels,
-        "elemental": template.base_elemental + template.growth_elemental * levels,
-        "speed": template.base_speed + template.growth_speed * levels,
-        "max_hp": template.base_hp + template.growth_hp * levels,
-        "max_mana": template.base_mana + template.growth_mana * levels,
+        "attack": (template.base_attack + template.growth_attack * levels) * power,
+        "defense": (template.base_defense + template.growth_defense * levels) * power,
+        "elemental": (template.base_elemental + template.growth_elemental * levels) * power,
+        "speed": (template.base_speed + template.growth_speed * levels) * power,
+        "max_hp": (template.base_hp + template.growth_hp * levels) * power,
+        "max_mana": (template.base_mana + template.growth_mana * levels) * power,
         "crit_rate": template.base_crit_rate,
         "crit_damage": template.base_crit_damage,
         "recharge": template.base_recharge,
@@ -582,6 +626,99 @@ DEFENSE_SCALE_PER_LEVEL = 0.065
 DEFENSE_SCALE_CAP = 4.5
 
 
+# ----------------------------------------------------------------------
+# ENEMIES THAT DIE IN ONE HIT ARE NOT A FIGHT
+# ----------------------------------------------------------------------
+# The third leg of the same problem the attack and defence curves fix,
+# and the one doing the most damage to how the game plays.
+#
+# Measured with a geared squad at each region's own level, against that
+# region's own normal enemies:
+#
+#     region            party ATK    enemy HP    hits to kill one
+#     Glacier 15               19          76                 3.7
+#     The Wastelands           73         106                 1.1
+#     The Hotlands             50         137                 2.2
+#     Voidcrest Desert        139         157                 0.9
+#     Abyssnia                 99         273                 2.9
+#
+# Enemy HP grows 3.6x across the entire game while player damage grows
+# six-fold or more, so from The Wastelands onward a normal enemy is a
+# one-shot. That is not merely "too easy" -- it changes what the game IS.
+# A fight that resolves in one round has no room for a debuff to pay off,
+# no room for a heal to matter, and no reason to bring anyone but
+# attackers. Every complaint about support roles being pointless has a
+# component of this underneath it: they were being asked to contribute to
+# fights that were over before their contribution existed.
+#
+# It also makes the difficulty swingy in the worst way. Enemies now hit
+# hard (see the attack curve above), so a fight where both sides delete
+# each other in a round is decided by turn order rather than by anything
+# the player chose.
+#
+# So HP scales with depth like everything else, anchored at the same
+# level so Glacier and The Wastelands are untouched by construction.
+# BOSSES GET LESS OF IT: their pools are already large and hand-tuned,
+# and the region capstone ladder (tools/check_progression.py) is measured
+# off them, so they take a fraction of the curve rather than the whole
+# thing.
+# ANCHORED LOWER THAN THE ATTACK CURVE, at 12 rather than 17, and
+# steeper. Two measured reasons:
+#
+#   * The one-shot problem starts EARLIER than the damage problem. The
+#     Wastelands (enemy level 10-14) already kills a normal enemy in
+#     about one hit, and the attack curve's anchor was set to protect
+#     Glacier 15 -- whose enemies are level 2-3 and stay untouched at
+#     either anchor.
+#   * Support DPS value tracks FIGHT LENGTH almost exactly. Measured over
+#     full runs, that class was worth its slot at Abyssnia (enemies take
+#     ~4 hits to kill) and a wasted slot at Voidcrest (~1.3 hits), where
+#     a squad that dropped it for a second attacker cleared 85% against
+#     67%. A debuff cannot pay for the turn that applied it if the target
+#     dies before anyone benefits -- so the fix for "Support DPS is
+#     undervalued" is here, in fight length, not in their kit.
+HP_SCALE_ANCHOR_LEVEL = 12
+# Steepened from 0.045 once the cap below was in place, which is what
+# made it safe: the cap pins Abyssnia, so the slope now sets the MIDDLE
+# of the game without touching the end of it. Two things wanted this:
+#
+#   * The Hotlands had no difficulty at all -- every squad composition
+#     cleared it 100% of the time, so the region asked the player no
+#     question. It now takes 1.66x rather than 1.50x.
+#   * Voidcrest fights were still short enough that both support classes
+#     were losing their slot to a second attacker, for the same
+#     fight-length reason described above.
+HP_SCALE_PER_LEVEL = 0.06
+# The cap is doing real work here rather than being a safety rail. All
+# three depth curves -- attack, defence and HP -- are linear in level, so
+# they compound hardest exactly where the level is highest, and Abyssnia
+# (enemy level 51) got the full product of all three: a one-of-each squad
+# went from a 62% clear at Voidcrest to 16% there, against the region's
+# own design target of roughly a third. 2.3 is the value that leaves
+# Voidcrest (2.13x, under the cap) untouched while pulling Abyssnia back
+# from 2.76x.
+HP_SCALE_CAP = 2.3
+
+# How much of the curve each role takes. Normal enemies were the worst
+# affected and get all of it; bosses are already the longest fights in
+# the game and get a third.
+HP_SCALE_SHARE_BY_ROLE = {
+    "combat": 1.0,
+    "elite": 0.85,
+    "boss": 0.35,
+    "boss_group_member": 0.35,
+}
+
+
+def enemy_hp_multiplier(level: int, role: str = "combat") -> float:
+    """HP multiplier for an enemy of this level and role. Exactly 1.0 at
+    and below the anchor level."""
+    above = max(0, int(level or 1) - HP_SCALE_ANCHOR_LEVEL)
+    share = HP_SCALE_SHARE_BY_ROLE.get(role, 1.0)
+    grown = 1 + HP_SCALE_PER_LEVEL * share * above
+    return min(grown, 1 + (HP_SCALE_CAP - 1) * share)
+
+
 def enemy_defense_multiplier(level: int) -> float:
     """Defence multiplier for an enemy of this level. Exactly 1.0 at and
     below the anchor -- Glacier and The Wastelands do not move -- rising
@@ -591,13 +728,49 @@ def enemy_defense_multiplier(level: int) -> float:
     return min(1 + DEFENSE_SCALE_PER_LEVEL * above, DEFENSE_SCALE_CAP)
 
 
+# ----------------------------------------------------------------------
+# EARLY-GAME GRACE -- the first hours hit slightly softer
+# ----------------------------------------------------------------------
+# Reported from play: Glacier 15 and the opening story fights were a
+# little too hard. Both live in the same narrow band -- Glacier's enemies
+# are level 2-3 and the prologue's scripted fights are levels 2-4 -- so
+# one curve covers both rather than hand-editing a region and a script
+# separately and having them drift.
+#
+# The 1.5x attack multiplier was measured against a GEARED squad partway
+# through the game (see the block above); it was never sized for a squad
+# that has just been handed its first two Uncommons. Below the anchor it
+# was applied flat, so the least-equipped players in the game took the
+# full adult rate.
+#
+# Grace ramps out rather than switching off, so there is no step where
+# the game suddenly gets harder: about 18% softer at the very start,
+# gone entirely by level 12, which is where The Wastelands begins. It
+# scales the multiplier and not the templates, so it reaches every mode
+# at once -- adventure, story, domains -- and cannot be forgotten for one
+# of them.
+EARLY_GRACE_UNTIL_LEVEL = 12
+EARLY_GRACE_FLOOR = 0.82
+
+
+def early_game_grace(level: int) -> float:
+    """How much of the attack multiplier applies at this level: 0.82 at
+    level 1, rising linearly to 1.0 at EARLY_GRACE_UNTIL_LEVEL."""
+    level = max(1, int(level or 1))
+    if level >= EARLY_GRACE_UNTIL_LEVEL:
+        return 1.0
+    progress = (level - 1) / (EARLY_GRACE_UNTIL_LEVEL - 1)
+    return EARLY_GRACE_FLOOR + (1 - EARLY_GRACE_FLOOR) * progress
+
+
 def enemy_attack_multiplier(level: int) -> float:
-    """Attack multiplier for an enemy of this level. 1.5 at Glacier
-    depth, rising to about 3.1x by the deepest Abyssnia floors, capped
-    so the Abyss's level-95 chambers don't run away with it."""
+    """Attack multiplier for an enemy of this level. About 1.23x at the
+    very start, 1.5x from The Wastelands on, rising to roughly 3.8x by
+    the deepest Abyssnia floors, capped so the Abyss's level-95 chambers
+    don't run away with it."""
     above = max(0, int(level or 1) - ATTACK_SCALE_ANCHOR_LEVEL)
     grown = ENEMY_ATTACK_MULTIPLIER * (1 + ATTACK_SCALE_PER_LEVEL * above)
-    return min(grown, ENEMY_ATTACK_MULTIPLIER * ATTACK_SCALE_CAP)
+    return min(grown, ENEMY_ATTACK_MULTIPLIER * ATTACK_SCALE_CAP) * early_game_grace(level)
 
 
 def build_enemy_combatant(template: dict, level: int = 1, hp_multiplier: float = 1.0) -> Combatant:
@@ -632,9 +805,17 @@ def build_enemy_combatant(template: dict, level: int = 1, hp_multiplier: float =
     # percent-of-max-HP effect (self-heals, shields, execute thresholds)
     # reads the inflated pool too rather than quietly working off the
     # template's original number.
-    base_stats["max_hp"] = max(1, round(base_stats["max_hp"] * max(0.01, hp_multiplier)))
-
     role = template.get("role", "combat")
+
+    # Depth scaling first, then the caller's own multiplier (raids). Both
+    # land on base_stats rather than only on the Combatant fields so that
+    # every percent-of-max-HP effect -- self-heals, shields, execute
+    # thresholds -- reads the real pool.
+    base_stats["max_hp"] = max(1, round(
+        base_stats["max_hp"]
+        * enemy_hp_multiplier(level, role)
+        * max(0.01, hp_multiplier)
+    ))
 
     # Balance pass -- defense rework: see the DEFENSE_MULTIPLIER_BY_ROLE
     # comment above. Applied after level scaling so it compounds with

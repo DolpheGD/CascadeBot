@@ -238,6 +238,46 @@ def shrine_bonus_at_level(template: ShrineTemplate, level: int) -> float:
     return template.base_bonus_per_level * level
 
 
+# ----------------------------------------------------------------------
+# SHRINES STOPPED MATTERING, FOR THE SAME REASON LEVELS DID
+# ----------------------------------------------------------------------
+# Every shrine grants a FLAT bonus and caps at level 10, so Shrine of
+# Vigor is +200 max HP and stays +200 max HP forever. Against a Glacier
+# squad on ~220 HP that is very nearly a second health bar -- it is the
+# strongest thing a new player can buy. Against an Abyssnia squad on
+# ~1,200 it is noise, and the building the player poured gold into has
+# quietly become decoration.
+#
+# That is the same plateau the character level curve fixes (see
+# factory.level_power_multiplier), in a different system: a constant
+# added to a growing number.
+#
+# The fix keeps the flat design -- flat is what makes shrines feel
+# enormous early, and the early game is the part that is already tuned
+# correctly -- but scales it with the LEVEL OF THE CHARACTER RECEIVING
+# it. Anchored at level 10, roughly where a player first affords a
+# shrine, so the early-game value is unchanged by construction and only
+# the long tail moves:
+#
+#     character level 10   x1.00   (+200 HP, exactly as today)
+#     character level 40   x1.60   (+320)
+#     character level 70   x2.20   (+440)
+#     character level 100  x2.80   (+560)
+#
+# It also answers "how do I keep raising my HP" with something the
+# player can act on: level your squad AND upgrade the shrine, and the
+# two multiply instead of one of them going stale.
+SHRINE_REFERENCE_LEVEL = 10
+SHRINE_LEVEL_SCALING = 0.02
+
+
+def shrine_recipient_multiplier(character_level: int) -> float:
+    """How much a shrine's flat bonus is worth to a character of this
+    level. Exactly 1.0 at or below SHRINE_REFERENCE_LEVEL."""
+    above = max(0, int(character_level or 1) - SHRINE_REFERENCE_LEVEL)
+    return 1 + SHRINE_LEVEL_SCALING * above
+
+
 def build_shrine(db, player, template_id: int, hq_level: int) -> tuple[bool, str]:
     template = db.get(ShrineTemplate, template_id)
     if template is None:
@@ -315,12 +355,15 @@ def apply_shrine_bonuses(db, player, combatants: list) -> None:
             if not combatant.is_player:
                 continue
             if template.bonus_type == "percent":
+                # Percent shrines already scale with the character, so
+                # they need no help staying relevant.
                 combatant.base_stats[template.stat] += (
                     combatant.base_stats.get(template.stat, 0) * bonus / 100
                 )
             else:
                 combatant.base_stats[template.stat] = (
-                    combatant.base_stats.get(template.stat, 0) + bonus
+                    combatant.base_stats.get(template.stat, 0)
+                    + bonus * shrine_recipient_multiplier(getattr(combatant, "level", 1))
                 )
 
     # After all shrine bonuses are applied to base_stats, update any

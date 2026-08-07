@@ -175,6 +175,64 @@ def ultimate_button_label(actor) -> str:
     return f"💥 Ultimate ({actor.energy}/{ultimate['resource_cost']} EN)"
 
 
+ABILITY_SOURCE_ICONS = {"character": "🌀", "weapon": "⚔️", "artifact": "🔮"}
+
+
+def ability_select_options(actor) -> list[discord.SelectOption]:
+    """The ability dropdown for `actor`, identical on every combat
+    surface.
+
+    TWO THINGS THIS FIXES, both reported from play.
+
+    1. THE COST VANISHED EXACTLY WHEN IT WAS AFFORDABLE. Every surface
+       showed the price only while the player couldn't pay it -- story
+       mode literally replaced it with the word "Ready". So the number
+       was on screen when it was useless ("you need 5 more SP") and gone
+       when it mattered, which is while deciding whether to spend 24 SP
+       now or hold for two turns. The cost and the current pool are now
+       always both shown: "20 SP · have 34".
+
+    2. STORY AND ADVENTURE DISAGREED. Four surfaces (dungeon, story,
+       domain, raid) each built this label themselves, and story's had
+       drifted furthest -- no source icon, no cooldown, no pool, and a
+       different separator. Which buttons a fight offers is a game rule,
+       not a plumbing detail, so it belongs here with the ally selector
+       and the ultimate label rather than in four places that agree only
+       until someone edits one. See this module's docstring.
+
+    Precedence in the status field mirrors ultimate_button_label:
+    cooldown is reported before resources, because a character who can
+    afford an ability and still can't cast it needs to know why.
+    """
+    options = []
+    for ability in actor.active_abilities:
+        unit = "SP" if ability["resource_type"] == "mana" else "EN"
+        pool = actor.mana if ability["resource_type"] == "mana" else actor.energy
+        cost = ability["resource_cost"]
+        icon = ABILITY_SOURCE_ICONS.get(ability.get("source"), "✨")
+
+        cooldown = actor.cooldowns.get(ability["id"], 0)
+        if cooldown > 0:
+            status = f"ready in {cooldown}t"
+        elif pool < cost:
+            status = f"need {cost - pool} more {unit}"
+        else:
+            status = "Ready"
+
+        # fit_suffix sacrifices the metadata rather than the name when a
+        # long ability name would blow the 100-character cap -- but the
+        # cost is the point of this label, so name and numbers are
+        # composed first and the STATUS is what gets dropped if anything
+        # has to.
+        head = f"{icon} {ability['name']} — {cost} {unit} · have {pool}"
+        options.append(discord.SelectOption(
+            label=names.fit_suffix(head, f"({status})", 100),
+            value=ability["id"],
+            description=ability["description"][:100],
+        ))
+    return options
+
+
 def enemy_target_options(battle) -> list[discord.SelectOption]:
     """Options for the enemy-target dropdown.
 

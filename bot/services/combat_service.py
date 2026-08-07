@@ -247,6 +247,52 @@ def restore_squad_to_full_hp(db, squad: list) -> None:
     db.commit()
 
 
+def end_isolated_battle(db, battle: Battle, squad: list | None = None) -> None:
+    """Finish a SELF-CONTAINED fight without leaving damage behind.
+
+    The counterpart to build_player_party(full_hp=True), and it has to be
+    called by every mode that uses it. Story missions, story hunts and
+    Abyss chambers all begin at full HP by design -- so whatever HP those
+    fights end on is not a resource the player carries anywhere, and
+    writing it back to PlayerCharacter.current_hp is not "persisting
+    state", it is corrupting somebody else's.
+
+    THE BUG THIS EXISTS TO KILL. Those three modes called
+    sync_party_hp_to_characters on the way out, reasoning that a wipe
+    should at least make the roster show who fell. But
+    PlayerCharacter.current_hp is not a display field -- it IS the
+    expedition's saved HP, the thing that makes campfires and attrition
+    mean anything. So:
+
+        start an expedition -> leave it open -> play a story beat ->
+        lose it -> go back to the expedition
+
+    ...and the squad is standing in the dungeon at 0 HP (or 1, after the
+    revive rule), wiping to the next room instantly. The player never did
+    anything wrong and nothing in the story UI hinted that losing a
+    scripted fight would end an unrelated run.
+
+    The old comment on those call sites said the sync "costs the player
+    nothing mechanically". That was true of the story mode in isolation
+    and false of the game, which is the failure mode worth remembering:
+    every one of those call sites looked complete on its own.
+
+    Showing the fallen is the DEFEAT SCREEN's job, and it renders from
+    the Battle object, which still knows exactly who went down. Nothing
+    needed the database write.
+    """
+    from bot.database.models.character_model import PlayerCharacter
+
+    if squad is None:
+        character_ids = [c.character_id for c in battle.party if c.character_id is not None]
+        if not character_ids:
+            return
+        squad = db.query(PlayerCharacter).filter(
+            PlayerCharacter.id.in_(character_ids)
+        ).all()
+    restore_squad_to_full_hp(db, squad)
+
+
 def apply_character_xp(db, squad: list, xp_reward: int, player=None) -> list[dict]:
     """Splits `xp_reward` evenly across every squad member (not just who
     landed the killing blow -- simpler and keeps off-action support/sustain

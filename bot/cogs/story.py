@@ -242,7 +242,11 @@ async def _hunt_action(interaction: discord.Interaction, action: str,
         db.commit()
         if battle.is_over():
             hunt = dict(story.pending_hunt)
-            combat_service.sync_party_hp_to_characters(db, battle)
+            # A hunt is self-contained and starts at full HP, so it must
+            # not leave damage on the shared PlayerCharacter rows -- those
+            # belong to whatever expedition the player has open. See
+            # combat_service.end_isolated_battle.
+            combat_service.end_isolated_battle(db, battle)
             story.combat_state = None
             db.commit()
             rewards = map_service.finish_hunt(
@@ -679,15 +683,11 @@ class StoryCombatView(OwnedView):
             return
         self.ultimate_button.disabled = not actor.ultimate_ready()
         self.ultimate_button.label = combat_ui.ultimate_button_label(actor)
-        options = []
-        for ability in actor.active_abilities:
-            ready = actor.ability_ready(ability)
-            unit = "SP" if ability["resource_type"] == "mana" else "EN"
-            status = "Ready" if ready else f"{ability['resource_cost']} {unit}"
-            options.append(discord.SelectOption(
-                label=f"{ability['name']} -- {status}"[:100],
-                value=ability["id"], description=ability["description"][:100],
-            ))
+        # Was building its own label, which showed the word "Ready" in
+        # place of the cost and dropped the source icon and cooldown that
+        # adventure mode showed -- the same fight described two different
+        # ways depending on which menu you entered it from.
+        options = combat_ui.ability_select_options(actor)
         if options:
             self.add_item(_StoryAbilitySelect(options, self.combat_handler))
 
@@ -770,13 +770,13 @@ async def _story_combat_action(interaction: discord.Interaction, action: str,
             state = story_service.current_beat(db, player)
             beat = state[1] if state else {}
             won = battle.result == "won"
-            # Write HP back: downed characters get up at 1 HP after a
-            # fight the squad survived, and a WIPE writes 0 through so the
-            # roster actually shows them dead. Story fights start at full
-            # HP regardless (see _open_battle), so this costs the player
-            # nothing mechanically -- it just stops the display lying
-            # about who is standing.
-            combat_service.sync_party_hp_to_characters(db, battle)
+            # This used to write the fight's HP back to PlayerCharacter so
+            # the roster would show who fell. It cost the player nothing
+            # inside story mode -- and ended any expedition they had open,
+            # because that row IS the expedition's saved HP. The defeat
+            # screen already reports the fallen from the Battle object.
+            # See combat_service.end_isolated_battle.
+            combat_service.end_isolated_battle(db, battle)
             story.combat_state = None
             db.commit()
             if won:

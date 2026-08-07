@@ -638,10 +638,21 @@ def sustain_scale(passive: dict) -> float:
 # times over. Diminishing it means one Support DPS opens a target up
 # almost as well as two, so the class is a slot rather than a stack:
 #
-#     1 debuffed stat  +30%    2 stats  +45%    3 stats  +52%
+# RE-CUT once fights got longer. Exposure is an always-on multiplier with
+# no duration of its own beyond the debuffs feeding it, so its value
+# grows with fight length -- and once the enemy HP curve made deep-region
+# fights four or five times longer, a SECOND Support DPS (who covers a
+# second and third debuffed stat) became the best fourth slot in the
+# game at Abyssnia, beating one-of-each 50% to 40%. That is the original
+# stacking bug wearing a different class's clothes.
+#
+# Two stats is now the ceiling and the second is worth less, so a single
+# Support DPS collects the great majority of what the mechanic offers:
+#
+#     1 debuffed stat  +30%    2 stats  +42%    (3+ capped at 2)
 EXPOSED_DAMAGE_PERCENT = 30
-EXPOSED_STAT_FALLOFF = 0.5
-MAX_EXPOSED_DEBUFFS = 3
+EXPOSED_STAT_FALLOFF = 0.4
+MAX_EXPOSED_DEBUFFS = 2
 
 
 def exposed_bonus_percent(defender: Combatant) -> float:

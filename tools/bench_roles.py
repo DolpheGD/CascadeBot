@@ -157,19 +157,41 @@ def main() -> int:
     db.commit()
     by_name = {t.name: t for t in db.query(CharacterTemplate).all()}
 
-    generator = LootGenerator(rng=random.Random(99))
     gear_cache: dict = {}
 
     def kit(rarity, item_level, slots=5):
+        """A fixed loadout for (rarity, level), independent of when it was
+        first requested.
+
+        This used to draw from ONE shared RNG stream, which quietly made
+        the benchmark non-reproducible across invocations: the items a
+        squad got depended on the order regions and comps happened to be
+        evaluated in, so `--region Voidcrest` on its own produced
+        different gear than the same region inside a full sweep. Two runs
+        of the identical build then disagreed by 25 points of clear rate,
+        which is indistinguishable from a balance change and was very
+        nearly read as one.
+
+        Seeding per cache key makes a given (rarity, level) always
+        produce the same five items, so before/after comparisons differ
+        only by the thing being compared.
+        """
         key = (rarity, item_level, slots)
         if key not in gear_cache:
+            # NOT hash(): Python randomises string hashing per process
+            # unless PYTHONHASHSEED is pinned, so seeding off it makes
+            # every invocation draw different gear -- the same
+            # irreproducibility this is meant to remove, just with a
+            # different cause. Rarity.sort_order is a stable small int.
+            seed = (rarity.sort_order * 10_000) + (item_level * 100) + slots
+            seeded = LootGenerator(rng=random.Random(seed))
             items = []
             for _ in range(slots):
                 tpl = item_template_service.pick_random_template(
-                    db, rng=generator.rng, rarity=rarity)
+                    db, rng=seeded.rng, rarity=rarity)
                 if tpl is None:
                     continue
-                items.append(generator.generate_item(
+                items.append(seeded.generate_item(
                     tpl, player_id=1, item_level=item_level, rarity_override=rarity))
             gear_cache[key] = items
         return list(gear_cache[key])
@@ -248,7 +270,13 @@ def main() -> int:
         return True
 
     def fight(party, enemy_list, rng):
-        battle = Battle(party, enemy_list)
+        # `rng` is passed to the Battle, not just used for ability picks.
+        # Without it Battle falls back to random.Random() seeded from OS
+        # entropy, so every crit, every debuff roll and every enemy intent
+        # in the entire benchmark was unseeded -- two runs of the SAME
+        # build differed by 10 points of clear rate, which is larger than
+        # most of the balance changes being measured.
+        battle = Battle(party, enemy_list, rng=rng)
         for _ in range(600):
             if battle.is_over():
                 break

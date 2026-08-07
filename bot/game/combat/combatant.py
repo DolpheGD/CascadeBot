@@ -84,24 +84,79 @@ ULTIMATE_COOLDOWN = 2
 # so spamming one Amplifier's skill can't dodge the rule either.
 #
 # Note what this does NOT touch, all on purpose:
-#   * DEBUFFS stack in full (see below). DEF shred, vulnerability marks
-#     and break are the Support DPS's multiplier, and they are now the
-#     only untaxed one in the game -- which is what makes that class a
-#     slot rather than a flavour.
+#   * DEBUFFS get their own, much gentler ladder (DEBUFF_STACK_FALLOFF).
+#     DEF shred, vulnerability marks and break are the Support DPS's
+#     multiplier and one of them should feel unrestricted -- but they
+#     were originally exempt ENTIRELY, and that stopped being safe once
+#     enemy defence scaled up. Two Support DPS could shred a target to
+#     roughly zero DEF between them, and "1 DPS + 2 Support DPS +
+#     Sustain" became the best squad at Voidcrest (69% against 60%).
+#     Same bug as stacked Amplifiers, one class over.
 #   * DEFENSIVE buffs are exempt (NO_FALLOFF_STATS), so Sustains stay
 #     whole.
 #   * A character's own ramping passives (stacking_buff, ramp_percent)
 #     are not StatModifiers and never enter the ladder, so a DPS still
 #     snowballs its own damage at full value.
 #
-# 0.45, not the 0.65 this started at. At 0.65 the second Amplifier still
-# beat the Support DPS for the same slot in the deepest region (52% vs
-# 40% clear rate over rotated squads), which is the original bug in
-# miniature -- doubling up on one support class was still the play. The
-# steeper ladder is paired with a matching rise in Amplifier magnitudes
-# (skills.py's AMPLIFIER_BUFF_MULTIPLIER), so the FIRST Amplifier is
-# unchanged by the two moves together and only the stacking is taxed.
+# THE LADDER IS AUTHORED, NOT GEOMETRIC, AND THAT IS THE WHOLE POINT.
+#
+# A geometric falloff (0.65, then 0.45) cannot tell the difference
+# between the two cases it most needs to separate:
+#
+#     one Amplifier pressing both of its buttons
+#     two Amplifiers pressing one each
+#
+# Both land two buffs, so both were taxed identically -- which meant
+# every attempt to make stacking worse also made a SINGLE Amplifier
+# worse, and every attempt to make one Amplifier good made three good
+# again. That tug-of-war is visible in this file's history: 0.65 left
+# doubling up as the best play, 0.45 fixed that and left the class as
+# the marginal slot at Voidcrest, where a squad that swapped its
+# Amplifier for a second attacker cleared 70% against 62%.
+#
+# An explicit ladder separates them. The first two entries are generous
+# because they are what ONE Amplifier brings -- a skill and an ultimate.
+# Everything after that falls off a cliff, because that is what a SECOND
+# Amplifier brings:
+#
+#     1st source 100%   2nd 80%   3rd 8%   4th 3%   5th+ 2%
+#
+# So one Amplifier is worth 1.8 buffs, three are worth 1.94 -- stacking
+# the class buys about 8% more amplification for two entire squad slots,
+# while the player who brings exactly one gets nearly all of it.
+#
+# The cliff also settles what happens to INCIDENTAL buffs -- a Support
+# DPS's crit-rate kit reaction, a buff rolled on a weapon. Ranked by
+# magnitude, those land at rank 2+ and are worth almost nothing next to
+# a real Amplifier's buttons. That is intended: buffing is the
+# Amplifier's job, and a squad without one should feel the absence
+# rather than paper over it with gear.
+BUFF_STACK_LADDER = (1.0, 0.8, 0.08, 0.03, 0.02)
+BUFF_STACK_LADDER_TAIL = 0.01
+
+# Kept for _stacked_percent's bare-list callers (serialisation
+# round-trips, tooling), which have no source information and so can't
+# use the ladder.
 BUFF_STACK_FALLOFF = 0.45
+
+
+def buff_stack_weight(rank: int) -> float:
+    """How much the Nth buff source counts for. See the ladder above."""
+    if rank < len(BUFF_STACK_LADDER):
+        return BUFF_STACK_LADDER[rank]
+    return BUFF_STACK_LADDER_TAIL
+
+
+# Debuffs to the SAME stat, ranked by size: 100%, 50%, 25%...
+#
+# Deliberately much gentler than the buff ladder, and applied per stat
+# rather than across all of them, because the two cases are different.
+# Buffs from three Amplifiers multiply one carry's damage without limit;
+# debuffs are self-limiting -- defence can only be stripped to zero --
+# so the FIRST shred should land in full and be worth building around.
+# What this stops is the second and third landing in full as well, which
+# is what turned doubling up on Support DPS into the best squad.
+DEBUFF_STACK_FALLOFF = 0.5
 
 # The stats that compete for the shared budget above: everything a buff
 # can touch that makes the squad hit HARDER. Kept as an explicit set
@@ -159,8 +214,13 @@ def amplified_percent(modifiers: list, stat: str) -> float:
     entries for `stat` -- seeing all of them at once is the entire point,
     since the budget is shared across stats.
     """
-    negatives = sum(m.percent for m in modifiers
-                    if m.stat == stat and m.percent <= 0)
+    # Debuffs on this stat, biggest first, each subsequent one halved.
+    negatives = 0.0
+    for index, modifier in enumerate(
+        sorted((m for m in modifiers if m.stat == stat and m.percent < 0),
+               key=lambda m: m.percent)
+    ):
+        negatives += modifier.percent * (DEBUFF_STACK_FALLOFF ** index)
 
     if stat in NO_FALLOFF_STATS:
         return negatives + sum(m.percent for m in modifiers
@@ -188,7 +248,7 @@ def amplified_percent(modifiers: list, stat: str) -> float:
             duplicate = seen.get(modifier.stat, 0)
             seen[modifier.stat] = duplicate + 1
             if modifier.stat == stat:
-                total += modifier.percent * (BUFF_STACK_FALLOFF ** (rank + duplicate))
+                total += modifier.percent * buff_stack_weight(rank + duplicate)
     return total
 
 

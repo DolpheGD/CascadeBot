@@ -354,9 +354,16 @@ async def _combat_action(interaction: discord.Interaction, action: str,
         if battle.is_over():
             deaths = sum(1 for m in battle.party if m.current_hp <= 0)
             cycles = getattr(battle, "cycle", 0) or 0
-            # Same rule as everywhere else: survive and the downed get up
-            # at 1 HP, wipe and the roster shows them at 0.
-            combat_service.sync_party_hp_to_characters(db, battle)
+            # An Abyss chamber builds its team with full_hp=True, so it is
+            # self-contained in exactly the way story fights are, and it
+            # had exactly the same bug: a lost chamber wrote 0 HP onto
+            # rows an open expedition was relying on. See
+            # combat_service.end_isolated_battle.
+            # No squad argument here: the Abyss fields a hand-picked team
+            # per chamber (see _open_battle), which is not the player's
+            # active squad, so the helper resolves the characters from
+            # the battle itself.
+            combat_service.end_isolated_battle(db, battle)
             state.combat_state = None
             db.commit()
             outcome = abyss_service.record_chamber_result(
