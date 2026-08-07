@@ -89,6 +89,13 @@ def _ensure_columns(conn):
     add_column("player_abyss", "run_flawless", "INTEGER DEFAULT 1")
     add_column("player_abyss", "run_fast", "INTEGER DEFAULT 1")
 
+    # Prestige -- see the block on Player. Existing players read as 0
+    # prestiges and a best level of 0; the first thing prestige_service
+    # does on a reset is raise best_level to the level being left behind,
+    # so nobody's history needs backfilling.
+    add_column("players", "prestige_count", "INTEGER DEFAULT 0")
+    add_column("players", "prestige_best_level", "INTEGER DEFAULT 0")
+
 
 def init_db():
     Base.metadata.create_all(bind=engine)

@@ -53,13 +53,31 @@ def _profile_overview_page(player, character, equipped_items, avatar_url, db=Non
         from bot.services import base_service
         base_service.apply_shrine_bonuses(db, player, [combatant])
 
+    # Prestige badges, if any. This is the ENTIRE mechanical payoff of
+    # prestiging -- see prestige_service, which deliberately grants no
+    # permanent stats -- so it goes in the title, where it's the first
+    # thing anyone looking at the profile sees.
+    from bot.services import prestige_service
+
+    badges = prestige_service.badge_text(player)
+    title = f"{player.username}'s Profile -- {character.display_name}"
+    if badges:
+        title = f"{badges} {title}"
+
     embed = discord.Embed(
-        title=f"{player.username}'s Profile -- {character.display_name}",
+        title=title[:256],
         description=f"Page 1/{PROFILE_PAGE_COUNT} -- {PROFILE_PAGE_TITLES[0]}",
-        color=discord.Color.blurple(),
+        color=discord.Color.gold() if badges else discord.Color.blurple(),
     )
     if avatar_url:
         embed.set_thumbnail(url=avatar_url)
+    if badges:
+        embed.add_field(
+            name="🔆 Prestige",
+            value=(f"Reset **{player.prestige_count}×** — best account level reached "
+                   f"**{player.prestige_best_level}**"),
+            inline=False,
+        )
 
     embed.add_field(name="⭐ Char. Level", value=f"{character.level}/{LEVEL_CAP}", inline=True)
     embed.add_field(name="✨ XP", value=f"{character.xp} / {character.xp_to_next_level()}", inline=True)

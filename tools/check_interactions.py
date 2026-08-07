@@ -44,7 +44,7 @@ COGS = pathlib.Path("bot/cogs")
 # Commands whose primary reply is private, and which must therefore
 # defer privately -- a public defer would leave a visible "thinking..."
 # placeholder attached to an answer nobody else should see.
-EPHEMERAL_PRIMARY = {"admin_boosterkit", "admin_reset", "help", "sell_rarity",
+EPHEMERAL_PRIMARY = {"admin_boosterkit", "reset", "help", "sell_rarity",
                      "gifts", "vote"}
 
 

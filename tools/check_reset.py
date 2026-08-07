@@ -1,5 +1,5 @@
 """
-Assert that /admin_reset really deletes everything.
+Assert that /reset really deletes everything.
 
     python -m tools.check_reset
 
@@ -123,12 +123,14 @@ def main() -> int:
         db.close()
 
     gates = _check_confirmation_gates(failures)
+    economy = _check_prestige_economy(failures)
 
     print(f"tables    : {len(cleared)} cleared, {len(reset_service.KEEP)} deliberately kept")
     print(f"populated : {len(inserted)} tables seeded for the victim")
     print(f"deleted   : {sum(deleted.values())} rows across {len(deleted)} tables")
     print(f"survivors : bystander intact in {len(survivors)} tables")
     print(f"gates     : {gates} ways to reach the delete without confirming, all refused")
+    print(f"prestige  : {economy}")
     print()
     if failures:
         for line in dict.fromkeys(failures):
@@ -137,6 +139,70 @@ def main() -> int:
     print("OK -- reset clears every player-owned table, leaves no orphans, "
           "and spares other players.")
     return 0
+
+
+def _check_prestige_economy(failures: list[str]) -> str:
+    """A prestige must never be worth more than the run it consumes.
+
+    This is the one way this feature can quietly break the whole game: if
+    resetting returns more value than playing produced, the optimal
+    strategy becomes rushing the cheapest milestone and resetting forever,
+    and every price in the economy is then wrong. It is also the kind of
+    bug that only shows up weeks later as "why does everyone have so many
+    shards", so it is asserted directly rather than trusted to a constant
+    somebody might raise.
+
+    Checked against the SHARD price of a pull, which is the scarcest
+    thing the bundle contains and therefore the thing worth farming.
+    """
+    from bot.game.economy.character_gacha_config import SINGLE_PULL_COST_SHARDS
+    from bot.services import prestige_service as prestige
+
+    class _FakePlayer:
+        def __init__(self, score_level: int, prestige_count: int = 0):
+            self.level = score_level
+            self.prestige_count = prestige_count
+
+    # preview_rewards only reads player.prestige_count and the score, so a
+    # stub plus a monkeypatched score covers the whole payout curve
+    # without needing a populated database per data point.
+    original = prestige.progress_score
+    checked = 0
+    try:
+        for score in (prestige.MIN_SCORE, 10_000, 50_000, 250_000):
+            prestige.progress_score = lambda db, player, _s=score: _s
+            reward = prestige.preview_rewards(None, _FakePlayer(99))
+            checked += 1
+
+            # The bundle's shard value must stay a fraction of the score
+            # that produced it. Gold is deliberately not weighed here --
+            # it is farmable and not what a reset loop would target.
+            if reward.shards > score * prestige.PAYOUT_FRACTION:
+                failures.append(
+                    f"prestige at score {score:,} pays {reward.shards} shards, more than "
+                    f"PAYOUT_FRACTION of the score -- a reset loop would out-earn playing"
+                )
+            # A single prestige must not hand back multiple pulls' worth
+            # at the minimum gate, or rushing the gate becomes the play.
+            if score == prestige.MIN_SCORE and reward.shards >= SINGLE_PULL_COST_SHARDS:
+                failures.append(
+                    f"prestige at the MINIMUM gate pays {reward.shards} shards -- a full "
+                    f"pull ({SINGLE_PULL_COST_SHARDS}) for the cheapest possible run"
+                )
+
+        # Repeat prestiges must diminish, or the loop is just slower.
+        prestige.progress_score = lambda db, player, _s=50_000: _s
+        first = prestige.preview_rewards(None, _FakePlayer(99, prestige_count=0))
+        second = prestige.preview_rewards(None, _FakePlayer(99, prestige_count=1))
+        if second.gold >= first.gold:
+            failures.append(
+                f"a second prestige pays {second.gold:,} gold against the first's "
+                f"{first.gold:,} -- repeats must diminish"
+            )
+    finally:
+        prestige.progress_score = original
+
+    return f"{checked} payout points checked, all below what they consume"
 
 
 def _check_confirmation_gates(failures: list[str]) -> int:
@@ -150,7 +216,7 @@ def _check_confirmation_gates(failures: list[str]) -> int:
     """
     import inspect
 
-    from bot.cogs import admin
+    from bot.cogs import account
 
     # Whether the real button actually consults code_accepted, read from
     # its source rather than assumed.
@@ -158,16 +224,16 @@ def _check_confirmation_gates(failures: list[str]) -> int:
     # Restating the guard condition here instead would make this test
     # pass whether or not the button still enforces it -- it would be
     # asserting that a copy of the rule behaves like itself. Reading the
-    # real callback means deleting the check from admin.py fails here,
+    # real callback means deleting the check from account.py fails here,
     # which is the only version of this test worth having.
-    _enforces_code = "code_accepted" in inspect.getsource(admin._ResetFinalView.confirm)
-    _enforces_expiry = "expired()" in inspect.getsource(admin._ResetFinalView.confirm)
+    _enforces_code = "code_accepted" in inspect.getsource(account._ResetFinalView.confirm)
+    _enforces_expiry = "expired()" in inspect.getsource(account._ResetFinalView.confirm)
 
     class _Clicker:
         """Stands in for the state the final button checks."""
 
         def __init__(self, **kwargs):
-            self.pending = admin._PendingReset(code="AB12")
+            self.pending = account._PendingReset(code="AB12", prestige=False)
             for key, value in kwargs.items():
                 setattr(self.pending, key, value)
 
@@ -185,10 +251,10 @@ def _check_confirmation_gates(failures: list[str]) -> int:
         "no code typed yet": _Clicker(),
         "code typed but window elapsed": _Clicker(
             code_accepted=True,
-            created_at=_Clicker().pending.created_at - admin.RESET_WINDOW_SECONDS - 1,
+            created_at=_Clicker().pending.created_at - account.RESET_WINDOW_SECONDS - 1,
         ),
         "prompt left open too long": _Clicker(
-            created_at=_Clicker().pending.created_at - admin.RESET_WINDOW_SECONDS - 1,
+            created_at=_Clicker().pending.created_at - account.RESET_WINDOW_SECONDS - 1,
         ),
     }
     for label, clicker in cases.items():
@@ -206,7 +272,7 @@ def _check_confirmation_gates(failures: list[str]) -> int:
         )
 
     # A wrong code must never mark the reset as confirmed.
-    pending = admin._PendingReset(code="AB12")
+    pending = account._PendingReset(code="AB12", prestige=False)
     if pending.code_accepted:
         failures.append("a fresh reset starts out already confirmed")
 

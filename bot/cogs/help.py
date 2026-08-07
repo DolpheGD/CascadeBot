@@ -57,7 +57,11 @@ _PAGES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
                 "`/class` — switch your avatar between DPS / Support DPS / Amplifier / Sustain\n"
                 "`/rename` — name your avatar\n"
                 "`/profile` — your account: level, roster, power and currencies\n"
-                "`/characters` — any character's full stats, equipment and abilities",
+                "`/characters` — any character's full stats, equipment and abilities\n"
+                "`/reset` — start over. **Clean** wipes everything; **Prestige** wipes it "
+                "too but hands back gold, shards, lootboxes and materials scaled to how "
+                "far you got, plus a 🔆 badge. Prestige unlocks once you've made real "
+                "progress, and always pays back less than the run it replaces.",
             ),
             (
                 "Where to fight",

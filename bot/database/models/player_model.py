@@ -142,6 +142,32 @@ class Player(Base):
     recharge: Mapped[int] = mapped_column(Integer, default=5)     # energy AND mana gained per basic attack
     max_energy: Mapped[int] = mapped_column(Integer, default=50)  # ultimates trigger at 50 energy
 
+    # ------------------------------------------------------------------
+    # PRESTIGE -- the only thing that survives a reset.
+    #
+    # /reset wipes the account by DELETING these rows outright (see
+    # player_reset_service for why blanking them in place doesn't work),
+    # so anything meant to persist across a prestige has to be read off
+    # the old row first and written onto the new one. These two columns
+    # are that payload, and they are deliberately the whole of it:
+    #
+    #   prestige_count          how many times this player has prestiged.
+    #                           Drives the badge on /profile -- the proof
+    #                           they did it, which is all it is. It grants
+    #                           NO stat bonus, by design: a reset that
+    #                           makes you permanently stronger turns into
+    #                           a treadmill everyone is obliged to ride.
+    #   prestige_best_level     the highest account level ever reached,
+    #                           across all lives. Kept because the badge
+    #                           should reflect the best run rather than
+    #                           the most recent one, and because a player
+    #                           who prestiges from level 60 has done
+    #                           something a player who prestiges from the
+    #                           minimum has not.
+    # ------------------------------------------------------------------
+    prestige_count: Mapped[int] = mapped_column(Integer, default=0)
+    prestige_best_level: Mapped[int] = mapped_column(Integer, default=0)
+
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
