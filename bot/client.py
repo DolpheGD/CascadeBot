@@ -57,7 +57,16 @@ class CascadeBot(commands.Bot):
             return
         if isinstance(error, app_commands.CheckFailure):
             return  # already reported to the user by the check itself
-        raise error
+
+        # Anything else: tell the player, then log it. This used to
+        # re-raise, which logged a traceback and left the player staring
+        # at a command that silently did nothing -- see
+        # responses.report_failure for why a dead end with no message is
+        # the worst available outcome.
+        from bot.utils import responses
+
+        name = interaction.command.qualified_name if interaction.command else "?"
+        await responses.report_failure(interaction, original, where=f"/{name}")
 
     async def setup_hook(self):
         logger.info("Initializing database...")

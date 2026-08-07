@@ -170,4 +170,38 @@ def reset(db, player_id: int) -> dict[str, int]:
         deleted[Player.__tablename__] = 1
 
     db.commit()
+
+    # DROP THE DELETED ROWS FROM THE SESSION'S IDENTITY MAP.
+    #
+    # The deletes above are raw SQL on the connection, which the ORM
+    # never sees, so the session goes on tracking objects for rows that
+    # no longer exist.
+    #
+    # Worth being precise about what this does and doesn't fix, because
+    # the obvious claim is wrong. It does NOT stop stale reads: .query()
+    # always issues SQL, and the commit above expires every object in the
+    # session anyway, so a later read re-fetches regardless. What it
+    # fixes is REBUILDING on the same session -- prestige_service.perform
+    # recreates the account immediately, the new avatar takes the primary
+    # key of a deleted one still being tracked, and SQLAlchemy warns that
+    # it is "replacing an identity". Observed exactly that way while
+    # testing the prestige flow.
+    #
+    # expunge_all(), not expire_all(). Expiring marks the objects stale
+    # but LEAVES THEM IN the identity map, so rebuilding the account
+    # immediately afterwards collides with the corpses:
+    #
+    #   SAWarning: Identity map already had an identity for
+    #   (PlayerCharacter, (1,)), replacing it with newly flushed object
+    #
+    # -- which is SQLAlchemy noticing that the new avatar has the same
+    # primary key as a deleted one it is still holding. Dropping them
+    # outright is what actually leaves a clean session.
+    #
+    # The trade-off is that anything the caller still holds from before
+    # the reset becomes detached. That is correct: those objects describe
+    # rows that no longer exist, and a loud DetachedInstanceError is a
+    # better outcome than silently serving deleted data. Everything in
+    # this codebase re-fetches after a reset (see prestige_service.perform).
+    db.expunge_all()
     return deleted

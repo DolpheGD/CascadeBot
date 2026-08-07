@@ -122,6 +122,38 @@ async def send(interaction: discord.Interaction, *args, **kwargs) -> None:
         raise
 
 
+FAILURE_MESSAGE = (
+    "⚠️ Something went wrong handling that, and it wasn't your fault. "
+    "Nothing was lost — try again in a moment."
+)
+
+
+async def report_failure(interaction: discord.Interaction, error: BaseException,
+                         where: str = "") -> None:
+    """Tell the player an action failed, and log the reason.
+
+    WHY THIS EXISTS. When a handler raises -- a database error, a bug,
+    anything -- discord.py logs "Ignoring exception in view" and the
+    interaction is simply never answered. The player is left looking at a
+    component that did nothing, with no indication whether it worked, and
+    (because the token stays unanswered) every one of their next few
+    actions can pile up behind it. Observed exactly that way: one
+    `disk I/O error` on a commit, followed by a minute of "interaction
+    expired" for unrelated commands.
+
+    A dead end with no message is the worst possible outcome, because the
+    player's only reasonable response is to press the thing again. So
+    every unhandled failure now ends in a sentence, and the traceback
+    still goes to the log where it belongs.
+    """
+    log.exception("unhandled failure in %s%s", where or _describe(interaction),
+                  f" ({type(error).__name__})" if error else "")
+    try:
+        await send(interaction, FAILURE_MESSAGE, ephemeral=True)
+    except Exception:  # noqa: BLE001 -- reporting must never raise in turn
+        log.warning("could not deliver the failure notice for %s", _describe(interaction))
+
+
 async def edit(interaction: discord.Interaction, *args, **kwargs) -> None:
     """Edit the message a COMPONENT is attached to.
 

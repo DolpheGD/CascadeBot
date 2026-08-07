@@ -70,6 +70,23 @@ class OwnedView(discord.ui.View):
         await interaction.response.send_message(NOT_YOUR_MENU, ephemeral=True)
         return False
 
+    async def on_error(self, interaction: discord.Interaction,
+                       error: Exception, item) -> None:
+        """Every component in the bot inherits this, which is the point.
+
+        discord.py's default is to log "Ignoring exception in view" and
+        leave the interaction unanswered -- so a failed button looks
+        identical to a button that did nothing, and the unanswered token
+        drags the player's next few actions down with it. Routing it
+        through responses.report_failure means the player always gets a
+        sentence back, and the traceback still reaches the log.
+        """
+        from bot.utils import responses
+
+        await responses.report_failure(
+            interaction, error, where=f"{type(self).__name__}/{getattr(item, 'custom_id', item)}",
+        )
+
 
 async def check_owner(interaction: discord.Interaction, owner_id: int) -> bool:
     if interaction.user.id == owner_id:

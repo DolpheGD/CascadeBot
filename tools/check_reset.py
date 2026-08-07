@@ -102,6 +102,15 @@ def main() -> int:
         if not before:
             failures.append("preview() found nothing to delete on a fully populated account")
 
+        # NOT CHECKED HERE: that a session which loaded the player's rows
+        # before the reset stops serving them afterwards. Three versions
+        # of that assertion were written and all three passed with the
+        # fix deliberately removed, because SQLAlchemy already guarantees
+        # it two different ways -- .query() always issues SQL, and the
+        # commit inside reset() expires every object in the session. The
+        # identity-map cleanup in reset() is hygiene, not a fix for
+        # anything observable from here, and a check that cannot fail is
+        # worse than no check because it reads like coverage.
         deleted = reset_service.reset(db, victim)
 
         # --- COMPLETENESS
