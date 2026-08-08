@@ -6,10 +6,28 @@ all played entirely through slash commands and buttons.
 
 ## Setup
 
+**The short version:** get a bot token (step 2 below), then run
+`./run.sh` on Linux/macOS or `run.bat` on Windows. It creates the virtual
+environment, installs dependencies, migrates the database and starts the
+bot, and it's safe to run every time -- it only does the work that's
+actually needed. It'll copy `.env.example` to `.env` and stop to tell you
+where to paste the token.
+
+```bash
+./run.sh              # set up if needed, then start
+./run.sh --check      # run the tools/check_*.py suite instead of starting
+./run.sh --update     # force-reinstall requirements.txt
+./run.sh --no-migrate # skip the schema migration step
+```
+
+The rest of this section is what those scripts do, for when you want to
+do it by hand or something goes wrong.
+
 1. **Install dependencies**
 
    ```bash
-   pip install -r requirements.txt
+   python3 -m venv .venv
+   .venv/bin/python -m pip install -r requirements.txt   # Windows: .venv\Scripts\python.exe
    ```
 
 2. **Create a Discord application**
@@ -32,11 +50,12 @@ all played entirely through slash commands and buttons.
    Fill in `.env`:
    - `DISCORD_TOKEN` -- from step 2.
    - `DATABASE_URL` -- defaults to a local `Cascadebot.db` SQLite file, fine for a test server.
-   - `DEV_MODE=True` + `SERVER_ID=<your test server's ID>` -- makes slash
-     commands sync instantly to that one server instead of waiting up to an
-     hour for global propagation. **Recommended for testing.** Set
-     `DEV_MODE=False` (and remove `SERVER_ID`) once you're ready for the
-     bot to run in multiple servers.
+   - `DEV_MODE` + `SERVER_ID` -- **set both or neither**; the bot refuses
+     to start with one without the other. `DEV_MODE=True` plus your test
+     server's ID makes slash commands sync instantly to that one server
+     instead of waiting up to an hour for global propagation, which is
+     strongly recommended while testing. The template ships with
+     `DEV_MODE=False` so a fresh copy boots as-is.
 
 4. **Enable top.gg voting** *(optional)*
 
@@ -63,12 +82,17 @@ all played entirely through slash commands and buttons.
 5. **Run**
 
    ```bash
-   python start_bot.py
+   .venv/bin/python start_bot.py
    ```
 
    On first run this creates all database tables and seeds the starter
    character/item/harvester/lootbox catalogs automatically -- no manual
    migration step.
+
+   When *upgrading* an existing database rather than creating one, run
+   `python -m tools.migrate_db` first (`--dry-run` to see what it would do
+   without touching anything). It backs up before it starts. `run.sh` /
+   `run.bat` do this for you on every launch.
 
 ## Playing
 
