@@ -109,7 +109,29 @@ BEGINNER_QUESTS: list[dict] = [
     },
 ]
 
-BEGINNER_BONUS_REWARD: dict[str, int] = {"shards": 900}
+# ----------------------------------------------------------------------
+# THE POST-TUTORIAL TEN-PULL.
+#
+# 1,200 shards is exactly ten pulls, which is the shape every gacha uses
+# to end its tutorial: you finish the introduction and you get one full
+# multi, so your first real roster decision is made with a handful of
+# characters rather than one.
+#
+# It is deliberately NOT paid on a timer or by playing -- it is paid for
+# finishing all eight beginner objectives, which between them require
+# winning a fight, running an expedition, levelling gear, pulling, buying
+# a harvester, opening a box and beating an elite. A player who has done
+# all of that has seen the whole game and earned a real roster.
+#
+# Worth recording that this was briefly cut to 240, on the theory that a
+# 900-shard lump was drowning the prologue's own pacing. That diagnosis
+# was wrong: the ~480 shards a new player was finishing the prologue with
+# came from the PROLOGUE (four deliberate 120-shard grants), not from
+# here. Cutting this fixed nothing and made the tutorial payout worse, so
+# it is not only restored but raised to the round number it should always
+# have been.
+# ----------------------------------------------------------------------
+BEGINNER_BONUS_REWARD: dict[str, int] = {"shards": 1200}
 
 
 # ----------------------------------------------------------------------

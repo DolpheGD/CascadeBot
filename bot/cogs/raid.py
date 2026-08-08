@@ -119,6 +119,7 @@ class RaidSummonButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cas
             embed = embedder.raid_status_embed(
                 raid, raid_service.leaderboard(db, raid), viewer_id=player.id,
                 attacks_left=raid_service.attacks_remaining(db, raid, player),
+                next_attack_in=raid_service.time_until_next_attack(db, raid, player),
             )
             # Sent to the channel rather than edited in place: a summon is
             # a server-wide event, and the whole point is that other
@@ -183,6 +184,7 @@ class _RaidJoinSelect(discord.ui.Select):
             embed = embedder.raid_status_embed(
                 raid, raid_service.leaderboard(db, raid), viewer_id=player.id,
                 attacks_left=raid_service.attacks_remaining(db, raid, player),
+                next_attack_in=raid_service.time_until_next_attack(db, raid, player),
             )
         finally:
             db.close()
@@ -607,6 +609,7 @@ async def _handle_raid_refresh(interaction: discord.Interaction):
         embed = embedder.raid_status_embed(
             raid, raid_service.leaderboard(db, raid), viewer_id=player.id,
             attacks_left=raid_service.attacks_remaining(db, raid, player),
+            next_attack_in=raid_service.time_until_next_attack(db, raid, player),
         )
         await responses.edit(interaction,
             embed=embed, view=RaidActionView(defeated=raid.status == "defeated")

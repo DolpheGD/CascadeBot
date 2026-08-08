@@ -23,6 +23,7 @@ from bot.game.economy.raid_config import (
 from bot.utils.embedder._shared import _bar, fit_field
 from bot.services.currency_service import currency_emoji
 from bot.utils.names import shorten
+from bot.utils.time_utils import describe_wait
 
 MEDALS = ["🥇", "🥈", "🥉"]
 
@@ -168,7 +169,8 @@ def raid_board_embed(active: list, my_tier: dict | None, roster_levels: int,
 
 
 def raid_status_embed(raid, participants: list, viewer_id: int | None = None,
-                      attacks_left: int | None = None) -> discord.Embed:
+                      attacks_left: int | None = None,
+                      next_attack_in=None) -> discord.Embed:
     """The live raid board: shared HP, who's contributed what, and the
     viewer's own standing."""
     tier = get_tier(raid.tier) or {}
@@ -208,11 +210,19 @@ def raid_status_embed(raid, participants: list, viewer_id: int | None = None,
         )
 
     if attacks_left is not None and not defeated:
-        embed.add_field(
-            name="Your attacks",
-            value=f"{attacks_left} / {attacks_per_player(tier)} remaining",
-            inline=True,
-        )
+        # The cooldown belongs on the BOARD, not just in the rejection
+        # message. It used to be 45 seconds, where nobody could hit it by
+        # accident; at five hours (see raid_config.ATTACK_COOLDOWN) a player
+        # who only sees "3 remaining" will click, get bounced, and read that
+        # as the button being broken. Showing the wait next to the count
+        # makes the number honest: attacks you HAVE vs. attacks you can take
+        # right now are different things once the gate is real.
+        value = f"{attacks_left} / {attacks_per_player(tier)} remaining"
+        if next_attack_in is not None and attacks_left > 0:
+            value += f"\n⏳ next in {describe_wait(next_attack_in)}"
+        elif attacks_left > 0:
+            value += "\n✅ ready now"
+        embed.add_field(name="Your attacks", value=value, inline=True)
 
     # What the viewer is currently on track to be paid.
     #

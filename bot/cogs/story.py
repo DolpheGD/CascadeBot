@@ -558,14 +558,24 @@ async def _interact(interaction: discord.Interaction):
         # Refusals answer ON the map, not as a separate ephemeral. An
         # ephemeral for "that's locked" is a second message the player
         # has to dismiss to see the thing it's talking about.
+        # Refusals answer ON the map, not as a separate ephemeral. An
+        # ephemeral for "that's locked" is a second message the player
+        # has to dismiss to see the thing it's talking about.
+        #
+        # `kind` becomes "readout" rather than "note" -- these results
+        # carry no name/emoji/text triple, and reusing "note" sent them
+        # through the real note branch below, which reads result["name"]
+        # and raised KeyError on every locked door and empty tile in the
+        # game. Distinct kind, no fallthrough.
         if kind == "nothing":
             note = {"emoji": "👀", "name": "Nothing here",
                     "text": "You look around. Nothing worth the effort."}
-            kind = "note"
+            kind = "readout"
         elif kind in ("locked", "done", "spent"):
             note = {"emoji": "🔒" if kind == "locked" else "✅",
-                    "name": result.get("name", ""), "text": result["text"]}
-            kind = "note"
+                    "name": result.get("name") or ("Locked" if kind == "locked" else "Done"),
+                    "text": result.get("text") or ""}
+            kind = "readout"
 
         if kind == "cache":
             note = {

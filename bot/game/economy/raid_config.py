@@ -43,11 +43,13 @@ import datetime as dt
 # PACING DEFAULTS.
 #
 # Each of these four is a DEFAULT that any tier may override with a key
-# of the same lowercase name (see the accessors further down, and the
-# Rift Patrol tier, which overrides all four). They're what decides how
-# long a raid takes in wall-clock time, and a starter raid and a
-# week-long endgame raid want very different answers -- a raid that a
-# new server can't finish inside a sitting is a raid they watch expire.
+# of the same lowercase name (see the accessors further down; the three
+# lowest tiers override the attack pacing to stay finishable in one
+# sitting). They're what decides how long a raid takes in wall-clock
+# time, and a starter raid and an endgame raid want very different
+# answers -- a raid a new server can't finish inside a sitting is a raid
+# they watch expire, while an endgame raid one person can finish inside
+# a sitting isn't a raid at all.
 # ----------------------------------------------------------------------
 
 # How long a raid stays open before expiring unbeaten.
@@ -68,7 +70,10 @@ RAID_DURATION = dt.timedelta(days=1)
 # Attacks one player may spend on one raid. The scarcity is the whole
 # reason a raid is cooperative: nobody can clear the pool alone, so a
 # server either coordinates or doesn't finish.
-MAX_ATTACKS_PER_PLAYER = 10
+#
+# FIVE, down from ten, because ten was never the real limit -- the
+# cooldown was, and it wasn't limiting anything. See ATTACK_COOLDOWN.
+MAX_ATTACKS_PER_PLAYER = 5
 
 # Sizing assumption for the HP pool -- see the module docstring. Tuned
 # low on purpose: most Discord servers running a bot like this have a
@@ -78,21 +83,25 @@ EXPECTED_PARTICIPANTS = 4
 
 # Cooldown between one player's attacks.
 #
-# Was 10 minutes, which was solving the wrong problem. The worry was that
-# the fastest clicker would monopolise the contribution table before
-# anyone else saw the announcement -- but ATTACKS are already the scarce
-# resource, and rewards are paid by SHARE of damage, so someone spending
-# all ten immediately doesn't take anything from anyone; they just finish
-# early and stop. What ten minutes actually did was make a raid
-# unfinishable in one sitting: a player with 10 attacks was looking at
-# 90 minutes of waiting, and most of them simply never came back for the
-# rest.
+# FIVE HOURS, up from forty-five seconds, and this is a deliberate
+# reversal of an earlier decision that is worth explaining rather than
+# quietly overwriting.
 #
-# 45 seconds keeps the one thing worth keeping -- you can't macro through
-# a whole raid in five seconds, and a fight you're losing badly still
-# costs you a beat to reconsider -- while letting a raid be a thing you
-# sit down and do.
-ATTACK_COOLDOWN = dt.timedelta(seconds=45)
+# 45s was chosen so a raid could be "a thing you sit down and do" -- the
+# 10-minute cooldown before it left players waiting 90 minutes and most
+# never came back. That reasoning was right about the problem and wrong
+# about the scale. At 45 seconds one player could spend all ten attacks
+# in EIGHT MINUTES, take the top contribution band outright, and be gone
+# before anyone else in the server opened Discord. A co-op feature where
+# the first person awake wins is not co-op; it is a race with extra
+# steps.
+#
+# Five hours with five attacks fits a raid's 24-hour life almost exactly:
+# you check in a few times across a day, and there is always room left
+# for someone else to contribute. The rewards go up to match (see
+# RAID_TIERS) -- fewer, scarcer attacks that each pay properly, rather
+# than a sprint nobody else can join.
+ATTACK_COOLDOWN = dt.timedelta(hours=5)
 
 # ----------------------------------------------------------------------
 # BOSS HP MULTIPLIER -- and the bug it fixes.
@@ -303,16 +312,25 @@ RAID_TIERS: list[dict] = [
         # understands.
         #
         # So this tier is deliberately small in every dimension at once --
-        # that's why the four pacing values are overridden together rather
-        # than just dropping the HP:
+        # that's why the pacing values are overridden together rather than
+        # just dropping the HP:
         #   * 2 expected participants and 4 attacks each -> an 8-attack
         #     pool, so a PAIR can finish it, and one determined player gets
         #     most of the way alone.
-        #   * a 3-minute attack cooldown instead of 10, so those 4 attacks
-        #     fit inside one sitting rather than an afternoon.
-        #   * 2 days instead of 7, because only one raid runs per server:
-        #     a starter raid that lingers all week is a starter raid that
-        #     BLOCKS the real ones.
+        #   * a 20-second attack cooldown instead of the global five hours,
+        #     so those 4 attacks fit inside one sitting.
+        #
+        # That last override is the one worth defending, because the global
+        # ATTACK_COOLDOWN exists specifically to stop one player consuming a
+        # raid alone -- and here, that is exactly what's allowed to happen.
+        # The reason the exploit doesn't matter at the bottom of the ladder
+        # is the PAYOUT: top contribution on this tier is 30 shards, a
+        # quarter of a single pull. Skirmish and Incursion keep fast
+        # cooldowns for the same reason and stop at 0.5 and 0.9 pulls.
+        # Nothing below Standard is worth farming, so nothing below Standard
+        # needs a gate -- these three are where a server LEARNS what a raid
+        # is, and learning shouldn't take a day. The gate starts at Standard,
+        # which is where the shard economy actually starts.
         #
         # Rewards are deliberately generous FOR THIS LEVEL -- see the
         # REWARDS block below.
@@ -339,7 +357,7 @@ RAID_TIERS: list[dict] = [
         "description": "A quick first raid. Two people can finish it in one sitting.",
         "rewards": {
             "gold": 900,
-            "shards": 8,
+            "shards": 12,
             "wood": 150,
             "stone": 150,
             "metal": 40,
@@ -386,7 +404,7 @@ RAID_TIERS: list[dict] = [
         "description": "A step up from the patrol. Three people, one evening.",
         "rewards": {
             "gold": 1_700,
-            "shards": 16,
+            "shards": 24,
             "wood": 220,
             "stone": 220,
             "metal": 90,
@@ -414,7 +432,7 @@ RAID_TIERS: list[dict] = [
         "description": "The first raid that really wants a full server.",
         "rewards": {
             "gold": 2_900,
-            "shards": 28,
+            "shards": 42,
             "crystal": 45,
             "metal": 140,
             "xendium": 18,
@@ -447,11 +465,11 @@ RAID_TIERS: list[dict] = [
         # solve. 60 is about four level-15 characters: reachable within a
         # first session or two, so this is a "next step", not a wall.
         "min_roster_levels": 150,
-        "description": "The standard server raid. A few days of chipping away.",
+        "description": "The standard server raid. A day of chipping away, a few attacks at a time.",
         "rewards": {
             # Multiplied by the player's contribution tier below.
             "gold": 5_600,
-            "shards": 55,
+            "shards": 83,
             "crystal": 85,
             "xendium": 36,
             "reroll_tokens": 35,
@@ -477,10 +495,10 @@ RAID_TIERS: list[dict] = [
         "boss_hp_multiplier": 11.0,
         "hp_per_attack": 10_000,
         "min_roster_levels": 300,
-        "description": "A tougher boss and a much bigger pool. Bring the server.",
+        "description": "A tougher boss and a much bigger pool. Bring the server -- nobody clears this on their own attacks.",
         "rewards": {
             "gold": 17_000,
-            "shards": 140,
+            "shards": 210,
             "crystal": 220,
             "xendium": 110,
             "void": 50,
@@ -518,7 +536,7 @@ RAID_TIERS: list[dict] = [
         "description": "Xender himself. The hardest thing in the game.",
         "rewards": {
             "gold": 44_000,
-            "shards": 320,
+            "shards": 480,
             "crystal": 520,
             "xendium": 280,
             "void": 160,

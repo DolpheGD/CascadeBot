@@ -224,12 +224,19 @@ CHAPTERS: list[dict] = [
                         ),
                     },
                     {
+                        # ONE enemy, not two. You are alone and level 2 here:
+                        # two bodies act twice a cycle against your one and
+                        # the fight is lost to arithmetic before skill gets
+                        # a say. Measured at a 0% win rate over 60 runs --
+                        # see tools/check_story.py's solo-prologue check,
+                        # which now models the roster you ACTUALLY have
+                        # rather than a fabricated party of four.
                         "kind": "battle",
-                        "enemies": ["Concussion Drone", "Xender Recon Scout"],
-                        "level": 3,
-                        "intro": "Two of them. They've noticed each other and decided you're the odd one out.",
+                        "enemies": ["Concussion Drone"],
+                        "level": 2,
+                        "intro": "It comes down the corridor at a walk, which is somehow worse.",
                         "on_win": (
-                            "The scout goes down last, and takes a long moment about it.\n\n"
+                            "It goes down hard and takes a long moment about it.\n\n"
                             "In the quiet afterwards you can hear the building settling — "
                             "a sound like a very large animal getting comfortable."
                         ),
@@ -473,6 +480,22 @@ CHAPTERS: list[dict] = [
                             "paragraph about the numbers being rude."
                         ),
                     },
+                    {
+                        # EXACTLY ONE PULL. The prologue is balanced around
+                        # the roster it has actually handed over, and at
+                        # this point that is the avatar plus whoever this
+                        # buys -- see tools/check_story.py, which measures
+                        # every prologue fight against that party rather
+                        # than a hypothetical four.
+                        "kind": "reward",
+                        "text": (
+                            "Jofrog produces a shard case with the air of a man who has "
+                            "been holding it for eleven hours.\n\n"
+                            "\"This is one pull. I have checked. I checked twice, and "
+                            "then I checked that I had checked.\""
+                        ),
+                        "grant": {"shards": 120},
+                    },
                 ],
             },
             {
@@ -669,7 +692,7 @@ CHAPTERS: list[dict] = [
                     {
                         "kind": "reward",
                         "text": "The clipboard comes with a starting float. It is not generous.",
-                        "grant": {"gold": 900, "metal": 30, "lootbox": "uncommon"},
+                        "grant": {"gold": 900, "metal": 30, "lootbox": "uncommon", "shards": 120},
                     },
                 ],
             },
@@ -716,7 +739,8 @@ CHAPTERS: list[dict] = [
                     {
                         "kind": "reward",
                         "text": "The relay's service cache pops open at your feet, unprompted, like a tip.",
-                        "grant": {"item": "rare", "gold": 700, "crystal": 20, "lootbox": ("rare", 2)},
+                        "grant": {"item": "rare", "gold": 700, "crystal": 20, "lootbox": ("rare", 2),
+                                  "shards": 120},
                     },
                     {
                         "kind": "dialogue",

@@ -418,6 +418,49 @@ def _check_maps() -> list[str]:
     return failures
 
 
+# ----------------------------------------------------------------------
+# HOW MANY CHARACTERS DOES THE PLAYER ACTUALLY HAVE?
+#
+# The climax check below simulates every fight against a FABRICATED party
+# of four, which is right for a chapter and catastrophically wrong for a
+# prologue: for the first three missions the player has ONE level-1
+# character, because /pull hasn't been unlocked yet.
+#
+# That gap shipped an unwinnable game. The prologue's second fight was
+# two enemies at level 3 against a solo level-2 avatar -- measured at a
+# 0% win rate over 60 runs -- and the checker reported it as costing "2%"
+# of a squad's health, because it was pricing a party that did not exist.
+#
+# So the prologue is measured against the roster the script itself hands
+# out: count the `character` grants and `pull` unlocks that happen BEFORE
+# each fight, and assume a player who has pulled once per 120 shards
+# granted. Anything the story hasn't given you yet, you don't have.
+# ----------------------------------------------------------------------
+SHARDS_PER_PULL = 120
+
+
+def _roster_before(missions: list[dict], upto_mission: str, upto_beat: int) -> tuple[int, int]:
+    """(characters, rough level) the player holds at that point."""
+    characters = 1        # the avatar, granted by /start
+    shards = 0
+    fights = 0
+    for mission in missions:
+        for index, beat in enumerate(mission["beats"]):
+            if mission["id"] == upto_mission and index >= upto_beat:
+                break
+            grant = beat.get("grant") or {}
+            if grant.get("character"):
+                characters += 1
+            shards += int(grant.get("shards", 0) or 0)
+            if beat.get("kind") == "battle":
+                fights += 1
+        if mission["id"] == upto_mission:
+            break
+    characters += shards // SHARDS_PER_PULL
+    # Levels come from fights, roughly one per two won.
+    return characters, 1 + fights // 2
+
+
 def _check_chapter_climaxes(failures: list[str]) -> list[tuple[str, str, float]]:
     """A chapter's LAST fight must be its hardest.
 
@@ -446,7 +489,7 @@ def _check_chapter_climaxes(failures: list[str]) -> list[tuple[str, str, float]]
     from bot.game.combat.factory import build_enemy_combatant
     from bot.game.story import story_config as sc
 
-    def squad(level: int) -> list:
+    def squad(level: int, size: int = 4) -> list:
         hp = 150 + level * 22
         return [
             Combatant(
@@ -457,13 +500,14 @@ def _check_chapter_climaxes(failures: list[str]) -> list[tuple[str, str, float]]
                             "max_hp": hp},
                 current_hp=hp, max_hp=hp, character_id=i + 1, level=level,
             )
-            for i in range(4)
+            for i in range(size)
         ]
 
-    def cost(enemies: list[str], level: int, squad_level: int, seeds: int = 24) -> float:
+    def cost(enemies: list[str], level: int, squad_level: int, size: int = 4,
+             seeds: int = 24) -> float:
         losses = []
         for seed in range(seeds):
-            party = squad(squad_level)
+            party = squad(squad_level, size)
             total = sum(m.max_hp for m in party)
             built = [build_enemy_combatant(get_template_by_name(n), level) for n in enemies]
             battle = Battle(party, built, rng=random.Random(seed))
@@ -477,6 +521,28 @@ def _check_chapter_climaxes(failures: list[str]) -> list[tuple[str, str, float]]
             standing = sum(max(0, m.current_hp) for m in battle.party)
             losses.append((total - standing) / total * 100)
         return sum(losses) / len(losses)
+
+    # THE PROLOGUE IS MEASURED AGAINST ITS REAL ROSTER, not against the
+    # party of four the loop below assumes. See _roster_before.
+    prologue = next((c for c in sc.CHAPTERS if c["id"] == "prologue"), None)
+    if prologue is not None:
+        for mission in prologue["missions"]:
+            for index, beat in enumerate(mission["beats"]):
+                if beat.get("kind") != "battle":
+                    continue
+                size, level = _roster_before(prologue["missions"], mission["id"], index)
+                share = cost(beat["enemies"], beat.get("level", 1), level, size) / 100
+                if share >= 1.0:
+                    failures.append(
+                        f"{mission['id']}: UNWINNABLE -- costs {share:.0%} of a "
+                        f"{size}-character level-{level} party, which is everything "
+                        f"they have at that point"
+                    )
+                elif share > 0.75:
+                    failures.append(
+                        f"{mission['id']}: costs {share:.0%} of a {size}-character "
+                        f"level-{level} party -- the prologue should not be a knife-edge"
+                    )
 
     measured: list[tuple[str, str, float]] = []
     for chapter in sc.CHAPTERS:
