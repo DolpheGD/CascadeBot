@@ -42,11 +42,12 @@ from bot.game.combat.enemies import get_template_by_name
 from bot.game.combat.factory import build_enemy_combatant, build_party_combatants
 from bot.game.economy.raid_config import (
     DEFAULT_RAID_DIFFICULTY,
+    MAX_ACTIVE_RAIDS_PER_GUILD,
+    PLAYER_SUMMON_COOLDOWN,
     RAID_DIFFICULTIES,
     difficulty_reward_bonus,
     RAID_TIERS,
     attack_cooldown,
-    summon_cooldown,
     attacks_per_player,
     boss_hp_multiplier,
     contribution_tier,
@@ -82,22 +83,40 @@ class RaidError(Exception):
 # Lifecycle
 # ----------------------------------------------------------------------
 
-def get_active_raid(db, guild_id: int) -> GuildRaid | None:
-    """The guild's current raid, expiring it first if its window has
-    passed. Returns None if there isn't one (or it just expired)."""
-    raid = (
+def list_active_raids(db, guild_id: int) -> list[GuildRaid]:
+    """Every raid still running in this server, expiring any whose window
+    has passed.
+
+    A server can hold several at once now -- each player brings their own
+    (see start_raid) -- so this, not get_active_raid, is what the raid
+    menu is built from. Ordered by ENDING SOONEST, because that is the
+    one a player who can only do one thing should be told about first.
+    """
+    raids = (
         db.query(GuildRaid)
         .filter_by(guild_id=guild_id, status="active")
-        .order_by(GuildRaid.started_at.desc())
-        .first()
+        .order_by(GuildRaid.ends_at.asc())
+        .all()
     )
-    if raid is None:
-        return None
-    if as_utc(raid.ends_at) <= dt.datetime.now(dt.timezone.utc):
-        raid.status = "expired"
+    now = dt.datetime.now(dt.timezone.utc)
+    live, expired_any = [], False
+    for raid in raids:
+        if as_utc(raid.ends_at) <= now:
+            raid.status = "expired"
+            expired_any = True
+        else:
+            live.append(raid)
+    if expired_any:
         db.commit()
-        return None
-    return raid
+    return live
+
+
+def get_active_raid(db, guild_id: int) -> GuildRaid | None:
+    """The single raid to show when the caller hasn't picked one -- the
+    soonest to end. Kept as the default view's entry point; anything
+    offering a CHOICE should use list_active_raids instead."""
+    raids = list_active_raids(db, guild_id)
+    return raids[0] if raids else None
 
 
 def get_raid(db, raid_id: int) -> GuildRaid | None:
@@ -115,45 +134,67 @@ def available_tiers(db, player) -> list[dict]:
     return [t for t in RAID_TIERS if total >= t["min_roster_levels"]]
 
 
-def start_raid(db, player, guild_id: int, tier_id: str, rng: random.Random | None = None) -> GuildRaid:
-    """Summons a new raid for the guild. Anyone in the server may do this
-    -- there's no leader role -- but only one raid can be active at a
-    time, so it's first-come."""
+def summon_ready_at(player) -> dt.datetime | None:
+    """When this player may summon again, or None if they may right now."""
+    last = getattr(player, "last_raid_summon_at", None)
+    if last is None:
+        return None
+    ready = as_utc(last) + PLAYER_SUMMON_COOLDOWN
+    return ready if ready > dt.datetime.now(dt.timezone.utc) else None
+
+
+def tier_for_summoner(db, player) -> dict | None:
+    """The tier this player's summon produces: the HARDEST their roster
+    qualifies for.
+
+    Deliberately not a choice. When the summoner picked the tier, one
+    person's decision set the content for everyone else in the server for
+    up to a week -- and the obvious pick was whatever they personally
+    wanted, not what the server could use. Deriving it means the raid a
+    player brings is a statement about how far THEY have got, and a
+    server with a range of players naturally ends up with a range of
+    raids to choose between.
+    """
+    unlocked = available_tiers(db, player)
+    if not unlocked:
+        return None
+    return max(unlocked, key=lambda t: t["min_roster_levels"])
+
+
+def start_raid(db, player, guild_id: int, rng: random.Random | None = None) -> GuildRaid:
+    """Summons a raid into the guild, on the summoner's personal cooldown.
+
+    No tier argument: see tier_for_summoner. No "one at a time" check
+    either -- several raids can run side by side now, capped only by
+    MAX_ACTIVE_RAIDS_PER_GUILD so a big server can't dilute its own
+    damage across so many that none of them dies.
+    """
     rng = rng or random.Random()
 
-    if get_active_raid(db, guild_id) is not None:
-        raise RaidError("This server already has a raid in progress. Use `/raid` to join it.")
-
-    # SUMMON COOLDOWN -- see raid_config.SUMMON_COOLDOWNS. Without this,
-    # clearing a raid and immediately re-summoning the same tier is an
-    # unbounded shard faucet, and it paid best at the easiest tier.
-    previous = (
-        db.query(GuildRaid)
-        .filter(GuildRaid.guild_id == guild_id, GuildRaid.tier == tier_id,
-                GuildRaid.status != "active")
-        .order_by(GuildRaid.started_at.desc())
-        .first()
-    )
-    if previous is not None:
-        finished = previous.defeated_at or previous.ends_at
-        if finished is not None:
-            ready_at = as_utc(finished) + summon_cooldown(tier_id)
-            right_now = dt.datetime.now(dt.timezone.utc)
-            if ready_at > right_now:
-                label = (get_tier(tier_id) or {}).get("name", tier_id)
-                raise RaidError(
-                    f"**{label}** was run here recently. It can be summoned again in "
-                    f"**{describe_wait(ready_at - right_now)}**.\n\n"
-                    "Harder tiers come off cooldown faster."
-                )
-
-    tier = get_tier(tier_id)
-    if tier is None:
-        raise RaidError("No such raid tier.")
-    if tier not in available_tiers(db, player):
+    ready_at = summon_ready_at(player)
+    if ready_at is not None:
+        wait = ready_at - dt.datetime.now(dt.timezone.utc)
         raise RaidError(
-            f"**{tier['name']}** needs {tier['min_roster_levels']} total character levels "
-            "across your roster before you can summon it."
+            f"You've already summoned a raid recently. Yours recharges in "
+            f"**{describe_wait(wait)}**.\n\n"
+            "You can still join any raid already running here — use `/raid`."
+        )
+
+    active = list_active_raids(db, guild_id)
+    if len(active) >= MAX_ACTIVE_RAIDS_PER_GUILD:
+        raise RaidError(
+            f"This server already has {len(active)} raids running, which is the limit. "
+            "Help finish one first — spreading damage across more than that means none "
+            "of them falls."
+        )
+
+    tier = tier_for_summoner(db, player)
+    if tier is None:
+        cheapest = min(RAID_TIERS, key=lambda t: t["min_roster_levels"])
+        raise RaidError(
+            f"Summoning a raid needs {cheapest['min_roster_levels']} total character "
+            "levels across your roster. Level your squad a little first — you can still "
+            "join raids other people summon."
         )
 
     now = dt.datetime.now(dt.timezone.utc)
@@ -168,8 +209,13 @@ def start_raid(db, player, guild_id: int, tier_id: str, rng: random.Random | Non
         tier=tier["id"],
         started_at=now,
         ends_at=now + raid_duration(tier),
+        summoned_by=player.id,
     )
     db.add(raid)
+    # Spending the summon and creating the raid are one commit: a crash
+    # between them would either hand out a free summon or burn one with
+    # nothing to show for it.
+    player.last_raid_summon_at = now
     db.commit()
     db.refresh(raid)
     return raid

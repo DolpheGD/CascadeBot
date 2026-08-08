@@ -250,6 +250,40 @@ def visible_beats(story: PlayerStory, mission: dict) -> list[dict]:
     return out
 
 
+def quest_summary(db, player) -> dict | None:
+    """The story's own entry for the /quests board, or None if there's
+    nothing outstanding.
+
+    Exists so the quest board can answer "what should I be doing" in one
+    place. The main quest is the thing every other system is gated
+    behind, and it was visible only inside /story -- so a player checking
+    their quest log saw daily errands and no mention of the mission
+    actually blocking their progress.
+
+    Prefers the ACTIVE mission; falls back to the next one available, so
+    the board says "go and start this" rather than going quiet between
+    missions.
+    """
+    active = current_beat(db, player)
+    if active is not None:
+        mission, _ = active
+        return {
+            "name": mission.get("name", "Continue the story"),
+            "chapter": mission.get("chapter") or "Story",
+            "summary": mission.get("summary") or "In progress.",
+            "active": True,
+        }
+    upcoming = next_mission(db, player)
+    if upcoming is None:
+        return None
+    return {
+        "name": upcoming.get("name", "Continue the story"),
+        "chapter": upcoming.get("chapter") or "Story",
+        "summary": upcoming.get("summary") or "Ready to begin.",
+        "active": False,
+    }
+
+
 def current_beat(db, player) -> tuple[dict, dict] | None:
     """(mission, beat) the player is sitting on, or None if no mission is
     active. Clamps a beat index that has run off the end, which can
@@ -475,6 +509,26 @@ def _grant(db, player, grant: dict) -> list[str]:
             db.add(item)
             db.commit()
             lines.append(f"🎁 **{item.display_name}** ({rarity.value})")
+        elif key == "lootbox":
+            # LOOTBOXES AS A STORY REWARD.
+            #
+            # Previously unsupported, which was a gap rather than a
+            # decision: the encounter interpreter has granted lootboxes
+            # since it existed, and a story beat could only hand over a
+            # single flat item. A box is a better reward for a tutorial
+            # than an item is -- opening it is a second beat the player
+            # controls, it teaches a system, and the contents can be
+            # exciting without the script having to promise anything
+            # specific.
+            #
+            # Accepts "epic" or ("epic", 3), so a milestone can hand over
+            # a stack without needing a second key.
+            from bot.services import lootbox_service
+
+            tier, count = (amount if isinstance(amount, (list, tuple))
+                           else (amount, 1))
+            lootbox_service.grant_lootbox(db, player, str(tier), int(count))
+            lines.append(f"🎁 **{int(count)}× {str(tier).title()} Lootbox**")
         elif key in VALID_CURRENCIES:
             add_currency(db, player, key, int(amount))
             emoji = CURRENCY_EMOJI.get(key, "")

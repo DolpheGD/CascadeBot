@@ -26,6 +26,7 @@ from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
 from bot.services import character_service, dungeon_service
 from bot.utils.guild_decorator import guild_decorator
+from bot.utils import paging
 from bot.utils.ui_guard import require_feature, OwnedView, require_player
 
 SLOT_LABELS = ["Slot 1", "Slot 2", "Slot 3", "Slot 4"]
@@ -102,7 +103,7 @@ class SquadSlotSelect(discord.ui.Select):
             db.close()
 
 
-def _build_squad_view(db, player) -> discord.ui.View:
+def _build_squad_view(db, player, page: int = 0) -> discord.ui.View:
     """All FOUR slots are editable and every owned character (avatar
     included) is offered for every one of them.
 
@@ -113,21 +114,62 @@ def _build_squad_view(db, player) -> discord.ui.View:
     first use -- it's a starter character now, not a mandatory one.
 
     Discord allows at most 5 components per message and a select counts
-    as one, so four selects fit with room to spare."""
+    as one, so four selects fit with one row spare -- which is exactly
+    where the paging arrows go.
+
+    PAGED, not sliced. Each select can hold 25 options and one of those
+    is "Empty", so 24 characters fit; the roster is 31 and grows. The
+    previous `options[:25]` meant a player who owned more than that
+    simply COULD NOT FIELD their last few characters, with nothing on
+    screen to say why. All four slots page together, so the four menus
+    always show the same window and "next" means one thing."""
     owned = character_service.list_owned_characters(db, player)
     by_slot = character_service.get_squad_by_slot(db, player)
-    view = OwnedView(timeout=180, owner_id=player.id)
-
-    for slot_index in range(4):
-        current = by_slot[slot_index]
-        options = [discord.SelectOption(label="Empty", value="empty", default=current is None)]
-        for pc in owned:
-            options.append(discord.SelectOption(
-                label=_character_label(pc), value=str(pc.id), default=(current is not None and current.id == pc.id),
-            ))
-        view.add_item(SquadSlotSelect(slot_index, options[:25]))
-
+    view = SquadView(db, player, owned, by_slot, page=page)
     return view
+
+
+class SquadView(OwnedView):
+    """The four slot pickers plus their shared paging."""
+
+    # One option in every select is "Empty", so a page of characters is
+    # one short of Discord's ceiling.
+    PER_PAGE = paging.SELECT_OPTION_LIMIT - 1
+
+    def __init__(self, db, player, owned: list, by_slot: dict, page: int = 0):
+        super().__init__(timeout=180, owner_id=player.id)
+        self.page = max(0, min(page, paging.page_count(len(owned), self.PER_PAGE) - 1))
+        self._owned_total = len(owned)
+
+        shown = paging.window(owned, self.page, self.PER_PAGE)
+        for slot_index in range(4):
+            current = by_slot[slot_index]
+            options = [discord.SelectOption(label="Empty", value="empty",
+                                            default=current is None)]
+            for pc in shown:
+                options.append(discord.SelectOption(
+                    label=_character_label(pc), value=str(pc.id),
+                    default=(current is not None and current.id == pc.id),
+                ))
+            view_select = SquadSlotSelect(slot_index, options)
+            view_select.placeholder = paging.placeholder_for(
+                f"Slot {slot_index + 1}", self.page, len(owned), self.PER_PAGE)
+            self.add_item(view_select)
+
+        paging.add_page_buttons(self, self.page, len(owned), self.PER_PAGE, row=4)
+
+    async def rerender(self, interaction: discord.Interaction, page: int) -> None:
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            if player is None:
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
+                return
+            embed = _build_squad_embed(db, player)
+            view = _build_squad_view(db, player, page=page)
+        finally:
+            db.close()
+        await responses.edit(interaction, embed=embed, view=view)
 
 
 @guild_decorator

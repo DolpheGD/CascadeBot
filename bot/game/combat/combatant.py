@@ -447,6 +447,14 @@ class Combatant:
     # no expedition and therefore no relics.
     bonus_poise_damage: int = 0
 
+    # Armed by an ability that grants a bonus turn on a kill (Cynixx's
+    # skill), read and cleared by Battle._maybe_grant_extra_turn.
+    #
+    # Deliberately NOT serialized: it is set and consumed inside a single
+    # take_party_action call, so it can never be live across a save. A
+    # flag that survived one would pay out on an unrelated kill later.
+    extra_turn_armed: bool = False
+
     # Set by the Guard action, cleared at the start of this combatant's
     # next turn. Halves incoming damage (see effects._resolve_hit) and
     # pays out bonus energy if a hit actually lands while it's up -- so

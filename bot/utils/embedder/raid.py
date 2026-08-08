@@ -107,6 +107,66 @@ def raid_menu_embed(available_tiers: list[dict], roster_levels: int) -> discord.
     return embed
 
 
+def raid_board_embed(active: list, my_tier: dict | None, roster_levels: int,
+                     summon_ready_at=None) -> discord.Embed:
+    """The raid board: everything running here, plus what YOUR summon
+    would bring.
+
+    Replaces the old tier menu, which listed six raids to choose between
+    and asked one player to pick for the whole server. Nobody picks now
+    -- your summon's tier is the hardest your roster qualifies for -- so
+    the board's job changed from "choose the content" to "here's what's
+    open, join something".
+    """
+    embed = discord.Embed(
+        title="🐉 Co-op Raids",
+        description=(
+            "A raid is a shared boss with one HP pool. Everyone attacks on their own "
+            "time, and rewards scale with how much damage **you personally** did.\n\n"
+            "Anyone can summon one, and several can run at once — so there's usually "
+            "something to join."
+        ),
+        color=discord.Color.dark_red(),
+    )
+
+    if active:
+        lines = []
+        for raid in active:
+            tier = get_tier(raid.tier) or {}
+            pct = raid.hp_fraction() * 100
+            lines.append(
+                f"{tier.get('emoji', '🐉')} **{tier.get('name', raid.tier)}** — "
+                f"{raid.boss_name} Lv.{raid.boss_level}\n"
+                f"　{_bar(raid.current_hp, raid.max_hp, length=10)} {pct:.0f}%"
+            )
+        embed.add_field(name=f"⚔️ Running now ({len(active)})",
+                        value="\n".join(lines)[:1024], inline=False)
+    else:
+        embed.add_field(
+            name="⚔️ Running now",
+            value="*Nothing yet — summon the first one.*", inline=False,
+        )
+
+    if my_tier is None:
+        from bot.game.economy.raid_config import RAID_TIERS
+        cheapest = min(RAID_TIERS, key=lambda t: t["min_roster_levels"])
+        summon = (f"🔒 Needs {cheapest['min_roster_levels']} total roster levels "
+                  f"(you have {roster_levels}). You can still join raids other "
+                  f"people summon.")
+    else:
+        pool = pool_hp_for(my_tier)
+        summon = (
+            f"{my_tier['emoji']} **{my_tier['name']}** — Boss Lv.{my_tier['boss_level']} · "
+            f"Pool ~{_short_num(pool)} HP · {attacks_per_player(my_tier)} attacks each\n"
+            f"**Pays** {reward_line(my_tier)}\n"
+            f"*The hardest tier your roster qualifies for — it rises as you do.*"
+        )
+        if summon_ready_at is not None:
+            summon += "\n\n⏳ Your summon is still recharging."
+    embed.add_field(name="🐉 Your summon", value=summon[:1024], inline=False)
+    return embed
+
+
 def raid_status_embed(raid, participants: list, viewer_id: int | None = None,
                       attacks_left: int | None = None) -> discord.Embed:
     """The live raid board: shared HP, who's contributed what, and the

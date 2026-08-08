@@ -245,4 +245,34 @@ CHARACTER_TEMPLATES: list[dict] = [
           "Prosecutes fights the way he used to prosecute cases: patiently, relentlessly, and with a closing argument nobody survives.",
           "aizer_skill", "aizer_ultimate",
           base_speed=12, growth_speed=0.34),
+
+    # -----------------------------------------------------------------
+    # CYNIXX and POLO -- two kits built on mechanics the roster had
+    # underused rather than on new combinations of old ones.
+    #
+    # Cynixx is the roster's snowball DPS: elemental, ramping, and the
+    # only character whose SKILL (not a passive) hands the turn back on a
+    # kill. That distinction matters -- FAX carries extra_turn_on_kill as
+    # an always-on passive, so he chains off anything; Cynixx has to
+    # aim, which makes finishing a low target a decision rather than a
+    # bonus.
+    #
+    # Polo is the break economy's missing amplifier. Poise damage could
+    # only be raised permanently, through relics and one passive, so
+    # "break it now" was never a play you could set up mid-fight. He
+    # makes it one, and his ultimate pays for the big window out of his
+    # own health -- see sacrifice_hp_team_poise_buff.
+    # -----------------------------------------------------------------
+    _char("Cynixx", 5, CharacterClass.DPS,
+          "Fights like the outcome is already decided and he's just walking you through it. "
+          "Every exchange leaves him a little more charged than it found him, which is either "
+          "technique or spite -- he has never clarified which.",
+          "cynixx_skill", "cynixx_ultimate",
+          base_elemental=11, growth_elemental=0.46, base_speed=12),
+    _char("Polo", 4, CharacterClass.SUPPORT_DPS,
+          "A field medic who worked out early that the fastest way to stop someone bleeding is "
+          "to stop the thing causing it. Cheerfully reckless with his own health, and genuinely "
+          "baffled that anyone finds this alarming.",
+          "polo_skill", "polo_ultimate",
+          base_hp=105, growth_hp=6.8),
 ]

@@ -3,20 +3,17 @@ Tuning for the /vote command (top.gg voting rewards). Kept separate from
 bot/services/vote_service.py so the curves can be retuned without touching
 the claim/streak logic -- same split as daily_config.py and its service.
 
-Deliberately the strongest recurring reward in the game. Top.gg allows one
-vote per bot every 12 hours, so a committed player can claim this twice a
-day; the numbers below assume that and are set so voting clearly beats
-/daily rather than merely matching it. Shards lead the package because
-they're the character-gacha currency and the thing players most want a
-faucet for, but gold/materials/lootboxes all scale on the streak too.
+A strong recurring reward, but no longer the only one that matters. Top.gg
+allows one vote per bot every 12 hours, so a committed player can claim
+this twice a day; the numbers below assume that. GOLD and LOOTBOXES lead
+the package now -- see the rebalance block further down for why shards
+stopped leading it, and what the old numbers were actually doing to the
+gacha.
 
-    BALANCE NOTE. At a 20+ vote streak this pays roughly 4-5x a /daily
-    claim per real day (two votes, each bigger than a daily). That is the
-    intended "voting is the main progression path" setting -- but it IS a
-    large amount of income to add to a live economy, so every knob here is
-    a plain module-level constant. If it lands too hot, VOTE_BASE_SHARDS,
-    VOTE_BASE_GOLD and the two _PER_STREAK values are the ones to pull
-    first; nothing outside this module needs to change.
+    BALANCE NOTE. Every knob here is a plain module-level constant. If it
+    lands wrong, VOTE_BASE_SHARDS, VOTE_BASE_GOLD and the two _PER_STREAK
+    values are the ones to pull first; nothing outside this module needs
+    to change.
 
 Streak semantics (implemented in vote_service.claim_vote):
   * Every claimed vote increments vote_streak by 1 -- so it can advance
@@ -43,19 +40,44 @@ VOTE_COOLDOWN_HOURS = 12
 # who votes once a day (rather than the maximum twice) keeps it.
 VOTE_STREAK_GRACE_HOURS = 36
 
-# Shards -- the headline reward. Base is already >2x a /daily claim's 50,
-# and grows per consecutive vote up to the cap.
-VOTE_BASE_SHARDS = 200
-VOTE_SHARDS_PER_STREAK = 20
+# ----------------------------------------------------------------------
+# REBALANCED: SHARDS DOWN HARD, GOLD UP HARD
+# ----------------------------------------------------------------------
+# These numbers were set when they were written and never revisited, and
+# the economy moved underneath them in both directions at once.
+#
+# SHARDS. A pull costs 120. At a capped streak a single vote paid 980
+# shards -- eight pulls -- and top.gg allows two votes a day, so voting
+# was SIXTEEN PULLS A DAY, or thirty-two on a top.gg weekend. Against
+# that, nothing else in the game is a shard source worth using: the
+# hardest raid in the game pays its best contributor 24 pulls once, and
+# /daily pays three. Voting wasn't the strongest recurring reward, it was
+# the only one that mattered, and a gacha where the gacha is free isn't
+# doing anything.
+#
+# GOLD. The opposite problem. 1,540 gold a vote was generous when it was
+# written and is now a rounding error -- a single expedition pays more,
+# and gear upgrades at the top of the curve cost tens of thousands. The
+# reward that was supposed to be the sweetener had quietly become the
+# part players ignored.
+#
+# So the mix inverts. Voting is now a steady GOLD and LOOTBOX faucet with
+# a modest shard drip on top: about 2-3 pulls a day for a committed
+# voter, against sixteen. The lootbox progression below is untouched --
+# an epic box rising to mythic every single vote is a genuinely strong
+# reward and is now the actual reason to vote.
+VOTE_BASE_SHARDS = 70
+VOTE_SHARDS_PER_STREAK = 5
 VOTE_STREAK_CAP = 20  # streak stops scaling any reward past this
 
 # Bonus shards every N consecutive votes, on top of the scaled amount.
 VOTE_SHARD_MILESTONE_INTERVAL = 5
-VOTE_SHARD_MILESTONE_AMOUNT = 400
+VOTE_SHARD_MILESTONE_AMOUNT = 150
 
-# Gold and reroll tokens -- generous but not the point of voting.
-VOTE_BASE_GOLD = 400
-VOTE_GOLD_PER_STREAK = 60
+# Gold and reroll tokens. Gold is now the headline currency here -- see
+# the block above.
+VOTE_BASE_GOLD = 2_000
+VOTE_GOLD_PER_STREAK = 300
 VOTE_REROLL_TOKENS = 20
 
 # Materials: two from a streak-appropriate tier, same tier groupings

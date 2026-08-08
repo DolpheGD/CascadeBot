@@ -15,6 +15,8 @@ them refuse to run in DMs. That's not a limitation to work around -- a
 "server raid" in a DM is meaningless.
 """
 
+import datetime as dt
+
 import discord
 
 from discord.ext import commands
@@ -31,7 +33,7 @@ from bot.game.economy.raid_config import (
     get_tier as get_raid_tier,
     raid_boss_level,
 )
-from bot.utils import combat_ui, embedder
+from bot.utils import combat_ui, embedder, names
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils.time_utils import describe_wait
 from bot.utils.ui_guard import require_feature, OwnedView, check_message_owner, require_player
@@ -78,19 +80,26 @@ def _guild_member_ids(db, interaction: discord.Interaction) -> list[int]:
 # Raid views
 # ----------------------------------------------------------------------
 
-class RaidSummonButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade_raid_summon:(?P<tier>\w+)"):
-    def __init__(self, tier_id: str, label: str = "...", disabled: bool = False):
+class RaidSummonButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade_raid_summon"):
+    """One button, no tier in the custom_id.
+
+    It used to be one button PER TIER, because the summoner picked which
+    raid the whole server got. They don't any more -- the tier is derived
+    from the summoner's own roster (raid_service.tier_for_summoner), so
+    there is nothing to encode here and nothing to choose.
+    """
+
+    def __init__(self, label: str = "🐉 Summon a raid", disabled: bool = False):
         super().__init__(discord.ui.Button(
             label=label[:80],
             style=discord.ButtonStyle.danger if not disabled else discord.ButtonStyle.secondary,
-            custom_id=f"cascade_raid_summon:{tier_id}",
+            custom_id="cascade_raid_summon",
             disabled=disabled,
         ))
-        self.tier_id = tier_id
 
     @classmethod
     async def from_custom_id(cls, interaction, item, match):
-        return cls(match["tier"])
+        return cls()
 
     async def callback(self, interaction: discord.Interaction):
         if not await check_message_owner(interaction):
@@ -102,7 +111,7 @@ class RaidSummonButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cas
                 await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
             try:
-                raid = raid_service.start_raid(db, player, interaction.guild_id, self.tier_id)
+                raid = raid_service.start_raid(db, player, interaction.guild_id)
             except raid_service.RaidError as exc:
                 await responses.send(interaction, str(exc), ephemeral=True)
                 return
@@ -123,12 +132,62 @@ class RaidSummonButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cas
 
 
 class RaidMenuView(OwnedView):
-    def __init__(self, available_tier_ids: set[str], owner_id: int | None = None):
+    """The board: one summon button, plus a picker for whatever is already
+    running.
+
+    This used to be six buttons, one per tier, and pressing one committed
+    the entire server to that raid for days. Now the tier is derived from
+    the presser's own roster, so there is one button -- and because
+    several raids can run at once, the interesting control is the picker
+    that lets you join any of them.
+    """
+
+    def __init__(self, can_summon: bool, summon_label: str,
+                 active: list | None = None, owner_id: int | None = None):
         super().__init__(timeout=300, owner_id=owner_id)
-        for tier in RAID_TIERS:
-            unlocked = tier["id"] in available_tier_ids
-            label = f"{tier['emoji']} Summon {tier['name']}" if unlocked else f"🔒 {tier['name']}"
-            self.add_item(RaidSummonButton(tier["id"], label, disabled=not unlocked))
+        self.add_item(RaidSummonButton(summon_label, disabled=not can_summon))
+        if active:
+            self.add_item(_RaidJoinSelect(active))
+
+
+class _RaidJoinSelect(discord.ui.Select):
+    """Pick which of the server's running raids to look at."""
+
+    def __init__(self, raids: list):
+        options = []
+        for raid in raids[:25]:
+            tier = get_raid_tier(raid.tier) or {}
+            pct = 0 if not raid.max_hp else max(0, round(raid.current_hp / raid.max_hp * 100))
+            options.append(discord.SelectOption(
+                label=names.fit_suffix(
+                    f"{tier.get('emoji', '🐉')} {tier.get('name', raid.tier)}",
+                    f"— {raid.boss_name} · {pct}% HP", 100),
+                value=str(raid.id),
+                description=f"Lv.{raid.boss_level}"[:100],
+            ))
+        super().__init__(placeholder="Join a raid...", options=options,
+                         min_values=1, max_values=1)
+
+    async def callback(self, interaction: discord.Interaction):
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            if player is None:
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
+                return
+            raid = raid_service.get_raid(db, int(self.values[0]))
+            if raid is None or raid.status != "active":
+                await responses.send(interaction, "That raid has already finished.",
+                                     ephemeral=True)
+                return
+            embed = embedder.raid_status_embed(
+                raid, raid_service.leaderboard(db, raid), viewer_id=player.id,
+                attacks_left=raid_service.attacks_remaining(db, raid, player),
+            )
+        finally:
+            db.close()
+        await responses.edit(interaction, content=None, embed=embed,
+                             view=RaidActionView(defeated=False))
 
 
 class RaidActionView(OwnedView):
@@ -675,30 +734,34 @@ class Raids(commands.Cog):
                 await _resume_raid_attack(ctx, db, player, existing)
                 return
 
-            raid = raid_service.get_active_raid(db, ctx.guild_id)
-            if raid is not None:
-                embed = embedder.raid_status_embed(
-                    raid, raid_service.leaderboard(db, raid), viewer_id=player.id,
-                    attacks_left=raid_service.attacks_remaining(db, raid, player),
-                )
-                view = RaidActionView(defeated=False)
-                await responses.send(ctx, embed=embed, view=view)
-                return
-
-            # No active raid -- but there may be a finished one still owing
-            # this player a reward. Surfacing it here is the only way
-            # someone who was offline when it died ever finds out.
+            # The BOARD, not a single raid: a server can be running
+            # several at once now, each brought by a different player, so
+            # /raid has to show the choice rather than pick for them.
+            active = raid_service.list_active_raids(db, ctx.guild_id)
             claimable = raid_service.claimable_raids(db, player, ctx.guild_id)
-            available = raid_service.available_tiers(db, player)
             roster = domain_service.roster_total_levels(db, player)
-            embed = embedder.raid_menu_embed(available, roster)
+
+            ready_at = raid_service.summon_ready_at(player)
+            my_tier = raid_service.tier_for_summoner(db, player)
+            if ready_at is not None:
+                wait = ready_at - dt.datetime.now(dt.timezone.utc)
+                summon_label = f"🐉 Summon ready in {describe_wait(wait)}"
+                can_summon = False
+            elif my_tier is None:
+                summon_label = "🔒 Summon (level your squad first)"
+                can_summon = False
+            else:
+                summon_label = f"{my_tier['emoji']} Summon {my_tier['name']}"
+                can_summon = True
+
+            embed = embedder.raid_board_embed(active, my_tier, roster, ready_at)
             if claimable:
                 embed.add_field(
                     name="🎁 Unclaimed rewards",
                     value=f"You have rewards waiting from {len(claimable)} finished raid(s) -- use `/raid_claim`.",
                     inline=False,
                 )
-            view = RaidMenuView({t["id"] for t in available}, owner_id=player.id)
+            view = RaidMenuView(can_summon, summon_label, active, owner_id=player.id)
             await responses.send(ctx, embed=embed, view=view)
         finally:
             db.close()

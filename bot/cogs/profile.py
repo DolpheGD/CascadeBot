@@ -3,7 +3,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
-from bot.utils import names
+from bot.utils import names, paging
 from bot.database.models.enums import CLASS_EMOJI, CharacterClass
 from bot.utils import responses
 from bot.database.session import SessionLocal
@@ -33,6 +33,20 @@ class CharacterProfileSelect(discord.ui.Select):
     """Lets the player switch which of their owned characters /profile is
     showing -- previously this only ever showed the avatar."""
     def __init__(self, page: int, current_character_id: int, owned: list):
+        # SORTED so the character being viewed is always on the first
+        # page, then by level. With more than 25 owned characters this
+        # select can only show a window (Discord's ceiling), and the one
+        # thing that must never fall off the edge is the one you're
+        # looking at -- otherwise the menu shows no selection and looks
+        # broken. Full paging lives on the squad picker, where being
+        # unable to reach a character actually blocks play; here the
+        # sort is enough, because switching to anyone is one more click
+        # either way.
+        ordered = sorted(
+            owned,
+            key=lambda pc: (pc.id != current_character_id, -pc.level,
+                            -pc.template.star_rating, pc.display_name),
+        )
         options = [
             discord.SelectOption(
                 label=names.fit_suffix(
@@ -40,9 +54,12 @@ class CharacterProfileSelect(discord.ui.Select):
                 value=str(pc.id),
                 default=(pc.id == current_character_id),
             )
-            for pc in owned
-        ][:25]
-        super().__init__(placeholder="Switch character...", options=options, min_values=1, max_values=1)
+            for pc in paging.window(ordered, 0)
+        ]
+        super().__init__(
+            placeholder=paging.placeholder_for("Switch character", 0, len(ordered)),
+            options=options, min_values=1, max_values=1,
+        )
         self.page = page
 
     async def callback(self, interaction: discord.Interaction):

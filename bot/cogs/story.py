@@ -406,7 +406,81 @@ class BackToMapView(OwnedView):
         await _render_map(interaction, edit=True)
 
 
-def _map_screen(db, player):
+# ----------------------------------------------------------------------
+# STATIONS -- opening real panels from the map.
+#
+# Every panel in the game is already built by a `(db, player)` pair of
+# functions in its own cog, so a station reuses those rather than
+# reimplementing anything: the Forge opened from the Armory floor is the
+# SAME forge, with the same buttons and the same state, as the one
+# `/forge` opens.
+#
+# Imported lazily inside the builder because bot/cogs modules import each
+# other's views at load time in a couple of places, and a module-level
+# import here would close that loop. The cost is one import per press,
+# which is nothing next to the database work already happening.
+# ----------------------------------------------------------------------
+
+def _station_panel(panel: str, db, player):
+    """(embed, view) for a station's panel, or None if `panel` is unknown."""
+    if panel in ("hq", "base", "shrines", "harvesters", "shop", "lab", "forge"):
+        from bot.cogs import base as base_cog
+
+        builders = {
+            "hq":         (base_cog._build_hq_embed, base_cog._build_hq_view),
+            "base":       (base_cog._build_hq_embed, base_cog._build_hq_view),
+            "shrines":    (base_cog._build_shrine_embed, base_cog._build_shrine_view),
+            "harvesters": (base_cog._build_harvester_embed, base_cog._build_harvester_view),
+            "shop":       (base_cog._build_shop_embed, base_cog._build_shop_view),
+            "lab":        (base_cog._build_lab_embed, base_cog._build_lab_view),
+            "forge":      (base_cog._build_forge_embed, base_cog._build_forge_view),
+        }
+        build_embed, build_view = builders[panel]
+        return build_embed(db, player), build_view(db, player)
+
+    if panel == "squad":
+        from bot.cogs import squad as squad_cog
+        return squad_cog._build_squad_embed(db, player), squad_cog._build_squad_view(db, player)
+
+    if panel == "exchange":
+        from bot.cogs import economy as economy_cog
+        from bot.services import echo_exchange_service
+
+        offers = echo_exchange_service.offers(db, player)
+        return (embedder.echo_exchange_embed(player, offers),
+                economy_cog.EchoExchangeView(offers, owner_id=player.id))
+
+    return None
+
+
+async def _open_station(interaction: discord.Interaction, db, player, result: dict) -> bool:
+    """Open a station's panel as an ephemeral. Returns False if it
+    couldn't, having already told the player why."""
+    from bot.utils.ui_guard import require_feature
+
+    feature = result.get("feature")
+    if feature and not await require_feature(interaction, db, player, feature):
+        return False
+
+    built = _station_panel(result.get("panel"), db, player)
+    if built is None:
+        await responses.send(
+            interaction,
+            f"{result.get('emoji', '')} {result.get('name', 'It')} isn't connected to "
+            f"anything yet.".strip(),
+            ephemeral=True,
+        )
+        return False
+
+    embed, view = built
+    await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+    return True
+
+
+def _map_screen(db, player, readout: dict | None = None):
+    """The overworld screen. `readout` is whatever the player just
+    inspected, rendered underneath the map instead of replacing it --
+    see map_embed."""
     story = story_service.get_or_create(db, player)
     state = map_service.look(db, story)
     content = state["content"]
@@ -421,6 +495,7 @@ def _map_screen(db, player):
         legend=map_service.legend_lines(db, story),
         standing_on=standing_on,
         locked=state["locked"],
+        readout=readout,
     )
     return embed, MapView(state, owner_id=player.id)
 
@@ -480,13 +555,17 @@ async def _interact(interaction: discord.Interaction):
         result = map_service.interact(db, story)
         kind = result["kind"]
 
+        # Refusals answer ON the map, not as a separate ephemeral. An
+        # ephemeral for "that's locked" is a second message the player
+        # has to dismiss to see the thing it's talking about.
         if kind == "nothing":
-            await responses.send(interaction, "There's nothing here.", ephemeral=True)
-            return
-
-        if kind in ("locked", "done", "spent"):
-            await responses.send(interaction, result["text"], ephemeral=True)
-            return
+            note = {"emoji": "👀", "name": "Nothing here",
+                    "text": "You look around. Nothing worth the effort."}
+            kind = "note"
+        elif kind in ("locked", "done", "spent"):
+            note = {"emoji": "🔒" if kind == "locked" else "✅",
+                    "name": result.get("name", ""), "text": result["text"]}
+            kind = "note"
 
         if kind == "cache":
             note = {
@@ -494,6 +573,15 @@ async def _interact(interaction: discord.Interaction):
                 "text": (result.get("text") or "")
                         + _reward_block(result.get("rewards"), result.get("bonus")),
             }
+        elif kind == "station":
+            # A tile that opens a real panel. Handled entirely here and
+            # returned early: the map message is left exactly as it was
+            # and the panel arrives as its own ephemeral, so the player
+            # keeps their place on the grid.
+            if not await _open_station(interaction, db, player, result):
+                return
+            return
+
         elif kind == "hunt":
             # Accepting an optional fight is a deliberate press, so the
             # tile shows what it is FIRST and the player opts in. An
@@ -523,14 +611,14 @@ async def _interact(interaction: discord.Interaction):
                 return
 
         if kind == "hunt":
+            # A hunt still gets its own screen: it's a decision with a
+            # yes/no, not something you read in passing.
             embed = embedder.story_note_embed(hunt["name"], hunt["emoji"], hunt["text"])
             view = HuntOfferView(owner_id=player.id)
         elif not started:
-            embed, view = (
-                (embedder.story_note_embed(note["name"], note["emoji"], note["text"]),
-                 BackToMapView(owner_id=player.id))
-                if note else _map_screen(db, player)
-            )
+            # Everything else stays on the map, with what you found
+            # rendered underneath it. No "back to map" round-trip.
+            embed, view = _map_screen(db, player, readout=note)
     finally:
         db.close()
 

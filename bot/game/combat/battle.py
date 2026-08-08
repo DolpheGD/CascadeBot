@@ -937,7 +937,12 @@ class Battle:
         """Shared by take_party_action/take_enemy_turn -- see
         extra_turn_on_kill's docstring note in take_party_action."""
         opponents_now = self.living_enemies() if actor in self.party else self.living_party()
+        # Two sources, and the ability-driven one is CONSUMED whether or
+        # not it ends up granting anything -- a flag left armed would pay
+        # out on some unrelated kill several turns later.
+        armed = getattr(actor, "extra_turn_armed", False)
+        actor.extra_turn_armed = False
         if len(opponents_now) < living_opponents_before and actor.is_alive() \
-                and actor.find_passive("extra_turn_on_kill"):
+                and (armed or actor.find_passive("extra_turn_on_kill")):
             self.log.append(f"⚡ {actor.name} doesn't stop moving -- another turn, right now!")
             self.cycle_order.insert(0, actor)

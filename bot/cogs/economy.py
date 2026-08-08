@@ -16,7 +16,7 @@ from bot.services.player_service import get_player
 from bot.utils import embedder
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils.logger import get_logger
-from bot.utils import names
+from bot.utils import names, paging
 from bot.utils.ui_guard import require_feature, OwnedView, check_message_owner, require_player
 
 logger = get_logger("economy")
@@ -285,14 +285,46 @@ class Economy(commands.Cog):
 # money that isn't there.
 # ----------------------------------------------------------------------
 
+# Discord's hard ceiling on options in one select. The exchange lists
+# every character in the game, so this is a limit the roster WILL grow
+# past -- and did.
+SELECT_OPTION_LIMIT = 25
+
+
+def _sorted_offers(offers: list[dict]) -> list[dict]:
+    """Cheapest affordable first: a player with few Echoes wants to see
+    what they can actually buy without scrolling past 5-stars they
+    can't."""
+    return sorted(offers, key=lambda o: (not o["affordable"], o["cost"]))
+
+
+def exchange_page_count(offers: list[dict]) -> int:
+    return max(1, -(-len(offers) // SELECT_OPTION_LIMIT))
+
+
 class EchoExchangeSelect(discord.ui.Select):
-    def __init__(self, offers: list[dict]):
+    """One page of the exchange.
+
+    THIS USED TO SILENTLY TRUNCATE. The options list was built for every
+    character and then cut with `options[:25]`, with a comment noting the
+    roster was 24 against Discord's ceiling of 25. The roster is now 29,
+    so the five most expensive characters simply weren't in the menu --
+    reported as "the menu is too long so you can't buy some of them",
+    and invisible from the storefront embed, which listed all 29 happily.
+
+    Slicing to fit is the wrong shape of fix for a list that grows: it
+    fails silently, it fails worse every time a character is added, and
+    the things it drops are the expensive ones a player is most likely to
+    be saving for. Paging can't lose anything.
+    """
+
+    def __init__(self, offers: list[dict], page: int = 0):
+        pages = exchange_page_count(offers)
+        page = max(0, min(page, pages - 1))
+        window = _sorted_offers(offers)[page * SELECT_OPTION_LIMIT:(page + 1) * SELECT_OPTION_LIMIT]
+
         options = []
-        # Cheapest affordable first: the list is 24 characters against
-        # Discord's 25-option ceiling, and a player with few echoes wants
-        # to see what they can actually buy without scrolling past six
-        # 5-stars they can't.
-        for offer in sorted(offers, key=lambda o: (not o["affordable"], o["cost"])):
+        for offer in window:
             mark = "✅" if offer["affordable"] else "🔒"
             owned = f" · R{offer['resonance']}" if offer["owned"] else " · NEW"
             options.append(discord.SelectOption(
@@ -302,7 +334,9 @@ class EchoExchangeSelect(discord.ui.Select):
                 description=("Raises their Resonance" if offer["owned"]
                              else "You don't own this character yet")[:100],
             ))
-        super().__init__(placeholder="Buy a character...", options=options[:25],
+        placeholder = ("Buy a character..." if pages == 1
+                       else f"Buy a character... (page {page + 1}/{pages})")
+        super().__init__(placeholder=placeholder, options=options,
                          min_values=1, max_values=1)
 
     async def callback(self, interaction: discord.Interaction):
@@ -338,9 +372,55 @@ class EchoExchangeSelect(discord.ui.Select):
 
 
 class EchoExchangeView(OwnedView):
-    def __init__(self, offers: list[dict], owner_id: int | None = None):
+    def __init__(self, offers: list[dict], owner_id: int | None = None, page: int = 0):
         super().__init__(timeout=300, owner_id=owner_id)
-        self.add_item(EchoExchangeSelect(offers))
+        self.offers = offers
+        self.pages = exchange_page_count(offers)
+        self.page = max(0, min(page, self.pages - 1))
+        self.add_item(EchoExchangeSelect(offers, self.page))
+        # Paging controls only exist when there is more than one page, so
+        # a roster that fits in one select looks exactly as it did before.
+        if self.pages > 1:
+            self.add_item(_ExchangePageButton(-1, disabled=self.page == 0))
+            self.add_item(_ExchangePageButton(+1, disabled=self.page >= self.pages - 1))
+
+
+class _ExchangePageButton(discord.ui.Button):
+    def __init__(self, step: int, disabled: bool):
+        super().__init__(
+            label="◀ Cheaper" if step < 0 else "Pricier ▶",
+            style=discord.ButtonStyle.secondary,
+            disabled=disabled,
+        )
+        self.step = step
+
+    async def callback(self, interaction: discord.Interaction):
+        if not await check_message_owner(interaction):
+            return
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            if player is None:
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
+                return
+            # Re-read rather than reusing the view's captured offers: the
+            # player may have bought something (or pulled a duplicate) in
+            # another message since this one was rendered, and the
+            # affordable marks would be lies.
+            offers = echo_exchange_service.offers(db, player)
+            view = EchoExchangeView(offers, owner_id=player.id,
+                                    page=self.view.page + self.step)
+            embed = embedder.echo_exchange_embed(player, offers)
+        finally:
+            db.close()
+        await responses.edit(interaction, embed=embed, view=view)
+
+
+def _resonance_order(owned: list, current_id: int) -> list:
+    """Current character first, then closest to their next Resonance --
+    which is what someone opening this menu is shopping for."""
+    return sorted(owned, key=lambda pc: (pc.id != current_id, -pc.dupe_count,
+                                         -pc.template.star_rating, pc.display_name))
 
 
 class ResonancePickerSelect(discord.ui.Select):
@@ -356,10 +436,15 @@ class ResonancePickerSelect(discord.ui.Select):
                 value=str(pc.id),
                 default=(pc.id == current_id),
             )
-            for pc in owned
-        ][:25]
-        super().__init__(placeholder="Switch character...", options=options,
-                         min_values=1, max_values=1)
+            # Sorted so the character being viewed is always present --
+            # with 25+ owned this can only show a window, and a picker
+            # whose current selection fell off the edge looks broken.
+            for pc in paging.window(_resonance_order(owned, current_id), 0)
+        ]
+        super().__init__(
+            placeholder=paging.placeholder_for("Switch character", 0, len(owned)),
+            options=options, min_values=1, max_values=1,
+        )
 
     async def callback(self, interaction: discord.Interaction):
         if not await check_message_owner(interaction):

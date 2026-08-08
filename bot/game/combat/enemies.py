@@ -2456,6 +2456,33 @@ ENEMY_TEMPLATES: list[dict] = [
     # spoil both the fight and the story.
     # ------------------------------------------------------------------
     {
+        # ------------------------------------------------------------------
+        # THE ONE ENEMY THAT ISN'T TRYING.
+        #
+        # Jofrog's demonstration on the Ops Deck (prologue: The Ops Deck).
+        # A tutorial fight needs a target that CANNOT punish a mistake --
+        # the whole beat is "press the buttons and find out what they do",
+        # and a training dummy that can kill you teaches the wrong lesson
+        # in the wrong room.
+        #
+        # So: enough HP to survive a few turns of experimenting, almost no
+        # attack, and no abilities at all. No "regions" key, so the
+        # adventure roll can never produce one -- meeting a training dummy
+        # in Voidcrest would be very funny exactly once.
+        # ------------------------------------------------------------------
+        "name": "Training Dummy",
+        "role": "combat",
+        "base_stats": {
+            "attack": 2, "defense": 4, "elemental": 0, "speed": 1,
+            "max_hp": 120, "max_mana": 999, "crit_rate": 0, "crit_damage": 100,
+            "recharge": 0,
+        },
+        "level_scale_percent": 3,
+        "max_poise": 0,
+        "active_abilities": [],
+        "passive_abilities": [],
+    },
+    {
         # Abyss floor 3, and again on 12 at the Chairman's side.
         # Where the set starts: it strips DEF and then punishes you for
         # being stripped, which is the whole family's thesis in miniature.

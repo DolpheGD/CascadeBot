@@ -81,6 +81,9 @@ def _check_maps() -> list[str]:
     failures: list[str] = []
     placed: dict[str, list[str]] = {}
 
+    from bot.game.economy.lootbox_config import LOOTBOX_TEMPLATES
+    lootbox_tiers = {t["tier"] for t in LOOTBOX_TEMPLATES}
+
     def check_grant(where: str, grant: dict) -> None:
         """Map rewards use the same block shape as story rewards, so they
         get the same validation -- a typo'd currency on a cache is exactly
@@ -91,6 +94,14 @@ def _check_maps() -> list[str]:
                     failures.append(f"{where}: item rarity {value!r} does not exist")
             elif key == "character":
                 continue
+            elif key == "lootbox":
+                # "epic", or ("epic", 3) for a stack.
+                tier = value[0] if isinstance(value, (list, tuple)) else value
+                if tier not in lootbox_tiers:
+                    failures.append(
+                        f"{where}: lootbox tier {tier!r} does not exist "
+                        f"(have: {', '.join(sorted(lootbox_tiers))})"
+                    )
             elif key not in VALID_CURRENCIES:
                 failures.append(f"{where}: '{key}' is not a currency")
 
@@ -156,6 +167,13 @@ def _check_maps() -> list[str]:
         for char in sorted(set(legend) - used):
             failures.append(f"area '{area_id}': legend has '{char}', which is on no tile")
         for char in sorted(used):
+            # DECORATION IS EXEMPT, and is the one kind that should be.
+            # The rule exists because reusing 'D' for two NPCs would give
+            # them the same dialogue silently -- but scenery has no
+            # dialogue, no state and no interaction, so one 'i' standing
+            # for every block of ice in the room is exactly the point.
+            if (legend.get(char) or {}).get("kind") == "decor":
+                continue
             count = sum(row.count(char) for row in grid)
             if count > 1:
                 failures.append(
@@ -177,6 +195,13 @@ def _check_maps() -> list[str]:
                     f"{where}: emoji {emoji!r} contains a variation selector, which "
                     f"renders narrow and shears the column on mobile"
                 )
+            if kind == "decor":
+                # Scenery: drawn and solid, never listed, never stood on
+                # (see map_config.is_decor). It needs an emoji and
+                # nothing else -- a name would have nowhere to appear.
+                if not emoji:
+                    failures.append(f"{where}: decoration with no emoji draws as nothing")
+                continue
             if not content.get("name"):
                 failures.append(f"{where}: no name")
 
@@ -189,6 +214,44 @@ def _check_maps() -> list[str]:
             elif kind == "note":
                 if not content.get("text"):
                     failures.append(f"{where}: note with no text")
+            elif kind == "station":
+                # A tile that opens a real panel (Forge, HQ, squad...).
+                # Both keys matter: `panel` is what opens, `feature` is
+                # the story gate, and a station with no gate would let a
+                # player walk into the Research Lab before the story has
+                # mentioned it exists.
+                if not content.get("panel"):
+                    failures.append(f"{where}: station with no panel to open")
+                elif content["panel"] not in STATION_PANELS:
+                    failures.append(
+                        f"{where}: unknown panel {content['panel']!r} "
+                        f"(have: {', '.join(sorted(STATION_PANELS))})"
+                    )
+                feature = content.get("feature")
+                if not feature:
+                    failures.append(f"{where}: station with no feature gate")
+                elif feature not in sc.FEATURES:
+                    failures.append(f"{where}: gates on unknown feature {feature!r}")
+            elif kind == "npc":
+                # An NPC's whole point is having more than one thing to
+                # say, so an empty `lines` list is the same bug as a note
+                # with no text -- a person you can walk up to and get
+                # nothing from.
+                lines_ = content.get("lines") or []
+                if not lines_:
+                    failures.append(f"{where}: npc with no lines")
+                for i, line in enumerate(lines_):
+                    if not line.get("text"):
+                        failures.append(f"{where}: npc line {i} has no text")
+                    if line.get("requires_flag") and line.get("unless_flag"):
+                        failures.append(
+                            f"{where}: npc line {i} has both requires_flag and "
+                            f"unless_flag -- say which one you meant"
+                        )
+                if not content.get("repeat"):
+                    # Not fatal, but worth saying: without it they fall
+                    # back to a generic line once exhausted.
+                    pass
             elif kind == "cache":
                 if not content.get("grant"):
                     failures.append(f"{where}: cache with nothing in it")
@@ -467,6 +530,23 @@ def _check_map_is_navigable(failures: list[str]) -> tuple[int, int]:
     """
     from bot.game.story import map_config as mc
 
+    # Exits the author has DECLARED one-way with `"one_way": True`.
+    #
+    # The rule below exists so a player can't walk into a dead end and be
+    # stuck, and it should stay strict -- but "you cannot go back" is
+    # sometimes the point rather than an oversight. The prologue's lab
+    # collapses behind you one room at a time; adding return doors to a
+    # building that no longer exists would be a worse map, not a safer
+    # one. Declaring it is the difference between a decision and a bug,
+    # and an undeclared one-way still fails.
+    declared_one_way: dict[str, set[str]] = {}
+    for area_id, area in mc.AREAS.items():
+        declared_one_way[area_id] = {
+            content["to_area"]
+            for content in (area.get("legend") or {}).values()
+            if content.get("kind") == "exit" and content.get("one_way")
+        }
+
     forward: dict[str, list[str]] = {}
     for area_id, area in mc.AREAS.items():
         forward[area_id] = [
@@ -481,7 +561,7 @@ def _check_map_is_navigable(failures: list[str]) -> tuple[int, int]:
             if destination not in mc.AREAS:
                 failures.append(f"area '{area_id}' exits to unknown area '{destination}'")
                 continue
-            if area_id not in forward.get(destination, []):
+            if area_id not in forward.get(destination, []) and destination not in declared_one_way.get(area_id, ()):
                 failures.append(
                     f"'{area_id}' -> '{destination}' is ONE-WAY: once the player walks "
                     f"through, they can never return to '{area_id}'"
@@ -490,6 +570,17 @@ def _check_map_is_navigable(failures: list[str]) -> tuple[int, int]:
 
     links = sum(len(v) for v in forward.values())
     return links, one_way
+
+
+# Panels a station tile may open. Kept as a literal rather than imported
+# from bot/cogs/story.py because importing a cog pulls in discord.py's
+# whole UI layer for what is a five-item list -- but tools/check_runtime
+# exercises the real builder, so a name here that the cog can't build
+# still gets caught.
+STATION_PANELS = frozenset({
+    "hq", "base", "shrines", "harvesters", "shop", "lab", "forge",
+    "squad", "exchange",
+})
 
 
 def main() -> int:
@@ -547,6 +638,9 @@ def main() -> int:
 
     character_names = {t["name"] for t in CHARACTER_TEMPLATES}
 
+    from bot.game.economy.lootbox_config import LOOTBOX_TEMPLATES
+    lootbox_tiers = {t["tier"] for t in LOOTBOX_TEMPLATES}
+
     def check_grant(where: str, grant: dict) -> None:
         for key, value in (grant or {}).items():
             if key == "item":
@@ -559,6 +653,15 @@ def main() -> int:
                 # reaches the beat.
                 if value not in character_names:
                     failures.append(f"{where}: no character template named {value!r}")
+            elif key == "lootbox":
+                # "epic", or ("epic", 3) for a stack -- see
+                # story_service._grant.
+                tier = value[0] if isinstance(value, (list, tuple)) else value
+                if tier not in lootbox_tiers:
+                    failures.append(
+                        f"{where}: lootbox tier {tier!r} does not exist "
+                        f"(have: {', '.join(sorted(lootbox_tiers))})"
+                    )
             elif key not in VALID_CURRENCIES:
                 failures.append(f"{where}: '{key}' is not a currency")
 

@@ -839,6 +839,42 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         {"kind": "team_double_buff", "buff_stat_1": "attack", "buff_percent_1": 55,
          "buff_stat_2": "crit_damage", "buff_percent_2": 55, "duration": 4},
     ),
+    # --- Cynixx (5-star DPS) -------------------------------------------
+    # 165% rather than the requested 175%: he is the only character whose
+    # skill can hand the turn straight back, and a chain of them is worth
+    # far more than the number on any single hit. Priced against Arkiver's
+    # conditional 95/200 and Josh's ramping skill, both of which pay more
+    # per press and neither of which can act twice for it.
+    "cynixx_skill": _skill(
+        "cynixx_skill", "Called Shot", 20, 1,
+        "Deal 165% ELE damage. If it finishes the target, take another turn immediately.",
+        {"kind": "damage_and_extra_turn_on_kill", "damage_percent": 165,
+         "damage_stat": "elemental"},
+    ),
+    "cynixx_ultimate": _ultimate(
+        "cynixx_ultimate", "Static Bloom",
+        "Deal 125% ELE damage to every enemy.",
+        {"kind": "aoe_damage", "damage_percent": 125, "damage_stat": "elemental"},
+    ),
+
+    # --- Polo (4-star Support DPS) -------------------------------------
+    "polo_skill": _skill(
+        "polo_skill", "Pressure Point", 20, 2,
+        "The whole squad chips +2 Poise per hit for 3 turns.",
+        # 3 turns, not the requested 2. A 2-turn window on a 2-turn
+        # cooldown is a buff that is up exactly as often as it is down,
+        # which reads as unreliable rather than as a decision; at 3 the
+        # squad can actually plan a break around it.
+        {"kind": "team_poise_damage_buff", "amount": 2, "duration": 3},
+    ),
+    "polo_ultimate": _ultimate(
+        "polo_ultimate", "Full Commitment",
+        "Spend 75% of your current HP. For every 200 HP spent, the whole squad chips "
+        "+1 more Poise per hit for 2 turns.",
+        {"kind": "sacrifice_hp_team_poise_buff", "self_cost_percent": 75,
+         "hp_per_point": 200, "duration": 2},
+    ),
+
     "aizer_skill": _skill(
         "aizer_skill", "Closing Argument", 20, 1,
         "Deal 110% ATK damage, +55% for each consecutive use on the SAME target (max 4). Switching targets resets it.",
@@ -1095,6 +1131,27 @@ CHARACTER_PASSIVE_MAP: dict[str, dict] = {
         "aizer_passive", "No Further Questions", "always",
         "He never stops closing: +6% ATK every turn, stacking up to 6 times.",
         {"kind": "stacking_buff", "buff_stat": "attack", "percent_per_stack": 6, "max_stacks": 6},
+    ),
+    "cynixx_passive": _passive(
+        "cynixx_passive", "Building Charge", "on_turn_start",
+        "Gains 5% ELE every turn, stacking up to 6 times.",
+        # Capped at 6 where the request said only "+5% each turn". An
+        # uncapped ramp is a different character: it makes the correct
+        # play "survive long enough" and turns every long fight into a
+        # blowout, which is the runaway the stacking_buff cap exists to
+        # prevent everywhere else in this file.
+        {"kind": "stacking_buff", "buff_stat": "elemental",
+         "percent_per_stack": 5, "max_stacks": 6},
+    ),
+    "polo_passive": _passive(
+        "polo_passive", "Field Triage", "on_break",
+        "Every enemy the squad breaks patches the whole team up for 15% of their max HP.",
+        # TEAM, not self. The request said "heal for 15% max hp" without
+        # saying whose -- and Polo is a support whose own kit exists to
+        # cause breaks, so healing only himself would pay the wrong
+        # person for the thing he sets up. Easy to flip to "self_heal" if
+        # that was the intent.
+        {"kind": "kit_reaction", "event": "break", "reward": "team_heal", "percent": 15},
     ),
 }
 

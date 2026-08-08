@@ -50,11 +50,20 @@ import datetime as dt
 # new server can't finish inside a sitting is a raid they watch expire.
 # ----------------------------------------------------------------------
 
-# How long a raid stays open before expiring unbeaten. Also matters
-# because only ONE raid runs per server at a time: an over-long duration
-# on an easy tier means a stale raid blocks the server from summoning
-# anything else.
-RAID_DURATION = dt.timedelta(days=7)
+# How long a raid stays open before expiring unbeaten.
+#
+# ONE DAY, down from seven. The old week made sense when a server had a
+# single raid and needed time to rally around it; now that every player
+# brings their own (see PLAYER_SUMMON_COOLDOWN) a long window is purely
+# a liability. A raid nobody can clear -- a Nightmare summoned into a
+# server of newer players, say -- used to sit there for a week taking up
+# one of the limited active slots, and the only way out was to grind it
+# down or wait.
+#
+# A day means an impossible raid is simply waited out, and it lines up
+# with the summon cooldown: roughly, your raid lives until you can bring
+# the next one.
+RAID_DURATION = dt.timedelta(days=1)
 
 # Attacks one player may spend on one raid. The scarcity is the whole
 # reason a raid is cooperative: nobody can clear the pool alone, so a
@@ -230,6 +239,57 @@ def summon_cooldown(tier_id: str) -> dt.timedelta:
     return SUMMON_COOLDOWNS.get(tier_id, dt.timedelta(hours=12))
 
 
+# ----------------------------------------------------------------------
+# SUMMONING IS A PERSONAL RESOURCE NOW, NOT A SERVER ONE
+# ----------------------------------------------------------------------
+# The old rule was one raid per SERVER at a time, summoned by whoever got
+# there first, at a tier THAT PERSON chose. Three things wrong with it:
+#
+#   * One player's choice set everyone else's content for the next week.
+#     A server whose fastest clicker picked Rift Patrol had a Rift Patrol,
+#     and the players who could have cleared Nightmare had nothing to do.
+#   * A single active raid meant the server was BLOCKED. A stale raid
+#     nobody was finishing sat there until it expired, and the tier
+#     cooldowns above then delayed the replacement further.
+#   * It made summoning competitive rather than generous -- being first
+#     was the whole game.
+#
+# Now every player carries their own summon, on their own cooldown, and
+# several raids can run in a server at once. Your summon is a thing you
+# bring to the server rather than a slot you take from it, and the raid
+# menu lists everything open so nobody is stuck with someone else's pick.
+#
+# The TIER is no longer chosen at all -- see raid_service.start_raid. It
+# is the hardest one the summoner's roster qualifies for, so the raid a
+# player brings reflects how far they've actually got.
+PLAYER_SUMMON_COOLDOWN = dt.timedelta(hours=22)
+
+# Guardrail on concurrency. Several raids at once is the point, but a
+# server of forty people could otherwise open forty raids and split the
+# damage so thin that none of them ever falls -- which would leave
+# everyone worse off than the single-raid rule they came from.
+MAX_ACTIVE_RAIDS_PER_GUILD = 5
+
+
+# ----------------------------------------------------------------------
+# SHARD PAYOUTS CUT ROUGHLY 4x ACROSS EVERY TIER
+# ----------------------------------------------------------------------
+# A pull costs 120 shards. Before this pass, the top contributor on a
+# Nightmare raid took home 2,875 -- TWENTY-FOUR PULLS from one clear --
+# and even a mid-tier Cascade Offensive paid three and a half. Raids
+# weren't a shard source, they were the shard source, and a gacha whose
+# currency arrives in twenty-pull lumps stops being a system the player
+# interacts with at all.
+#
+# Cut so the ladder still means something -- Nightmare's best contributor
+# now takes ~6.7 pulls and Rift Patrol a fifth of one -- while the GOLD,
+# lootbox and material halves of the table are untouched. Those were
+# always the better-sized part of the reward, and they're now the reason
+# to raid.
+#
+# The contribution multipliers (CONTRIBUTION_TIERS) are deliberately left
+# alone: paying by share of damage is the right shape, and it was the
+# base numbers that were wrong, not the way they were split.
 RAID_TIERS: list[dict] = [
     {
         # ------------------------------------------------------------------
@@ -276,11 +336,10 @@ RAID_TIERS: list[dict] = [
         "expected_participants": 2,
         "attacks_per_player": 4,
         "attack_cooldown": dt.timedelta(seconds=20),
-        "duration": dt.timedelta(days=2),
         "description": "A quick first raid. Two people can finish it in one sitting.",
         "rewards": {
             "gold": 900,
-            "shards": 22,
+            "shards": 8,
             "wood": 150,
             "stone": 150,
             "metal": 40,
@@ -324,11 +383,10 @@ RAID_TIERS: list[dict] = [
         "expected_participants": 3,
         "attacks_per_player": 4,
         "attack_cooldown": dt.timedelta(seconds=30),
-        "duration": dt.timedelta(days=3),
         "description": "A step up from the patrol. Three people, one evening.",
         "rewards": {
             "gold": 1_700,
-            "shards": 45,
+            "shards": 16,
             "wood": 220,
             "stone": 220,
             "metal": 90,
@@ -353,11 +411,10 @@ RAID_TIERS: list[dict] = [
         "expected_participants": 4,
         "attacks_per_player": 6,
         "attack_cooldown": dt.timedelta(seconds=40),
-        "duration": dt.timedelta(days=3),
         "description": "The first raid that really wants a full server.",
         "rewards": {
             "gold": 2_900,
-            "shards": 80,
+            "shards": 28,
             "crystal": 45,
             "metal": 140,
             "xendium": 18,
@@ -394,7 +451,7 @@ RAID_TIERS: list[dict] = [
         "rewards": {
             # Multiplied by the player's contribution tier below.
             "gold": 5_600,
-            "shards": 170,
+            "shards": 55,
             "crystal": 85,
             "xendium": 36,
             "reroll_tokens": 35,
@@ -423,7 +480,7 @@ RAID_TIERS: list[dict] = [
         "description": "A tougher boss and a much bigger pool. Bring the server.",
         "rewards": {
             "gold": 17_000,
-            "shards": 460,
+            "shards": 140,
             "crystal": 220,
             "xendium": 110,
             "void": 50,
@@ -461,7 +518,7 @@ RAID_TIERS: list[dict] = [
         "description": "Xender himself. The hardest thing in the game.",
         "rewards": {
             "gold": 44_000,
-            "shards": 1_150,
+            "shards": 320,
             "crystal": 520,
             "xendium": 280,
             "void": 160,

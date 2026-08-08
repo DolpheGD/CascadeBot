@@ -19,7 +19,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
-from bot.utils import responses
+from bot.utils import paging, responses
 from bot.database.session import SessionLocal
 from bot.game.abyss import abyss_config as ac
 from bot.game.combat.battle import Battle
@@ -215,7 +215,13 @@ class _PickerView(OwnedView):
                 value=str(pc.id),
                 description=f"{pc.template.star_rating}★ {pc.template.character_class.value}"[:100],
             )
-            for pc in owned[:25]
+            # Windowed, and sorted strongest-first so the 25 shown are
+            # the ones worth fielding. The Abyss picks a fresh team per
+            # chamber, so a player with a big roster was previously
+            # choosing from an arbitrary slice of it.
+            for pc in paging.window(
+                sorted(owned, key=lambda c: (-c.level, -c.template.star_rating,
+                                             c.display_name)), 0)
         ]
         if options:
             self.add_item(_TeamSelect(options, min(ac.TEAM_SIZE, len(options))))

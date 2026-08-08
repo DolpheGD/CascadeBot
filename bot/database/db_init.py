@@ -96,6 +96,12 @@ def _ensure_columns(conn):
     add_column("players", "prestige_count", "INTEGER DEFAULT 0")
     add_column("players", "prestige_best_level", "INTEGER DEFAULT 0")
 
+    # Per-player raid summoning (raid_config.PLAYER_SUMMON_COOLDOWN).
+    # NULL means "never summoned", which reads as off cooldown -- the
+    # generous default, and correct for everyone who played before this.
+    add_column("players", "last_raid_summon_at", "DATETIME")
+    add_column("guild_raids", "summoned_by", "BIGINT")
+
 
 def init_db():
     Base.metadata.create_all(bind=engine)

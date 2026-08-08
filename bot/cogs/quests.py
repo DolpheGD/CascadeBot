@@ -13,7 +13,7 @@ from discord import app_commands
 from bot.utils import responses
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
-from bot.services import quest_service
+from bot.services import quest_service, story_service
 from bot.game.economy.quest_config import MAX_ACTIVE_BASIC_QUESTS
 from bot.utils import embedder
 from bot.utils.guild_decorator import guild_decorator
@@ -30,7 +30,9 @@ def _quest_embed_and_view(db, player) -> tuple[discord.Embed, "QuestView"]:
     else:
         cooldown_remaining = quest_service.basic_quest_reroll_cooldown_remaining(active_quests[0])
 
-    embed = embedder.quest_board_embed(beginner_quests, active_quests, cooldown_remaining, player)
+    story_quest = story_service.quest_summary(db, player)
+    embed = embedder.quest_board_embed(beginner_quests, active_quests, cooldown_remaining,
+                                      player, story_quest=story_quest)
     can_roll = cooldown_remaining is None
     view = QuestView(show_roll_button=can_roll, owner_id=player.id)
     return embed, view

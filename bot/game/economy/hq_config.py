@@ -47,6 +47,34 @@ HQ_LEVEL_CONFIG: dict[int, dict] = {
         "building_level_cap": 22,
         "upgrade_cost": {"gold": 90000, "xendium": 500, "permafrost_ore": 350, "void": 100},
     },
+    # ------------------------------------------------------------------
+    # LEVELS 7-9: the base kept its ceiling while everything else moved.
+    #
+    # The HQ's building cap reached 22 at level 6, but every shrine and
+    # harvester in the game stopped at max_level 10 -- so the cap had been
+    # meaningless for the entire back half of the ladder, and the base
+    # was fully finished long before the player was. Those templates now
+    # go to 20 (see harvester_config / SHRINE_TEMPLATES), and these three
+    # levels are what gate the top half of that range.
+    #
+    # Costs step up hard and lean on the DEEP materials -- Void and
+    # Entropy, which only the late regions drop. That is deliberate: the
+    # base should be the thing an endgame player is still feeding, and
+    # gold alone is farmable enough that a gold-only cost would be a
+    # formality rather than a goal.
+    # ------------------------------------------------------------------
+    7: {
+        "building_level_cap": 26,
+        "upgrade_cost": {"gold": 180000, "permafrost_ore": 700, "void": 300, "entropy": 100},
+    },
+    8: {
+        "building_level_cap": 30,
+        "upgrade_cost": {"gold": 340000, "void": 800, "entropy": 350},
+    },
+    9: {
+        "building_level_cap": 34,
+        "upgrade_cost": {"gold": 600000, "void": 1400, "entropy": 800},
+    },
 }
 
 
@@ -82,11 +110,11 @@ SHRINE_TEMPLATES: list[dict] = [
         "stat": "max_hp",
         "bonus_type": "flat",
         "base_bonus_per_level": 20.0,
-        "max_level": 10,
+        "max_level": 20,
         "unlock_hq_level": 1,
         "build_cost_gold": 300,
         "base_upgrade_cost": 150,
-        "upgrade_cost_growth": 1.5,
+        "upgrade_cost_growth": 1.32,
         "upgrade_currency": "gold",
     },
     {
@@ -95,11 +123,11 @@ SHRINE_TEMPLATES: list[dict] = [
         "stat": "attack",
         "bonus_type": "flat",
         "base_bonus_per_level": 3.0,
-        "max_level": 10,
+        "max_level": 20,
         "unlock_hq_level": 1,
         "build_cost_gold": 300,
         "base_upgrade_cost": 150,
-        "upgrade_cost_growth": 1.5,
+        "upgrade_cost_growth": 1.32,
         "upgrade_currency": "gold",
     },
     {
@@ -108,11 +136,11 @@ SHRINE_TEMPLATES: list[dict] = [
         "stat": "defense",
         "bonus_type": "flat",
         "base_bonus_per_level": 3.0,
-        "max_level": 10,
+        "max_level": 20,
         "unlock_hq_level": 2,
         "build_cost_gold": 600,
         "base_upgrade_cost": 250,
-        "upgrade_cost_growth": 1.55,
+        "upgrade_cost_growth": 1.35,
         "upgrade_currency": "gold",
     },
     {
@@ -121,11 +149,11 @@ SHRINE_TEMPLATES: list[dict] = [
         "stat": "elemental",
         "bonus_type": "flat",
         "base_bonus_per_level": 3.0,
-        "max_level": 10,
+        "max_level": 20,
         "unlock_hq_level": 2,
         "build_cost_gold": 600,
         "base_upgrade_cost": 250,
-        "upgrade_cost_growth": 1.55,
+        "upgrade_cost_growth": 1.35,
         "upgrade_currency": "gold",
     },
     {
@@ -134,11 +162,11 @@ SHRINE_TEMPLATES: list[dict] = [
         "stat": "speed",
         "bonus_type": "flat",
         "base_bonus_per_level": 1.0,
-        "max_level": 10,
+        "max_level": 20,
         "unlock_hq_level": 3,
         "build_cost_gold": 1200,
         "base_upgrade_cost": 500,
-        "upgrade_cost_growth": 1.6,
+        "upgrade_cost_growth": 1.38,
         "upgrade_currency": "gold",
     },
     {
@@ -147,11 +175,11 @@ SHRINE_TEMPLATES: list[dict] = [
         "stat": "crit_rate",
         "bonus_type": "flat",
         "base_bonus_per_level": 1.0,
-        "max_level": 10,
+        "max_level": 20,
         "unlock_hq_level": 3,
         "build_cost_gold": 1200,
         "base_upgrade_cost": 500,
-        "upgrade_cost_growth": 1.6,
+        "upgrade_cost_growth": 1.38,
         "upgrade_currency": "gold",
     },
 ]

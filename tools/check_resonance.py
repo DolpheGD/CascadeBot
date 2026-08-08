@@ -68,7 +68,8 @@ class FakeTemplate:
 def main() -> int:
     from bot.game.characters.character_seed_data import CHARACTER_TEMPLATES
     from bot.game.combat.factory import (
-        build_character_combatant, _KIT_MAGNITUDE_KEYS, _KIT_POISE_KEYS)
+        build_character_combatant, _KIT_INVERSE_KEYS, _KIT_MAGNITUDE_KEYS,
+        _KIT_POISE_KEYS)
     from bot.game.combat.skills import CHARACTER_KIT_MAP
     from bot.game.economy.resonance_config import MAX_RESONANCE, RESONANCE_LEVELS
 
@@ -120,7 +121,11 @@ def main() -> int:
         # R4 -- magnitudes in BOTH the skill and the ultimate.
         def changed(before, after):
             b, a = (before.get("effect") or {}), (after.get("effect") or {})
-            keys = _KIT_MAGNITUDE_KEYS + _KIT_POISE_KEYS
+            # _KIT_INVERSE_KEYS counts too: an ability whose only
+            # magnitude is a cost-per-point (Polo's ultimate) gets
+            # stronger by that number going DOWN, and leaving it out
+            # here reported a working Resonance level as a dead one.
+            keys = _KIT_MAGNITUDE_KEYS + _KIT_POISE_KEYS + _KIT_INVERSE_KEYS
             return sum(1 for k in keys if k in b and b[k] != a.get(k))
 
         skill_changes = changed(base_skill, top_skill)

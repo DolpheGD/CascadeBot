@@ -233,14 +233,28 @@ def _break_damage_percent(attacker: Combatant) -> float:
     )
 
 
+# A StatModifier on this pseudo-stat is a TEMPORARY poise-damage buff.
+#
+# Reusing StatModifier rather than inventing a timed-buff type gets the
+# duration tick, the serialization and the ℹ️ Info display for free --
+# the same reasoning that put DoT amplification on Vulnerability. It is
+# deliberately not a member of STAT_KEYS, so nothing reads it through
+# effective_stat and it can never collide with a real stat lookup.
+POISE_DAMAGE_STAT = "poise_damage"
+
+
 def total_poise_damage_bonus(attacker: Combatant) -> int:
     """Every source of bonus poise damage on a landed hit: run-scoped
-    relics (Combatant.bonus_poise_damage, baked on at battle-build time)
-    plus any `poise_damage_bonus` passives from gear or a character kit.
-    Centralised here so relics and passives can never drift apart in how
-    they're counted."""
-    return attacker.bonus_poise_damage + sum(
-        p["effect"].get("amount", 1) for p in attacker.find_passive("poise_damage_bonus")
+    relics (Combatant.bonus_poise_damage, baked on at battle-build time),
+    `poise_damage_bonus` passives from gear or a character kit, and any
+    temporary buff on POISE_DAMAGE_STAT (Polo's kit). Centralised here so
+    no source can drift apart from the others in how it's counted."""
+    return (
+        attacker.bonus_poise_damage
+        + sum(p["effect"].get("amount", 1)
+              for p in attacker.find_passive("poise_damage_bonus"))
+        + int(sum(m.percent for m in attacker.modifiers
+                  if m.stat == POISE_DAMAGE_STAT))
     )
 
 # ----------------------------------------------------------------------
@@ -1396,6 +1410,73 @@ def resolve_active_ability(
         # had nothing to combo with before.
         for target in [o for o in opponents if o.is_alive()]:
             _apply_dot_vulnerability(target, ability, effect, log)
+
+    elif kind == "team_poise_damage_buff":
+        # POLO. Every ally's hits chip extra poise for a few turns.
+        #
+        # The break economy had appliers and payoffs but no AMPLIFIER: you
+        # could hit poise harder by building relics or bringing a specific
+        # character's passive, both of which are permanent, account-level
+        # decisions. A timed team buff makes "we break it NOW" a play you
+        # can set up mid-fight, which is what turns break from a stat into
+        # a plan.
+        amount = effect.get("amount", 2)
+        duration = effect.get("duration", 2)
+        for member in [attacker] + [a for a in allies if a.is_alive()]:
+            member.modifiers.append(
+                StatModifier(POISE_DAMAGE_STAT, amount, duration, ability["name"])
+            )
+        log.append(
+            f"🪓 {attacker.name}'s {ability['name']}: the whole squad chips "
+            f"+{amount} Poise per hit for {duration} turns."
+        )
+
+    elif kind == "sacrifice_hp_team_poise_buff":
+        # POLO'S ULTIMATE. Pays a slice of his own CURRENT hp and converts
+        # it into team-wide poise damage -- the more he had to give, the
+        # bigger the window.
+        #
+        # Scaling off HP LOST rather than a flat number is what makes it a
+        # real decision: using it at full health is the strong play and
+        # also the dangerous one, which is exactly the shape the
+        # Blood-Sustain kinds (Kotori, Evz) already established.
+        cost = max(0, int(attacker.current_hp * effect.get("self_cost_percent", 75) / 100))
+        paid = attacker.take_raw_hp_loss(cost)
+        per_point = max(1, effect.get("hp_per_point", 200))
+        amount = int(paid // per_point)
+        duration = effect.get("duration", 2)
+        log.append(f"🩸 {attacker.name} spends {paid} HP.")
+        if amount <= 0:
+            log.append(
+                f"…but there wasn't enough left in him to shift anything "
+                f"(needs {per_point} HP per point)."
+            )
+        else:
+            for member in [attacker] + [a for a in allies if a.is_alive()]:
+                member.modifiers.append(
+                    StatModifier(POISE_DAMAGE_STAT, amount, duration, ability["name"])
+                )
+            log.append(
+                f"🪓 The squad chips +{amount} Poise per hit for {duration} turns."
+            )
+        _trigger_on_low_hp(attacker, log)
+
+    elif kind == "damage_and_extra_turn_on_kill":
+        # CYNIXX. A hit that, if it FINISHES the target, immediately hands
+        # the turn straight back.
+        #
+        # extra_turn_on_kill already existed but only as an always-on
+        # passive (FAX), which is a different character: FAX keeps moving
+        # whenever anything dies to him, whereas this pays out only for
+        # the specific button. Flagged on the attacker rather than
+        # resolved here because the turn order is the Battle's business --
+        # see Battle._maybe_grant_extra_turn, which reads and clears it.
+        living_before = defender.is_alive()
+        _hit(attacker, defender, effect["damage_percent"],
+             effect.get("damage_stat", "elemental"), rng, log,
+             defender_allies=defender_allies)
+        if living_before and not defender.is_alive():
+            attacker.extra_turn_armed = True
 
     elif kind == "team_poise_strike":
         # Team-wide poise pressure: chips poise off every living enemy at

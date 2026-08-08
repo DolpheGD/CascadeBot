@@ -90,6 +90,7 @@ REGION_DIFFICULTY: dict[str, dict] = {
     "Glacier 15": {
         "tier": 1, "difficulty_label": "Easy",
         "level_offset": 1, "combat_level_offset": 2, "reward_multiplier": 1.3,
+        "gold_multiplier": 1.3,
         "max_item_rarity": Rarity.RARE, "max_lootbox_tier": "rare",
         "rarity_weight_bonus": 0,
         "combat_squad_weights": {1: 30, 2: 40, 3: 25, 4: 5},
@@ -97,7 +98,8 @@ REGION_DIFFICULTY: dict[str, dict] = {
     },
     "The Wastelands": {
         "tier": 2, "difficulty_label": "Normal",
-        "level_offset": 9, "combat_level_offset": 13, "reward_multiplier": 1.8,
+        "level_offset": 18, "combat_level_offset": 24, "reward_multiplier": 1.8,
+        "gold_multiplier": 3.0,
         "max_item_rarity": Rarity.EPIC, "max_lootbox_tier": "epic",
         "rarity_weight_bonus": 60,
         "combat_squad_weights": {1: 10, 2: 30, 3: 35, 4: 20, 5: 5},
@@ -118,7 +120,8 @@ REGION_DIFFICULTY: dict[str, dict] = {
         # shares with four other regions. Kept below Voidcrest's 27/36 so
         # the ladder still rises.
         "tier": 3, "difficulty_label": "Hard",
-        "level_offset": 22, "combat_level_offset": 29, "reward_multiplier": 2.8,
+        "level_offset": 26, "combat_level_offset": 33, "reward_multiplier": 2.8,
+        "gold_multiplier": 8.0,
         "max_item_rarity": Rarity.LEGENDARY, "max_lootbox_tier": "legendary",
         "rarity_weight_bonus": 130,
         "combat_squad_weights": {2: 20, 3: 35, 4: 30, 5: 15},
@@ -126,7 +129,8 @@ REGION_DIFFICULTY: dict[str, dict] = {
     },
     "Voidcrest Desert": {
         "tier": 4, "difficulty_label": "Insane",
-        "level_offset": 27, "combat_level_offset": 36, "reward_multiplier": 4.5,
+        "level_offset": 30, "combat_level_offset": 39, "reward_multiplier": 4.5,
+        "gold_multiplier": 20.0,
         "max_item_rarity": Rarity.MYTHIC, "max_lootbox_tier": "mythic",
         "rarity_weight_bonus": 220,
         "combat_squad_weights": {2: 10, 3: 25, 4: 35, 5: 30},
@@ -145,6 +149,7 @@ REGION_DIFFICULTY: dict[str, dict] = {
         # rather than a "strictly better loot" tier.
         "tier": 5, "difficulty_label": "Nightmare",
         "level_offset": 40, "combat_level_offset": 50, "reward_multiplier": 6.5,
+        "gold_multiplier": 45.0,
         "max_item_rarity": Rarity.DIVINE, "max_lootbox_tier": "mythic",
         "rarity_weight_bonus": 320,
         "combat_squad_weights": {3: 10, 4: 35, 5: 55},

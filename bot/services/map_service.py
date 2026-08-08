@@ -97,6 +97,69 @@ def has_read(story, area_id: str, char: str) -> bool:
     return char in (story.read_tiles or {}).get(area_id, [])
 
 
+# ----------------------------------------------------------------------
+# NPCs -- people you can talk to more than once.
+# ----------------------------------------------------------------------
+# A tile that says one fixed line forever is scenery with a face. What
+# makes a hub feel inhabited is that the same person has something new to
+# say after you've done something, and something ordinary to say when
+# they don't.
+#
+# An `npc` legend entry looks like:
+#
+#     "J": {
+#         "kind": "npc", "emoji": "🤖", "name": "Jofrog",
+#         "lines": [
+#             {"text": "First thing he says."},
+#             {"text": "Only once you've met Josh.",
+#              "requires_flag": "c1_met_josh"},
+#             {"text": "Only BEFORE you've met Josh.",
+#              "unless_flag": "c1_met_josh"},
+#         ],
+#         "repeat": "What he says when there's nothing new.",
+#         "quest": True,          # optional -- puts ❗ on the legend
+#     }
+#
+# Lines are delivered in order, one per interaction, skipping any whose
+# flag conditions aren't met. When they run out, `repeat` is used
+# forever. A line that becomes available LATER (its flag gets set) is
+# picked up then -- which is the whole point, and why this is ordered
+# rather than random.
+# ----------------------------------------------------------------------
+
+def _line_available(story, line: dict) -> bool:
+    flags = story.flags or {}
+    required = line.get("requires_flag")
+    if required and not flags.get(required):
+        return False
+    blocked = line.get("unless_flag")
+    if blocked and flags.get(blocked):
+        return False
+    return True
+
+
+def npc_line(db, story, area_id: str, char: str, content: dict) -> tuple[str, int | None, bool]:
+    """(text, line index or None, exhausted).
+
+    A None index means nothing new was said -- the repeat line -- and so
+    nothing needs marking as read.
+    """
+    for index, line in enumerate(content.get("lines") or []):
+        if has_read(story, area_id, f"{char}#{index}"):
+            continue
+        if not _line_available(story, line):
+            continue
+        return line.get("text", ""), index, False
+    fallback = content.get("repeat") or "They don't have anything else to say right now."
+    return fallback, None, True
+
+
+def npc_has_new_line(db, story, area_id: str, char: str, content: dict) -> bool:
+    """Whether this NPC has something unheard to say -- drives the ❗."""
+    _, index, _ = npc_line(db, story, area_id, char, content)
+    return index is not None
+
+
 def mark_read(db, story, area_id: str, char: str) -> None:
     read = dict(story.read_tiles or {})
     chars = list(read.get(area_id, []))
@@ -285,6 +348,43 @@ def interact(db, story) -> dict:
 
     kind = content.get("kind")
 
+    if kind == "station":
+        # A STATION is a tile that opens a real game panel -- the forge
+        # bench opens the Forge, the map table opens Cascade HQ.
+        #
+        # The map already knows where everything is; before this, walking
+        # up to the forge and then typing `/forge` was the player doing
+        # the map's job for it. The panel opens ephemerally so the map
+        # stays exactly where it was underneath.
+        #
+        # The tile carries the FEATURE it needs, so a station the story
+        # hasn't unlocked yet refuses the same way the command would
+        # rather than opening a panel for a system nobody has explained.
+        return {
+            "kind": "station",
+            "name": content.get("name", "Terminal"),
+            "emoji": content.get("emoji", ""),
+            "panel": content.get("panel"),
+            "feature": content.get("feature"),
+        }
+
+    if kind == "npc":
+        line, index, exhausted = npc_line(db, story, state["area_id"], state["char"], content)
+        if index is not None:
+            # Per-LINE read state, keyed "char#index", so an NPC can be
+            # talked to repeatedly and say something different each time.
+            # read_tiles is already a per-area list of strings, so this
+            # needs no schema change and no migration.
+            mark_read(db, story, state["area_id"], f"{state['char']}#{index}")
+        return {
+            "kind": "note",  # rendered identically -- it's a readout on the map
+            "name": content.get("name", "Someone"),
+            "emoji": content.get("emoji", ""),
+            "text": line,
+            "exhausted": exhausted,
+            "bonus": _completion_bonus_if_due(db, story, state["area_id"]),
+        }
+
     if kind == "note":
         mark_read(db, story, state["area_id"], state["char"])
         return {
@@ -380,7 +480,13 @@ def interactive_chars(area: dict) -> set[str]:
     """Every tile in the area a player can DO something with.
 
     Exits are excluded: walking through a door is not engagement with the
-    area, it's leaving it."""
+    area, it's leaving it.
+
+    NPCs are excluded too, and for a subtler reason: they are never
+    finished. A flag set three missions later can give someone a new line,
+    which would take a COMPLETED area back to incomplete and either
+    re-award its bonus or leave a permanent unfinished mark. Completion
+    is about the tiles you can exhaust; people aren't tiles you exhaust."""
     return {
         char for char, content in (area.get("legend") or {}).items()
         if content.get("kind") in ("note", "cache", "hunt")
@@ -451,6 +557,13 @@ def render(db, story) -> str:
             if (x, y) == (px, py):
                 row += mc.EMOJI_PLAYER
                 continue
+            # Decoration is checked BEFORE is_wall, because is_wall now
+            # counts it as solid -- otherwise every tree would render as
+            # a plain black block and the whole point of decorating
+            # would be lost.
+            if mc.is_decor(area, x, y):
+                row += (mc.tile_content_raw(area, x, y) or {}).get("emoji", mc.EMOJI_WALL)
+                continue
             if mc.is_wall(area, x, y):
                 row += mc.EMOJI_WALL
                 continue
@@ -482,23 +595,32 @@ def legend_lines(db, story) -> list[str]:
     area = mc.get_area(area_id)
     completed = story.completed_missions or []
 
-    # ONLY WHAT MATTERS, and never more than MAX_LEGEND_LINES.
+    # ESSENTIALS ONLY.
     #
-    # This listed every tile in the area, which on a 13x7 room meant a
-    # dozen lines of scenery under the grid -- the "menu is too big"
-    # problem. Missions and exits are how you make progress and are
-    # always listed; scenery is discoverable by walking onto it, which is
-    # what the map is for.
-    priority = {"mission": 0, "exit": 1, "hunt": 2, "cache": 3, "note": 4}
+    # The legend answers "what is there to DO here", not "what objects
+    # exist here". A restraint frame, a burning panel, a tree -- these
+    # are things you find by walking onto them, and listing them turns a
+    # four-line orientation aid back into the wall of text this was
+    # trimmed from once already. Worse, it buries the two entries that
+    # actually matter among scenery that doesn't.
+    #
+    # So: missions and exits, which are how you make progress, plus
+    # hunts, which are an optional FIGHT and therefore a decision worth
+    # knowing about before you step on it. Notes, caches and decoration
+    # are discoverable, which is what the map is for.
+    LISTED_KINDS = {"mission", "exit", "hunt", "npc"}
+
+    priority = {"mission": 0, "npc": 1, "exit": 2, "hunt": 3}
     entries = sorted(
-        (area.get("legend") or {}).items(),
+        ((char, content) for char, content in (area.get("legend") or {}).items()
+         if content.get("kind") in LISTED_KINDS),
         key=lambda kv: priority.get(kv[1].get("kind"), 9),
     )
 
     lines: list[str] = []
     for char, content in entries:
-        if content.get("kind") in ("note", "cache", "hunt") and has_read(story, area_id, char):
-            continue  # already had; stop advertising it
+        if content.get("kind") == "hunt" and has_read(story, area_id, char):
+            continue  # already fought; stop advertising it
         if len(lines) >= mc.MAX_LEGEND_LINES and content.get("kind") not in ("mission", "exit"):
             continue
         emoji = content.get("emoji", "")
@@ -508,5 +630,34 @@ def legend_lines(db, story) -> list[str]:
         elif content.get("kind") == "mission" and content["mission"] in completed:
             lines.append(f"{mc.EMOJI_DONE} {name} — done")
         else:
-            lines.append(f"{emoji} {name}")
+            # THE QUEST MARKER. A tile that will actually move the story
+            # forward is suffixed with ❗ so the player can tell it apart
+            # from scenery at a glance -- the thing every RPG hub does,
+            # and the thing a grid of emoji most needs, since the map
+            # itself can't distinguish "person with a job for you" from
+            # "person". Suffixed rather than replacing the tile's own
+            # emoji, so the legend entry still matches what's drawn.
+            marker = (f" {mc.EMOJI_QUEST}"
+                      if _is_quest(db, story, area_id, char, content) else "")
+            lines.append(f"{emoji} {name}{marker}")
     return lines
+
+
+def _is_quest(db, story, area_id: str, char: str, content: dict) -> bool:
+    """Whether this tile has something for the player RIGHT NOW.
+
+    Missions are the obvious case. An NPC qualifies while they still
+    have an unheard line -- which is the marker doing its real job: it
+    goes away once you've talked to them, and comes BACK when a flag
+    unlocks something new to say, so the hub tells you where to go
+    without you having to re-canvass every room.
+
+    Exits deliberately never qualify: they're how you leave, not
+    something to do, and marking every doorway defeats the point.
+    """
+    kind = content.get("kind")
+    if kind == "mission":
+        return True
+    if kind == "npc":
+        return npc_has_new_line(db, story, area_id, char, content)
+    return False

@@ -43,7 +43,7 @@ from bot.game.economy.hq_config import (
 from bot.services.currency_service import format_currency
 from bot.utils.embedder._shared import fit_field
 from bot.utils.guild_decorator import guild_decorator
-from bot.utils import names
+from bot.utils import names, paging
 from bot.utils.ui_guard import (OwnedView, check_message_owner, require_feature,
                                 require_player)
 
@@ -1120,21 +1120,43 @@ class ForgeModeSelect(discord.ui.Select):
             db.close()
 
 
+def _forge_item_order(items: list) -> list:
+    """Most-worth-forging first: rarity, then upgrade level, then name.
+
+    The forge's selects can only show 25 of an unbounded inventory, so
+    the order decides which items the feature is usable on at all."""
+    return sorted(
+        items,
+        key=lambda i: (-getattr(i.rarity, "sort_order", 0), -(i.item_level or 0),
+                       i.display_name or ""),
+    )
+
+
 class ForgeItemSelect(discord.ui.Select):
     """The item picker for salvage/reforge, and the SOURCE picker for
     transfer. `mode` is carried in the custom_id so the callback knows
     which operation the click belongs to."""
 
     def __init__(self, mode: str, items: list, placeholder: str):
+        # BEST FIRST, and the placeholder says when there are more.
+        #
+        # This lists INVENTORY, which is unbounded -- a played account
+        # holds hundreds of items against Discord's 25-option ceiling. It
+        # used to slice an unsorted list, so which items the forge would
+        # even offer you was effectively arbitrary. Sorting by rarity and
+        # level puts the ones worth forging in front, and saying "25 of
+        # 180" stops the menu pretending it's showing everything.
+        ordered = _forge_item_order(items)
         options = [
             discord.SelectOption(
                 label=names.fit_suffix(item.display_name, f"+{item.item_level}", 100),
                 value=str(item.id),
                 description=f"{item.rarity.value.title()} {item.slot.value}"[:100],
             )
-            for item in items
+            for item in paging.window(ordered, 0)
         ] or [discord.SelectOption(label="Nothing available", value="none")]
-        super().__init__(placeholder=placeholder, options=options[:25],
+        super().__init__(placeholder=paging.placeholder_for(placeholder, 0, len(ordered)),
+                         options=options,
                          custom_id=f"cascade_forge_item:{mode}", min_values=1, max_values=1)
         self.mode = mode
 
@@ -1192,16 +1214,18 @@ class ForgeItemSelect(discord.ui.Select):
 
 class ForgeTransferTargetSelect(discord.ui.Select):
     def __init__(self, source, items: list):
+        ordered = _forge_item_order(items)
         options = [
             discord.SelectOption(
                 label=names.fit_suffix(item.display_name, f"+{item.item_level}", 100),
                 value=str(item.id),
                 description=f"{item.rarity.value.title()} {item.slot.value}"[:100],
             )
-            for item in items
+            for item in paging.window(ordered, 0)
         ] or [discord.SelectOption(label="No compatible item", value="none")]
-        super().__init__(placeholder=f"Put {source.display_name}'s ability onto..."[:150],
-                         options=options[:25],
+        super().__init__(placeholder=paging.placeholder_for(
+                             f"Put {source.display_name}'s ability onto", 0, len(ordered)),
+                         options=options,
                          custom_id=f"cascade_forge_target:{source.id}",
                          min_values=1, max_values=1)
         self.source_id = source.id

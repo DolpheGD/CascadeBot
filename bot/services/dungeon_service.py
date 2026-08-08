@@ -306,6 +306,14 @@ def is_region_unlocked(db, player_id: int, region: str) -> tuple[bool, str | Non
     return False, required
 
 
+def _gold_mult(difficulty: dict) -> float:
+    """The region's GOLD curve, which past Glacier is much steeper than
+    its XP/material curve -- see the block in combat_service.award_combat
+    for the measurement behind splitting them. Falls back to
+    reward_multiplier so a region without the newer key still works."""
+    return difficulty.get("gold_multiplier", difficulty["reward_multiplier"])
+
+
 def is_in_combat(expedition: Expedition | None) -> bool:
     return expedition is not None and bool(expedition.combat_state)
 
@@ -459,7 +467,7 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
         # with everything else in the second balance pass regardless, so
         # it never reads as an anticlimactic downgrade from an Encounter
         # if it ever did trigger.
-        gold = round(rng.randint(19, 38) * (node["floor"] + 1) // 2 * difficulty["reward_multiplier"])
+        gold = round(rng.randint(19, 38) * (node["floor"] + 1) // 2 * _gold_mult(difficulty))
         add_currency(db, player, "gold", gold)
         _ledger_add_gold(expedition, gold)
         message = f"You find a treasure chest containing {format_currency('gold', gold)}!"
@@ -492,7 +500,7 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
         # Defensive fallback only -- shouldn't happen with ENCOUNTERS
         # populated for "secret", since RoomType.SECRET rolls an
         # encounter at 1.0 chance above (see ROOM_ENCOUNTER_CHANCE).
-        gold = round(rng.randint(6, 31) * difficulty["reward_multiplier"])
+        gold = round(rng.randint(6, 31) * _gold_mult(difficulty))
         add_currency(db, player, "gold", gold)
         _ledger_add_gold(expedition, gold)
         tier = tier_for_floor_and_region(node["floor"], difficulty["max_lootbox_tier"])
@@ -524,7 +532,7 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
         # Defensive fallback only -- shouldn't happen with ENCOUNTERS
         # populated, since RoomType.STORY rolls an encounter at 1.0
         # chance above (see ROOM_ENCOUNTER_CHANCE).
-        gold = round(rng.randint(5, 19) * difficulty["reward_multiplier"])
+        gold = round(rng.randint(5, 19) * _gold_mult(difficulty))
         add_currency(db, player, "gold", gold)
         _ledger_add_gold(expedition, gold)
         _mark_completed(expedition, expedition.current_node_id)
@@ -542,7 +550,7 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
         # Defensive fallback only -- shouldn't happen with ENCOUNTERS
         # populated for "shrine", since RoomType.SHRINE rolls an
         # encounter at 1.0 chance above (see ROOM_ENCOUNTER_CHANCE).
-        gold = round(rng.randint(5, 19) * difficulty["reward_multiplier"])
+        gold = round(rng.randint(5, 19) * _gold_mult(difficulty))
         add_currency(db, player, "gold", gold)
         _ledger_add_gold(expedition, gold)
         _mark_completed(expedition, expedition.current_node_id)
@@ -562,7 +570,7 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
         # 1.0 chance above (see ROOM_ENCOUNTER_CHANCE). Trap no longer
         # has a standalone mini-game of its own -- see the module
         # docstring.
-        gold = round(rng.randint(6, 20) * (node["floor"] + 1) // 2 * difficulty["reward_multiplier"])
+        gold = round(rng.randint(6, 20) * (node["floor"] + 1) // 2 * _gold_mult(difficulty))
         add_currency(db, player, "gold", gold)
         _ledger_add_gold(expedition, gold)
         _mark_completed(expedition, expedition.current_node_id)
@@ -582,7 +590,7 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
         # encounter at 1.0 chance above (see ROOM_ENCOUNTER_CHANCE).
         # Puzzle no longer has a standalone mini-game of its own -- see
         # the module docstring.
-        gold = round(rng.randint(6, 20) * (node["floor"] + 1) // 2 * difficulty["reward_multiplier"])
+        gold = round(rng.randint(6, 20) * (node["floor"] + 1) // 2 * _gold_mult(difficulty))
         add_currency(db, player, "gold", gold)
         _ledger_add_gold(expedition, gold)
         _mark_completed(expedition, expedition.current_node_id)
@@ -1102,7 +1110,7 @@ def resolve_encounter_choice(db, expedition: Expedition, player, choice_id: str,
     difficulty = get_region_difficulty(expedition.region)
     # Encounters are the main gold faucet in a run, so this is where a
     # gold_multiplier relic (Prospector's Ledger) actually earns its slot.
-    gold_mult = difficulty["reward_multiplier"] * relic_service.gold_multiplier(expedition)
+    gold_mult = _gold_mult(difficulty) * relic_service.gold_multiplier(expedition)
     max_item_rarity = difficulty["max_item_rarity"]
     rarity_bonus = difficulty.get("rarity_weight_bonus", 0)
     # Item level is NOT derived from the floor. It used to be

@@ -94,6 +94,13 @@ class GuildRaid(Base):
 
     tier: Mapped[str] = mapped_column(String(16), default="standard")
 
+    # Who brought this raid to the server. Several raids run at once now
+    # (see raid_config.PLAYER_SUMMON_COOLDOWN), so "whose is this" is a
+    # real question the menu has to answer -- and it's the flavour that
+    # makes a summon feel like something you contribute rather than a
+    # server slot you claimed first.
+    summoned_by: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
+
     started_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

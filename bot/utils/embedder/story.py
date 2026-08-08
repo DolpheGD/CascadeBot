@@ -51,7 +51,7 @@ def story_menu_embed(story, next_mission: dict | None, player) -> discord.Embed:
 
 
 def map_embed(area: dict, grid: str, legend: list[str], standing_on: str | None,
-              locked: bool = False) -> discord.Embed:
+              locked: bool = False, readout: dict | None = None) -> discord.Embed:
     """The overworld screen: the grid, then what's on it, then what's
     under your feet.
 
@@ -90,6 +90,22 @@ def map_embed(area: dict, grid: str, legend: list[str], standing_on: str | None,
         embed.set_footer(text="Press ✋ to interact.")
     else:
         embed.set_footer(text="Move with the arrows.")
+
+    # THE READOUT: what you just interacted with, shown ON the map.
+    #
+    # Reading a note used to REPLACE this whole screen with a note embed
+    # and a "back to map" button, so inspecting three things in a room
+    # was six screen changes and you lost your place every time. In an
+    # RPG hub -- where the intended loop is walk, talk, read, talk again
+    # -- that friction is most of the experience.
+    #
+    # Rendered last so the map, the legend and your position stay put
+    # above it and only the bottom of the embed changes as you poke at
+    # things.
+    if readout:
+        title = f"{readout.get('emoji', '')} {readout.get('name', '')}".strip() or "​"
+        embed.add_field(name=title[:256], value=(readout.get("text") or "​")[:1024],
+                        inline=False)
     return embed
 
 

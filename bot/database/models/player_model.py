@@ -168,6 +168,13 @@ class Player(Base):
     prestige_count: Mapped[int] = mapped_column(Integer, default=0)
     prestige_best_level: Mapped[int] = mapped_column(Integer, default=0)
 
+    # When this player last summoned a raid. Summoning is a personal
+    # resource on a personal cooldown now rather than a first-come server
+    # slot -- see raid_config.PLAYER_SUMMON_COOLDOWN.
+    last_raid_summon_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

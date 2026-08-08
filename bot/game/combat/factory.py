@@ -422,7 +422,17 @@ _KIT_MAGNITUDE_KEYS = (
 # was the one character on the roster whose Resonance 4 had nothing to
 # scale, and the break specialist getting no benefit from "hits harder"
 # is exactly backwards.
-_KIT_POISE_KEYS = ("poise_damage", "bonus_poise")
+_KIT_POISE_KEYS = ("poise_damage", "bonus_poise", "amount")
+
+# Keys where a BIGGER number is a WORSE ability, so kit magnitude has to
+# divide rather than multiply.
+#
+# Polo's ultimate is the case that forced this: it converts HP into
+# team-wide poise damage at `hp_per_point` HP each, so scaling that up
+# would have made every Resonance level a downgrade. Scaling it DOWN is
+# what "the ultimate got stronger" means for a cost-per-point number.
+# Floored at 1 -- a cost of zero would be an infinite payout.
+_KIT_INVERSE_KEYS = ("hp_per_point",)
 
 
 def _resonance_damage_stat(abilities: list[dict], ultimate: dict | None) -> str:
@@ -456,6 +466,10 @@ def _scale_ability(ability: dict, percent: float) -> dict:
         value = effect.get(key)
         if isinstance(value, (int, float)) and not isinstance(value, bool):
             effect[key] = math.ceil(value * (1 + percent / 100))
+    for key in _KIT_INVERSE_KEYS:
+        value = effect.get(key)
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            effect[key] = max(1, math.floor(value / (1 + percent / 100)))
     scaled["effect"] = effect
     return scaled
 

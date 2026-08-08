@@ -331,12 +331,36 @@ def apply_victory_rewards(
     rng = rng or random.Random()
     floor = expedition.graph["nodes"][expedition.current_node_id]["floor"]
     difficulty = get_region_difficulty(expedition.region)
-    multiplier = ROOM_TYPE_REWARD_MULTIPLIER.get(room_type, 1.0) * difficulty["reward_multiplier"]
+    room_multiplier = ROOM_TYPE_REWARD_MULTIPLIER.get(room_type, 1.0)
+    multiplier = room_multiplier * difficulty["reward_multiplier"]
 
-    # Combat rework: base gold/xp payout raised across the board so combat
-    # rewards feel worth it on their own, on top of the new material/
-    # lootbox drops below.
-    gold_reward = round((20 + (floor // 5) * 8) * multiplier * relic_service.gold_multiplier(expedition))
+    # ------------------------------------------------------------------
+    # GOLD AND XP SCALE SEPARATELY PAST GLACIER.
+    #
+    # They used to share `reward_multiplier`, which meant one number had
+    # to be right for two curves that had drifted in opposite directions:
+    #
+    #   XP  -- fine. At Abyssnia a run is ~1,000 XP and a level costs
+    #          4,000-6,000, so four to six runs a level at the cap. That
+    #          is a reasonable endgame pace and inflating it would undo
+    #          the work that made character levels matter.
+    #   GOLD -- badly short. A full Abyssnia run paid ~1,270 gold, while
+    #          maxing one shrine costs ~91,000 and an HQ level up to
+    #          600,000. Adventuring, the main loop, paid a fraction of
+    #          what voting did, so the endgame's own content funded the
+    #          endgame's own sinks at a rate of hundreds of runs each.
+    #
+    # `gold_multiplier` is therefore its own per-region curve (1.3 at
+    # Glacier, unchanged, rising to 45 at Abyssnia), while
+    # `reward_multiplier` keeps driving XP and materials exactly as
+    # before. Falls back to reward_multiplier so a region config that
+    # hasn't been given the new key still behaves.
+    # ------------------------------------------------------------------
+    gold_multiplier = room_multiplier * difficulty.get(
+        "gold_multiplier", difficulty["reward_multiplier"])
+
+    gold_reward = round((20 + (floor // 5) * 8) * gold_multiplier
+                        * relic_service.gold_multiplier(expedition))
     xp_reward = round((15 + (floor // 5) * 7) * multiplier)
 
     add_currency(db, player, "gold", gold_reward)

@@ -162,24 +162,43 @@ from __future__ import annotations
 MIN_DENSITY = 0.12
 MAX_DISTANCE_TO_CONTENT = 4
 
-# Measured on a phone, not guessed: 12 across is comfortable, 14 is
-# pushing it. 13 leaves a margin for narrower devices.
-MAX_WIDTH = 13
-MAX_HEIGHT = 12
+# WIDTH IS THE TIGHT ONE. HEIGHT BARELY MATTERS.
+#
+# Measured on a phone rather than guessed. 16 across fits; past that the
+# rows wrap and the map becomes a staircase. Height has no such limit --
+# a Discord embed scrolls, so a tall area costs the player a thumb
+# movement and nothing else.
+#
+# That asymmetry is worth designing around: an area that wants to be big
+# should get TALLER, not wider. A 9x24 stairwell reads perfectly on a
+# phone and a 20x9 hall does not exist.
+MAX_WIDTH = 16
+MAX_HEIGHT = 30
 
 # Discord's per-field ceiling. The grid occupies one field on its own.
+#
+# This is what actually caps the size, and 16x30 is deliberately just
+# inside it: 509 UTF-16 units of ⬛, or 989 in the pathological case
+# where every single tile is a surrogate-pair emoji like 🧊. Both fit,
+# the second with little to spare -- which is why the limit stays
+# asserted in tools/check_story.py against the REAL rendered grid rather
+# than against a guess at its size.
 MAX_FIELD_CHARS = 1024
 
-# ROOMS ARE SMALL AND THERE ARE MANY OF THEM.
+# HOW MUCH ROOM ONE AREA MAY TAKE UP.
 #
-# The overworld read as a few big cluttered halls because the format
-# allowed 13x12 and nothing pushed back. A journey through a dozen small
-# named places is both easier to read on a phone and truer to what the
-# story is -- you are travelling, not pacing one room.
+# Was 40, on the reasoning that a journey through many small named places
+# beats pacing one big hall -- which is still true of CORRIDORS, and is
+# why the prologue's lab is three tight rooms.
 #
-# Enforced by tools/check_story.py: an area over this many walkable tiles
-# should be split into connected rooms instead.
-MAX_ROOM_TILES = 40
+# It is not true of a hub. Cascade Central is somewhere you return to
+# thirty times, and a place you keep coming back to should feel like a
+# place: room to put people in, corners that aren't on the critical
+# path, somewhere to hang a crooked banner. 90 gives a tall area real
+# space while the density rules still insist it earns it -- a bigger
+# room needs proportionally more in it, so this can't be used to ship
+# an empty one.
+MAX_ROOM_TILES = 90
 
 # How many legend lines the map screen shows before it stops listing
 # scenery. The list is there to make the grid legible, not to inventory
@@ -198,6 +217,13 @@ EMOJI_FLOOR = "⬜"
 EMOJI_PLAYER = "🐱"
 EMOJI_DONE = "✅"
 EMOJI_LOCKED = "🔒"
+
+# Suffixed onto a LEGEND entry (never drawn on the grid itself) for a
+# tile that will move the story forward -- see map_service.legend_lines.
+# It is not subject to the fixed-width rule below, because it never
+# appears in the grid where mismatched glyph widths would stagger the
+# rows; it only ever sits at the end of a line of ordinary text.
+EMOJI_QUEST = "❗"
 
 
 # ----------------------------------------------------------------------
@@ -248,7 +274,16 @@ AREAS: dict[str, dict] = {
     # The opening room is 3x3 on purpose. You wake in a box that is
     # coming down, and the first thing the game asks is "which way out".
     # ==================================================================
-    "ocellios_cell": {
+    # ==================================================================
+    # ACT ONE -- the only corridor left in the game.
+    #
+    # Three small rooms, walked once, that exist to teach combat and get
+    # you picked up. Everything after this is the hub, which you return
+    # to. The old story was NINETEEN of these in a line; what survived
+    # the rewrite is the opening, because waking up in a collapsing lab
+    # is a good way to start a game and the rest was corridor.
+    # ==================================================================
+    "lab_cell": {
         "name": "Sector 9 — Containment",
         "region": "Ocellios Lab",
         "blurb": "Three metres square. The ceiling is coming down.",
@@ -264,1155 +299,651 @@ AREAS: dict[str, dict] = {
                 "kind": "mission",
                 "emoji": "🧪",
                 "name": "The floor",
-                "mission": "pr1_destruction_eruption",
+                "mission": "pr1_wake_up",
             },
             "E": {
                 "kind": "exit",
                 "emoji": "🚪",
                 "name": "Buckled door",
-                "to_area": "ocellios_corridor",
-                "to": [1, 2],
-                "requires_mission": "pr1_destruction_eruption",
-                "locked_text": "The frame is bent and there is a D-class unit between you and it, and it is not running its greeting routine.",
+                "to_area": "lab_corridor",
+                "to": [1, 1],
+                "one_way": True,   # the room stops existing behind you
+                "requires_mission": "pr1_wake_up",
+                "locked_text": (
+                    "The frame is bent, and there is a D-class unit between you and it "
+                    "that is not running its greeting routine."
+                ),
             },
             "R": {
                 "kind": "note",
                 "emoji": "🛏",
                 "name": "Restraint frame",
-                "text": "Padded, adjustable, open. The cuffs were released from *inside* the console.\n\nEleven months of weight readings on the rail. Three different hands wrote them.",
+                "text": (
+                    "Padded, adjustable, open. The cuffs were released from *inside* the "
+                    "console.\n\nEleven months of weight readings on the rail. Three "
+                    "different hands wrote them."
+                ),
             },
             "f": {
                 "kind": "note",
                 "emoji": "🔥",
                 "name": "Burning debris",
-                "text": "A ceiling panel, still alight, lying where you were lying.\n\nYou moved before you were awake. Something in you did, anyway.",
+                "text": (
+                    "A ceiling panel, still alight, lying exactly where you were lying.\n\n"
+                    "You moved before you were awake. Something in you did, anyway."
+                ),
             },
         },
     },
 
-    "ocellios_corridor": {
+    "lab_corridor": {
         "name": "Sector 9 — East Corridor",
         "region": "Ocellios Lab",
         "blurb": "On fire at both ends. Only one end is passable.",
         "grid": [
             "#########",
-            "#@<.d..a#",
-            "#.#####.#",
-            "#c..m..E#",
+            "#@.....a#",
+            "#.#d#d#.#",
+            "#c..L..E#",
             "#########",
         ],
         "legend": {
+            "d": {"kind": "decor", "emoji": "🧯"},
+            "L": {
+                "kind": "mission",
+                "emoji": "⚡",
+                "name": "The blocked stretch",
+                "mission": "pr2_long_way_out",
+            },
             "E": {
                 "kind": "exit",
                 "emoji": "🚪",
-                "name": "Staging door",
-                "to_area": "ocellios_staging",
+                "name": "Out, into the cold",
+                "to_area": "lab_yard",
                 "to": [1, 3],
-            },
-            "d": {
-                "kind": "note",
-                "emoji": "💻",
-                "name": "Dead terminal",
-                "text": "One line burnt into the phosphor:\n\n**HHYPER — PHASE 1 — GO.**",
+                "one_way": True,   # so does the corridor
+                "requires_mission": "pr2_long_way_out",
+                "locked_text": "Not while those two are still up and arguing about you.",
             },
             "a": {
-                "kind": "note",
-                "emoji": "🚨",
-                "name": "Alarm panel",
-                "text": "**CONTAINMENT FAULT — SECTOR 9.** Repeating since before you woke.\n\nSector 9 was the room you woke in.",
-            },
-            "c": {
                 "kind": "note",
                 "emoji": "📋",
-                "name": "Dropped clipboard",
-                "text": "**SUBJECT VIABILITY — WK 44.**\n\nAt the bottom, different pen: *ask Stubby re: transfer. Not my call anymore.*",
-            },
-            "m": {
-                "kind": "note",
-                "emoji": "🤖",
-                "name": "Mech cradles",
-                "text": "Six cradles, five empty. The sixth holds a unit with its control cover prised off.\n\nSomebody changed what these things want. It wasn't the lab.",
-            },
-            "<": {
-                "kind": "exit",
-                "emoji": "🔙",
-                "name": "Back to Sector 9 — Containment",
-                "to_area": "ocellios_cell",
-                "to": [1, 1],
-            },
-        },
-    },
-
-    "ocellios_staging": {
-        "name": "Sector 9 — Staging",
-        "region": "Ocellios Lab",
-        "blurb": "Where the field teams kitted up. Nobody kitted up today.",
-        "grid": [
-            "#######",
-            "#L...k#",
-            "#<.#..#",
-            "#@...E#",
-            "#######",
-        ],
-        "legend": {
-            "L": {
-                "kind": "mission",
-                "emoji": "🗄",
-                "name": "Staging locker",
-                "mission": "pr2_field_salvage",
-            },
-            "E": {
-                "kind": "exit",
-                "emoji": "🚪",
-                "name": "Fire door — east",
-                "to_area": "glacier_shelf",
-                "to": [1, 3],
-                "requires_mission": "pr2_field_salvage",
-                "locked_text": "Weather on the other side and a burning lab on this one.\n\nDon't walk into that in what you woke up wearing. The locker is right there.",
-            },
-            "k": {
-                "kind": "note",
-                "emoji": "🧥",
-                "name": "Coat hook",
-                "text": "One coat, three sizes too big.\n\nYou take it. Nobody at Cascade ever asks where you got it.",
-            },
-            "<": {
-                "kind": "exit",
-                "emoji": "🔙",
-                "name": "Back to Sector 9 — East Corridor",
-                "to_area": "ocellios_corridor",
-                "to": [1, 2],
-            },
-        },
-    },
-
-    "glacier_shelf": {
-        "name": "The Shelf",
-        "region": "Glacier 15",
-        "blurb": "White to the horizon. A line of dead lamps going east.",
-        # A WIDE, SHALLOW SHELF -- 13x6. See the AREA SHAPES note at the
-        # top of AREAS for why the maps stopped all being the same ring.
-        "grid": [
-            "#############",
-            "#@...t.....B#",
-            "#.#########.#",
-            "#<....c....E#",
-            "#.#########.#",
-            "#u...########",
-        ],
-        "legend": {
-            "B": {
-                "kind": "mission",
-                "emoji": "🔥",
-                "name": "First heat beacon",
-                "mission": "pr3_heat_beacons",
-            },
-            "E": {
-                "kind": "exit",
-                "emoji": "🚪",
-                "name": "East, along the line",
-                "to_area": "glacier_ridge",
-                "to": [1, 1],
-                "requires_mission": "pr3_heat_beacons",
-                "locked_text": "You will not survive the walk at this body temperature. Get the beacon lit.",
-            },
-            "t": {
-                "kind": "note",
-                "emoji": "🌡",
-                "name": "Temperature stake",
-                "text": "A dial you decide not to read twice.\n\nScratched into the paint: *keep moving keep moving keep moving.*",
-            },
-            "u": {
-                "kind": "cache",
-                "emoji": "🚗",
-                "name": "Buried hauler",
-                "text": "Doors shut, seats empty, boot open and packed. They loaded it. They never drove.",
-                "grant": {
-                    "gold": 320,
-                    "permafrost_ore": 40,
-                    "item": "uncommon",
-                },
+                "name": "Assignment board",
+                "text": (
+                    "A duty roster for Sector 9, curling in the heat.\n\n"
+                    "Your name is not on it. There is a line at the bottom with no name "
+                    "on it at all, and a signature next to the blank."
+                ),
             },
             "c": {
-                "kind": "note",
-                "emoji": "🏚",
-                "name": "A roofline",
-                "text": "Something rectangular under the drift. A roof.\n\nYou are walking along the top of somebody's street.",
-            },
-            "<": {
-                "kind": "exit",
-                "emoji": "🔙",
-                "name": "Back to Sector 9 — Staging",
-                "to_area": "ocellios_staging",
-                "to": [1, 3],
-            },
-        },
-    },
-
-    "glacier_ridge": {
-        "name": "The Ridge",
-        "region": "Glacier 15",
-        "blurb": "Somebody up here has been watching you for a while.",
-        # A RIDGE -- 11x5, a single long walk along the top with one
-        # short drop off the side. Narrow because a ridge is narrow.
-        "grid": [
-            "###########",
-            "#@<..N...e#",
-            "#####.#####",
-            "#h.......E#",
-            "###########",
-        ],
-        "legend": {
-            "N": {
-                "kind": "mission",
-                "emoji": "🔦",
-                "name": "The light on the ridge",
-                "mission": "pr4_the_anomaly",
-            },
-            "E": {
-                "kind": "exit",
-                "emoji": "🚪",
-                "name": "Down to the drift line",
-                "to_area": "glacier_drift",
-                "to": [1, 3],
-                "requires_mission": "pr4_the_anomaly",
-                "locked_text": "There is a light tracking you from the ridge and it has not decided about you yet.\n\nGo and be decided about.",
-            },
-            "e": {
-                "kind": "note",
-                "emoji": "🛰",
-                "name": "Cascade's radar",
-                "text": "A tripod dish, freshly serviced, running off a battery somebody carried here.\n\nThis is what saw you.",
-            },
-            "h": {
-                "kind": "note",
-                "emoji": "🪦",
-                "name": "Marker cairn",
-                "text": "Stones waist-high, a name plate wired to the top, no grave underneath.\n\nThere are more of these than there are loose stones.",
-            },
-            "<": {
-                "kind": "exit",
-                "emoji": "🔙",
-                "name": "Back to The Shelf",
-                "to_area": "glacier_shelf",
-                "to": [1, 3],
-            },
-        },
-    },
-
-    "glacier_drift": {
-        "name": "The Drift Line",
-        "region": "Glacier 15",
-        "blurb": "Thin ice over something with a shape to it.",
-        # DRIFTED SNOW -- 9x8, an irregular shape rather than a corridor,
-        # so the drift reads as something you pick your way through.
-        "grid": [
-            "#########",
-            "#@..a...#",
-            "#<..###.#",
-            "#....##j#",
-            "###.....#",
-            "#q..###.#",
-            "#..W...E#",
-            "#########",
-        ],
-        "legend": {
-            "W": {
-                "kind": "mission",
-                "emoji": "🥊",
-                "name": "The drift line",
-                "mission": "pr5_through_the_drift",
-                "requires_characters": 2,
-                "locked_text": "“Not as three,” Nebula says flatly. “Use the tag. Call somebody, put them in your squad, and then we walk it.”",
-            },
-            "E": {
-                "kind": "exit",
-                "emoji": "🚪",
-                "name": "The base light",
-                "to_area": "cascade_workshop",
-                "to": [1, 3],
-                "requires_mission": "pr5_through_the_drift",
-                "locked_text": "Gostley has his hand flat on the ice and is not moving. “Not yet.”",
-            },
-            "a": {
-                "kind": "hunt",
-                "emoji": "🕳",
-                "name": "Entry hole",
-                "text": "The shaft goes deeper than the worm needed, and something small came back up it.\n\n*Optional. Losing this costs you nothing at all.*",
-                "enemies": [
-                    "Concussion Drone",
-                    "Concussion Drone",
-                ],
-                "level": 4,
-                "grant": {
-                    "gold": 400,
-                    "permafrost_ore": 45,
-                    "item": "uncommon",
-                },
-            },
-            "j": {
-                "kind": "note",
-                "emoji": "💡",
-                "name": "Beacon post 9",
-                "text": "The last post before the base light, and this one is already lit.\n\nSomebody comes this far every night, for two years, in case.",
-            },
-            "q": {
-                "kind": "note",
-                "emoji": "🍫",
-                "name": "Ration wrapper",
-                "text": "Eight months past date and the best thing that has ever happened to you.",
-            },
-            "<": {
-                "kind": "exit",
-                "emoji": "🔙",
-                "name": "Back to The Ridge",
-                "to_area": "glacier_ridge",
-                "to": [1, 1],
-            },
-        },
-    },
-
-    "cascade_workshop": {
-        "name": "The Workshop",
-        "region": "Cascade — Forward Base",
-        "blurb": "One heated shell, one relay, and a great deal of cable.",
-        "grid": [
-            "#######",
-            "#V...b#",
-            "#<.#..#",
-            "#@z..E#",
-            "#######",
-        ],
-        "legend": {
-            "V": {
-                "kind": "mission",
-                "emoji": "🛠",
-                "name": "Virtual's bench",
-                "mission": "pr6_forward_base",
-            },
-            "E": {
-                "kind": "exit",
-                "emoji": "🚪",
-                "name": "Through to Ops",
-                "to_area": "cascade_ops",
-                "to": [1, 3],
-                "requires_mission": "pr6_forward_base",
-                "locked_text": "“Let Virtual finish. She's been holding a speech about that relay for a week and I'd like somebody else to receive it.”",
-            },
-            "b": {
-                "kind": "note",
-                "emoji": "🔋",
-                "name": "The battery bank",
-                "text": "Taped over with **DO NOT BELIEVE THE GAUGE**.\n\nThe gauge reads full. It has read full for nine months.",
-            },
-            "z": {
                 "kind": "cache",
                 "emoji": "🧰",
-                "name": "Parts crate",
-                "text": "Bins labelled **GOOD**, **BAD**, and **ASK ME FIRST**. The third is padlocked.",
-                "grant": {
-                    "metal": 70,
-                    "crystal": 35,
-                    "reroll_tokens": 4,
-                },
-            },
-            "<": {
-                "kind": "exit",
-                "emoji": "🔙",
-                "name": "Back to The Drift Line",
-                "to_area": "glacier_drift",
-                "to": [1, 3],
+                "name": "Wall locker",
+                "grant": {"gold": 120, "wood": 15},
             },
         },
     },
 
-    "cascade_ops": {
-        "name": "Operations",
-        "region": "Cascade — Forward Base",
-        "blurb": "A map table, a long table, and eleven photographs turned to the wall.",
-        # AN OPERATIONS ROOM -- 9x7, a squarer space broken by desks
-        # rather than one loop around a solid block.
+    "lab_yard": {
+        "name": "Ocellios Lab — The Yard",
+        "region": "Ocellios Lab",
+        "blurb": "Snow, sirens, and one vehicle that is not running away.",
         "grid": [
             "#########",
-            "#@..M..m#",
-            "#<.#.#..#",
-            "#..#.#..#",
-            "#p.....T#",
-            "#..###.E#",
+            "#ss#P#ss#",
+            "#..H....#",
+            "#w..@..M#",
+            "#ss###ss#",
             "#########",
         ],
         "legend": {
+            "s": {"kind": "decor", "emoji": "🌲"},
             "M": {
                 "kind": "mission",
-                "emoji": "🗺",
-                "name": "The map table",
-                "mission": "pr7_the_map_table",
+                "emoji": "🚐",
+                "name": "The waiting transport",
+                "mission": "pr3_pickup",
             },
-            "T": {
-                "kind": "mission",
-                "emoji": "🕯",
-                "name": "The long table",
-                "mission": "pr8_someone_got_here_first",
-                "requires_mission": "pr7_the_map_table",
-                "locked_text": "Chairs pulled round, nobody in them yet. Gostley is still out at the drift hole.",
-            },
-            "E": {
+            "H": {
                 "kind": "exit",
-                "emoji": "🪜",
-                "name": "Up, and north",
-                "to_area": "divide_camp",
-                "to": [1, 3],
-                "requires_mission": "pr8_someone_got_here_first",
-                "locked_text": "Dawn, Dolphe said. There's a man walking in and you're meeting him rested.",
+                "emoji": "🛣",
+                "name": "South, with Dolphe",
+                "to_area": "hub_atrium",
+                "to": [5, 3],
+                "one_way": True,   # nobody drives back to Sector 9
+                "requires_mission": "pr3_pickup",
+                "locked_text": "There's a transport idling by the fence and a man in the doorway waiting on an answer.",
             },
-            "m": {
+            "P": {
                 "kind": "note",
-                "emoji": "🖼",
-                "name": "The wall",
-                "text": "Team Cascade before any of this, pinned edge to edge.\n\nEleven photographs have been turned face-in. Nobody has turned them back.",
-            },
-            "p": {
-                "kind": "note",
-                "emoji": "🐬",
-                "name": "The press plate",
-                "text": "One column. Four hundred and six names in eight-point type.\n\nIt is the only decoration in the building.",
-            },
-            "<": {
-                "kind": "exit",
-                "emoji": "🔙",
-                "name": "Back to The Workshop",
-                "to_area": "cascade_workshop",
-                "to": [1, 3],
-            },
-        },
-    },
-
-    # ---- Chapters 1-2, split the same way: small named rooms in a line.
-    "divide_camp": {
-        "name": "The Divide — Cascade Camp",
-        "region": "Cryosphere Divide",
-        "blurb": "Where the shelf gives way. A man walked in from the wrong direction.",
-        "grid": [
-            "#######",
-            "#J...m#",
-            "#<.#..#",
-            "#@..kE#",
-            "#######",
-        ],
-        "legend": {
-            "J": {
-                "kind": "mission",
-                "emoji": "🧍",
-                "name": "Josh, standing",
-                "mission": "c1m1_the_man_off_the_shelf",
-            },
-            "E": {
-                "kind": "exit",
-                "emoji": "🚪",
-                "name": "Out to the fence line",
-                "to_area": "divide_fence",
-                "to": [1, 3],
-                "requires_mission": "c1m1_the_man_off_the_shelf",
-                "locked_text": "There is a man at the door who walked here from the shelf and hasn't been offered a chair yet.",
-            },
-            "m": {
-                "kind": "cache",
-                "emoji": "🩺",
-                "name": "Cached triage kit",
-                "text": "Restocked and dated last week. Cascade has never stopped expecting to need it.",
-                "grant": {
-                    "gold": 400,
-                    "crystal": 30,
-                    "item": "uncommon",
-                },
-            },
-            "k": {
-                "kind": "note",
-                "emoji": "💡",
-                "name": "Floodlights",
-                "text": "Every light lit, at noon, on a decommissioned site.\n\nJosh stands under one for a while. He was told for two years this place was dark.",
-            },
-            "<": {
-                "kind": "exit",
-                "emoji": "🔙",
-                "name": "Back to Operations",
-                "to_area": "cascade_ops",
-                "to": [1, 3],
-            },
-        },
-    },
-
-    "divide_fence": {
-        "name": "The Divide — Fence Line",
-        "region": "Cryosphere Divide",
-        "blurb": "Four metres of razor wire, and every barb leans inward.",
-        # A FENCE LINE -- 13x5, the longest thin walk in the chapter: you
-        # follow it, you don't wander around it.
-        "grid": [
-            "#############",
-            "#@..s......d#",
-            "#<#########.#",
-            "#y....C...ME#",
-            "#############",
-        ],
-        "legend": {
-            "C": {
-                "kind": "mission",
-                "emoji": "🥊",
-                "name": "The survey camp",
-                "mission": "c1m2_the_cut_line",
-            },
-            "E": {
-                "kind": "exit",
-                "emoji": "🚪",
-                "name": "On to the shed",
-                "to_area": "divide_shed",
-                "to": [1, 3],
-                "requires_mission": "c1m2_the_cut_line",
-                "locked_text": "There's a Xender rear guard standing in the camp between you and it.",
-            },
-            "s": {
-                "kind": "note",
-                "emoji": "🪧",
-                "name": "Site notice",
-                "text": "**SITE DECOMMISSIONED — NO PERSONNEL ON SITE.**\n\nThe inspection slip under it has been signed every ninety days for two years. The latest is eleven days old.",
-            },
-            "d": {
-                "kind": "note",
-                "emoji": "🧾",
-                "name": "Nineteen slips",
-                "text": "A clipboard in the guard shack. Nineteen entries have an *in* time and no *out* time.\n\nNobody has drawn a line under any of them.",
-            },
-            "y": {
-                "kind": "hunt",
-                "emoji": "🐾",
-                "name": "Four-point tracks",
-                "text": "An even stride, dead straight, running behind the vehicle park and stopping there.\n\n*Optional. Losing this costs you nothing at all.*",
-                "enemies": [
-                    "Glacial Exterminator",
-                ],
-                "level": 6,
-                "grant": {
-                    "gold": 900,
-                    "crystal": 50,
-                    "item": "rare",
-                },
-            },
-            "<": {
-                "kind": "exit",
-                "emoji": "🔙",
-                "name": "Back to The Divide — Cascade Camp",
-                "to_area": "divide_camp",
-                "to": [1, 3],
-            },
-            "M": {
-                "kind": "mission",
-                "emoji": "🗣",
-                "name": "The long table",
-                "mission": "c1m2b_the_argument",
-            },
-        },
-    },
-
-    "divide_shed": {
-        "name": "The Cold Workshop",
-        "region": "Cryosphere Divide",
-        "blurb": "Bench, vice, power, roof. Virtual could cry.",
-        # DELIBERATELY SMALL and taller than it is wide -- 5x7. A cold
-        # one-room workshop should feel like one, and the size range only
-        # reads as a range if some areas stay cramped.
-        "grid": [
-            "#####",
-            "#F.w#",
-            "#...#",
-            "#<.b#",
-            "#...#",
-            "#@.E#",
-            "#####",
-        ],
-        "legend": {
-            "F": {
-                "kind": "mission",
-                "emoji": "🛠",
-                "name": "The bench",
-                "mission": "c1m3_no_supply_line",
-            },
-            "E": {
-                "kind": "exit",
-                "emoji": "🚪",
-                "name": "Down into the site",
-                "to_area": "outpost_atrium",
-                "to": [1, 3],
-                "requires_mission": "c1m3_no_supply_line",
-                "locked_text": "“Kit first,” Virtual says. “I found a bench. Give me the hour.”",
+                "emoji": "🏢",
+                "name": "The lab, behind you",
+                "text": (
+                    "Sector 9 is coming apart one storey at a time, unhurriedly, like "
+                    "something deciding to sit down.\n\n"
+                    "Nobody else has come out of it."
+                ),
             },
             "w": {
-                "kind": "note",
-                "emoji": "🕯",
-                "name": "A cairn with a name",
-                "text": "Older than the others, tucked where the wind can't reach it.\n\nThe plate says **REX**. There is no date, because whoever built it did not know one.",
-            },
-            "b": {
                 "kind": "cache",
-                "emoji": "🛢",
-                "name": "Fuel bunker",
-                "text": "Deliveries every six weeks without a gap, for a site with nobody on it.",
-                "grant": {
-                    "gold": 700,
-                    "xendium": 25,
-                    "item": "rare",
-                },
-            },
-            "<": {
-                "kind": "exit",
-                "emoji": "🔙",
-                "name": "Back to The Divide — Fence Line",
-                "to_area": "divide_fence",
-                "to": [1, 3],
+                "emoji": "🎒",
+                "name": "Dropped kit",
+                "grant": {"gold": 150, "stone": 20},
             },
         },
     },
 
-    "outpost_atrium": {
-        "name": "Glacier 15 — Atrium",
-        "region": "The Outpost",
-        "blurb": "Every light on. Nobody home for two years.",
+    # ==================================================================
+    # CASCADE CENTRAL -- the hub.
+    #
+    # Five connected rooms you come back to between every mission, rather
+    # than a corridor you walk once. This is the structural change the
+    # rewrite is actually about: the old story was eight rooms in a line,
+    # so nowhere was ever revisited and nobody was ever there when you
+    # got back.
+    #
+    # Each room owns ONE system and the person who explains it, so
+    # "where do I go to do X" has a physical answer:
+    #
+    #     Atrium     Dolphe      the mission board
+    #     Ops Deck   Jofrog      squad, class
+    #     Armory     Refender    gear, the forge
+    #     Mess       Blueflame   pulls, the exchange
+    #     Gatehouse  --          travel, and eventually /adventure
+    #
+    # Laid out as a plus: the Atrium is the middle and everything is one
+    # room away from it, so no part of the hub is ever more than two
+    # moves from any other. A hub you have to remember the shape of is a
+    # hub people stop walking around in.
+    # ==================================================================
+    "hub_atrium": {
+        "name": "Cascade Central — The Atrium",
+        "region": "Team Cascade",
+        "blurb": "Somebody has hung a banner. It is slightly crooked and nobody has fixed it.",
+        # TALL, now that height is nearly free (see MAX_HEIGHT). The
+        # Atrium is the room the player walks through most often in the
+        # whole game, so it gets the space: a mezzanine at the top with
+        # the board on it, the floor in the middle, and the three doors
+        # at the bottom where you'd expect doors to be.
         "grid": [
-            "#########",
-            "#@..c..G#",
-            "#<#####.#",
-            "#a..L..E#",
-            "#########",
+            "############",
+            "#pp######pp#",
+            "#z.p.D.p..w#",
+            "#.pA.HR.Cp.#",
+            "#..pp..pp..#",
+            "#...q..u...#",
+            "#..pp..pp..#",
+            "#.p.b..n.p.#",
+            "#..pp..pp..#",
+            "#W...@....M#",
+            "#..pp..pp..#",
+            "#.y.EL...x.#",
+            "#....S.....#",
+            "#pp######pp#",
+            "############",
         ],
         "legend": {
-            "L": {
-                "kind": "mission",
-                "emoji": "💻",
-                "name": "The decrypt bench",
-                "mission": "c1m4_the_letter",
+            "p": {"kind": "decor", "emoji": "🪴"},
+            "H": {
+                "kind": "station",
+                "emoji": "🏛",
+                "name": "Cascade HQ",
+                "panel": "hq",
+                "feature": "base",
+            },
+            "R": {
+                "kind": "station",
+                "emoji": "⛩",
+                "name": "The shrine gallery",
+                "panel": "shrines",
+                "feature": "base",
             },
             "E": {
-                "kind": "exit",
-                "emoji": "🚪",
-                "name": "To the stairhead",
-                "to_area": "outpost_stairhead",
-                "to": [1, 3],
-                "requires_mission": "c1m4_the_letter",
-                "locked_text": "Stairs down to the vault level, and something enormous standing very still at the bottom of them.\n\n“Not yet,” Nebula says. “Walk the floor first. I want to know what we're standing on.”"
+                "kind": "station",
+                "emoji": "🌾",
+                "name": "The yield board",
+                "panel": "harvesters",
+                "feature": "base",
             },
-            "c": {
-                "kind": "note",
-                "emoji": "🧥",
-                "name": "The coat rack",
-                "text": "Forty winter coats, still hanging.\n\nNobody walked out into that weather without a coat. Nobody walked out at all.",
+            "L": {
+                "kind": "station",
+                "emoji": "🔬",
+                "name": "The Research Lab (a shed)",
+                "panel": "lab",
+                "feature": "lab",
             },
-            "G": {
-                "kind": "note",
-                "emoji": "🖥",
-                "name": "Reception terminal",
-                "text": "**ON SITE TODAY: 0.**\n\nIt has read zero every day for two years. The day before that it read 406.",
-            },
-            "a": {
-                "kind": "note",
-                "emoji": "☕",
-                "name": "The canteen",
-                "text": "Cups set down mid-conversation, in pairs and fours, frozen solid.\n\nThis room was not evacuated. It was *left*.",
-            },
-            "<": {
-                "kind": "exit",
-                "emoji": "🔙",
-                "name": "Back to The Cold Workshop",
-                "to_area": "divide_shed",
-                "to": [1, 3],
-            },
-        },
-    },
-
-    "outpost_stairhead": {
-        "name": "Glacier 15 — Stairhead",
-        "region": "The Outpost",
-        "blurb": "Ninety-one percent of this site's power goes down these stairs.",
-        "grid": [
-            "#######",
-            "#@..z.#",
-            "#<###.#",
-            "#w.MSX#",
-            "#######",
-        ],
-        "legend": {
-            "S": {
+            "A": {
                 "kind": "mission",
-                "emoji": "🥊",
-                "name": "The stairhead",
-                "mission": "c1m5_what_he_left_on",
+                "emoji": "📋",
+                "name": "The mission board",
+                "mission": "pr4_the_atrium",
             },
-            "X": {
-                "kind": "exit",
-                "emoji": "🚂",
-                "name": "The freight line",
-                "to_area": "wastelands_picket",
-                "to": [1, 3],
-                "requires_mission": "c1m5_what_he_left_on",
-                "locked_text": "There is something standing on one knee at the bottom of the stairs, and nobody is leaving until that stops being a question.",
+            "C": {
+                "kind": "mission",
+                "emoji": "📎",
+                "name": "The clipboard nobody wants",
+                "mission": "pr8_the_base",
+                "requires_mission": "pr7_the_mess",
+                "locked_text": "Dolphe is holding it, and has decided you're not settled in enough for it yet.",
+            },
+            "u": {
+                "kind": "npc",
+                "emoji": "☕",
+                "name": "The coffee machine",
+                "lines": [
+                    {"text": ("Industrial, ancient, and covered in handwritten notes.\n\n"
+                              "**DO NOT USE SETTING 3**\n"
+                              "*(setting 3 is fine — R)*\n"
+                              "**IT IS NOT FINE**\n"
+                              "*(it is fine if you hold the lever — R)*\n"
+                              "**THAT IS NOT THE SAME AS FINE**")},
+                    {"text": ("You try setting 3.\n\nIt is, broadly, fine. You do have to "
+                              "hold the lever.")},
+                ],
+                "repeat": "Setting 3. Hold the lever. You've made your peace with it.",
+            },
+            "b": {
+                "kind": "npc",
+                "emoji": "🐈",
+                "name": "The depot cat",
+                "lines": [
+                    {"text": ("There is a cat asleep on a crate of flares.\n\n"
+                              "Nobody has explained the cat. You get the impression that "
+                              "asking would mark you out as new.")},
+                    {"text": ("The cat has moved to a different crate and is asleep on "
+                              "that one now.\n\nIt opens one eye, establishes that you "
+                              "are not food, and closes it again.")},
+                    {"text": ("Jofrog is standing near the cat, not touching it, at a "
+                              "distance he has clearly calculated.\n\n"
+                              "\"I am told they come to you,\" he says quietly, without "
+                              "moving. \"I am being extremely available.\"")},
+                ],
+                "repeat": "Asleep. Somewhere new. Unbothered.",
+            },
+            "w": {
+                "kind": "cache",
+                "emoji": "📦",
+                "name": "Unsorted intake",
+                "grant": {"gold": 200, "lootbox": "common", "wood": 20},
+            },
+            "x": {
+                "kind": "cache",
+                "emoji": "🧃",
+                "name": "The good vending machine",
+                "grant": {"gold": 150, "lootbox": "uncommon"},
+            },
+            "y": {
+                "kind": "note",
+                "emoji": "🖼",
+                "name": "The wall of photographs",
+                "text": (
+                    "Four years of squad photos, pinned in rough order.\n\n"
+                    "The oldest ones have more people in them. Nobody has arranged "
+                    "them to make that point; it's just what happened when they were "
+                    "pinned up in order."
+                ),
             },
             "z": {
                 "kind": "note",
-                "emoji": "🔌",
-                "name": "Distribution board",
-                "text": "Lighting, heating, comms — all trivial.\n\nNinety-one percent goes to one unlabelled circuit, and that circuit goes *down*.",
-            },
-            "w": {
-                "kind": "hunt",
                 "emoji": "🧯",
-                "name": "The sealed corridor",
-                "text": "**DO NOT OPEN. NOT FOR YOUR SAKE.**\n\nJosh reads it twice. “Him wrote that to keep something in, or keep someone out. Only one of them our problem.”\n\n*Optional. Losing this costs you nothing at all.*",
-                "enemies": [
-                    "Ocellios Test Subject",
-                    "Voidwarp Construct",
-                ],
-                "level": 8,
-                "grant": {
-                    "gold": 1400,
-                    "crystal": 80,
-                    "shards": 60,
-                    "item": "epic",
-                },
+                "name": "The evacuation plan",
+                "text": (
+                    "A laminated floor plan of a building that is not this building.\n\n"
+                    "Somebody has crossed out the address and written *close enough* "
+                    "underneath, and somebody else has added *it really isn't*."
+                ),
             },
-            "<": {
-                "kind": "exit",
-                "emoji": "🔙",
-                "name": "Back to Glacier 15 — Atrium",
-                "to_area": "outpost_atrium",
-                "to": [1, 3],
+            "n": {
+                "kind": "cache",
+                "emoji": "📥",
+                "name": "The in-tray",
+                "grant": {"gold": 250, "lootbox": "uncommon"},
+            },
+            "q": {
+                "kind": "npc",
+                "emoji": "📌",
+                "name": "The crooked banner",
+                "lines": [
+                    {"text": ("**TEAM CASCADE — WE PUT IT BACK**\n\n"
+                              "Hand-painted, and hung about four degrees off true.\n\n"
+                              "Someone has pencilled underneath, in much smaller letters: "
+                              "*mostly*.")},
+                ],
+                "repeat": "Still crooked. Still mostly.",
+            },
+            "D": {
+                "kind": "npc",
+                "emoji": "🎩",
+                "name": "Dolphe",
+                "lines": [
+                    {"text": ("He's reading something and doesn't look up.\n\n"
+                              "\"You're the one from the lab.\" A pause. \"Sit down, don't "
+                              "sit down, I'm not going to make it weird.\"\n\n"
+                              "He puts the paper down. He does look up.\n\n"
+                              "\"Welcome to Team Cascade. We clean up what the Cascade left "
+                              "behind. It's dangerous, it doesn't pay, and I'm not going to "
+                              "pretend otherwise at you.\"")},
+                    {"text": ("\"The banner was Blueflame's idea. He hung it at four in the "
+                              "morning and it's been crooked ever since.\"\n\n"
+                              "\"I've decided that's character.\"")},
+                ],
+                "repeat": "\"Board's over there when you want it.\"",
             },
             "M": {
-                "kind": "mission",
-                "emoji": "🪜",
-                "name": "The step outside",
-                "mission": "c1m6_what_josh_owes",
+                "kind": "exit",
+                "emoji": "🚪",
+                "name": "East — the Ops Deck",
+                "to_area": "hub_ops",
+                "to": [1, 3],
+            },
+            "W": {
+                "kind": "exit",
+                "emoji": "🚪",
+                "name": "West — the Armory",
+                "to_area": "hub_armory",
+                "to": [7, 3],
+            },
+            "S": {
+                "kind": "exit",
+                "emoji": "🚪",
+                "name": "South — the Mess",
+                "to_area": "hub_mess",
+                "to": [4, 1],
             },
         },
     },
 
-    "wastelands_picket": {
-        "name": "The Line — The Picket",
-        "region": "The Wastelands",
-        "blurb": "Four hundred people sitting on the rails, nine days in.",
-        # A PICKET LINE IS LONG -- 13x5, two long parallel runs, because
-        # the fiction is people standing in a row across a freight bend.
+    "hub_ops": {
+        "name": "Cascade Central — The Ops Deck",
+        "region": "Team Cascade",
+        "blurb": "Six screens, four of them showing the same thing, one showing a card game.",
         "grid": [
-            "#############",
-            "#@.s.....k..#",
-            "#.#.#####.#.#",
-            "#<..F...P..E#",
-            "#############",
+            "#########",
+            "#ss#J#ss#",
+            "#..QO...#",
+            "#W..@..T#",
+            "#.......#",
+            "#ss###ss#",
+            "#########",
         ],
         "legend": {
-            "F": {
-                "kind": "mission",
-                "emoji": "🚂",
-                "name": "The freight bend",
-                "mission": "c2m1_the_freight_line",
-            },
-            "P": {
-                "kind": "mission",
-                "emoji": "🥊",
-                "name": "The picket line",
-                "mission": "c2m2_the_picket",
-                "requires_mission": "c2m1_the_freight_line",
-                "locked_text": "Work out where the freight is going before you walk into somebody else's strike.",
-            },
-            "E": {
-                "kind": "exit",
-                "emoji": "🚪",
-                "name": "Down to Entrospire",
-                "to_area": "entrospire_tables",
-                "to": [1, 3],
-                "requires_mission": "c2m2_the_picket",
-                "locked_text": "Company security are still deciding. Settle the embankment first.",
-            },
-            "s": {
-                "kind": "note",
-                "emoji": "🪧",
-                "name": "Banners",
-                "text": "**PAY US** on most of them. On three, in different handwriting: **WHAT IS ON THE NIGHT TRAIN.**\n\nThose three are at the back, where the photographers can't get an angle.",
-            },
-            "k": {
-                "kind": "cache",
-                "emoji": "🍲",
-                "name": "The soup line",
-                "text": "**IF YOU ARE HUNGRY YOU ARE ONE OF US. THIS INCLUDES SCABS. WE ARE NOT ANIMALS.**",
-                "grant": {
-                    "gold": 900,
-                    "metal": 90,
-                    "reroll_tokens": 6,
-                },
-            },
-            "<": {
-                "kind": "exit",
-                "emoji": "🔙",
-                "name": "Back to Glacier 15 — Stairhead",
-                "to_area": "outpost_stairhead",
-                "to": [1, 3],
-            },
-        },
-    },
-
-    "entrospire_tables": {
-        "name": "The Underside — Chary's Table",
-        "region": "Entrospire City",
-        "blurb": "Beneath the rail deck. Everything down here signs for itself.",
-        "grid": [
-            "#######",
-            "#C...a#",
-            "#<.#..#",
-            "#@..fE#",
-            "#######",
-        ],
-        "legend": {
-            "C": {
-                "kind": "mission",
-                "emoji": "🃏",
-                "name": "Chary's table",
-                "mission": "c2m3_the_underside",
-            },
-            "E": {
-                "kind": "exit",
-                "emoji": "🚪",
-                "name": "To the night yard",
-                "to_area": "entrospire_yard",
-                "to": [1, 3],
-                "requires_mission": "c2m3_the_underside",
-                "locked_text": "You need the key, and the woman with the key is dealing cards two streets west.",
-            },
-            "a": {
-                "kind": "note",
+            "s": {"kind": "decor", "emoji": "🖥"},
+            "Q": {
+                "kind": "station",
                 "emoji": "📇",
-                "name": "The fence's index",
-                "text": "Everything sellable in Entrospire, cross-referenced by who wants it dead.\n\nUnder R there is one card. It is blank, and handled soft at the corners.",
+                "name": "The duty roster",
+                "panel": "squad",
+                "feature": "squad",
             },
-            "f": {
-                "kind": "cache",
-                "emoji": "🪟",
-                "name": "Pawnbroker's window",
-                "text": "A Cascade relay tag with the strap cut. It isn't yours.\n\nSomebody else lit beacons once, got this far, and stopped.",
-                "grant": {
-                    "gold": 1400,
-                    "shards": 90,
-                    "item": "epic",
-                },
+            "O": {
+                "kind": "mission",
+                "emoji": "🎯",
+                "name": "The training floor",
+                "mission": "pr5_ops_deck",
             },
-            "<": {
+            "J": {
+                "kind": "npc",
+                "emoji": "🤖",
+                "name": "Jofrog",
+                "lines": [
+                    {"text": ("He is standing at parade rest facing a wall.\n\n"
+                              "\"I am told I do not have to stand behind you. I am standing "
+                              "behind you anyway.\"\n\nA pause.\n\n"
+                              "\"It is a preference now. That is the difference.\"")},
+                    {"text": ("\"Four of you go out. That is the rule. I have run the "
+                              "numbers on three and the numbers are rude.\"\n\n"
+                              "He brightens considerably.\n\n"
+                              "\"Would you like to see them?\"")},
+                    {"text": ("\"I have been given a locker. There is nothing to put in "
+                              "it.\"\n\nHe considers this.\n\n"
+                              "\"I am told that is a normal problem. I am enjoying it.\"")},
+                ],
+                "repeat": "\"Still here. Still a preference.\"",
+            },
+            "T": {
+                "kind": "npc",
+                "emoji": "🃏",
+                "name": "The card game",
+                "lines": [
+                    {"text": ("Two off-duty operators and a screen that is supposed to be "
+                              "showing the northern relay.\n\n"
+                              "\"It's fine,\" one says, not looking up. \"The relay's been "
+                              "fine for six years.\"\n\n"
+                              "The other one wins. Neither of them mentions the relay again.")},
+                ],
+                "repeat": "The game is still going. The relay is still not on screen.",
+            },
+            "W": {
                 "kind": "exit",
-                "emoji": "🔙",
-                "name": "Back to The Line — The Picket",
-                "to_area": "wastelands_picket",
-                "to": [1, 3],
+                "emoji": "🚪",
+                "name": "West — the Atrium",
+                "to_area": "hub_atrium",
+                "to": [9, 4],
             },
         },
     },
 
-    "entrospire_yard": {
-        "name": "The Night Yard",
-        "region": "Entrospire City",
-        "blurb": "A yard that closed in '06 and has its lights on.",
-        # A YARD WITH AN INNER OFFICE -- 9x9. The biggest single space in
-        # the story so far, and the first that is taller than it is wide:
-        # you walk the perimeter, then go INTO the middle for the ledger.
+    "hub_armory": {
+        "name": "Cascade Central — The Armory",
+        "region": "Team Cascade",
+        "blurb": "Everything is labelled. The labels are in a handwriting that takes itself seriously.",
         "grid": [
             "#########",
-            "#@..e..j#",
-            "#.#####.#",
-            "#.#Y.N#.#",
-            "#.#...#.#",
-            "#.#K.G#.#",
-            "#.##.##.#",
-            "#<..M...#",
+            "#rr#R#rr#",
+            "#..GV...#",
+            "#F..@..E#",
+            "#.......#",
+            "#rr###rr#",
             "#########",
         ],
         "legend": {
-            "Y": {
+            "r": {"kind": "decor", "emoji": "🗃"},
+            "V": {
                 "kind": "mission",
-                "emoji": "🥊",
-                "name": "The yard gate",
-                "mission": "c2m4_what_is_in_them",
+                "emoji": "🧰",
+                "name": "The kit-out bench",
+                "mission": "pr6_armory",
             },
-            "M": {
-                "kind": "mission",
-                "emoji": "🔻",
-                "name": "The end of the yard",
-                "mission": "c2m5_the_man_himself",
-                "requires_mission": "c2m4_what_is_in_them",
-                "locked_text": "There is a man sitting on a crate down there who has not moved since you arrived.\n\nOpen the crates first. He seems content to wait.",
-            },
-            "K": {
-                "kind": "note",
-                "emoji": "🚧",
-                "name": "The north gate",
-                "text": "Chained, and the chain is threaded from the inside.\n\nWhen this opens it will be because somebody chose to open it for you.",
-            },
-            "e": {
-                "kind": "note",
-                "emoji": "🧮",
-                "name": "The yard ledger",
-                "text": "Service 0210, twice a month, two years without a gap.\n\nSigned out every time by a single letter.",
-            },
-            "j": {
-                "kind": "hunt",
-                "emoji": "🎞",
-                "name": "Deck camera",
-                "text": "The splice is fresh and the cable runs into a maintenance void.\n\nSomebody has been watching the watchers, and they are still in there.\n\n*Optional. Losing this costs you nothing at all.*",
-                "enemies": [
-                    "Xender Convoy",
-                    "Xender Loyalist",
+            "R": {
+                "kind": "npc",
+                "emoji": "🛡",
+                "name": "Refender",
+                "lines": [
+                    {"text": ("\"Offense and defense are the same decision made twice.\"\n\n"
+                              "He says this as a greeting. He appears to think it is one.\n\n"
+                              "\"Most people gear for damage and then die. Most people are "
+                              "also very fast about it, so at least it's efficient.\"")},
+                    {"text": ("\"You'll want to level what you have before you chase what "
+                              "you don't.\"\n\nHe taps a shelf.\n\n"
+                              "\"This is not advice about gear. But it works on gear.\"")},
+                    {"text": ("He is rearranging a shelf that was already arranged.\n\n"
+                              "\"Balance,\" he says, moving a box four inches left, \"is "
+                              "not a thing you achieve. It is a thing you maintain.\"\n\n"
+                              "He moves it back.")},
                 ],
-                "level": 13,
-                "grant": {
-                    "gold": 1800,
-                    "shards": 120,
-                    "xendium": 50,
-                    "item": "epic",
-                },
+                "repeat": "\"Come back when something's broken. Something usually is.\"",
             },
-            "<": {
+            "F": {
+                "kind": "station",
+                "emoji": "⚒",
+                "name": "The forge bench",
+                "panel": "forge",
+                "feature": "forge",
+            },
+            "G": {
+                "kind": "station",
+                "emoji": "🏷",
+                "name": "The requisitions counter",
+                "panel": "shop",
+                "feature": "base",
+            },
+            "E": {
                 "kind": "exit",
-                "emoji": "🔙",
-                "name": "Back to The Underside — Chary's Table",
-                "to_area": "entrospire_tables",
-                "to": [1, 3],
+                "emoji": "🚪",
+                "name": "East — the Atrium",
+                "to_area": "hub_atrium",
+                "to": [1, 4],
+            },
+        },
+    },
+
+    "hub_mess": {
+        "name": "Cascade Central — The Mess",
+        "region": "Team Cascade",
+        "blurb": "Warm, loud, and the only room in the building anyone decorated on purpose.",
+        "grid": [
+            "#########",
+            "#tt.N.tt#",
+            "#t.VX..t#",
+            "#..B.C..#",
+            "#t..@..t#",
+            "#tt.G.tt#",
+            "#########",
+        ],
+        "legend": {
+            "t": {"kind": "decor", "emoji": "🪑"},
+            "V": {
+                "kind": "station",
+                "emoji": "🎴",
+                "name": "Chary's booth",
+                "panel": "exchange",
+                "feature": "exchange",
+            },
+            "X": {
+                "kind": "mission",
+                "emoji": "🍜",
+                "name": "The long table",
+                "mission": "pr7_the_mess",
+            },
+            "C": {
+                "kind": "npc",
+                "emoji": "🍲",
+                "name": "The counter",
+                "lines": [
+                    {"text": ("A pot, a ladle, and a sign reading TAKE WHAT YOU NEED in "
+                              "the Armory handwriting.\n\n"
+                              "Underneath, in Blueflame's: *and then take a bit more, "
+                              "you look terrible*.")},
+                ],
+                "repeat": "The pot is never empty. Nobody has ever seen it filled.",
             },
             "N": {
-                "kind": "mission",
-                "emoji": "📒",
-                "name": "The yard ledger",
-                "mission": "c2m6_the_count",
+                "kind": "exit",
+                "emoji": "🚪",
+                "name": "North — the Atrium",
+                "to_area": "hub_atrium",
+                "to": [5, 5],
+            },
+            "B": {
+                "kind": "npc",
+                "emoji": "🔥",
+                "name": "Blueflame",
+                "lines": [
+                    {"text": ("He is eating alone at a table built for eight, and looks "
+                              "completely content about it.\n\n"
+                              "\"You're the lab one.\" He gestures at the bench opposite "
+                              "with a fork. \"Everything burns eventually. I just prefer "
+                              "to be early.\"\n\nHe goes back to eating.\n\n"
+                              "\"That's a joke. Mostly.\"")},
+                    {"text": ("\"I'm not Cascade, before someone tells you badly. World "
+                              "Aligners. I'm here because the food's better and Dolphe "
+                              "doesn't ask me things.\"\n\nA beat.\n\n"
+                              "\"He asks me things constantly. But politely, so it "
+                              "doesn't count.\"")},
+                    {"text": ("\"Josh'll turn up eventually. He always does, usually "
+                              "somewhere he shouldn't be.\"\n\n"
+                              "The cheerfulness doesn't move, but something under it "
+                              "does.\n\n\"Don't take it personally when he doesn't like "
+                              "you. It's not about you.\"")},
+                ],
+                "repeat": "\"Sit down or don't. The soup's the same either way.\"",
             },
             "G": {
                 "kind": "exit",
-                "emoji": "\U0001f6aa",
-                "name": "The north gate",
-                "to_area": "deadlands_crossing",
-                # The south arm of the crossroads. Was [1, 1], which is a
-                # wall now that The Crossing is drawn as a cross rather
-                # than a ring -- arriving from the north gate onto the
-                # southern approach also reads better than the old
-                # top-left corner.
-                "to": [5, 5],
-                "requires_mission": "c2m6_the_count",
-                "locked_text": (
-                    "The key fits. Finish here first -- the ledger is still open "
-                    "on the crate and nobody has said the number out loud yet."
-                ),
+                "emoji": "🚪",
+                "name": "South — the Gatehouse",
+                "to_area": "hub_gate",
+                "to": [4, 2],
             },
         },
     },
 
-
-    # ==================================================================
-    # CHAPTER 3 -- north of the gate.
-    #
-    # Both earlier chapters ended pointing at a gate that opened onto
-    # nothing, which is the worst possible place for a story to stop:
-    # the player has the key in their pocket and the door goes nowhere.
-    #
-    # Three rooms, deliberately: the crossing, the camp, and the room
-    # where the count happens. Small and linear on purpose -- this is
-    # the chapter where the story arrives somewhere, and a maze would be
-    # the wrong shape for an arrival.
-    # ==================================================================
-
-    "deadlands_crossing": {
-        "name": "The Crossing",
-        "region": "The Deadlands",
-        "blurb": "North of the gate the ground stops agreeing to be ground.",
-        # A CROSSROADS, drawn as one -- 11x7, four short arms meeting in
-        # the middle, where the rope line is.
-        "grid": [
-            "###########",
-            "####@.b####",
-            "####.#.####",
-            "#<..A.c..E#",
-            "####.#.####",
-            "####...####",
-            "###########",
-        ],
-        "legend": {
-            "A": {
-                "kind": "mission",
-                "emoji": "\U0001f9ed",
-                "name": "The rope line",
-                "mission": "c3m1_north_of_the_gate",
-            },
-            "b": {
-                "kind": "note",
-                "emoji": "\U0001f573",
-                "name": "A hole that is not a hole",
-                "text": (
-                    "It is perfectly circular and it does not have a bottom, and when "
-                    "Virtual drops a bolt into it there is no sound at all — not a "
-                    "delayed sound. No sound.\n\n"
-                    "*She writes down the time anyway. She writes down the time for "
-                    "everything out here.*"
-                ),
-            },
-            "c": {
-                "kind": "cache",
-                "emoji": "\U0001f6f7",
-                "name": "A surveyor's kit",
-                "text": (
-                    "Xender-issue, two years old, dropped mid-measurement. The tripod is "
-                    "still standing. Whoever set it up walked away from a job they were "
-                    "halfway through and did not come back for the kit."
-                ),
-                "grant": {"gold": 2200, "permafrost_ore": 120, "item": "epic"},
-            },
-            "E": {
-                "kind": "exit",
-                "emoji": "\U0001f6aa",
-                "name": "The rise",
-                "to_area": "glacier_camp",
-                "to": [1, 1],
-                "requires_mission": "c3m1_north_of_the_gate",
-                "locked_text": (
-                    "Not until the rope line is anchored. Nobody crosses that on a guess."
-                ),
-            },
-            "<": {
-                "kind": "exit",
-                "emoji": "\U0001f519",
-                "name": "Back to the Freight Yard",
-                "to_area": "entrospire_yard",
-                "to": [5, 3],
-            },
-        },
-    },
-
-    "glacier_camp": {
-        "name": "The Camp",
-        "region": "Glacier 15",
-        "blurb": "Eleven shelters. Somebody has been maintaining all eleven.",
+    "hub_gate": {
+        "name": "Cascade Central — The Gatehouse",
+        "region": "Team Cascade",
+        "blurb": "The last warm room before the cold one. Somebody has written GOOD LUCK on the door in marker.",
         "grid": [
             "#########",
-            "#@..d..B#",
-            "#.#####.#",
-            "#<..e..E#",
+            "#cc.N.cc#",
+            "#c.Y.Z.c#",
+            "#..K.L..#",
+            "#c..@..c#",
+            "#cc.D.cc#",
             "#########",
         ],
         "legend": {
-            "B": {
+            "c": {"kind": "decor", "emoji": "📦"},
+            "Y": {
                 "kind": "mission",
-                "emoji": "\U0001f3d5",
-                "name": "The shelters",
-                "mission": "c3m2_eleven_shelters",
+                "emoji": "📡",
+                "name": "The northern relay job",
+                "mission": "pr9_first_contract",
+                "requires_mission": "pr8_the_base",
+                "locked_text": "Dolphe hasn't handed you a real one yet. Finish settling in first.",
             },
-            "d": {
-                "kind": "note",
-                "emoji": "\U0001f4cf",
-                "name": "The doorframe",
-                "text": (
-                    "Scratches at four heights, the topmost recent.\n\n"
-                    "One line is labelled, in a careful adult hand: **the boy — 9**.\n\n"
-                    "Above it, unlabelled, two more."
-                ),
-            },
-            "e": {
-                "kind": "cache",
-                "emoji": "\U0001f9f0",
-                "name": "A boot, repaired",
-                "text": (
-                    "Left outside a shelter, sole stitched back on with wire, done badly "
-                    "and then done again properly on top of the bad job.\n\n"
-                    "It is not Josh's size. Somebody else needed it more, and somebody "
-                    "kept practising."
-                ),
-                "grant": {"gold": 2600, "shards": 220, "crystal": 90, "item": "epic"},
-            },
-            "E": {
-                "kind": "exit",
-                "emoji": "\U0001f6aa",
-                "name": "The counting house",
-                "to_area": "glacier_countinghouse",
-                "to": [1, 1],
-                "requires_mission": "c3m2_eleven_shelters",
-                "locked_text": "Look at the shelters first. All eleven of them.",
-            },
-            "<": {
-                "kind": "exit",
-                "emoji": "\U0001f519",
-                "name": "Back to The Crossing",
-                "to_area": "deadlands_crossing",
-                # Just inside the west arm, beside the way back out.
-                "to": [2, 3],
-            },
-        },
-    },
-
-    "glacier_countinghouse": {
-        "name": "The Counting House",
-        "region": "Glacier 15",
-        "blurb": "The only building with the lights on, and they have been on for two years.",
-        # A COUNTING HOUSE HAS FLOORS -- 7x9, tall and narrow, switching
-        # back on itself like a stairwell between record rooms.
-        "grid": [
-            "#######",
-            "#@...f#",
-            "#.###.#",
-            "#C...g#",
-            "#.###.#",
-            "#....D#",
-            "#.###.#",
-            "#<....#",
-            "#######",
-        ],
-        "legend": {
-            "C": {
+            "Z": {
                 "kind": "mission",
-                "emoji": "\U0001f4d2",
-                "name": "The ledger room",
-                "mission": "c3m3_the_auditor",
+                "emoji": "🛻",
+                "name": "The road south",
+                "mission": "pr10_the_convoy",
+                "requires_mission": "pr9_first_contract",
+                "locked_text": "You'd have to be coming back from something first.",
             },
             "D": {
                 "kind": "mission",
-                "emoji": "\U0001f56f",
-                "name": "The morning count",
-                "mission": "c3m4_the_number",
+                "emoji": "🚪",
+                "name": "The door, with GOOD LUCK on it",
+                "mission": "pr11_the_gate",
+                "requires_mission": "pr10_the_convoy",
+                "locked_text": "Not yet. Dolphe wants a word before you go out properly.",
             },
-            "f": {
-                "kind": "note",
-                "emoji": "\U0001f4a1",
-                "name": "The lights",
-                "text": (
-                    "Mains power. Out here. Running for two years to light one room "
-                    "nobody was supposed to find.\n\n"
-                    "*Virtual, flatly: \"That's not hiding. That's an office.\"*"
-                ),
+            "L": {
+                "kind": "npc",
+                "emoji": "🧤",
+                "name": "The lockers",
+                "lines": [
+                    {"text": ("Thirty lockers, most of them open and empty. Six are shut.\n\n"
+                              "One has a photograph taped inside the door, face-in, so you "
+                              "would have to be the person it belongs to to see it.")},
+                ],
+                "repeat": "Six still shut.",
             },
-            "g": {
-                "kind": "note",
-                "emoji": "\U0001f5c3",
-                "name": "Filed correspondence",
-                "text": (
-                    "Two years of letters, all outbound, none sent. Every one is a "
-                    "polite refusal addressed to a different newsroom, a different "
-                    "relief office, a different survey board.\n\n"
-                    "They are drafts of the replies Josh got."
-                ),
-            },
-            "<": {
+            "N": {
                 "kind": "exit",
-                "emoji": "\U0001f519",
-                "name": "Back to The Camp",
-                "to_area": "glacier_camp",
-                "to": [1, 1],
+                "emoji": "🚪",
+                "name": "North — the Mess",
+                "to_area": "hub_mess",
+                "to": [4, 5],
+            },
+            "K": {
+                "kind": "npc",
+                "emoji": "🚏",
+                "name": "The board by the door",
+                "lines": [
+                    {"text": ("A roster of everyone currently outside the walls, written "
+                              "up in the same serious handwriting as the Armory labels.\n\n"
+                              "Most names have a time next to them. Two don't.\n\n"
+                              "Nobody has erased them.")},
+                ],
+                "repeat": "The two names without times are still there.",
             },
         },
     },
-
 }
 
 
 # Which area a new player starts in, and where.
-STARTING_AREA = "ocellios_cell"
+STARTING_AREA = "lab_cell"
 
 
 # ----------------------------------------------------------------------
@@ -1441,17 +972,57 @@ def tile_char(area: dict, x: int, y: int) -> str | None:
     return row[x]
 
 
-def is_wall(area: dict, x: int, y: int) -> bool:
+def is_decor(area: dict, x: int, y: int) -> bool:
+    """A DECORATION tile: drawn, never walked on, never interacted with.
+
+    Decoration is how a room stops being a corridor with content in it --
+    trees, crates, terminals, a coffee machine. It exists purely so the
+    map reads as a place.
+
+    IT IS SOLID, and that is the design decision worth recording. The
+    density rules (MIN_DENSITY / MAX_DISTANCE_TO_CONTENT) exist because
+    every step is a Discord round-trip, so a walkable tile with nothing
+    on it is pure friction -- and decoration is, by definition, tiles
+    with nothing on them. Making it non-walkable means a room can be
+    decorated as heavily as it likes without a single one of those rules
+    being relaxed: a tree you can't walk through is still a tree, and the
+    walkable area stays exactly as dense as the checker demands.
+    """
     char = tile_char(area, x, y)
-    return char is None or char == WALL_CHAR
+    if char is None or char in (WALL_CHAR, FLOOR_CHAR, SPAWN_CHAR):
+        return False
+    entry = (area.get("legend") or {}).get(char) or {}
+    return entry.get("kind") == "decor"
 
 
-def tile_content(area: dict, x: int, y: int) -> dict | None:
-    """The legend entry for (x, y), if the tile has one."""
+def is_wall(area: dict, x: int, y: int) -> bool:
+    """Whether (x, y) blocks movement. Decoration counts -- see is_decor."""
+    char = tile_char(area, x, y)
+    return char is None or char == WALL_CHAR or is_decor(area, x, y)
+
+
+def tile_content_raw(area: dict, x: int, y: int) -> dict | None:
+    """The legend entry for (x, y), INCLUDING decoration.
+
+    Only the renderer wants this -- it needs a decor tile's emoji to draw
+    it. Everything else should use tile_content, which hides decoration
+    so that no interaction path has to remember it exists."""
     char = tile_char(area, x, y)
     if char is None or char in (WALL_CHAR, FLOOR_CHAR, SPAWN_CHAR):
         return None
     return area.get("legend", {}).get(char)
+
+
+def tile_content(area: dict, x: int, y: int) -> dict | None:
+    """The INTERACTIVE legend entry for (x, y), if the tile has one.
+
+    Decoration returns None: it is scenery, it cannot be stood on (see
+    is_decor), and treating it as content would put trees in the legend
+    and in the "you're standing on" line."""
+    entry = tile_content_raw(area, x, y)
+    if entry and entry.get("kind") == "decor":
+        return None
+    return entry
 
 
 def spawn_of(area: dict) -> tuple[int, int]:

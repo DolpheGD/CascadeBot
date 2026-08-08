@@ -12,7 +12,8 @@ from bot.game.economy.quest_config import BASIC_QUEST_POOL, BEGINNER_QUESTS, MAX
 from bot.services.currency_service import format_currency
 
 
-def quest_board_embed(beginner_quests: list, basic_quests: list, cooldown_remaining, player) -> discord.Embed:
+def quest_board_embed(beginner_quests: list, basic_quests: list, cooldown_remaining, player,
+                      story_quest: dict | None = None) -> discord.Embed:
     """`beginner_quests` is the full list of PlayerQuest rows (kind=
     "beginner") for this player, `basic_quests` is every currently-active
     (kind="basic") row -- up to MAX_ACTIVE_BASIC_QUESTS of them -- and
@@ -21,6 +22,21 @@ def quest_board_embed(beginner_quests: list, basic_quests: list, cooldown_remain
     get_beginner_quests / get_active_basic_quests /
     basic_quest_reroll_cooldown_remaining."""
     embed = discord.Embed(title="📋 Quests", color=discord.Color.teal())
+
+    # THE STORY SITS AT THE TOP, because it's the thing the rest of the
+    # game is gated behind.
+    #
+    # The main quest lived exclusively in /story, so the board a player
+    # opens to ask "what should I be doing" listed daily errands and
+    # said nothing about the mission actually blocking their progress.
+    # Two places to look for "what now" is one too many.
+    if story_quest:
+        embed.add_field(
+            name=f"📖 {story_quest.get('chapter', 'Story')}",
+            value=(f"**{story_quest['name']}**\n{story_quest.get('summary', '')}\n"
+                   f"*Continue with* `/story`")[:1024],
+            inline=False,
+        )
 
     # BEGINNER QUESTS DISAPPEAR ONCE THEY'RE ALL DONE.
     #
