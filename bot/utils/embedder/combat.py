@@ -616,7 +616,12 @@ def _ability_lines(c) -> list[str]:
             state = "✅"
         else:
             state = "🚫"
-        source = {"character": "🌀", "weapon": "⚔️", "artifact": "🔮"}.get(ability.get("source"), "✨")
+        # 🃏 marks an ability that came from a Character Card. Without
+        # it a card's ability fell through to the generic ✨, so the
+        # single most important thing a card does was indistinguishable
+        # in combat from a gear proc.
+        source = {"character": "🌀", "weapon": "⚔️", "artifact": "🔮",
+                  "card": "🃏"}.get(ability.get("source"), "✨")
         lines.append(f"{state} {source} **{ability['name']}** ({ability['resource_cost']} {unit})")
         lines.append(f"　{ability['description']}")
 
@@ -720,7 +725,22 @@ def battle_info_embed(battle, page: int = 0) -> discord.Embed:
     if c.passive_abilities:
         embed.add_field(
             name="🧬 Passives",
-            value=fit_field([f"**{p['name']}** — {p['description']}" for p in c.passive_abilities]),
+            value=fit_field([
+                ("🃏 " if p.get("source") == "card" else "")
+                + f"**{p['name']}** — {p['description']}"
+                for p in c.passive_abilities
+            ]),
+            inline=False,
+        )
+
+    if getattr(c, "incoming_strikes", None):
+        embed.add_field(
+            name="✈️ Incoming",
+            value=fit_field([
+                f"**{s.source}** — lands in {s.turns} turn{'s' if s.turns != 1 else ''} "
+                f"for {round(s.flat_amount)}"
+                for s in c.incoming_strikes
+            ]),
             inline=False,
         )
 

@@ -63,7 +63,12 @@ class Economy(commands.Cog):
         if result["reroll_tokens"]:
             message += f", **{format_currency('reroll_tokens', result['reroll_tokens'])}**"
         if result["shards"]:
-            message += f" and **{format_currency('shards', result['shards'])}** for your streak milestone!"
+            message += f", **{format_currency('shards', result['shards'])}**"
+        # CORES ON THE DAILY LINE. They were being granted and not
+        # mentioned, so the source most likely to introduce a new player
+        # to the currency was the one that never named it.
+        if result.get("cores"):
+            message += f", **{format_currency('cores', result['cores'])}**"
         tier_counts: dict[str, int] = {}
         for tier in result["lootbox_tiers"]:
             tier_counts[tier] = tier_counts.get(tier, 0) + 1

@@ -21,7 +21,7 @@ from bot.services.currency_service import format_currency
 from bot.services.player_service import get_player
 from bot.database.models.character_model import PlayerCharacter
 from bot.utils import banner_ui, paging, responses
-from bot.utils.embedder._shared import fit_field
+from bot.utils.embedder._shared import _fmt_stat, fit_field
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils.ui_guard import OwnedView, check_message_owner, require_feature
 
@@ -37,6 +37,39 @@ def _stars(n: int) -> str:
 # ----------------------------------------------------------------------
 
 CARDS_PER_LIST_PAGE = 10
+
+
+def _ability_block(ability: dict | None) -> str:
+    """An ability the way the rest of the game writes one: what it costs,
+    how often, and what it does.
+
+    The card screen used to print the description alone, so the single
+    most important thing about a card -- whether you can afford to press
+    it, and how often -- was the one thing it did not say. Gear shows
+    this; cards were the outlier.
+    """
+    if not ability:
+        return "*This card carries no ability.*"
+    cost = ability.get("resource_cost")
+    kind = ability.get("resource_type", "mana")
+    cooldown = ability.get("cooldown")
+    bits = []
+    if cost:
+        bits.append(f"{'🔵' if kind == 'mana' else '⚡'} **{cost}** {'SP' if kind == 'mana' else 'energy'}")
+    if cooldown:
+        bits.append(f"⏳ **{cooldown}** turn cooldown")
+    header = " · ".join(bits)
+    return (header + "\n" if header else "") + (ability.get("description") or "")
+
+
+def _stat_line(stats: dict) -> str:
+    """Stats with the same emoji and formatting the inventory uses, so a
+    card's numbers read identically to a piece of gear's."""
+    # _fmt_stat already carries the emoji AND the label -- wrapping it in
+    # another emoji/label pair produced "ATK: +ATK: 7 ATK". Same helper
+    # the inventory uses, called the same way, so the two screens format
+    # a stat identically by construction rather than by coincidence.
+    return "\n".join(f"+{_fmt_stat(stat, value)}" for stat, value in stats.items())
 
 
 def cards_list_embed(cards: list[PlayerCard], page: int, player_name: str,
@@ -106,12 +139,12 @@ def card_detail_embed(card: PlayerCard, index: int, total: int,
 
     embed.add_field(
         name=f"Level {card.level}/{cc.CARD_MAX_LEVEL}",
-        value=" · ".join(f"**+{v:g}** {k.replace('_', ' ')}" for k, v in stats.items()),
+        value=_stat_line(stats)[:1024],
         inline=False,
     )
     embed.add_field(
         name=f"⚡ {ability['name']}" if ability else "⚡ Ability",
-        value=(ability.get("description", "") if ability else "*None.*")[:1024],
+        value=_ability_block(ability)[:1024],
         inline=False,
     )
     embed.add_field(name="Equipped to", value=f"**{worn}**" if worn else "*Nobody*",
@@ -247,8 +280,8 @@ class CardCharacterSelect(discord.ui.Select):
 
 
 class CardActionButton(discord.ui.DynamicItem[discord.ui.Button],
-                       template=r"cascade_card_act:(?P<action>unequip|level|level10):(?P<card_id>\d+)"):
-    LABELS = {"unequip": "Unequip", "level": "Level +1", "level10": "Level +10"}
+                       template=r"cascade_card_act:(?P<action>unequip|level):(?P<card_id>\d+)"):
+    LABELS = {"unequip": "Unequip", "level": "Level +1"}
 
     def __init__(self, action: str, card_id: int, label: str | None = None,
                  disabled: bool = False):
@@ -281,8 +314,7 @@ class CardActionButton(discord.ui.DynamicItem[discord.ui.Button],
             if self.action == "unequip":
                 _, message = card_service.unequip_card(db, card)
             else:
-                levels = 10 if self.action == "level10" else 1
-                _, message = card_service.level_up_card(db, player, card, levels)
+                _, message = card_service.level_up_card(db, player, card, 1)
         finally:
             db.close()
         await _render_cards(interaction, selected=self.card_id, note=message)
@@ -308,6 +340,34 @@ class CardPageButton(discord.ui.DynamicItem[discord.ui.Button],
             return
         target = self.page - 1 if self.direction == "prev" else self.page + 1
         await _render_cards(interaction, selected=None, page=max(0, target))
+
+
+class CardNavButton(discord.ui.DynamicItem[discord.ui.Button],
+                    template=r"cascade_card_nav:(?P<direction>prev|next):(?P<card_id>\d+)"):
+    """Step to the previous/next card WITHOUT going back to the list.
+
+    The inventory's detail mode has this and the card screen did not, so
+    comparing two cards meant list, pick, read, back, pick, read. The
+    whole point of a detail view is that you can walk it.
+    """
+
+    def __init__(self, direction: str, card_id: int, disabled: bool = False):
+        super().__init__(discord.ui.Button(
+            label="◀ Prev" if direction == "prev" else "Next ▶",
+            style=discord.ButtonStyle.secondary, disabled=disabled,
+            custom_id=f"cascade_card_nav:{direction}:{card_id}",
+        ))
+        self.direction = direction
+        self.card_id = card_id
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match):
+        return cls(match["direction"], int(match["card_id"]))
+
+    async def callback(self, interaction: discord.Interaction):
+        if not await check_message_owner(interaction):
+            return
+        await _render_cards(interaction, selected=self.card_id)
 
 
 class CardBackButton(discord.ui.DynamicItem[discord.ui.Button],
@@ -341,13 +401,24 @@ class CardsView(OwnedView):
             self.add_item(CardPageButton("prev", page, disabled=page <= 0))
             self.add_item(CardPageButton("next", page, disabled=page >= pages - 1))
         if selected is not None:
+            index = next((i for i, c in enumerate(cards) if c.id == selected.id), 0)
+            prev_card = cards[index - 1] if index > 0 else None
+            next_card = cards[index + 1] if index < len(cards) - 1 else None
+            self.add_item(CardNavButton("prev", (prev_card or selected).id,
+                                        disabled=prev_card is None))
+            self.add_item(CardNavButton("next", (next_card or selected).id,
+                                        disabled=next_card is None))
             self.add_item(CardBackButton())
             self.add_item(CardCharacterSelect(selected.id, characters))
             if selected.character_id is not None:
                 self.add_item(CardActionButton("unequip", selected.id))
-            maxed = selected.level >= cc.CARD_MAX_LEVEL
-            self.add_item(CardActionButton("level", selected.id, disabled=maxed))
-            self.add_item(CardActionButton("level10", selected.id, disabled=maxed))
+            # NO +10 button. Card levels cost materials from a band that
+            # shifts as the card climbs, so a ten-level jump can span two
+            # bands and quietly spend a resource the player was saving --
+            # and the cost preview can only honestly show one step.
+            self.add_item(CardActionButton(
+                "level", selected.id,
+                disabled=selected.level >= cc.CARD_MAX_LEVEL))
 
 
 async def _render_cards(interaction: discord.Interaction, selected: int | None = None,

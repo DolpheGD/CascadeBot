@@ -172,6 +172,15 @@ def _profile_abilities_page(player, character, equipped_items, avatar_url, db=No
     character_skill = next((a for a in combatant.active_abilities if a.get("source") == "character"), None)
     weapon_skills = [a for a in combatant.active_abilities if a.get("source") == "weapon"]
     artifact_skills = [a for a in combatant.active_abilities if a.get("source") == "artifact"]
+    # CARD ABILITIES GET THEIR OWN SECTION.
+    #
+    # This page filters active abilities by source, and "card" matched
+    # none of the existing buckets -- so a Character Card's ability, the
+    # strongest thing the character has, was silently dropped from the
+    # one screen a player opens to read their abilities. Passive-pool
+    # cards were fine (gear_passives is a not-character catch-all);
+    # weapon- and artifact-pool cards vanished.
+    card_skills = [a for a in combatant.active_abilities if a.get("source") == "card"]
     character_passive = next((p for p in combatant.passive_abilities if p.get("source") == "character"), None)
     gear_passives = [p for p in combatant.passive_abilities if p.get("source") != "character"]
 
@@ -191,6 +200,9 @@ def _profile_abilities_page(player, character, equipped_items, avatar_url, db=No
         )
     embed.add_field(name="⚔️ Weapon Skill", value=_skill_lines(weapon_skills), inline=False)
     embed.add_field(name="🔮 Artifact Skill", value=_skill_lines(artifact_skills), inline=False)
+    if card_skills:
+        embed.add_field(name="🃏 Character Card", value=_skill_lines(card_skills),
+                        inline=False)
 
     if combatant.ultimate_ability:
         u = combatant.ultimate_ability

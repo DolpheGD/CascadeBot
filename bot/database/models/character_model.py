@@ -150,8 +150,44 @@ class PlayerCharacter(Base):
         back_populates="character"
     )
 
+    # ------------------------------------------------------------------
+    # THE XP CURVE IS GEOMETRIC, not linear.
+    #
+    # It used to be `150 + (level - 1) * 60`, and the problem with a
+    # linear cost is not the cost -- it is the SHAPE OF THE STEP:
+    #
+    #     lv 1 -> 2    150      +40% over the previous level
+    #     lv 3 -> 4    270      +29%
+    #     lv 20 -> 21  1,290    +5%
+    #     lv 40 -> 41  2,490    +2%
+    #     lv 99 -> 100 6,030    +1%
+    #
+    # So the first level-up arrives almost instantly and feels enormous,
+    # the next few come fast, and from about level 30 onwards every level
+    # costs practically what the last one did. That is the reported "huge
+    # jump at 1-2 and then it plateaus" exactly: a linear formula has a
+    # decaying relative step by construction.
+    #
+    # A geometric curve makes the step CONSTANT -- every level costs
+    # ~5.5% more than the one before it, forever -- which is what
+    # "gradual" actually means, and it lets the two ends be far apart
+    # without any point in the middle feeling like a wall:
+    #
+    #     lv 1 -> 2       90
+    #     lv 50 -> 51  1,241
+    #     lv 99 -> 100 17,100
+    #
+    # Total to level 100 is 326k against the old 312k, so the overall
+    # grind is deliberately unchanged -- this redistributes the cost
+    # along the curve rather than making levelling longer. A power curve
+    # was tried first and is worse at the thing being fixed: it starts
+    # with a 2.47x step, which is more front-loaded than what it replaced.
+    # ------------------------------------------------------------------
+    XP_BASE = 90
+    XP_GROWTH = 1.055
+
     def xp_to_next_level(self) -> int:
-        return 150 + (self.level - 1) * 60
+        return round(self.XP_BASE * (self.XP_GROWTH ** (self.level - 1)))
 
     def effective_class(self) -> CharacterClass:
         if self.current_class is not None:

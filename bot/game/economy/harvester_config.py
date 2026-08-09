@@ -43,6 +43,34 @@ HARVESTER_TEMPLATES: list[dict] = [
         "upgrade_cost_growth": 1.03,
     },
     {
+        # The Card counterpart to the Shard Well. Cards had no passive
+        # income at all, so a player who was not voting or running the
+        # Core Domain had nothing accruing toward them while offline --
+        # which for the game's slowest progression system is exactly
+        # backwards.
+        #
+        # Priced above the Shard Well and slower per hour: a Card is one
+        # slot per character and permanent, so its trickle should be the
+        # most patient one in the base.
+        "name": "Core Reactor",
+        "description": "A shielded cell that condenses raw Cascade into Cores. Slowly.",
+        "currency": "cores",
+        "unlock_cost": 900,
+        "unlock_currency": "gold",
+        # SUBLINEAR, like the Shard Well and for the same reason: a
+        # premium currency on a linear harvester curve outruns every
+        # other source in the game. A first pass used exponent 1.0 and
+        # reached 16 card pulls a DAY at max level, against roughly one
+        # from the Shard Well -- the passive source would have been the
+        # only source worth having.
+        "base_rate_per_hour": 0.45,
+        "level_scaling_exponent": 0.75,
+        "max_level": 20,
+        "max_accumulation_hours": 16.0,
+        "base_upgrade_cost": 320,
+        "upgrade_cost_growth": 1.03,
+    },
+    {
         "name": "Woodcutter's Camp",
         "description": "A small clearing where lumber is felled and stacked for later use.",
         "currency": "wood",

@@ -350,12 +350,48 @@ class Battle:
         # time, deliberately: that's what lets a mark applied AFTER a burn
         # already landed still amplify it, which is the whole point of
         # having a separate setup piece.
+        # CALLED-IN AIRSTRIKES land here, at the start of the target's
+        # turn, before anything else resolves on them. Landing before
+        # their DoTs (rather than after) matters: a strike that finishes
+        # a target should stop that target's burn ticking pointlessly,
+        # and a player who called it in two turns ago should see it
+        # arrive at the top of the turn it was promised for.
+        for strike in list(combatant.incoming_strikes):
+            strike.turns -= 1
+            if strike.turns > 0:
+                continue
+            dealt = combatant.take_raw_hp_loss(strike.flat_amount)
+            self.log.append(
+                f"✈️ {strike.source} lands on {combatant.name} for {dealt} damage."
+            )
+        combatant.incoming_strikes = [
+            s for s in combatant.incoming_strikes if s.turns > 0
+        ]
+
         dot_amplify = 1 + combatant.total_vulnerability_percent(effects.DOT_VULNERABILITY_STAT) / 100
         for dot in list(combatant.dots):
             dealt = combatant.take_raw_hp_loss(dot.flat_amount * dot_amplify)
             self.log.append(f"🔥 {combatant.name} takes {dealt} damage from {dot.source}.")
             dot.duration -= 1
         combatant.dots = [d for d in combatant.dots if d.duration > 0]
+
+        # TEMPORARY PASSIVES expire here, on the same clock as everything
+        # else. A passive granted by an ability (Bee Jee's team lifesteal
+        # buff) carries `expires_in`; a permanent one from gear or a kit
+        # does not and is never touched.
+        #
+        # This block is the whole reason a temporary passive is safe to
+        # have: without it the buff would be granted and never removed,
+        # so a three-turn ability would silently be a permanent one, and
+        # nothing in combat would look wrong while it happened.
+        expiring = [p for p in combatant.passive_abilities if "expires_in" in p]
+        for passive in expiring:
+            passive["expires_in"] -= 1
+        if expiring:
+            combatant.passive_abilities = [
+                p for p in combatant.passive_abilities
+                if "expires_in" not in p or p["expires_in"] > 0
+            ]
 
         # Regen (heal-over-time) ticks the same way, on the healed
         # combatant's own turn. This is for ABILITY-granted heals only now

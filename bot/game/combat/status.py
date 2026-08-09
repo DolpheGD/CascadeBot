@@ -18,6 +18,26 @@ class StatModifier:
 
 
 @dataclass
+class DelayedStrike:
+    """An airstrike that has been CALLED IN but has not landed yet.
+
+    Unlike a DamageOverTime, which pays out a little every turn, this
+    pays nothing until `turns` reaches zero and then lands in one piece.
+    That difference is the whole point: it is damage you commit to now
+    and collect later, so it is excellent for opening a fight and
+    useless for finishing one -- a timing decision rather than a bigger
+    number.
+
+    `flat_amount` is frozen at call-in time, same convention as
+    DamageOverTime: buffing the caster afterwards does not retroactively
+    make an in-flight strike hit harder.
+    """
+    flat_amount: float
+    turns: int
+    source: str = ""
+
+
+@dataclass
 class DamageOverTime:
     """A damage-per-turn effect (e.g. burn). `flat_amount` is frozen at the
     moment the DOT is applied (based on the caster's stat at cast time),

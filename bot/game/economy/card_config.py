@@ -130,38 +130,65 @@ def card_level_multiplier(level: int) -> float:
     ) * progress
 
 
-# XP-style levelling would need a second progression currency nobody
-# asked for, so Cards level with GOLD and CORES: gold makes it a sink,
-# cores make it compete with pulling, which is the interesting decision.
+# ----------------------------------------------------------------------
+# LEVELLING COSTS GOLD AND MATERIALS -- never Cores.
 #
-# Measured, taking one card from 1 to each milestone:
+# It used to charge Cores every tenth level, on the theory that making
+# levelling compete with pulling was an interesting decision. It isn't:
+# both sides of that decision are the same currency doing the same job,
+# so "level the card I have or roll for one I don't" is just a worse
+# version of "roll now or roll later". Worse, it meant a player saving
+# for a pull was penalised for using the card they already had.
 #
-#     Lv 10        1,295 gold     120 cores
-#     Lv 25       12,501 gold     240 cores
-#     Lv 50       74,143 gold     600 cores
-#     Lv100      438,870 gold   1,200 cores
+# Materials make it a decision between DIFFERENT things -- the gear you
+# are upgrading and the card you are levelling both want the same
+# harvester output -- and they plug Cards into the economy the rest of
+# the game already runs on.
 #
-# Two numbers worth defending there. 439k gold is roughly 35 maxed
-# Legendary gear pieces, which is what "a big grind" has to mean for the
-# one item a character keeps forever. And 100 cores is EXACTLY one
-# ten-pull -- so maxing a card you have costs the same as rolling for a
-# card you don't, which is the decision this is supposed to create.
-#
-# The core charge was 2 per step in the first pass, totalling 20 over
-# the whole climb. That was a rounding error against a 100-core pull and
-# made the comment above simply untrue: nothing competed with anything.
+# The material BAND rises with card level, exactly like gear upgrades
+# (item_upgrade_service._MATERIAL_BANDS), so an early card is fed wood
+# and stone and a level-90 card is eating Void and Entropy.
+# ----------------------------------------------------------------------
 CARD_LEVEL_GOLD_BASE = 90
 CARD_LEVEL_GOLD_EXPONENT = 1.55
-CARD_LEVEL_CORE_EVERY = 10        # cores are charged every Nth level
-CARD_LEVEL_CORE_AMOUNT = 120
+
+CARD_LEVEL_MATERIAL_BASE = 2       # units at level 1
+CARD_LEVELS_PER_MATERIAL_STEP = 6  # +1 unit every N levels
+
+# (max_level_inclusive, materials). Same overlapping-bands shape as gear:
+# consecutive bands share a material so crossing one is a shift, not a
+# wall, and three at once means no single resource gates a card.
+CARD_MATERIAL_BANDS: list[tuple[int, tuple[str, ...]]] = [
+    (15,  ("wood", "stone")),
+    (30,  ("wood", "stone", "metal")),
+    (45,  ("stone", "metal", "crystal")),
+    (60,  ("metal", "crystal", "xendium")),
+    (75,  ("crystal", "xendium", "permafrost_ore")),
+    (90,  ("xendium", "permafrost_ore", "void")),
+    (999, ("permafrost_ore", "void", "entropy")),
+]
+
+
+def card_materials_for_level(level: int) -> tuple[str, ...]:
+    for ceiling, materials in CARD_MATERIAL_BANDS:
+        if level <= ceiling:
+            return materials
+    return CARD_MATERIAL_BANDS[-1][1]
 
 
 def card_level_cost(level: int) -> dict[str, int]:
-    """Cost to go from `level` to `level + 1`."""
+    """Cost to go from `level` to `level + 1`: gold plus materials from
+    this level's band, split as evenly as the total allows."""
     gold = int(round(CARD_LEVEL_GOLD_BASE * (level ** CARD_LEVEL_GOLD_EXPONENT) / 10))
-    cost = {"gold": max(CARD_LEVEL_GOLD_BASE, gold)}
-    if (level + 1) % CARD_LEVEL_CORE_EVERY == 0:
-        cost["cores"] = CARD_LEVEL_CORE_AMOUNT
+    cost: dict[str, int] = {"gold": max(CARD_LEVEL_GOLD_BASE, gold)}
+
+    total = CARD_LEVEL_MATERIAL_BASE + max(0, level - 1) // CARD_LEVELS_PER_MATERIAL_STEP
+    materials = card_materials_for_level(level)
+    per, extra = divmod(total, len(materials))
+    for index, material in enumerate(materials):
+        amount = per + (1 if index < extra else 0)
+        if amount:
+            cost[material] = amount
     return cost
 
 

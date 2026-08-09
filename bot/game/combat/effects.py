@@ -138,7 +138,8 @@ import random
 
 from bot.game.combat import formulas
 from bot.game.combat.combatant import Combatant
-from bot.game.combat.status import DamageOverTime, HealOverTime, StatModifier, Vulnerability
+from bot.game.combat.status import (DamageOverTime, DelayedStrike, HealOverTime,
+                                    StatModifier, Vulnerability)
 
 # ----------------------------------------------------------------------
 # Poise / Break / Guard tuning. See the Poise/Break block in combatant.py
@@ -1588,6 +1589,157 @@ def resolve_active_ability(
         if not total:
             log.append(f"💨 {ability['name']} finds nothing to set off — "
                        f"somebody has to apply it first.")
+
+    elif kind == "team_lifesteal_buff":
+        # BEE JEE. The squad drains HP from everything it hits, for a
+        # few turns.
+        #
+        # The Sustain roster had a real sameness problem: four of its
+        # eight members healed a flat percentage and two more shielded
+        # one, so "which healer" was a question about numbers rather
+        # than about play. Lifesteal is healing that only happens if you
+        # are ATTACKING, which makes it the aggressive Sustain option --
+        # it rewards a squad that is winning and does nothing for one
+        # that is turtling, the exact inverse of every other heal here.
+        #
+        # Implemented as a temporary PASSIVE rather than a StatModifier
+        # because lifesteal is already read as a passive on the attacker
+        # (see the drain block in _resolve_hit) -- reusing that means the
+        # buff and a lifesteal weapon stack the same way, with no second
+        # code path to keep in step.
+        percent = effect.get("percent", 12)
+        duration = effect.get("duration", 3)
+        for member in [attacker] + [a for a in allies if a.is_alive()]:
+            member.passive_abilities.append({
+                "id": f"temp_lifesteal_{ability['id']}",
+                "name": ability["name"],
+                "description": f"Drains {percent}% of damage dealt as HP.",
+                "source": "temporary",
+                "expires_in": duration,
+                "effect": {"kind": "lifesteal", "percent": percent},
+            })
+        log.append(
+            f"🩸 {attacker.name}'s {ability['name']}: the squad drains "
+            f"{percent}% of the damage it deals for {duration} turns."
+        )
+
+    elif kind == "aoe_call_in_strike":
+        # ANDY. Paints every target now; the ordnance arrives later.
+        #
+        # He was an attack-shredder for about one revision, and that was
+        # wrong for a reason worth writing down: reducing enemy ATTACK
+        # and raising your own DEFENCE are the same equation with the
+        # terms moved: both just multiply incoming damage down. It looked
+        # like a new role and was a relabelled one.
+        #
+        # A DELAYED STRIKE is a different axis entirely -- not how big a
+        # number is, but WHEN it exists. Damage committed now and
+        # collected in two turns is strong opening a fight and worthless
+        # closing one, it can be wasted entirely if the target dies
+        # first, and it rewards calling it early rather than reacting.
+        # Nothing else in the game asks the player to think about
+        # timing at all.
+        #
+        # It also finally matches the fiction: he is an Air Force
+        # Commander coordinating strike patterns from a cockpit. You call
+        # it in, and then it comes.
+        stat = effect.get("damage_stat", "attack")
+        delay = effect.get("delay_turns", 2)
+        flat = attacker.effective_stat(stat) * effect.get("strike_percent", 190) / 100
+
+        for target in [o for o in opponents if o.is_alive()]:
+            target_allies = [o for o in opponents if o is not target and o.is_alive()]
+            _hit(attacker, target, effect.get("damage_percent", 60), stat, rng, log,
+                 defender_allies=target_allies)
+            if not target.is_alive():
+                continue
+            # One strike per source per target -- a second call-in
+            # refreshes the timer rather than stacking, so spamming the
+            # button does not turn into an unavoidable pile of pending
+            # damage.
+            existing = next((s for s in target.incoming_strikes
+                             if s.source == ability["name"]), None)
+            if existing is not None:
+                existing.flat_amount = flat
+                existing.turns = delay
+            else:
+                target.incoming_strikes.append(
+                    DelayedStrike(flat_amount=flat, turns=delay, source=ability["name"])
+                )
+        log.append(
+            f"📡 {attacker.name} calls in {ability['name']} — it lands on every enemy "
+            f"in {delay} turns for {round(flat)} each."
+        )
+
+    elif kind == "sacrifice_hp_aoe_damage":
+        # FAX. Runs the engines past their rating: pays his own health
+        # and hits everything, harder the more he had to give.
+        #
+        # He and Andy were the same four abilities with different numbers
+        # -- both AoE damage with a chance to shred defence, at 70/35 and
+        # 75/38. Nothing distinguished them but the decimal.
+        #
+        # HP-loss is the archetype the roster was quietly building
+        # (Kotori spends it to heal, Yoruki to burn, Gostley cashes in
+        # execution) and it had no AoE member. It also fits a pilot with
+        # a cargo hold he keeps overloading, and it pairs with his
+        # existing extra-turn-on-kill passive: burn health, clear the
+        # board, take another turn.
+        cost = max(0, int(attacker.current_hp * effect.get("self_cost_percent", 15) / 100))
+        paid = attacker.take_raw_hp_loss(cost)
+
+        # The bonus is a fraction of the health actually SPENT, so being
+        # already hurt makes this weaker rather than free -- the same
+        # convention Yoruki and Polo use.
+        spent_share = paid / max(1, attacker.max_hp)
+        bonus = spent_share * effect.get("hp_scaling", 260)
+        percent = effect.get("damage_percent", 70) + bonus
+
+        stat = effect.get("damage_stat", "attack")
+        for target in [o for o in opponents if o.is_alive()]:
+            target_allies = [o for o in opponents if o is not target and o.is_alive()]
+            _hit(attacker, target, percent, stat, rng, log,
+                 defender_allies=target_allies)
+        log.append(
+            f"🔥 {attacker.name} burns {paid} HP — every hit lands at "
+            f"{round(percent)}% {stat.upper()}."
+        )
+
+    elif kind == "sacrifice_hp_damage_and_dot":
+        # YORUKI. Pays her own health to set a much bigger burn.
+        #
+        # Her kit was a straight duplicate of Blueflame's -- damage plus
+        # a burn, same shape, same feel -- so the roster had two
+        # single-target DoT appliers and no reason to own both. Paying
+        # HP for it puts her in the same conversation as Kotori and
+        # Gostley: the characters whose resource is their own health.
+        # % of CURRENT hp, not max -- the same convention Polo and Kotori
+        # use. Costing a share of MAX hp made the price identical whether
+        # she was at full health or nearly dead, so "spend health" was a
+        # flat tax rather than a decision, and the burn below scaled off
+        # a number that never moved.
+        cost = max(0, int(attacker.current_hp * effect.get("self_cost_percent", 12) / 100))
+        paid = attacker.take_raw_hp_loss(cost)
+        stat = effect.get("damage_stat", "elemental")
+        _hit(attacker, defender, effect.get("damage_percent", 90), stat, rng, log,
+             defender_allies=defender_allies)
+        if defender.is_alive():
+            # The burn scales with what she actually SPENT, so it is
+            # weaker when she is already hurt -- a real cost, not a
+            # flat tax.
+            flat = attacker.effective_stat(effect.get("dot_stat", stat)) \
+                * effect.get("dot_percent", 55) / 100
+            flat *= 1 + (paid / max(1, attacker.max_hp)) * effect.get("hp_scaling", 3.0)
+            for passive in attacker.find_passive("dot_amplifier"):
+                flat *= 1 + passive["effect"].get("percent", 0) / 100
+            defender.dots.append(DamageOverTime(
+                flat_amount=flat, duration=effect.get("duration", 3),
+                source=ability["name"], stat_source=stat,
+            ))
+            log.append(
+                f"🔥 {attacker.name} spends {paid} HP — {defender.name} burns for "
+                f"{round(flat)} a turn."
+            )
 
     elif kind == "team_break_damage_buff":
         # NEBULA. The team hits broken enemies harder for a few turns.

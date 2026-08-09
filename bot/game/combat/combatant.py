@@ -301,6 +301,7 @@ class Combatant:
     dots: list = field(default_factory=list)        # list[DamageOverTime]
     heals: list = field(default_factory=list)       # list[HealOverTime]
     vulnerabilities: list = field(default_factory=list)  # list[Vulnerability]
+    incoming_strikes: list = field(default_factory=list)  # list[DelayedStrike]
     # QUEUE of this combatant's decided-but-not-yet-executed actions for
     # the current cycle, in order -- each {"ability": dict|None,
     # "target": Combatant}. See Battle.peek_enemy_intent_schedule.
@@ -783,8 +784,17 @@ class Combatant:
         each other; only repeat applications from the SAME source stack
         onto one instance (handled where Vulnerability instances are
         created/refreshed, in effects.py)."""
+        # "all" matches EVERY damage stat.
+        #
+        # Vulnerability was per-stat, which is right for a mark that says
+        # "burns hurt more" but wrong for one meant to replace defence
+        # shred: shred helped an elemental carry exactly as much as a
+        # physical one, and an attack-only mark silently does nothing for
+        # half the roster. Measured at Abyssnia, that difference was five
+        # points of clear rate.
         return sum(
-            v.percent_per_stack * v.stacks for v in self.vulnerabilities if v.damage_stat == damage_stat
+            v.percent_per_stack * v.stacks for v in self.vulnerabilities
+            if v.damage_stat in (damage_stat, "all")
         )
 
     def ability_ready(self, ability: dict) -> bool:

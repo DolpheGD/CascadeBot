@@ -153,9 +153,9 @@ class CascadeBot(commands.Bot):
         # custom_id rather than from which cog built it.
         from bot.utils.banner_ui import BannerButton
         from bot.cogs.cards import CardActionButton, CardPullButton
-        from bot.cogs.cards import CardBackButton, CardPageButton
+        from bot.cogs.cards import CardBackButton, CardNavButton, CardPageButton
         self.add_dynamic_items(BannerButton, CardActionButton, CardPullButton,
-                               CardPageButton, CardBackButton)
+                               CardPageButton, CardBackButton, CardNavButton)
         # Raids: the action view is timeout=None and must survive restarts
         # (a raid runs for a week -- see raid_config.RAID_DURATION, which
         # is far longer than any bot uptime should be assumed to be).

@@ -89,37 +89,23 @@ def banner_embed(banner: Banner, player) -> discord.Embed:
                   if since_five >= banner.soft_pity_start else "")),
         inline=True,
     )
+    embed.add_field(
+        name="Rates",
+        value=" · ".join(f"{stars(star)} **{pct:g}%**"
+                         for star, pct in sorted(banner.rates.items(), reverse=True)),
+        inline=False,
+    )
+    embed.add_field(
+        name="Guarantees",
+        value=(f"5★ by pull **{banner.hard_pity}** — odds climb "
+               f"**{banner.soft_pity_step:g} points per pull** from pull "
+               f"{banner.soft_pity_start}.\n"
+               f"4★ or better by pull **{banner.four_star_pity}**."),
+        inline=False,
+    )
     embed.set_footer(
         text=f"{banner.single_cost} {banner.currency} a pull · "
              f"same price per pull on the {banner.multi_count}x"
-    )
-    return embed
-
-
-def rates_embed(banner: Banner) -> discord.Embed:
-    embed = discord.Embed(
-        title=f"{banner.title} — Rates",
-        description="Base odds per pull, before any pity ramp.",
-        color=discord.Color.blurple(),
-    )
-    embed.add_field(
-        name="Base rates",
-        value="\n".join(f"{stars(star)} — **{pct:g}%**"
-                        for star, pct in sorted(banner.rates.items(), reverse=True)),
-        inline=False,
-    )
-    embed.add_field(
-        name="Pity",
-        value=(
-            f"**Guaranteed 5★** by pull {banner.hard_pity}.\n"
-            f"From pull {banner.soft_pity_start} the 5★ chance rises by "
-            f"**{banner.soft_pity_step:g} points per pull**, so most 5★s land "
-            f"before the ceiling.\n"
-            f"**Guaranteed 4★ or better** by pull {banner.four_star_pity}.\n\n"
-            "Counters carry across single and 10x pulls, and each banner "
-            "keeps its own — pulling here never advances the other."
-        ),
-        inline=False,
     )
     return embed
 
@@ -161,10 +147,14 @@ def history_embed(banner: Banner, records: list) -> discord.Embed:
 # ----------------------------------------------------------------------
 
 class BannerButton(discord.ui.DynamicItem[discord.ui.Button],
-                   template=r"cascade_banner:(?P<banner>\w+):(?P<action>pull1|pull10|history|rates)"):
+                   template=r"cascade_banner:(?P<banner>\w+):(?P<action>pull1|pull10|history)"):
+    # NO RATES BUTTON. It opened a page restating numbers the banner
+    # screen itself already shows -- the odds and both pity counters are
+    # on the front, where they are useful, rather than one click away
+    # where they are a footnote.
     LABELS = {
         "pull1": "Pull ×1", "pull10": "Pull ×{count}",
-        "history": "📜 History", "rates": "📊 Rates",
+        "history": "📜 History",
     }
 
     def __init__(self, banner_key: str, action: str):
@@ -200,10 +190,6 @@ class BannerButton(discord.ui.DynamicItem[discord.ui.Button],
                 await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
 
-            if self.action == "rates":
-                await responses.send(interaction, embed=rates_embed(banner),
-                                     ephemeral=True)
-                return
             if self.action == "history":
                 records = pull_service.history(db, player.id, banner.key)
                 await responses.send(interaction,
@@ -231,7 +217,7 @@ class BannerButton(discord.ui.DynamicItem[discord.ui.Button],
 class BannerView(OwnedView):
     def __init__(self, banner_key: str, owner_id: int | None = None):
         super().__init__(timeout=None, owner_id=owner_id)
-        for action in ("pull1", "pull10", "history", "rates"):
+        for action in ("pull1", "pull10", "history"):
             self.add_item(BannerButton(banner_key, action))
 
 

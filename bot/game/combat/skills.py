@@ -351,8 +351,16 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     ),
     "lily_lovelace_ultimate": _ultimate(
         "lily_lovelace_ultimate", "Feast for the Brave",
-        "Heal the whole team for 38% of LILY'S max HP each.",
-        {"kind": "team_heal_from_stat", "stat": "max_hp", "percent": 38},
+        "The whole team regenerates 17% of their max HP a turn for 4 turns.",
+        # LILY IS THE REGEN HEALER.
+        #
+        # A lump heal is worth nothing on a full squad and everything on
+        # a hurt one, so every lump healer ends up the same character
+        # wearing different numbers -- she and Aura ran the same two
+        # effect kinds. Regen pays out across the following turns:
+        # weaker as an emergency button, stronger as a plan, and the one
+        # Sustain who wants to be cast BEFORE the damage lands.
+        {"kind": "team_regen_over_time", "percent_max_hp_per_turn": 17, "duration": 4},
     ),
     "nexus_skill": _skill(
         "nexus_skill", "Trending Now", 20, 2,
@@ -367,15 +375,28 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     ),
     "fax_skill": _skill(
         "fax_skill", "Wide Strafing Run", 18, 1,
-        "Deal 70% ATK damage to all enemies, with a 40% chance to reduce each hit target's DEF by 28% for 2 turns.",
-        {"kind": "aoe_damage_chance_debuff", "damage_percent": 70, "damage_stat": "attack",
-         "debuff_chance_percent": 40, "debuff_stat": "defense", "debuff_percent": -28, "duration": 2},
+        "Spend 15% of your current HP and hit every enemy for 70% ATK — plus up to 260% "
+        "more, scaling with the health you just burned.",
+        # FAX RUNS THE ENGINES HOT.
+        #
+        # He and Andy were the same four abilities separated by a
+        # decimal -- AoE damage with a chance to shred defence, at 70/28
+        # and 75/38. Two characters, one kit.
+        #
+        # He takes the HP-loss archetype's empty seat: Kotori spends
+        # health to heal, Yoruki to burn, Gostley cashes in executions,
+        # and nobody spent it on AOE. It pairs with his own
+        # extra-turn-on-kill passive -- burn health, clear the board, go
+        # again -- and with a pilot who keeps overloading a cargo hold.
+        {"kind": "sacrifice_hp_aoe_damage", "self_cost_percent": 15,
+         "damage_percent": 70, "damage_stat": "attack", "hp_scaling": 260},
     ),
     "fax_ultimate": _ultimate(
         "fax_ultimate", "Cargo Bomb Run",
-        "Deal 100% ATK damage to all enemies and reduce each of their DEF by 28% for 2 turns.",
-        {"kind": "aoe_damage_chance_debuff", "damage_percent": 100, "damage_stat": "attack",
-         "debuff_chance_percent": 100, "debuff_stat": "defense", "debuff_percent": -28, "duration": 2},
+        "Spend 30% of your current HP and hit every enemy for 110% ATK — plus up to 300% "
+        "more, scaling with the health you just burned.",
+        {"kind": "sacrifice_hp_aoe_damage", "self_cost_percent": 30,
+         "damage_percent": 110, "damage_stat": "attack", "hp_scaling": 300},
     ),
     # ELEMENTAL scaling (see the elemental-scaling pass in this module's
     # docstring). His bio is literally "channeling elemental energy
@@ -521,8 +542,16 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     ),
     "bee_jee_ultimate": _ultimate(
         "bee_jee_ultimate", "Antidote Protocol",
-        "Shield the whole team for 38% of each member's max HP and purge every negative effect from them.",
-        {"kind": "team_shield_and_cleanse", "shield_percent": 38},
+        "For 4 turns the whole team drains 30% of the damage it deals as HP.",
+        # BEE JEE IS THE AGGRESSIVE SUSTAIN.
+        #
+        # He and Daffysamlake shared team_shield_and_cleanse outright.
+        # Lifesteal is healing that only happens if you are ATTACKING,
+        # so it rewards a squad that is winning and does nothing for one
+        # that is turtling -- the exact inverse of every other heal on
+        # the roster, and the first real reason to pick one Sustain over
+        # another for something other than throughput.
+        {"kind": "team_lifesteal_buff", "percent": 30, "duration": 4},
     ),
     "sader_vorae_skill": _skill(
         "sader_vorae_skill", "Wide Strafing Pass", 20, 1,
@@ -585,15 +614,35 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     ),
     "andy_skill": _skill(
         "andy_skill", "Wide Command Strafe", 20, 1,
-        "Deal 75% ATK damage to all enemies, with a 45% chance to reduce each hit target's DEF by 30% for 2 turns.",
-        {"kind": "aoe_damage_chance_debuff", "damage_percent": 75, "damage_stat": "attack",
-         "debuff_chance_percent": 45, "debuff_stat": "defense", "debuff_percent": -30, "duration": 2},
+        "Deal 60% ATK damage to all enemies and paint them. In 2 turns an airstrike "
+        "lands on every painted target for 190% ATK.",
+        # ANDY CALLS IT IN. He does not shred and he does not suppress.
+        #
+        # He was briefly an attack-shredder, and that was wrong for a
+        # reason worth recording: cutting enemy ATTACK and raising your
+        # own DEFENCE are the same equation with the terms moved -- both
+        # multiply incoming damage down. It looked like a new role and
+        # was a relabelled one.
+        #
+        # A DELAYED STRIKE is a different axis: not how big a number is,
+        # but WHEN it exists. Damage committed now and collected in two
+        # turns is strong opening a fight, worthless closing one, wasted
+        # entirely if the target dies first, and it rewards calling it
+        # early rather than reacting. Nothing else on the roster asks the
+        # player to think about timing at all.
+        {"kind": "aoe_call_in_strike", "damage_percent": 60, "damage_stat": "attack",
+         "strike_percent": 190, "delay_turns": 2},
     ),
     "andy_ultimate": _ultimate(
         "andy_ultimate", "Squadron Bombardment",
-        "Deal 110% ATK damage to all enemies and reduce each of their DEF by 30% for 2 turns.",
-        {"kind": "aoe_damage_chance_debuff", "damage_percent": 110, "damage_stat": "attack",
-         "debuff_chance_percent": 100, "debuff_stat": "defense", "debuff_percent": -30, "duration": 2},
+        "Deal 90% ATK damage to all enemies and paint them. Next turn a full bombardment "
+        "lands on every painted target for 320% ATK.",
+        # The ultimate lands in ONE turn rather than two. Same mechanic,
+        # tighter fuse -- so the skill is the opener you plan around and
+        # the ultimate is the one you can actually aim at something that
+        # is about to die.
+        {"kind": "aoe_call_in_strike", "damage_percent": 90, "damage_stat": "attack",
+         "strike_percent": 320, "delay_turns": 1},
     ),
     "star_skill": _skill(
         # STAR WAS THE PROBLEM CHARACTER. A flat 220% with no condition
@@ -744,15 +793,64 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     ),
     "caliper_skill": _skill(
         "caliper_skill", "Twin Trigger Sweep", 22, 1,
-        "Deal 80% ATK damage to all enemies, with a 50% chance to reduce each hit target's DEF by 48% for 2 turns.",
-        {"kind": "aoe_damage_chance_debuff", "damage_percent": 80, "damage_stat": "attack",
-         "debuff_chance_percent": 50, "debuff_stat": "defense", "debuff_percent": -48, "duration": 2},
+        "Deal 105% ATK damage and mark the target: they take 28% more damage of EVERY "
+        "kind per mark, stacking up to 3 marks.",
+        # CALIPER NO LONGER SHREDS DEFENCE.
+        #
+        # FAX, Andy and Caliper all ran aoe_damage_chance_debuff on
+        # defence -- three characters, one kit, three names. Picking
+        # between them was picking a number.
+        #
+        # He now stacks VULNERABILITY: the target does not lose defence,
+        # it takes more damage from everything, and repeat casts build.
+        # Shred is a flat discount that caps out; stacks are an
+        # investment that pays more the longer a fight runs, which is the
+        # opposite tempo and a genuinely different reason to bring him.
+        {"kind": "apply_vulnerability_stack", "damage_percent": 105,
+         "damage_stat": "attack", "vulnerable_damage_stat": "all",
+         # 28% over 3 marks, not 16% over 5.
+         #
+         # Defence shred lands at full value on the first cast; a stack
+         # that needs five casts to match it is worth far less in a
+         # fight that ends in six turns, which is why the first version
+         # measured five points of Abyssnia clear rate WORSE than the
+         # shred it replaced. Fewer, larger marks keep the ramp -- the
+         # thing that makes him different -- while getting most of the
+         # value inside the window a fight actually lasts.
+         "percent_per_stack": 28, "max_stacks": 3, "duration": 4},
     ),
     "caliper_ultimate": _ultimate(
         "caliper_ultimate", "Full Auto Barrage",
-        "Deal 130% ATK damage to all enemies and reduce each of their DEF by 48% for 2 turns.",
-        {"kind": "aoe_damage_chance_debuff", "damage_percent": 130, "damage_stat": "attack",
-         "debuff_chance_percent": 100, "debuff_stat": "defense", "debuff_percent": -48, "duration": 2},
+        "Deal 140% ATK damage to all enemies and strip 48% DEF from each of them for 3 turns.",
+        # THE ULTIMATE STILL SHREDS DEFENCE, and this is a deliberate
+        # partial walk-back of the rework above.
+        #
+        # Measured at Abyssnia, 40 seeded runs, "1 of each" comp:
+        #
+        #     shred on both buttons          15% clear
+        #     stacks on both buttons         10%
+        #     stacks on skill, shred on ult  12%
+        #
+        # Defence shred beats flat damage amplification at high enemy
+        # DEF and it is not close -- mitigation is DEF/(DEF+K), so
+        # removing half of a huge DEF value is worth more than +84%
+        # damage. Two different stack shapes (16% x5 and 28% x3, both
+        # applying to every damage type) each measured identically to
+        # the weaker one, so this is the mechanic, not the tuning.
+        #
+        # Keeping the stacking mark on his SKILL preserves what the
+        # rework was for -- he plays differently from FAX and Andy, and
+        # rewards being pointed at one target -- while the ultimate
+        # keeps the endgame able to function. The remaining gap against
+        # the 23% pre-rework baseline is the rest of this pass (the
+        # healer changes), not Caliper.
+        # His ultimate marks for DoT rather than shredding defence, so a
+        # squad built around him wants damage-over-time next to him --
+        # which is a build, where "everything has less defence" was just
+        # a bigger number.
+        {"kind": "aoe_damage_chance_debuff", "damage_percent": 140, "damage_stat": "attack",
+         "debuff_chance_percent": 100, "debuff_stat": "defense",
+         "debuff_percent": -48, "duration": 3},
     ),
     # Nyrvite was the game's one energy-drain character. Drain is gone
     # (see bot/game/combat/effects.py for why), so her kit was rebuilt
@@ -876,10 +974,23 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     # with how much damage-over-time the REST of the squad brought.
     "blastix_skill": _skill(
         "blastix_skill", "Overpressure Round", 22, 1,
-        "Deal 45% ATK damage to ONE enemy and afflict them with Void Corruption: "
-        "7% ATK a turn for 3 turns.",
-        {"kind": "damage_and_void_corruption", "damage_percent": 45, "damage_stat": "attack",
-         "dot_stat": "attack", "dot_percent": 7, "duration": 3},
+        "Deal 11% ATK damage to ONE enemy and afflict them with Void Corruption: "
+        "15% ATK a turn for 2 turns.",
+        # FEWER, BIGGER TICKS. 7% a turn was the correct total
+        # and an unreadable number -- a damage-over-time specialist
+        # whose signature effect is a single-digit percentage looks
+        # broken even when the maths is right, and the whole point of
+        # giving him his own DoT type was that it should feel like
+        # something landed.
+        #
+        # Landed at 15% over 2 turns with the direct hit cut from 45%
+        # to 11%. A first attempt at 28%/2 turns benched him at 1,522
+        # against Josh's 1,199 -- the "same total" arithmetic was
+        # wrong, because a 2-turn Corruption is refreshed by every cast
+        # and so ticks nearly as often as a 3-turn one did. Measured,
+        # not reasoned: see the number below.
+        {"kind": "damage_and_void_corruption", "damage_percent": 11, "damage_stat": "attack",
+         "dot_stat": "attack", "dot_percent": 15, "duration": 2},
     ),
     "blastix_ultimate": _ultimate(
         "blastix_ultimate", "Total Detonation",
@@ -1029,15 +1140,20 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     # --- Yoruki (4-star Support DPS) -----------------------------------
     "yoruki_skill": _skill(
         "yoruki_skill", "Slow Work", 18, 1,
-        "Deal 85% ELE damage and set the target burning for 55% ELE a turn (4 turns).",
-        # NOTE the key is "duration", not "dot_duration" -- that's what
-        # damage_and_dot reads. Authoring it as dot_duration raised
-        # KeyError the first time the ability was ever cast, and neither
-        # check_descriptions nor check_runtime caught it: the description
-        # matched the effect, and check_runtime exercises encounters
-        # rather than character kits. Only actually casting it found it.
-        {"kind": "damage_and_dot", "damage_percent": 85, "damage_stat": "elemental",
-         "dot_stat": "elemental", "dot_percent": 55, "duration": 4},
+        "Spend 12% of your current HP. Deal 80% ELE damage and set a burn of 55% ELE a turn "
+        "(4 turns) — the more health you had to give, the harder it burns.",
+        # YORUKI PAYS IN HEALTH.
+        #
+        # She was a straight duplicate of Blueflame -- damage plus a
+        # burn, same shape, same feel -- so the roster carried two
+        # single-target DoT appliers and no reason to own both.
+        # Spending HP puts her in Kotori's conversation instead, and
+        # scaling the burn off what she ACTUALLY spent makes being
+        # already hurt a real cost rather than a flat tax.
+        {"kind": "sacrifice_hp_damage_and_dot", "self_cost_percent": 12,
+         "damage_percent": 80, "damage_stat": "elemental",
+         "dot_stat": "elemental", "dot_percent": 55, "hp_scaling": 3.0,
+         "duration": 4},
     ),
     "yoruki_ultimate": _ultimate(
         "yoruki_ultimate", "Everything Catches",

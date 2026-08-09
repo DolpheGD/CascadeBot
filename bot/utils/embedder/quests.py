@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import discord
 
-from bot.game.economy.quest_config import BASIC_QUEST_POOL, BEGINNER_QUESTS, MAX_ACTIVE_BASIC_QUESTS
+from bot.game.economy.quest_config import (BASIC_QUEST_POOL, BEGINNER_BONUS_REWARD,
+                                            BEGINNER_QUESTS, MAX_ACTIVE_BASIC_QUESTS)
 from bot.services.currency_service import format_currency
 
 
@@ -54,6 +55,13 @@ def quest_board_embed(beginner_quests: list, basic_quests: list, cooldown_remain
     unfinished = [q for q in beginner_quests if not q.is_completed]
     if unfinished:
         descriptions_by_id = {q["id"]: q["description"] for q in BEGINNER_QUESTS}
+        # BEGINNER QUESTS SHOW THEIR PAYOUT TOO.
+        #
+        # Basic quests listed a Reward line and beginner quests did not,
+        # so the two 120/240-core rewards in the starter set arrived with
+        # no warning and no explanation -- a currency the player had
+        # never seen, appearing in a balance they had no reason to check.
+        rewards_by_id = {q["id"]: q.get("reward", {}) for q in BEGINNER_QUESTS}
         beginner_lines = []
         completed_count = 0
         for quest in beginner_quests:
@@ -62,7 +70,12 @@ def quest_board_embed(beginner_quests: list, basic_quests: list, cooldown_remain
                 completed_count += 1
                 beginner_lines.append(f"✅ ~~{desc}~~")
             else:
-                beginner_lines.append(f"⬜ {desc} ({quest.progress}/{quest.goal_count})")
+                payout = ", ".join(format_currency(c, a)
+                                   for c, a in rewards_by_id.get(quest.quest_id, {}).items())
+                beginner_lines.append(
+                    f"⬜ {desc} ({quest.progress}/{quest.goal_count})"
+                    + (f" — {payout}" if payout else "")
+                )
         embed.add_field(
             name=f"🌱 Beginner Quests ({completed_count}/{len(beginner_quests)})",
             value="\n".join(beginner_lines),
@@ -71,7 +84,14 @@ def quest_board_embed(beginner_quests: list, basic_quests: list, cooldown_remain
         if not player.beginner_quest_bonus_claimed:
             embed.add_field(
                 name="🎁 Completion Bonus",
-                value=f"Finish every beginner quest above for {format_currency('shards', 900)}!",
+                # READ FROM THE CONFIG. This was hardcoded to 900 shards
+                # while BEGINNER_BONUS_REWARD had moved to 1,200 shards
+                # AND 600 cores -- so the screen advertised a number that
+                # was both wrong and missing half the reward.
+                value=("Finish every beginner quest above for "
+                       + " + ".join(format_currency(c, a)
+                                    for c, a in BEGINNER_BONUS_REWARD.items())
+                       + "!"),
                 inline=False,
             )
 
