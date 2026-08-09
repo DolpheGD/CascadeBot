@@ -28,6 +28,7 @@ import datetime as dt
 from bot.game.economy.vote_config import (
     VOTE_COOLDOWN_HOURS,
     VOTE_STREAK_GRACE_HOURS,
+    compute_vote_cores,
     compute_vote_currency,
     compute_vote_lootboxes,
     compute_vote_materials,
@@ -77,6 +78,7 @@ def peek_next_reward(player) -> dict:
     return {
         "streak": streak,
         "shards": shards,
+        "cores": compute_vote_cores(streak),
         "gold": gold,
         "reroll_tokens": reroll_tokens,
         "materials": compute_vote_materials(streak),
@@ -112,6 +114,7 @@ def claim_vote(db, player, is_weekend: bool = False) -> dict:
 
     streak = _next_streak(player)
     shards, gold, reroll_tokens = compute_vote_currency(streak, is_weekend=is_weekend)
+    cores = compute_vote_cores(streak, is_weekend=is_weekend)
     materials = compute_vote_materials(streak)
     lootbox_tiers = compute_vote_lootboxes(streak)
 
@@ -126,6 +129,8 @@ def claim_vote(db, player, is_weekend: bool = False) -> dict:
 
     if shards:
         add_currency(db, player, "shards", shards)
+    if cores:
+        add_currency(db, player, "cores", cores)
     if gold:
         add_currency(db, player, "gold", gold)
     if reroll_tokens:
@@ -141,6 +146,7 @@ def claim_vote(db, player, is_weekend: bool = False) -> dict:
         "streak": streak,
         "total_votes": player.total_votes,
         "shards": shards,
+        "cores": cores,
         "gold": gold,
         "reroll_tokens": reroll_tokens,
         "materials": materials,

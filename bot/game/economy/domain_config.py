@@ -73,6 +73,7 @@ from __future__ import annotations
 # imported because this module is pure config with no bot imports;
 # tools/check_emoji.py asserts the two stay identical.
 SHARD_ICON = "<:shard:1535799545886146630>"
+CORE_ICON = "<:core:1535799281460445258>"
 
 # ----------------------------------------------------------------------
 # Energy CAPACITY is an HQ upgrade.
@@ -262,6 +263,25 @@ DOMAIN_TYPES: list[dict] = [
             "hard": {"shards": 70},
             "extreme": {"shards": 120},
             "nightmare": {"shards": 220},
+        },
+    },
+    {
+        # The Card counterpart to the Shard Domain above. Domains are
+        # where a player goes to farm one specific thing on purpose, and
+        # Cards were the one progression system with no such door -- so
+        # "I want more Cards" had no answer beyond waiting for dailies.
+        "id": "core",
+        "name": "Core Domain",
+        "icon": CORE_ICON,
+        "description": "Cores -- the Character Card currency.",
+        "reward_kind": "currency",
+        "rewards": {
+            "trivial": {"cores": 60},
+            "easy": {"cores": 110},
+            "moderate": {"cores": 200},
+            "hard": {"cores": 340},
+            "extreme": {"cores": 560},
+            "nightmare": {"cores": 900},
         },
     },
     {

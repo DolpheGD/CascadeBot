@@ -92,6 +92,22 @@ VOTE_STREAK_GRACE_HOURS = 36
 # lever, since it only affects players who have already committed.
 VOTE_BASE_SHARDS = 200
 VOTE_SHARDS_PER_STREAK = 5
+
+# ----------------------------------------------------------------------
+# CORES FROM VOTING -- the other half of the same reward.
+#
+# Voting paid Shards and nothing else, so the single most repeatable
+# action in the game advanced exactly one of the two banners. A player
+# who voted twice a day every day would accumulate character pulls
+# indefinitely while their Card collection sat still, which makes the
+# newer system feel like it is not really part of the game.
+#
+# Deliberately smaller per vote than the Shard side. Cards are one slot
+# per character and permanent, so the same nominal number buys more
+# lasting power -- 120 cores is one Card pull against a vote's ~1.7
+# character pulls.
+VOTE_BASE_CORES = 120
+VOTE_CORES_PER_STREAK = 4
 VOTE_STREAK_CAP = 20  # streak stops scaling any reward past this
 
 # Bonus shards every N consecutive votes, on top of the scaled amount.
@@ -136,6 +152,16 @@ def _capped(streak: int) -> int:
     """Streak clamped to VOTE_STREAK_CAP, floored at 1 -- every reward
     curve below scales off this rather than the raw streak."""
     return max(1, min(streak, VOTE_STREAK_CAP))
+
+
+def compute_vote_cores(streak: int, is_weekend: bool = False) -> int:
+    """Cores for one claimed vote. Same streak/weekend shape as the
+    Shard payout so the two halves of a vote scale together."""
+    capped = _capped(streak)
+    cores = VOTE_BASE_CORES + VOTE_CORES_PER_STREAK * (capped - 1)
+    if is_weekend:
+        cores *= WEEKEND_MULTIPLIER
+    return int(cores)
 
 
 def compute_vote_currency(streak: int, is_weekend: bool = False) -> tuple[int, int, int]:

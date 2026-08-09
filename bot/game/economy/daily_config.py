@@ -27,7 +27,16 @@ DAILY_SHARD_MILESTONE_AMOUNT = 150
 # 25 a week is a quarter of a ten-pull -- slow enough that it is not the
 # way anyone builds a collection, steady enough that the banner is never
 # fully closed to you.
-DAILY_CORE_MILESTONE_AMOUNT = 25
+DAILY_CORE_MILESTONE_AMOUNT = 300
+
+# Cores on EVERY claim, not only the weekly milestone.
+#
+# Milestone-only meant six days out of seven paid nothing toward Cards,
+# which for a new player reads as the banner being closed rather than
+# slow. A small daily trickle plus the weekly lump is the same total
+# shaped better: you are always making progress, and the seventh day is
+# still an event.
+DAILY_CORE_BASE = 40
 
 # Reroll tokens on every claim -- a small, reliable source of the equipment
 # reroll/substat currency, separate from dungeon drops. Part of making
@@ -71,10 +80,11 @@ DAILY_STREAK_GRACE_HOURS = 48
 
 
 def compute_daily_cores(streak: int) -> int:
-    """Cores for this claim -- only on the milestone, see the constant."""
+    """Cores for this claim: a base every day, plus the weekly lump."""
+    cores = DAILY_CORE_BASE
     if streak and streak % DAILY_SHARD_MILESTONE_INTERVAL == 0:
-        return DAILY_CORE_MILESTONE_AMOUNT
-    return 0
+        cores += DAILY_CORE_MILESTONE_AMOUNT
+    return cores
 
 
 def compute_daily_reward(streak: int) -> tuple[int, int, int]:

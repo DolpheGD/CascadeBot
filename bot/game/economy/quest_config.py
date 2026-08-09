@@ -84,7 +84,7 @@ BEGINNER_QUESTS: list[dict] = [
         "description": "Pull a character with `/pull`.",
         "goal_type": "gacha_pulls",
         "goal_count": 1,
-        "reward": {"cores": 10},
+        "reward": {"cores": 120},
     },
     {
         "id": "beginner_first_harvester",
@@ -139,7 +139,7 @@ BEGINNER_QUESTS: list[dict] = [
         "description": "Reach floor 20 of an expedition.",
         "goal_type": "reach_floor",
         "goal_count": 20,
-        "reward": {"gold": 600, "cores": 20},
+        "reward": {"gold": 600, "cores": 240},
     },
 ]
 
@@ -178,7 +178,7 @@ BEGINNER_QUESTS: list[dict] = [
 # rewards rather than added to this bonus for the opposite reason: the
 # card banner should be something a new player touches DURING the
 # beginner set, not a second lump at the end of it.
-BEGINNER_BONUS_REWARD: dict[str, int] = {"shards": 1200, "cores": 60}
+BEGINNER_BONUS_REWARD: dict[str, int] = {"shards": 1200, "cores": 600}
 
 
 # ----------------------------------------------------------------------

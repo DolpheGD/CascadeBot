@@ -759,7 +759,7 @@ CHAPTERS: list[dict] = [
                         # them -- a player who ends the prologue able to
                         # ten-pull one banner and single-pull the other
                         # has been taught that one of them matters more.
-                        "grant": {"cores": 50},
+                        "grant": {"cores": 600},
                     },
                 ],
             },

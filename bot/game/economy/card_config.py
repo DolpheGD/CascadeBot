@@ -136,10 +136,10 @@ def card_level_multiplier(level: int) -> float:
 #
 # Measured, taking one card from 1 to each milestone:
 #
-#     Lv 10        1,295 gold      10 cores
-#     Lv 25       12,501 gold      20 cores
-#     Lv 50       74,143 gold      50 cores
-#     Lv100      438,870 gold     100 cores
+#     Lv 10        1,295 gold     120 cores
+#     Lv 25       12,501 gold     240 cores
+#     Lv 50       74,143 gold     600 cores
+#     Lv100      438,870 gold   1,200 cores
 #
 # Two numbers worth defending there. 439k gold is roughly 35 maxed
 # Legendary gear pieces, which is what "a big grind" has to mean for the
@@ -153,7 +153,7 @@ def card_level_multiplier(level: int) -> float:
 CARD_LEVEL_GOLD_BASE = 90
 CARD_LEVEL_GOLD_EXPONENT = 1.55
 CARD_LEVEL_CORE_EVERY = 10        # cores are charged every Nth level
-CARD_LEVEL_CORE_AMOUNT = 10
+CARD_LEVEL_CORE_AMOUNT = 120
 
 
 def card_level_cost(level: int) -> dict[str, int]:
@@ -415,7 +415,20 @@ def cards_of_star(star: int) -> list[dict]:
 # same, but they run on their OWN counters (Player.card_pity_*) -- a pull
 # on one banner must never advance a guarantee on the other.
 # ----------------------------------------------------------------------
-CARD_PULL_COST = 10               # cores per pull
+# 120 CORES A PULL -- the same number as a character pull's Shards.
+#
+# It was 10, which made a Card pull cost a twelfth of a character pull in
+# raw units. Nothing was actually cheaper (the payouts were scaled to
+# match) but every number a player saw was in a different order of
+# magnitude, so "is 40 cores a lot?" had no answer without doing
+# arithmetic against a price they had to go and look up.
+#
+# Matching the price makes the two currencies directly comparable at a
+# glance: 600 of either is five pulls, and a reward paying 240 of both is
+# obviously paying the same amount twice. Every core payout in the game
+# was multiplied by 12 in the same pass -- see CORE_SOURCES at the
+# bottom, which lists them all.
+CARD_PULL_COST = 120              # cores per pull
 CARD_MULTI_PULL_COUNT = 10
 CARD_MULTI_PULL_COST = CARD_PULL_COST * CARD_MULTI_PULL_COUNT
 
@@ -447,16 +460,33 @@ CARD_FOUR_STAR_PITY = 10
 # goes wrong with a second currency is that it ends up available
 # everywhere (and so meaningless) or nowhere (and so unusable).
 #
-# OVERLAPPING with shards -- big, infrequent milestones pay both:
-#     story mission rewards        prologue and chapter finales
-#     beginner quest completion    the one-time bonus
-#     raid rewards                 elite and nightmare tiers only
+# EVERY LINE BELOW IS WIRED. An earlier version of this block listed the
+# Void Abyss and a core domain that did not exist -- a comment describing
+# intent rather than behaviour, which is the most expensive kind to
+# leave lying around, because the next person reads it as a survey of
+# what happens.
 #
-# CORE-ONLY -- so there is content whose whole point is Cards:
-#     the Void Abyss               deep floors
-#     domains                      a dedicated core domain
-#     daily streak milestones      every 7th day
+#   RECURRING
+#     /daily          40 every claim, +300 on the 7-day milestone
+#     voting          120 a vote, +4 per streak step, doubled on a
+#                     top.gg weekend -- two votes a day is the bulk of
+#                     a committed player's income
+#     Core Domain     60 (trivial) to 900 (nightmare) per run, the one
+#                     place you can go specifically FOR cores
+#     raids           elite 420, nightmare 1,080 -- endgame tiers only
 #
-# SHARD-ONLY -- so characters keep sources Cards can't touch:
-#     voting, the Echo Exchange, ordinary raid tiers
+#   ONE-TIME
+#     prologue        600, exactly five pulls, matching the five
+#                     character pulls the prologue also pays
+#     beginner quests 360 across two quests plus a 600 completion bonus
+#
+# MEASURED against the shard economy at a capped streak:
+#
+#     cores    475/day  =  4.0 card pulls a day
+#     shards   961/day  =  8.0 character pulls a day
+#
+# Cards deliberately accrue at half the rate. One slot per character, no
+# rolls, permanent, and carrying the strongest abilities in the game --
+# the same number of pulls on both banners would make Cards the faster
+# power curve as well as the higher one.
 # ----------------------------------------------------------------------
