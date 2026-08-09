@@ -21,6 +21,8 @@ Checked:
   * every card's ability is one of the Card-only abilities -- a card
     carrying an ability gear can still roll is a design error, not just
     a duplication
+  * a card's STARS match its ability's rarity tier (3★ legendary, 4★
+    mythic, 5★ divine), so the number on the card means something
   * every Card-only ability is carried by at least one card, so moving
     an ability off gear can't quietly delete it from the game
   * every stat is a real STAT_KEY that the combat factory will apply
@@ -109,6 +111,24 @@ def main() -> int:
             continue
 
         carried.add(card["ability_id"])
+
+        # STARS MUST MATCH THE ABILITY'S TIER.
+        #
+        # Seven of the original sixteen cards failed this, including 3★
+        # cards carrying mythic abilities and 5★ cards carrying mythic
+        # ones. Nothing broke -- which is the problem. A 3★ pull handing
+        # over the same class of ability as a 5★ pull silently makes the
+        # rarity on the card meaningless, and the only way to notice is
+        # to line all of them up and look, which nobody does twice.
+        expected = cc.CARD_ABILITY_TIER_BY_STAR.get(card["star_rating"])
+        actual = getattr(ability["min_rarity"], "value", ability["min_rarity"])
+        if expected and actual != expected:
+            failures.append(
+                f"{where}: {card['star_rating']}★ should carry a {expected} "
+                f"ability, but {card['ability_id']!r} is {actual} -- the star "
+                f"rating and the power it buys have come apart"
+            )
+
         if card["ability_id"] not in cc.CARD_ONLY_ABILITY_IDS:
             failures.append(
                 f"{where}: carries {card['ability_id']!r}, which gear can still "
@@ -154,6 +174,8 @@ def main() -> int:
           f"card-only abilities carried, all resolving in their pool")
     print(f"curve    : level 1 x{low:.2f} -> level {cc.CARD_MAX_LEVEL} x{high:.2f}, "
           f"monotonic")
+    print("tiering  : " + " · ".join(
+        f"{star}★={tier}" for star, tier in sorted(cc.CARD_ABILITY_TIER_BY_STAR.items())))
     print()
     if failures:
         for line in dict.fromkeys(failures):

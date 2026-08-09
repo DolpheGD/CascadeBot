@@ -9,7 +9,7 @@ from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
 from bot.services import character_service, dungeon_service, inventory_service, item_upgrade_service, lootbox_service
 from bot.database.models.enums import CLASS_DISPLAY_NAME, Rarity
-from bot.services.currency_service import format_currency
+from bot.services.currency_service import currency_emoji, format_currency
 from bot.utils import embedder
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils.ui_guard import require_feature, OwnedView, check_message_owner, require_player
@@ -783,7 +783,7 @@ async def _handle_open_lootbox(interaction: discord.Interaction, tier: str):
             names = ", ".join(f"**{i.display_name}** ({i.rarity.value})" for i in rewards["items"])
             message += f"\n🪙 {rewards['gold']} gold"
             if rewards["shards"]:
-                message += f", <:shard:1534383382924890192> {rewards['shards']} shards"
+                message += f", {currency_emoji('shards')} {rewards['shards']} shards"
             message += f"\nItems: {names}"
 
         embed, view = await _render_stash(db, player)

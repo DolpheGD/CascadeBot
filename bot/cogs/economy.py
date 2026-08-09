@@ -5,7 +5,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
-from bot.utils import responses
+from bot.utils import banner_ui, responses
 from bot.database.session import SessionLocal
 from bot.game.economy import resonance_config
 from bot.services import character_service, dungeon_service, echo_exchange_service, lootbox_service
@@ -82,12 +82,16 @@ class Economy(commands.Cog):
     # Spends shards on a gacha pull -- characters only. Pulling a character
     # you already own raises their Resonance and pays Echoes instead
     # (bot/game/economy/resonance_config.py).
-    @app_commands.command(name="pull", description="Spend shards to pull a new character.")
-    @app_commands.choices(count=[
-        app_commands.Choice(name="Single Pull", value=1),
-        app_commands.Choice(name="10x Pull", value=10),
-    ])
-    async def pull(self, ctx: discord.Interaction, count: int = 1):
+    @app_commands.command(name="pull", description="Pull for characters.")
+    async def pull(self, ctx: discord.Interaction):
+        """The character banner.
+
+        No `count` argument any more -- the banner screen has the buttons,
+        and both banners now share it (see bot/utils/banner_ui.py). A
+        slash-command choice that duplicates a button on the screen it
+        opens is two ways to do one thing, and the two drifted: /pull took
+        a count, /cardpull did not.
+        """
         await responses.defer(ctx)
         db = SessionLocal()
         try:
@@ -104,35 +108,13 @@ class Economy(commands.Cog):
                 )
                 return
 
-            try:
-                if count == 1:
-                    success, message, results = pull_single(db, player)
-                else:
-                    success, message, results = pull_multi(db, player, count=count)
-
-                if not success:
-                    await responses.send(ctx, message, ephemeral=True)
-                    return
-
-                embed = embedder.gacha_pull_embed(results, player=player)
-            except Exception:
-                # Surface the real error instead of a silent "This
-                # interaction failed" -- makes any future regression here
-                # immediately diagnosable instead of a mystery report.
-                logger.exception("`/pull` failed for player %s (count=%s)", player.id, count)
-                await responses.send(ctx,
-                    "Something went wrong generating your pull results. This has been logged -- "
-                    "please report it if it keeps happening.",
-                    ephemeral=True,
-                )
-                return
+            banner = banner_ui.BANNERS["character"]
+            embed = banner_ui.banner_embed(banner, player)
+            view = banner_ui.BannerView("character", owner_id=player.id)
         finally:
             db.close()
+        await responses.send(ctx, embed=embed, view=view)
 
-        await responses.send(ctx, embed=embed)
-
-    # COMMAND: /pull_rates
-    # Shows gacha odds by star rating, cost, and the duplicate-conversion rule.
     @app_commands.command(name="pull_rates", description="View gacha odds, pity progress, and pull costs.")
     async def pull_rates(self, ctx: discord.Interaction):
         await responses.defer(ctx)

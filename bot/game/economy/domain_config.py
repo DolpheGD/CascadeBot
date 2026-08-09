@@ -69,6 +69,11 @@ normal dungeon encounter.
 
 from __future__ import annotations
 
+# Mirrors currency_service.SHARD_EMOJI. Duplicated rather than
+# imported because this module is pure config with no bot imports;
+# tools/check_emoji.py asserts the two stay identical.
+SHARD_ICON = "<:shard:1535799545886146630>"
+
 # ----------------------------------------------------------------------
 # Energy CAPACITY is an HQ upgrade.
 #
@@ -247,7 +252,7 @@ DOMAIN_TYPES: list[dict] = [
     {
         "id": "shard",
         "name": "Shard Domain",
-        "icon": "<:shard:1534383382924890192>",
+        "icon": SHARD_ICON,
         "description": "Shards -- the gacha currency.",
         "reward_kind": "currency",
         "rewards": {

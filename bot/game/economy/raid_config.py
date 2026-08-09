@@ -339,7 +339,15 @@ RAID_TIERS: list[dict] = [
         "name": "Rift Patrol",
         "emoji": "🟩",
         "boss_pool": [
-            "Rogue Security Drone", "Concussion Drone",
+            # NOT the Rogue Security Drone or Concussion Drone any more.
+            # Both were cut to ~20 base HP so the prologue's opening
+            # fights stop taking fifty actions, and at that size they
+            # cannot hold a raid pool -- check_raid_pools caught it
+            # immediately (one attack would strip 100% of the boss).
+            #
+            # Removing them is the right fix rather than restoring the
+            # HP: a drone the tutorial kills in six turns was always an
+            # odd thing to summon a server against.
             "Ad-Drone Swarm Unit", "Xender Enforcer", "Xender Loyalist",
             "Mech Gunpod", "Alan", "Jynxzi", "Refense Hater",
             "Illusion of Rex"

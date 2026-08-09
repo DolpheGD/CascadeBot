@@ -210,7 +210,8 @@ def general_inventory_embed(player, owned_lootboxes: list) -> discord.Embed:
         name="💰 Currencies",
         value=(
             f"🪙 Gold: {player.gold}\n"
-            f"<:shard:1534383382924890192> Shards: {player.shards}\n"
+            f"{currency_emoji('shards')} Shards: {player.shards}\n"
+            f"{currency_emoji('cores')} Cores: {player.cores}\n"
             f"🎲 Reroll Tokens: {player.reroll_tokens}"
         ),
         inline=False,

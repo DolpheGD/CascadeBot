@@ -84,7 +84,7 @@ BEGINNER_QUESTS: list[dict] = [
         "description": "Pull a character with `/pull`.",
         "goal_type": "gacha_pulls",
         "goal_count": 1,
-        "reward": {"shards": 24},
+        "reward": {"cores": 10},
     },
     {
         "id": "beginner_first_harvester",
@@ -139,14 +139,7 @@ BEGINNER_QUESTS: list[dict] = [
         "description": "Reach floor 20 of an expedition.",
         "goal_type": "reach_floor",
         "goal_count": 20,
-        "reward": {"gold": 600, "shards": 60},
-    },
-    {
-        "id": "beginner_three_adventures",
-        "description": "Complete three expeditions.",
-        "goal_type": "complete_adventures",
-        "goal_count": 3,
-        "reward": {"gold": 300, "reroll_tokens": 6},
+        "reward": {"gold": 600, "cores": 20},
     },
 ]
 
@@ -172,7 +165,20 @@ BEGINNER_QUESTS: list[dict] = [
 # it is not only restored but raised to the round number it should always
 # have been.
 # ----------------------------------------------------------------------
-BEGINNER_BONUS_REWARD: dict[str, int] = {"shards": 1200, "cores": 150}
+# EXACTLY 1,200 SHARDS ACROSS THE WHOLE SET, not 1,200 plus change.
+#
+# The individual quests used to pay small shard amounts on top of this,
+# so the advertised "ten pulls for finishing the tutorial" actually came
+# to 1,284 -- a number that is worse than 1,200 precisely because it is
+# not a round number of pulls. The stray 84 bought nothing and made the
+# headline a lie.
+#
+# So the individual quests pay GOLD, MATERIALS and CORES, and shards
+# arrive in one lump here. Cores are spread across the individual
+# rewards rather than added to this bonus for the opposite reason: the
+# card banner should be something a new player touches DURING the
+# beginner set, not a second lump at the end of it.
+BEGINNER_BONUS_REWARD: dict[str, int] = {"shards": 1200, "cores": 60}
 
 
 # ----------------------------------------------------------------------

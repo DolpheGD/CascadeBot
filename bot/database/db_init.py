@@ -15,6 +15,7 @@ from bot.database.models import (  # noqa: F401
     hq_model,
     player_model,
     presence_model,
+    pull_model,
     quest_model,
     story_model,
     raid_model,

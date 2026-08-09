@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import discord
 
+from bot.services.currency_service import currency_emoji
+
 from bot.database.models.enums import (
     CLASS_DISPLAY_NAME,
 )
@@ -252,8 +254,8 @@ def gacha_rates_embed(player=None) -> discord.Embed:
 
     embed.add_field(
         name="Cost",
-        value=f"Single pull: {SINGLE_PULL_COST_SHARDS} <:shard:1534383382924890192> Shards\n"
-              f"10x pull: {MULTI_PULL_COST_SHARDS} <:shard:1534383382924890192> Shards (same price per pull)",
+        value=f"Single pull: {SINGLE_PULL_COST_SHARDS} {currency_emoji('shards')} Shards\n"
+              f"10x pull: {MULTI_PULL_COST_SHARDS} {currency_emoji('shards')} Shards (same price per pull)",
         inline=False,
     )
     embed.add_field(

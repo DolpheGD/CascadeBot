@@ -14,6 +14,7 @@ from bot.database.models.card_model import CardTemplate, PlayerCard
 from bot.database.models.character_model import PlayerCharacter
 from bot.game.economy import card_config as cc
 from bot.game.loot import abilities as ability_pools
+from bot.services import pull_service
 from bot.services.currency_service import format_currency, spend_currency
 
 _POOL_BY_NAME = {
@@ -169,17 +170,32 @@ def level_up_card(db, player, card: PlayerCard, levels: int = 1) -> tuple[bool, 
 # The banner
 # ----------------------------------------------------------------------
 
-def _roll_star(player, rng: random.Random) -> int:
-    """Star rating for one pull, honouring this banner's OWN pity."""
-    if player.card_pity_since_five_star + 1 >= cc.CARD_PITY_FIVE_STAR:
-        return 5
-    if rng.random() < cc.CARD_RATE_FIVE_STAR:
-        return 5
-    if player.card_pity_since_four_star + 1 >= cc.CARD_PITY_FOUR_STAR:
-        return 4
-    if rng.random() < cc.CARD_RATE_FOUR_STAR:
-        return 4
-    return 3
+def _roll_star(player, rng: random.Random) -> tuple[int, bool]:
+    """(star rating, whether pity produced it) for one pull.
+
+    Same shape as the character banner -- hard ceiling, soft ramp, then
+    the 4-star floor -- via the shared pull_service.soft_pity_rate. This
+    banner keeps its OWN counters (Player.card_pity_*); only the maths
+    is shared.
+    """
+    if player.card_pity_since_five_star + 1 >= cc.CARD_FIVE_STAR_HARD_PITY:
+        return 5, True
+
+    five_chance = pull_service.soft_pity_rate(
+        cc.CARD_STAR_WEIGHTS[5], player.card_pity_since_five_star,
+        cc.CARD_FIVE_STAR_SOFT_PITY_START, cc.CARD_FIVE_STAR_SOFT_PITY_STEP,
+    )
+    if rng.random() * 100 < five_chance:
+        # Soft pity counts as pity once the ramp is doing the work --
+        # a 5-star at pull 44 was not luck and should not claim to be.
+        ramped = player.card_pity_since_five_star + 1 > cc.CARD_FIVE_STAR_SOFT_PITY_START
+        return 5, ramped
+
+    if player.card_pity_since_four_star + 1 >= cc.CARD_FOUR_STAR_PITY:
+        return 4, True
+    if rng.random() * 100 < cc.CARD_STAR_WEIGHTS[4]:
+        return 4, False
+    return 3, False
 
 
 def pull_cards(db, player, count: int = 1,
@@ -199,7 +215,7 @@ def pull_cards(db, player, count: int = 1,
 
     pulled: list[PlayerCard] = []
     for _ in range(count):
-        star = _roll_star(player, rng)
+        star, was_pity = _roll_star(player, rng)
         # Pity is a COUNT OF PULLS SINCE, so it resets on the rarity it
         # guards and advances on everything else -- including a rarity
         # above it, which is why a 5-star also clears the 4-star counter.
@@ -221,6 +237,7 @@ def pull_cards(db, player, count: int = 1,
         card = PlayerCard(player_id=player.id, template_id=template.id, level=1)
         db.add(card)
         pulled.append(card)
+        pull_service.record_pull(db, player, "card", template.name, star, was_pity)
 
     db.commit()
     return True, f"Spent {format_currency('cores', cost)}.", pulled

@@ -54,16 +54,53 @@ from __future__ import annotations
 # id) but they are excluded from gear rolls -- see
 # abilities.abilities_for_rarity.
 # ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+# A CARD'S STARS MATCH ITS ABILITY'S TIER.
+#
+#     3★ card -> a LEGENDARY ability
+#     4★ card -> a MYTHIC ability
+#     5★ card -> a DIVINE ability
+#
+# This was not true at first and it made rarity meaningless: seven of the
+# original sixteen cards were mismatched, including 3★ cards carrying
+# mythic abilities and 5★ cards carrying mythic ones. A 3★ pull that
+# hands over the same class of ability as a 5★ pull is a 5★ pull with a
+# worse number printed on it.
+#
+# The tiers line up exactly -- eight mythic and eight divine card-only
+# abilities -- so 4★ and 5★ are fully populated, and the 3★ pool (which
+# is 73% of all pulls, and so the one a player actually sees) is backed
+# by legendary abilities lifted off gear for the purpose.
+#
+# tools/check_cards.py asserts the mapping, so a card added at the wrong
+# rarity fails loudly instead of quietly devaluing its own tier.
+# ----------------------------------------------------------------------
+CARD_ABILITY_TIER_BY_STAR: dict[int, str] = {
+    3: "legendary", 4: "mythic", 5: "divine",
+}
+
 CARD_ONLY_ABILITY_IDS: frozenset[str] = frozenset({
-    # weapon skills
-    "ruin_breaker", "voidpiercer", "apex_predator", "cataclysms_edge",
-    # artifact skills
-    "astral_cascade", "overmind_surge", "absolute_zero", "genesis_wellspring",
-    # ultimates
+    # --- MYTHIC -> 4-star cards
+    "ruin_breaker", "voidpiercer",
+    "astral_cascade", "overmind_surge",
     "ascension", "world_ender",
-    # armor passives
-    "arcane_battery", "undying_will", "regen_field_generator",
-    "temporal_capacitor", "momentum_core", "grand_maestro_score",
+    "arcane_battery", "regen_field_generator",
+    # --- DIVINE -> 5-star cards
+    "apex_predator", "cataclysms_edge",
+    "absolute_zero", "genesis_wellspring",
+    "undying_will", "temporal_capacitor",
+    "momentum_core", "grand_maestro_score",
+    # --- LEGENDARY -> 3-star cards.
+    #
+    # Ten of the twenty legendary abilities moved up; the other ten stay
+    # on gear on purpose. Equipment still needs abilities worth finding,
+    # and stripping the whole tier would have left dropped gear as pure
+    # stat sticks -- which is the opposite failure to the one this system
+    # was built to fix.
+    "sunder_the_weak", "phoenix_dive",
+    "starfall", "sanctuary_bell", "wellspring_surge", "twin_current",
+    "bulwark_protocol", "guard_breaker", "resonance_prism",
+    "executioners_ledger",
 })
 
 
@@ -159,43 +196,98 @@ def _card(name, star, lore, stats, ability_id, ability_pool):
 # which is also why every one of them is a phrase rather than a noun.
 # ----------------------------------------------------------------------
 CARD_TEMPLATES: list[dict] = [
-    # --- 3-star: the ones you will actually see -----------------------
+    # ==================================================================
+    # 3-STAR -- legendary abilities, and the pool you actually pull.
+    #
+    # Ten of them, against four originally. At a 73% 3-star rate a
+    # four-card pool means the same face three times in a ten-pull, which
+    # reads as the game being small rather than as bad luck. The three
+    # tiers are sized against their own rates, not against each other.
+    #
+    # Stat trios are deliberately varied rather than all attack/defence/
+    # HP: a card is supposed to suggest a build, and three cards with the
+    # same three stats are one card with three names.
+    # ==================================================================
     _card(
         "A Steady Hand On A Bad Day", 3,
         "Somebody's field notes, annotated twice in two different inks. The "
         "second hand is calmer than the first.",
         {"attack": 9, "defense": 6, "max_hp": 40},
-        "regen_field_generator", "armor",
+        "bulwark_protocol", "armor",
     ),
     _card(
         "The Long Way Round", 3,
         "A route drawn the wrong way across a map, and a note underneath: "
         "*this one everybody survives*.",
         {"speed": 5, "max_hp": 55, "defense": 7},
-        "arcane_battery", "armor",
+        "sanctuary_bell", "artifact",
     ),
     _card(
         "Ledger, Balanced At Last", 3,
         "Every column reconciled. The final entry is a name, crossed out, "
         "with the amount left blank.",
         {"attack": 8, "crit_rate": 4, "elemental": 8},
-        "astral_cascade", "artifact",
+        "executioners_ledger", "armor",
     ),
     _card(
         "Nothing Left To Trade", 3,
         "An empty case, fitted for something specific. Whatever it held is "
         "not coming back.",
         {"elemental": 10, "attack": 7, "recharge": 4},
-        "overmind_surge", "artifact",
+        "starfall", "artifact",
+    ),
+    _card(
+        "Twelve Hours Of Nothing", 3,
+        "A watch log with nothing in it, kept immaculately anyway. Somebody "
+        "cared about the hours where nothing happened.",
+        {"max_hp": 60, "recharge": 5, "defense": 6},
+        "wellspring_surge", "artifact",
+    ),
+    _card(
+        "The Argument In The Stairwell", 3,
+        "Two sets of footprints in the dust, facing each other, and a long "
+        "gap before either of them moves.",
+        {"attack": 10, "crit_damage": 10, "speed": 4},
+        "sunder_the_weak", "weapon",
+    ),
+    _card(
+        "Rations For Four, Split Five Ways", 3,
+        "The arithmetic is in the margin. It has been done twice and it "
+        "does not work either time.",
+        {"max_hp": 50, "defense": 8, "max_mana": 20},
+        "twin_current", "artifact",
+    ),
+    _card(
+        "Something Left Running", 3,
+        "A machine nobody switched off, still doing its one job in a room "
+        "that no longer needs it done.",
+        {"recharge": 6, "elemental": 9, "speed": 5},
+        "resonance_prism", "armor",
+    ),
+    _card(
+        "The Door That Held", 3,
+        "Scored, buckled, and shut. Whatever was on the other side did not "
+        "get through, and the door is very pleased about it.",
+        {"defense": 11, "max_hp": 45, "attack": 6},
+        "guard_breaker", "armor",
+    ),
+    _card(
+        "Up, Somehow", 3,
+        "A medical chart with an outcome nobody predicted, and a second "
+        "signature underneath the first, added later, in relief.",
+        {"max_hp": 65, "speed": 6, "crit_rate": 4},
+        "phoenix_dive", "weapon",
     ),
 
-    # --- 4-star ------------------------------------------------------
+    # ==================================================================
+    # 4-STAR -- mythic abilities.
+    # ==================================================================
     _card(
         "The Balance Of Offense And Defense", 4,
         "A training diagram worn soft at the folds. Both halves are circled. "
         "Neither is labelled correct.",
         {"attack": 12, "defense": 10, "max_hp": 60},
-        "undying_will", "armor",
+        "arcane_battery", "armor",
     ),
     _card(
         "Ship Sailing Into The Void", 4,
@@ -216,10 +308,39 @@ CARD_TEMPLATES: list[dict] = [
         "Two words on the inside of a door, and a comma after them where a "
         "name used to be.",
         {"max_hp": 80, "defense": 12, "recharge": 5},
-        "temporal_capacitor", "armor",
+        "regen_field_generator", "armor",
+    ),
+    _card(
+        "Everything He Keeps An Inventory Of", 4,
+        "A list. It is very long, and very neat, and your name has been "
+        "added at the bottom in fresh ink.",
+        {"attack": 13, "elemental": 13, "crit_damage": 13},
+        "world_ender", "ultimate",
+    ),
+    _card(
+        "Somebody Has To", 4,
+        "Not addressed to anyone. Left where the next person would find it.",
+        {"attack": 11, "defense": 11, "speed": 7},
+        "ascension", "ultimate",
+    ),
+    _card(
+        "The Frequency Nobody Assigned", 4,
+        "It carries a signal at all hours. Refender has logged it for two "
+        "years and refuses to say what she thinks it is.",
+        {"elemental": 15, "recharge": 6, "max_mana": 30},
+        "astral_cascade", "artifact",
+    ),
+    _card(
+        "Nine Days Of Nothing In That Building", 4,
+        "A power draw graph, flat for a week and a half, and then one spike "
+        "somebody has circled hard enough to tear the paper.",
+        {"elemental": 12, "crit_rate": 7, "attack": 10},
+        "overmind_surge", "artifact",
     ),
 
-    # --- 5-star: the ceiling -----------------------------------------
+    # ==================================================================
+    # 5-STAR -- divine abilities. The ceiling.
+    # ==================================================================
     _card(
         "Memories Of Rex", 5,
         "Not a photograph. Somebody sat down and drew him from memory, "
@@ -233,13 +354,6 @@ CARD_TEMPLATES: list[dict] = [
         "was shaking.",
         {"elemental": 22, "speed": 8, "crit_rate": 8},
         "cataclysms_edge", "weapon",
-    ),
-    _card(
-        "Everything He Keeps An Inventory Of", 5,
-        "A list. It is very long, and very neat, and your name has been "
-        "added at the bottom in fresh ink.",
-        {"attack": 18, "elemental": 18, "crit_damage": 18},
-        "world_ender", "ultimate",
     ),
     _card(
         "The Pot That Is Never Empty", 5,
@@ -270,10 +384,18 @@ CARD_TEMPLATES: list[dict] = [
         "momentum_core", "armor",
     ),
     _card(
-        "Somebody Has To", 5,
-        "Not addressed to anyone. Left where the next person would find it.",
-        {"attack": 16, "defense": 14, "speed": 9},
-        "ascension", "ultimate",
+        "What The Camera Log Saw", 5,
+        "No weapons record. No engagement. Forty minutes of footage of one "
+        "person, from a distance, held very steady.",
+        {"defense": 18, "max_hp": 95, "crit_rate": 7},
+        "undying_will", "armor",
+    ),
+    _card(
+        "The Comma After Good Luck", 5,
+        "Rubbed almost out, and still legible if you know to look. Nobody "
+        "in the building will tell you whose name it was.",
+        {"max_hp": 90, "recharge": 9, "speed": 9},
+        "temporal_capacitor", "armor",
     ),
 ]
 
@@ -297,10 +419,24 @@ CARD_PULL_COST = 10               # cores per pull
 CARD_MULTI_PULL_COUNT = 10
 CARD_MULTI_PULL_COST = CARD_PULL_COST * CARD_MULTI_PULL_COUNT
 
-CARD_RATE_FIVE_STAR = 0.010
-CARD_RATE_FOUR_STAR = 0.075
-CARD_PITY_FIVE_STAR = 70          # guaranteed 5-star by this pull
-CARD_PITY_FOUR_STAR = 10          # guaranteed 4-star-or-better by this pull
+# RATES AND PITY MIRROR THE CHARACTER BANNER EXACTLY.
+#
+# They did not, at first. Cards had a flat 1% with a hard 70-pull
+# ceiling and no soft-pity ramp, while characters ramp from pull 30 --
+# so two banners advertised as "the same system" behaved differently in
+# the one place a player pays attention. Anyone who learned the rhythm
+# of one banner would have been quietly wrong about the other.
+#
+# Percentages, not fractions, to match character_gacha_config's
+# STAR_WEIGHTS -- see pull_service.soft_pity_rate, which both banners
+# now share.
+CARD_STAR_WEIGHTS: dict[int, float] = {3: 73.0, 4: 22.0, 5: 5.0}
+assert abs(sum(CARD_STAR_WEIGHTS.values()) - 100.0) < 1e-9
+
+CARD_FIVE_STAR_HARD_PITY = 50
+CARD_FIVE_STAR_SOFT_PITY_START = 30
+CARD_FIVE_STAR_SOFT_PITY_STEP = 5.0
+CARD_FOUR_STAR_PITY = 10
 
 
 # ----------------------------------------------------------------------

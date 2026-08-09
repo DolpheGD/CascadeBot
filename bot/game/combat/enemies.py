@@ -190,8 +190,21 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "combat",
         "regions": ['Glacier 15'],
         "base_stats": {
-            "attack": 10, "defense": 9, "elemental": 5, "speed": 6,
-            "max_hp": 58, "max_mana": 999, "crit_rate": 4, "crit_damage": 150, "recharge": 15,
+            # THE FIRST FIGHT IN THE GAME, and it was 51 actions long.
+            #
+            # Measured against a real fresh account -- one level-1
+            # avatar, the starter weapon, no squad: 58 base HP and 9 DEF
+            # took roughly twenty-five player turns to chew through. An
+            # opening tutorial fight that long doesn't read as difficult,
+            # it reads as broken, and it is the very first thing anyone
+            # sees.
+            #
+            # DEF matters as much as HP here: at a level-1 attack stat,
+            # mitigation is eating a large fraction of every hit, so
+            # cutting defence shortens the fight more than cutting health
+            # alone would.
+            "attack": 10, "defense": 3, "elemental": 5, "speed": 6,
+            "max_hp": 22, "max_mana": 999, "crit_rate": 4, "crit_damage": 150, "recharge": 15,
         },
         "level_scale_percent": 4,
         "active_abilities": [
@@ -1793,8 +1806,11 @@ ENEMY_TEMPLATES: list[dict] = [
         "name": "Concussion Drone",
         "role": "combat",
         "regions": ["Glacier 15", "The Hotlands"],
-        "base_stats": {"attack": 10, "defense": 5, "elemental": 4, "speed": 13,
-                       "max_hp": 52, "max_mana": 999, "crit_rate": 6, "crit_damage": 150, "recharge": 15},
+        # Second encounter of the prologue -- same problem as the Rogue
+        # Security Drone above, same treatment. 34 actions down to single
+        # digits.
+        "base_stats": {"attack": 10, "defense": 2, "elemental": 4, "speed": 13,
+                       "max_hp": 20, "max_mana": 999, "crit_rate": 6, "crit_damage": 150, "recharge": 15},
         "level_scale_percent": 4,
         "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "emp_burst")],
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "static_discharge")],
@@ -2473,8 +2489,12 @@ ENEMY_TEMPLATES: list[dict] = [
         "name": "Training Dummy",
         "role": "combat",
         "base_stats": {
-            "attack": 2, "defense": 4, "elemental": 0, "speed": 1,
-            "max_hp": 120, "max_mana": 999, "crit_rate": 0, "crit_damage": 100,
+            # 81 actions. It is a SACK -- it barely fights back -- so
+            # every one of those was the player pressing Attack into a
+            # health bar that would not move, during the beat that is
+            # supposed to teach them combat is fun.
+            "attack": 2, "defense": 1, "elemental": 0, "speed": 1,
+            "max_hp": 40, "max_mana": 999, "crit_rate": 0, "crit_damage": 100,
             "recharge": 0,
         },
         "level_scale_percent": 3,

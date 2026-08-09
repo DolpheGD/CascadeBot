@@ -25,7 +25,7 @@ from bot.config import ADMIN_USER_IDS
 from bot.utils import responses
 from bot.database.session import SessionLocal
 from bot.services import lootbox_service
-from bot.services.currency_service import add_currency
+from bot.services.currency_service import currency_emoji, add_currency
 from bot.services.player_service import get_or_create_player
 from bot.utils.guild_decorator import guild_decorator
 
@@ -84,7 +84,7 @@ class Admin(commands.Cog):
 
         summary = (
             f"🎁 **Booster kit granted to {user.mention}!**\n"
-            f"🪙 +{BOOSTER_GOLD:,} gold | <:shard:1534383382924890192> +{BOOSTER_SHARDS:,} shards\n"
+            f"🪙 +{BOOSTER_GOLD:,} gold | {currency_emoji('shards')} +{BOOSTER_SHARDS:,} shards\n"
             f"📦 +{BOOSTER_LOOTBOXES_PER_TIER} of each: "
             + ", ".join(tier.title() for tier in BOOSTER_LOOTBOX_TIERS) + " lootbox"
         )

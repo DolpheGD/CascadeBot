@@ -314,6 +314,21 @@ class _Spacer(discord.ui.Button):
         return
 
 
+class _DiagonalButton(discord.ui.Button):
+    """A corner of the d-pad. Its own class rather than four more
+    decorated methods because the corners have to be INSERTED to land
+    either side of the arrow -- decorator order fixes position within a
+    row, and the cross needs west/centre/east ordering per row."""
+
+    def __init__(self, direction: str, label: str, row: int, disabled: bool):
+        super().__init__(label=label, style=discord.ButtonStyle.secondary,
+                         row=row, disabled=disabled)
+        self.direction = direction
+
+    async def callback(self, interaction: discord.Interaction):
+        await _move(interaction, self.direction)
+
+
 class MapView(OwnedView):
     """A d-pad and an interact button, laid out as an actual cross.
 
@@ -335,17 +350,29 @@ class MapView(OwnedView):
         # player to stop pressing it.
         self.interact_button.disabled = state.get("content") is None
 
-        # Inserted rather than declared so they sit either side of the
-        # arrow: decorator order fixes position within a row.
-        self.add_item(_Spacer(row=0))
-        self.add_item(_Spacer(row=0))
-        self.add_item(_Spacer(row=2))
-        self.add_item(_Spacer(row=2))
+        # THE CORNERS ARE DIAGONALS NOW, not spacers.
+        #
+        # The cross was already a 3x3 grid with four blank buttons
+        # holding the corners open, so eight-way movement cost no extra
+        # rows -- the placeholders simply became the thing they were
+        # leaving room for. Inserted rather than declared because
+        # decorator order fixes position within a row and these have to
+        # bracket the arrow.
+        northwest = _DiagonalButton("northwest", "↖️", row=0,
+                                    disabled="northwest" not in available)
+        northeast = _DiagonalButton("northeast", "↗️", row=0,
+                                    disabled="northeast" not in available)
+        southwest = _DiagonalButton("southwest", "↙️", row=2,
+                                    disabled="southwest" not in available)
+        southeast = _DiagonalButton("southeast", "↘️", row=2,
+                                    disabled="southeast" not in available)
+        for item in (northwest, northeast, southwest, southeast):
+            self.add_item(item)
         self._centre_row(0, self.north_button)
         self._centre_row(2, self.south_button)
 
     def _centre_row(self, row: int, control: discord.ui.Button) -> None:
-        """Reorder `row` to spacer / control / spacer."""
+        """Reorder `row` to west-diagonal / control / east-diagonal."""
         in_row = [item for item in self.children if getattr(item, "row", None) == row]
         others = [item for item in self.children if getattr(item, "row", None) != row]
         spacers = [item for item in in_row if item is not control]
@@ -657,7 +684,19 @@ async def _interact(interaction: discord.Interaction):
 # Rendering
 # ----------------------------------------------------------------------
 
-async def _render_current(interaction: discord.Interaction, edit: bool, extra_text: str | None = None):
+async def _render_current(interaction: discord.Interaction, edit: bool,
+                          extra_text: str | None = None,
+                          rewards: list[str] | None = None):
+    """`rewards` is what the PREVIOUS beat granted.
+
+    Shown on the next screen for the same reason a choice's result text
+    is (see _advance_and_render): the beat that hands you 120 Shards is
+    replaced the instant you press Continue, so anything rendered on it
+    is gone before it can be read. Carrying it forward one screen is what
+    makes a grant something the player actually sees happen -- which
+    mattered most for the prologue's Core grants, a currency they had
+    never encountered arriving with no announcement at all.
+    """
     """Draw whatever beat the player is now sitting on."""
     db = SessionLocal()
     try:
@@ -683,7 +722,8 @@ async def _render_current(interaction: discord.Interaction, edit: bool, extra_te
         if not need_map and beat.get("kind") == "battle":
             embed, view = _open_battle(db, player, mission, beat)
         elif not need_map:
-            embed = embedder.story_beat_embed(mission, beat, text=extra_text)
+            embed = embedder.story_beat_embed(mission, beat, text=extra_text,
+                                              rewards=rewards)
             view = (ChoiceView(beat, owner_id=player.id) if beat.get("kind") == "choice"
                     else ContinueView(owner_id=player.id))
     finally:
@@ -726,7 +766,8 @@ async def _advance_and_render(interaction: discord.Interaction, choice_id: str |
     # player sees what their pick actually did rather than it flashing
     # past on the way to the following beat.
     await _render_current(interaction, edit=True,
-                          extra_text=(result.get("text") if choice_id else None))
+                          extra_text=(result.get("text") if choice_id else None),
+                          rewards=result.get("rewards"))
 
 
 async def _send_menu(interaction: discord.Interaction, db, player, edit: bool):

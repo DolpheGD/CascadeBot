@@ -27,7 +27,7 @@ from bot.game.economy.character_gacha_config import (
     SINGLE_PULL_COST_SHARDS,
     roll_star_rating,
 )
-from bot.services import character_service, quest_service
+from bot.services import character_service, pull_service, quest_service
 from bot.services.currency_service import spend_currency
 
 
@@ -79,6 +79,10 @@ def _pull_one(db, player, templates_by_star: dict[int, list[CharacterTemplate]],
     template = rng.choice(pool)
 
     pc, is_new, dupe_reward = character_service.grant_character(db, player, template)
+    from_pity = (star >= 5 and was_hard_pity) or (star == 4 and was_four_star_pity)
+    # Recorded on the SHARED history so /pull and /cardpull answer the
+    # same question the same way. See bot/services/pull_service.py.
+    pull_service.record_pull(db, player, "character", template.name, star, from_pity)
     return {
         "template": template,
         "player_character": pc,
@@ -87,7 +91,7 @@ def _pull_one(db, player, templates_by_star: dict[int, list[CharacterTemplate]],
         # Surfaced so the results embed can call out a guaranteed pull as
         # such -- a pity payout landing with no acknowledgement reads as
         # coincidence, which wastes the reassurance the system exists for.
-        "from_pity": (star >= 5 and was_hard_pity) or (star == 4 and was_four_star_pity),
+        "from_pity": from_pity,
     }
 
 

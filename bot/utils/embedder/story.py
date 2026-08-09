@@ -12,6 +12,7 @@ from __future__ import annotations
 import discord
 
 from bot.game.story import story_config as sc
+from bot.utils.embedder._shared import fit_field
 
 STORY_COLOR = discord.Color.from_rgb(88, 101, 242)
 
@@ -171,9 +172,18 @@ def note_embed(name: str, emoji: str, text: str) -> discord.Embed:
     )
 
 
-def beat_embed(mission: dict, beat: dict, text: str | None = None) -> discord.Embed:
+def beat_embed(mission: dict, beat: dict, text: str | None = None,
+               rewards: list[str] | None = None) -> discord.Embed:
     """One beat. `text` overrides the beat's own body -- used to show the
-    RESULT of a choice rather than the prompt that produced it."""
+    RESULT of a choice rather than the prompt that produced it.
+
+    `rewards` is what the PREVIOUS beat granted. It exists for one
+    reason: story_service computed those lines and every caller threw
+    them away, so the player read some flavour text about a kit bag and
+    their Shard balance silently went up somewhere off-screen. For the
+    prologue's Core grants that meant a currency they had never seen
+    before arriving with no announcement at all.
+    """
     kind = beat.get("kind")
     embed = discord.Embed(color=STORY_COLOR)
 
@@ -197,6 +207,15 @@ def beat_embed(mission: dict, beat: dict, text: str | None = None) -> discord.Em
         embed.title = mission["name"]
         embed.description = text
 
+    # WHAT YOU ACTUALLY GOT, on the beat that gave it to you.
+    #
+    # Rendered for any beat that granted something, not just `reward`
+    # beats -- an unlock or a choice can carry a grant too, and a reward
+    # that appears for some beat kinds and not others is worse than one
+    # that never appears, because it teaches the player to stop looking.
+    if rewards:
+        embed.add_field(name="Received", value=fit_field(rewards), inline=False)
+
     embed.set_author(name=mission["name"])
     return embed
 
@@ -210,7 +229,18 @@ def mission_complete_embed(mission: dict, result: dict) -> discord.Embed:
         ),
         color=discord.Color.gold(),
     )
-    if result.get("rewards"):
-        embed.add_field(name="Rewards", value="\n".join(result["rewards"]), inline=False)
+    # The mission's WHOLE payout, re-derived from its beats.
+    #
+    # result["rewards"] only ever holds what the LAST beat granted, so a
+    # mission that paid out in three places showed a third of itself
+    # here. Deriving from sc.mission_rewards gives the total, and is the
+    # same source the /story menu advertises it with -- so the summary
+    # you saw before the mission and the one you see after it cannot
+    # disagree.
+    total = _reward_summary(sc.mission_rewards(mission))
+    if total:
+        embed.add_field(name="Rewards", value=total[:1024], inline=False)
+    elif result.get("rewards"):
+        embed.add_field(name="Rewards", value=fit_field(result["rewards"]), inline=False)
     embed.set_footer(text="Use /story to continue.")
     return embed

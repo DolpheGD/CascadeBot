@@ -9,6 +9,7 @@ from __future__ import annotations
 import discord
 
 from bot.services import card_service
+from bot.services.currency_service import currency_emoji
 
 from bot.database.models.enums import (
     CLASS_DISPLAY_NAME,
@@ -86,7 +87,10 @@ def _profile_overview_page(player, character, equipped_items, avatar_url, db=Non
     embed.add_field(name="⭐ Char. Level", value=f"{character.level}/{LEVEL_CAP}", inline=True)
     embed.add_field(name="✨ XP", value=f"{character.xp} / {character.xp_to_next_level()}", inline=True)
     embed.add_field(name="🪙 Gold", value=str(player.gold), inline=True)
-    embed.add_field(name="<:shard:1534383382924890192> Shards", value=str(player.shards), inline=True)
+    embed.add_field(name=f"{currency_emoji('shards')} Shards",
+                    value=str(player.shards), inline=True)
+    embed.add_field(name=f"{currency_emoji('cores')} Cores",
+                    value=str(player.cores), inline=True)
     embed.add_field(name="🎭 Class", value=CLASS_DISPLAY_NAME[character.effective_class()], inline=True)
 
     base_stats = base_character_stats(character)
@@ -271,7 +275,9 @@ def account_profile_embed(player, summary: dict, avatar_url: str | None = None) 
     embed.add_field(
         name="💰 Currencies",
         value=(
-            f"{format_currency('gold', player.gold)} · {format_currency('shards', player.shards)}\n"
+            f"{format_currency('gold', player.gold)} · "
+            f"{format_currency('shards', player.shards)} · "
+            f"{format_currency('cores', player.cores)}\n"
             f"{format_currency('echoes', player.echoes)} · "
             f"{format_currency('reroll_tokens', player.reroll_tokens)}"
         ),

@@ -19,13 +19,16 @@ other. It's also what keeps stages 1-2 independently playable: delete
 this module and every mission still runs.
 
 ----------------------------------------------------------------------
-MOVEMENT IS ONE TILE, ORTHOGONAL, AND ALWAYS CHEAP
+MOVEMENT IS ONE TILE, EIGHT-WAY, AND ALWAYS CHEAP
 ----------------------------------------------------------------------
-No diagonals, no pathfinding, no multi-tile moves. Every move is a
-bounds check and a wall check, which means a move can never fail in a way
-that needs explaining -- the direction button simply isn't offered when
-the tile is a wall. A greyed-out button is a better answer than an error
-message the player has to read.
+No pathfinding, no multi-tile moves. Every move is a bounds check and a
+wall check, which means a move can never fail in a way that needs
+explaining -- the direction button simply isn't offered when the tile is
+a wall. A greyed-out button is a better answer than an error message the
+player has to read.
+
+Diagonals were added later; see the DIRECTIONS block for why, and for
+why corner-cutting is allowed.
 """
 
 from __future__ import annotations
@@ -41,15 +44,34 @@ class MapError(Exception):
 # (dx, dy) in grid coordinates: y grows DOWNWARD, because that's the
 # order the grid rows are written in and matching the source beats
 # matching a maths convention nobody is looking at.
+# EIGHT-WAY MOVEMENT.
+#
+# The four diagonals were added because the hub rooms are wide and the
+# interesting tiles sit in corners: crossing the Atrium from the door to
+# the shrine gallery was six presses, and every one of them is a Discord
+# round-trip. Diagonals halve that without changing a single grid.
+#
+# A diagonal is legal whenever its DESTINATION is walkable, including
+# when both orthogonal neighbours are walls. Corner-cutting is normally
+# forbidden in grid games to stop you slipping through a diagonal gap in
+# a wall -- but these are hand-authored rooms with no such gaps, and the
+# rule would mostly express itself as a diagonal that is greyed out for
+# reasons the player cannot see. Simpler rule, no visible difference.
 DIRECTIONS: dict[str, tuple[int, int]] = {
     "north": (0, -1),
     "south": (0, 1),
     "west": (-1, 0),
     "east": (1, 0),
+    "northwest": (-1, -1),
+    "northeast": (1, -1),
+    "southwest": (-1, 1),
+    "southeast": (1, 1),
 }
 
 DIRECTION_LABELS = {
     "north": "⬆️", "south": "⬇️", "west": "⬅️", "east": "➡️",
+    "northwest": "↖️", "northeast": "↗️",
+    "southwest": "↙️", "southeast": "↘️",
 }
 
 

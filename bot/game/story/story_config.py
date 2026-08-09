@@ -582,7 +582,14 @@ CHAPTERS: list[dict] = [
                             "**`/pull` is open.**\n\n"
                             "Shards bring people in. You'll need more than one body "
                             "before Dolphe sends you anywhere real — see the previous "
-                            "paragraph about the numbers being rude."
+                            "paragraph about the numbers being rude.\n\n"
+                            "The banner has four buttons and you should press all of "
+                            "them at least once: **×1** and **×10** roll, **📜 History** "
+                            "shows your last hundred results, and **📊 Rates** shows the "
+                            "actual odds and how close you are to a guarantee.\n\n"
+                            "That last part matters. A 5★ is **guaranteed by pull 50**, "
+                            "and from pull 30 the odds climb every roll — so a dry "
+                            "streak is a countdown, not bad luck."
                         ),
                     },
                     {
@@ -724,11 +731,18 @@ CHAPTERS: list[dict] = [
                         "feature": "cards",
                         "text": (
                             "**`/cards` and `/cardpull` are open.**\n\n"
-                            "Cards run on **Cores**, not Shards — a separate pull, a "
-                            "separate count. One card per character, three big stats, and "
+                            "Cards run on **Cores**, not Shards — a separate pull with "
+                            "its own count. One card per character, three big stats, and "
                             "an ability strong enough that gear no longer rolls anything "
                             "like it.\n\n"
-                            "You do not need one. You will want one."
+                            "The banner is **the same screen** as `/pull`: ×1, ×10, "
+                            "History, Rates, and the same guarantees — 5★ by pull 50, "
+                            "climbing odds from pull 30, 4★ by pull 10. Learn one and "
+                            "you have learned both.\n\n"
+                            "The counts are separate, though. Pulling here never moves "
+                            "your character pity, and pulling there never moves this "
+                            "one.\n\n"
+                            "You do not need a Card. You will want one."
                         ),
                     },
                     {
@@ -738,11 +752,14 @@ CHAPTERS: list[dict] = [
                             "reading a policy she wrote herself. \"Spend it badly if you "
                             "like. Everyone does the first time.\""
                         ),
-                        # Exactly one 10-pull (CARD_PULL_COST 10 x 10), so
-                        # the tutorial ends on the multi rather than on a
-                        # single roll -- same reasoning as the beginner
-                        # quests' 1,200 shards.
-                        "grant": {"cores": 100},
+                        # FIVE card pulls, matching the five character
+                        # pulls the prologue pays out across its other
+                        # grants. The two banners should leave the
+                        # tutorial with the same number of rolls behind
+                        # them -- a player who ends the prologue able to
+                        # ten-pull one banner and single-pull the other
+                        # has been taught that one of them matters more.
+                        "grant": {"cores": 50},
                     },
                 ],
             },
@@ -1265,21 +1282,17 @@ CHAPTERS: list[dict] = [
                             "It is the first time he has looked at you like you are on "
                             "the same side of something."
                         ),
-                        # NO SHARDS HERE, deliberately, and it is the one
-                        # reward in the prologue that looks like it is
-                        # missing something.
+                        # The prologue's fifth and last Shard grant.
                         #
-                        # The spec was 120 Shards when pulls unlock and
-                        # roughly 360 more across the rest -- 480 total,
-                        # four pulls. Act Three added a fourth grant
-                        # point and quietly pushed that to 600. Paying
-                        # the boss in gear and materials instead keeps
-                        # the pull budget exactly where it was set while
-                        # still making it the richest fight in the
-                        # chapter. Easy to flip if the prologue should
-                        # end on five pulls rather than four.
+                        # This was briefly shard-free, to hold the total
+                        # at the 480 (four pulls) originally specified.
+                        # The target is now FIVE character pulls and FIVE
+                        # card pulls, so the boss pays like the rest of
+                        # the chapter -- and the richest fight in the
+                        # prologue no longer looks like the one reward
+                        # that forgot something.
                         "grant": {"item": "rare", "gold": 1400, "crystal": 45,
-                                  "metal": 60, "lootbox": ("rare", 3)},
+                                  "metal": 60, "lootbox": ("rare", 3), "shards": 120},
                     },
                     {
                         "kind": "dialogue",
