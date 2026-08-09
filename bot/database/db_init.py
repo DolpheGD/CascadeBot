@@ -6,6 +6,7 @@ from bot.database.models.base_model import Base
 from bot.database.models import (  # noqa: F401
     abyss_model,
     base_building_model,
+    card_model,
     character_model,
     economy_model,
     equipment_model,
@@ -101,6 +102,17 @@ def _ensure_columns(conn):
     # generous default, and correct for everyone who played before this.
     add_column("players", "last_raid_summon_at", "DATETIME")
     add_column("guild_raids", "summoned_by", "BIGINT")
+
+    # Cores -- the Character Card pull currency. Existing players start
+    # at 0 rather than being backfilled: Cards are new content and the
+    # sources that pay Cores are the ones they'll play next, so a
+    # retroactive grant would hand out a banner's worth of pulls for
+    # things done before the banner existed.
+    add_column("players", "cores", "INTEGER DEFAULT 0")
+
+    # Character Card pity, mirroring the character gacha's counters.
+    add_column("players", "card_pity_since_five_star", "INTEGER DEFAULT 0")
+    add_column("players", "card_pity_since_four_star", "INTEGER DEFAULT 0")
 
 
 def init_db():

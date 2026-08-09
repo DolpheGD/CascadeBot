@@ -277,12 +277,47 @@ def _gear_abilities(equipped_items: list) -> tuple[dict | None, dict | None, lis
     return weapon_skill, artifact_skill, passive_abilities
 
 
-def build_character_combatant(player_character, equipped_items: list) -> Combatant:
+def _card_stats(card) -> dict:
+    """A card's stats at its level, or {} for no card. Imported lazily so
+    the combat factory keeps no hard dependency on the card service."""
+    if card is None:
+        return {}
+    from bot.services import card_service
+    return card_service.card_stats(card)
+
+
+def _card_ability(card) -> dict | None:
+    if card is None:
+        return None
+    from bot.services import card_service
+    return card_service.card_ability(card)
+
+
+def build_character_combatant(player_character, equipped_items: list,
+                              card=None) -> Combatant:
     """`equipped_items` should be that character's InventoryItems where
-    is_equipped is True (fetch and filter by character_id before calling)."""
+    is_equipped is True (fetch and filter by character_id before calling).
+
+    `card` is that character's equipped PlayerCard, or None. Passed in
+    rather than looked up so this stays a pure function of its arguments
+    -- every caller already has a session and the Combatant builder
+    deliberately does not.
+    """
     template = player_character.template
     base_stats = base_character_stats(player_character)
     final_stats = _resolve_gear_stats(base_stats, equipped_items)
+
+    # CHARACTER CARD STATS, applied after gear and before resonance.
+    #
+    # Flat adds, not percentages, and deliberately so: a Card is meant to
+    # be a large, legible slab of power ("+40 attack") rather than
+    # another multiplier stacked on the pile. Percentages would also make
+    # a Card worth wildly different amounts on different characters,
+    # which is the opposite of "put it on whoever needs it".
+    card_stats = _card_stats(card)
+    for stat, value in card_stats.items():
+        if stat in final_stats:
+            final_stats[stat] += value
 
     effective_class = player_character.effective_class()
     if template.is_player_avatar:
@@ -295,6 +330,34 @@ def build_character_combatant(player_character, equipped_items: list) -> Combata
         character_passive = get_character_passive(template.passive_id)
 
     weapon_skill, artifact_skill, passive_abilities = _gear_abilities(equipped_items)
+
+    # THE CARD'S ABILITY. Routed by the pool it came from so a card
+    # carrying an armor passive behaves exactly like that passive on
+    # armor, and one carrying a weapon skill becomes a usable button --
+    # the ability does not change because of what it is printed on.
+    card_ability = _card_ability(card)
+    if card_ability is not None:
+        entry = dict(card_ability)
+        entry["source"] = "card"
+        pool = (card.template.ability_pool if card is not None else "artifact")
+        if pool == "armor":
+            passive_abilities.append(entry)
+        elif pool == "weapon" and not weapon_skill:
+            weapon_skill = entry
+        elif pool == "artifact" and not artifact_skill:
+            artifact_skill = entry
+        else:
+            # An ultimate-pool card, or a slot the gear already filled.
+            # Cards win ties -- they are the scarcer, chosen item, and a
+            # card whose ability is silently suppressed by a dropped
+            # weapon would be the single most confusing outcome here.
+            if pool == "weapon":
+                weapon_skill = entry
+            elif pool == "artifact":
+                artifact_skill = entry
+            else:
+                passive_abilities.append(entry)
+
     if character_passive:
         passive = dict(character_passive)
         passive["source"] = "character"
@@ -399,6 +462,14 @@ _KIT_MAGNITUDE_KEYS = (
     "damage_percent", "damage_percent_per_hit", "base_damage_percent",
     "bonus_damage_percent", "bonus_damage_percent_at_zero_hp",
     "execute_damage_percent", "dot_percent",
+    # Blastix's detonation multiplier -- the ultimate's whole payload is
+    # this number, so leaving it out would have made his Resonance 4 scale
+    # only the small direct hit and not the thing the ability is for.
+    "detonate_percent",
+    # Nebula's break-damage buffs. Without these her reworked ultimate
+    # had NOTHING R4 could scale (check_resonance caught exactly that),
+    # which is the same failure Nyrvite's pure-poise ultimate had.
+    "break_percent",
     # healing, shielding, and generic percent-of-max-HP effects
     "percent", "heal_percent", "shield_percent", "percent_max_hp_per_turn",
     # buffs and debuffs (debuffs are negative, so scaling deepens them)
@@ -422,7 +493,7 @@ _KIT_MAGNITUDE_KEYS = (
 # was the one character on the roster whose Resonance 4 had nothing to
 # scale, and the break specialist getting no benefit from "hits harder"
 # is exactly backwards.
-_KIT_POISE_KEYS = ("poise_damage", "bonus_poise", "amount")
+_KIT_POISE_KEYS = ("poise_damage", "bonus_poise", "amount", "poise_amount")
 
 # Keys where a BIGGER number is a WORSE ability, so kit magnitude has to
 # divide rather than multiply.
@@ -519,7 +590,8 @@ def _apply_resonance(resonance: int, stats: dict, abilities: list[dict],
 
 
 def build_party_combatants(squad: list, equipped_items_by_character: dict,
-                           starting_energy: int = 0) -> list[Combatant]:
+                           starting_energy: int = 0,
+                           cards_by_character: dict | None = None) -> list[Combatant]:
     """`squad` is an ordered list of PlayerCharacter.
     `equipped_items_by_character` maps PlayerCharacter.id -> list of that
     character's equipped InventoryItems.
@@ -527,8 +599,10 @@ def build_party_combatants(squad: list, equipped_items_by_character: dict,
     `starting_energy` is the Research Lab's Fieldwork perk -- the squad
     begins each battle with energy already banked, so a researched
     account reaches its first ultimate sooner."""
+    cards_by_character = cards_by_character or {}
     party = [
-        build_character_combatant(pc, equipped_items_by_character.get(pc.id, []))
+        build_character_combatant(pc, equipped_items_by_character.get(pc.id, []),
+                                  card=cards_by_character.get(pc.id))
         for pc in squad
     ]
     if starting_energy:

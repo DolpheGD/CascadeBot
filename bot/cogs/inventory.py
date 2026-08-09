@@ -60,6 +60,35 @@ def _no_loadout_change_during_run_guard(db, player) -> str | None:
 # Detail mode components
 # ------------------------------------------------------------------
 
+# ----------------------------------------------------------------------
+# HOW THE SORT MODE SURVIVES A CLICK
+#
+# Every control in this browser is a persistent DynamicItem, so there is
+# no per-message state to hang a "current sort" on -- the only thing that
+# comes back from Discord is the custom_id (or the select value) the
+# player pressed. So the sort travels INSIDE those, appended after an
+# "@": "item:41@rarity".
+#
+# The alternative -- storing the player's chosen sort on their row --
+# would make two open inventory messages fight over one setting, and
+# reordering a list you are not looking at is a genuinely confusing bug
+# to be on the receiving end of. Encoding it in the control means each
+# message keeps its own view of the same inventory.
+#
+# _split_sort is deliberately forgiving: an id from before this existed
+# has no "@" and simply reads as the default order.
+# ----------------------------------------------------------------------
+
+def _split_sort(raw: str) -> tuple[str, str]:
+    """("item:41", "rarity") from "item:41@rarity"."""
+    entry_id, _, sort = raw.partition("@")
+    return entry_id, inventory_service.sort_mode(sort or None)
+
+
+def _with_sort(entry_id: str, sort: str) -> str:
+    return f"{entry_id}@{sort}"
+
+
 class EntryNavButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade_entry_nav:(?P<direction>prev|next):(?P<entry_id>.+)"):
     def __init__(self, direction: str, entry_id: str, disabled: bool = False):
         label = "◀ Prev" if direction == "prev" else "Next ▶"
@@ -370,19 +399,24 @@ class InventorySelectEntry(discord.ui.Select):
         await responses.edit(interaction, content=None, embed=embed, view=view)
 
 
-class ListPageButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade_list_page:(?P<direction>prev|next):(?P<page>\d+)"):
-    def __init__(self, direction: str, page: int, disabled: bool = False):
+class ListPageButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade_list_page:(?P<direction>prev|next):(?P<page>\d+)(?::(?P<sort>\w+))?"):
+    def __init__(self, direction: str, page: int, disabled: bool = False,
+                 sort: str = inventory_service.DEFAULT_SORT):
         label = "◀ Prev Page" if direction == "prev" else "Next Page ▶"
         super().__init__(discord.ui.Button(
             label=label, style=discord.ButtonStyle.secondary,
-            custom_id=f"cascade_list_page:{direction}:{page}", disabled=disabled,
+            custom_id=f"cascade_list_page:{direction}:{page}:{sort}", disabled=disabled,
         ))
         self.direction = direction
         self.page = page
+        self.sort = sort
 
     @classmethod
     async def from_custom_id(cls, interaction, item, match):
-        return cls(match["direction"], int(match["page"]))
+        # The sort group is OPTIONAL so buttons rendered before sorting
+        # existed still resolve -- they just fall back to the default.
+        return cls(match["direction"], int(match["page"]),
+                   sort=inventory_service.sort_mode(match["sort"]))
 
     async def callback(self, interaction: discord.Interaction):
         if not await check_message_owner(interaction):
@@ -394,16 +428,53 @@ class ListPageButton(discord.ui.DynamicItem[discord.ui.Button], template=r"casca
                 await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
             target_page = self.page - 1 if self.direction == "prev" else self.page + 1
-            embed, view = await _render_list_page(db, player, target_page)
+            embed, view = await _render_list_page(db, player, target_page, self.sort)
+        finally:
+            db.close()
+        await responses.edit(interaction, content=None, embed=embed, view=view)
+
+
+class InventorySortSelect(discord.ui.Select):
+    """Reorders the browser. Fixed custom_id, options rebuilt per render
+    so the current mode can show as the default -- same persistence trick
+    as InventorySelectEntry above."""
+
+    def __init__(self, current: str = inventory_service.DEFAULT_SORT):
+        current = inventory_service.sort_mode(current)
+        options = [
+            discord.SelectOption(
+                label=spec["label"], value=name, emoji=spec["emoji"],
+                description=spec["description"][:100], default=(name == current),
+            )
+            for name, spec in inventory_service.SORT_MODES.items()
+        ]
+        super().__init__(
+            placeholder="Sort by...", options=options,
+            custom_id="cascade_inv_sort", min_values=1, max_values=1,
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            if player is None:
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
+                return
+            # Back to page 0: after a reorder the old page number points
+            # at completely different items, so holding it would drop the
+            # player somewhere arbitrary in a list they just re-sorted.
+            embed, view = await _render_list_page(db, player, 0, self.values[0])
         finally:
             db.close()
         await responses.edit(interaction, content=None, embed=embed, view=view)
 
 
 class InventoryListView(OwnedView):
-    def __init__(self, select: InventorySelectEntry, page_buttons: list[discord.ui.Item], owner_id: int | None = None):
+    def __init__(self, select: InventorySelectEntry, page_buttons: list[discord.ui.Item],
+                 owner_id: int | None = None, sort: str = inventory_service.DEFAULT_SORT):
         super().__init__(timeout=None, owner_id=owner_id)
         self.add_item(select)
+        self.add_item(InventorySortSelect(sort))
         for b in page_buttons:
             self.add_item(b)
         self.add_item(JumpButton())
@@ -425,8 +496,10 @@ class StashView(OwnedView):
 # Renderers
 # ------------------------------------------------------------------
 
-async def _render_list_page(db, player, page: int):
-    entries = inventory_service.list_combined_entries(db, player.id)
+async def _render_list_page(db, player, page: int,
+                            sort: str = inventory_service.DEFAULT_SORT):
+    sort = inventory_service.sort_mode(sort)
+    entries = inventory_service.list_combined_entries(db, player.id, sort)
     total_pages = max(1, (len(entries) + embedder.ITEMS_PER_LIST_PAGE - 1) // embedder.ITEMS_PER_LIST_PAGE)
     page = max(0, min(page, total_pages - 1))
     start = page * embedder.ITEMS_PER_LIST_PAGE
@@ -439,35 +512,38 @@ async def _render_list_page(db, player, page: int):
         # shortened, and by whole words rather than mid-word.
         label = names.fit_suffix(f"{i}.", item.display_name, 100)
         emoji = embedder.RARITY_EMOJI.get(item.rarity.value, "⚪")
-        options.append(discord.SelectOption(label=label, value=entry.entry_id, emoji=emoji))
+        options.append(discord.SelectOption(
+            label=label, value=_with_sort(entry.entry_id, sort), emoji=emoji))
 
     select = InventorySelectEntry(options or None)
     page_buttons = [
-        ListPageButton("prev", page, disabled=page <= 0),
-        ListPageButton("next", page, disabled=page >= total_pages - 1),
+        ListPageButton("prev", page, disabled=page <= 0, sort=sort),
+        ListPageButton("next", page, disabled=page >= total_pages - 1, sort=sort),
     ]
 
     embed = embedder.inventory_list_embed(entries, page, player.username)
-    view = InventoryListView(select, page_buttons, owner_id=player.id)
+    embed.set_footer(text=f"Sorted by {inventory_service.SORT_MODES[sort]['label'].lower()}")
+    view = InventoryListView(select, page_buttons, owner_id=player.id, sort=sort)
     return embed, view
 
 
 async def _render_detail_page(db, player, entry_id: str):
-    entry = inventory_service.get_combined_entry(db, player.id, entry_id)
+    entry_id, sort = _split_sort(entry_id)
+    entry = inventory_service.get_combined_entry(db, player.id, entry_id, sort)
     if entry is None:
-        entries = inventory_service.list_combined_entries(db, player.id)
+        entries = inventory_service.list_combined_entries(db, player.id, sort)
         entry = entries[0] if entries else None
     if entry is None:
         embed = discord.Embed(title="Inventory", description="Your inventory is empty.")
         return embed, InventoryListView(InventorySelectEntry(), [], owner_id=player.id)
 
-    idx, total = inventory_service.entry_index_and_total(db, player.id, entry.entry_id)
-    prev_id = inventory_service.get_neighbor_entry_id(db, player.id, entry.entry_id, "prev")
-    next_id = inventory_service.get_neighbor_entry_id(db, player.id, entry.entry_id, "next")
+    idx, total = inventory_service.entry_index_and_total(db, player.id, entry.entry_id, sort)
+    prev_id = inventory_service.get_neighbor_entry_id(db, player.id, entry.entry_id, "prev", sort)
+    next_id = inventory_service.get_neighbor_entry_id(db, player.id, entry.entry_id, "next", sort)
 
     buttons: list[discord.ui.Item] = [
-        EntryNavButton("prev", prev_id or entry.entry_id, disabled=prev_id is None),
-        EntryNavButton("next", next_id or entry.entry_id, disabled=next_id is None),
+        EntryNavButton("prev", _with_sort(prev_id or entry.entry_id, sort), disabled=prev_id is None),
+        EntryNavButton("next", _with_sort(next_id or entry.entry_id, sort), disabled=next_id is None),
         ToListButton(entry.entry_id),
     ]
 

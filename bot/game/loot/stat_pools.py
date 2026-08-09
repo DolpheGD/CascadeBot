@@ -54,6 +54,55 @@ PERCENT_ELIGIBLE_STATS = {"attack", "defense", "elemental", "max_hp", "max_mana"
 # Balancing pass: these (and the substat pools/RARITY_STAT_MULTIPLIER
 # below) were cut roughly 8-10x from their original values, which let
 # fully-leveled gear massively outscale the character wearing it.
+# ----------------------------------------------------------------------
+# THE MAIN-STAT LEVEL CURVE
+#
+# Levelling gear barely did anything. Measured, on a base-10 attack
+# template:
+#
+#     common     level 1 -> 5    10.0 -> 10.4    (1.04x)
+#     rare       level 1 -> 15   11.8 -> 13.5    (1.14x)
+#     legendary  level 1 -> 25   14.5 -> 18.0    (1.24x)
+#
+# The additive term below is tiny next to the template's base value, so a
+# freshly-dropped item was already ~80% of a fully-maxed one. Two things
+# follow from that, and both were reported:
+#
+#   * gear is wildly strong for beginners -- your first Rare drop hands
+#     you nearly everything that item will ever give
+#   * every upgrade after it is invisible, so the whole material economy
+#     is a grind with no payoff attached to it
+#
+# So the main stat is now MULTIPLIED by a level curve that starts below 1
+# and ends well above it. Same template values, same rarity multipliers,
+# redistributed along the level axis: you start weaker and finish far
+# stronger, and each individual upgrade is a number you can see move.
+#
+# Anchored to an ABSOLUTE level rather than each rarity's own cap, on
+# purpose. Anchoring to the cap would let a maxed Common ride the same
+# multiplier as a maxed Divine, which would flatten rarity into "how many
+# upgrades until I'm done". Anchoring absolutely means a Common tops out
+# early on the curve and a Divine keeps climbing -- rarity buys you
+# ACCESS to the steep part.
+MAIN_STAT_LEVEL_1_MULTIPLIER = 0.45   # a level-1 item is worth 45% of its old value
+MAIN_STAT_TOP_MULTIPLIER = 2.3        # ...and 2.3x at the anchor level
+MAIN_STAT_ANCHOR_LEVEL = 30           # where TOP is reached (mythic's cap)
+MAIN_STAT_CURVE_EXPONENT = 1.5        # >1 back-loads the gains
+
+def main_stat_level_multiplier(item_level: int) -> float:
+    """How much of a main stat an item of this level actually carries.
+
+    Below 1 early, above 1 late -- see the block above. Deliberately a
+    pure function of level so it can be reasoned about (and asserted)
+    without building an item.
+    """
+    span = max(1, MAIN_STAT_ANCHOR_LEVEL - 1)
+    progress = max(0.0, (item_level - 1) / span) ** MAIN_STAT_CURVE_EXPONENT
+    return MAIN_STAT_LEVEL_1_MULTIPLIER + (
+        MAIN_STAT_TOP_MULTIPLIER - MAIN_STAT_LEVEL_1_MULTIPLIER
+    ) * progress
+
+
 MAIN_STAT_GROWTH_PER_LEVEL: dict[str, float] = {
     "attack": 0.10,
     "defense": 0.10,

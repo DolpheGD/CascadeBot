@@ -8,7 +8,7 @@ from __future__ import annotations
 from bot.database.models.enums import MATERIAL_EMOJI as _MATERIAL_EMOJI
 
 VALID_CURRENCIES = {
-    "gold", "shards", "reroll_tokens", "echoes",
+    "gold", "shards", "cores", "reroll_tokens", "echoes",
     "wood", "stone", "metal", "crystal",
     "xendium", "permafrost_ore", "void", "entropy",
 }
@@ -25,11 +25,27 @@ VALID_CURRENCIES = {
 # label in the game -- and they're used for completely different things
 # (gacha pulls vs gear upgrades), so guessing wrong was expensive.
 # Crystal keeps 💎 (see enums.MATERIAL_EMOJI); Shards get their own mark.
-SHARD_EMOJI = "<:shard:1534383382924890192>"
+SHARD_EMOJI = "<:shard:1535799545886146630>"
+
+# CORES -- the Character Card pull currency, and deliberately a SECOND
+# premium currency rather than a second price tag on Shards.
+#
+# One currency for two gachas means every Card pull is a character pull
+# you didn't make, so the two banners cannibalise each other and the
+# player's only real decision is which one to feel bad about skipping.
+# Two currencies make them two separate hobbies: you always have
+# *something* to spend, and neither pool is the other's opportunity cost.
+#
+# Their sources overlap on purpose (see the economy configs) -- big
+# milestones pay both, while some content pays only one, so a player who
+# only ever does raids and a player who only ever does story end up with
+# different-shaped stashes rather than the same stash at different sizes.
+CORE_EMOJI = "<:core:1535799281460445258>"
 
 CURRENCY_EMOJI: dict[str, str] = {
     "gold": "🪙",
     "shards": SHARD_EMOJI,
+    "cores": CORE_EMOJI,
     "reroll_tokens": "🎲",
     "echoes": "✴️",
     **{material.value: emoji for material, emoji in _MATERIAL_EMOJI.items()},

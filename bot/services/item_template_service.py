@@ -30,7 +30,7 @@ def ensure_item_templates_seeded(db) -> None:
 
 
 def pick_random_template(
-    db, rng: random.Random | None = None, rarity=None
+    db, rng: random.Random | None = None, rarity=None, slot=None
 ) -> ItemTemplate | None:
     """Every random "which item template drops" roll across the bot
     (combat rewards, treasure rooms, lootboxes, gacha, the shop's basic
@@ -46,10 +46,19 @@ def pick_random_template(
     only ever supposed to be Common/Uncommon. Falls back to the
     unfiltered pool if nothing matches (a content gap safety net -- with
     reasonable rarity_range coverage across the catalog this shouldn't
-    normally trigger)."""
+    normally trigger).
+
+    `slot` (an EquipmentSlot) narrows the roll to one gear slot. Added for
+    the prologue: the story needs to hand a brand-new player a WEAPON
+    before their first fight, and a random-slot roll could just as easily
+    give them boots. A tutorial that teaches "equip this" by handing over
+    something that doesn't help is worse than one that hands over nothing,
+    because the lesson it actually teaches is that gear is decoration."""
     rng = rng or random.Random()
 
     def _matches(t: ItemTemplate) -> bool:
+        if slot is not None and t.slot != slot:
+            return False
         return rarity is None or t.min_rarity.sort_order <= rarity.sort_order <= t.max_rarity.sort_order
 
     if rng.random() < ULTRA_RARE_CHANCE:
@@ -63,6 +72,13 @@ def pick_random_template(
 
     # Fall back a step at a time: ignore the rarity filter, then ignore
     # ultra-rare exclusion too, rather than returning nothing.
+    # A slot filter is a HARD requirement, not a preference -- falling
+    # back past it would silently hand over the wrong kind of gear, which
+    # is the exact failure the parameter exists to prevent.
+    if slot is not None:
+        by_slot = db.query(ItemTemplate).filter_by(is_ultra_rare=False, slot=slot).all()
+        return rng.choice(by_slot) if by_slot else None
+
     normal_any_rarity = db.query(ItemTemplate).filter_by(is_ultra_rare=False).all()
     if normal_any_rarity:
         return rng.choice(normal_any_rarity)

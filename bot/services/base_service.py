@@ -36,7 +36,7 @@ from bot.game.economy.hq_config import (
     is_max_hq_level,
     upgrade_requirements,
 )
-from bot.services import harvester_service
+from bot.services import harvester_service, quest_service
 from bot.services.currency_service import add_currency, currency_emoji, format_currency, spend_currency
 from bot.utils.time_utils import as_utc
 
@@ -211,6 +211,10 @@ def upgrade_hq(db, player) -> tuple[bool, str]:
 
     base.hq_level += 1
     db.commit()
+    # HIGH-WATER goal (quest_service.HIGH_WATER_GOALS): the amount is the
+    # level reached, not a count of upgrades, so "reach HQ level 2" can't
+    # be satisfied by two upgrades of anything else.
+    quest_service.record_progress(db, player, "hq_level", amount=base.hq_level)
     return True, f"Cascade HQ upgraded to level {base.hq_level}!"
 
 

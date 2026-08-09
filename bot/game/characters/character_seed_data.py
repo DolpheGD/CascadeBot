@@ -275,4 +275,47 @@ CHARACTER_TEMPLATES: list[dict] = [
           "baffled that anyone finds this alarming.",
           "polo_skill", "polo_ultimate",
           base_hp=105, growth_hp=6.8),
+
+    # -----------------------------------------------------------------
+    # Romain, Yoruki and ASC -- second seats in the DoT and Break
+    # archetypes, which each had exactly one after the Blastix and
+    # Nebula reworks. See the block above their kits in
+    # bot/game/combat/skills.py for why each is shaped the way it is.
+    #
+    # ROMAIN AND ASC ARE 4-STAR, not 5. Both are build-enablers rather
+    # than carries -- Romain multiplies damage-over-time he cannot start,
+    # ASC needs someone else to break the thing he hits -- and a
+    # build-enabler locked behind 5-star rates is a build most players
+    # never get to try. Putting them at 4-star is what makes "run a DoT
+    # squad" or "run a break squad" a thing a normal account can decide
+    # to do. Yoruki was always 4-star for the same reason.
+    #
+    # Their stat overrides came down with the rarity rather than being
+    # left at 5-star values on a 4-star baseline, which would have made
+    # them quietly better than their own tier.
+    #
+    # All three are deliberately BAD ALONE. Romain multiplies burns he
+    # cannot start, Yoruki starts burns she can barely finish, and ASC
+    # needs someone else to break the thing he's built to hit. That's
+    # the point: they are the first characters on the roster whose value
+    # is mostly in who else is standing next to them.
+    # -----------------------------------------------------------------
+    _char("Romain", 4, CharacterClass.AMPLIFIER,
+          "Keeps a running tally of everyone who has ever slighted him, and treats a battlefield "
+          "as an opportunity to settle several at once. Never raises his voice. Never forgets a "
+          "name. Insists none of this is personal.",
+          "romain_skill", "romain_ultimate",
+          base_elemental=8, growth_elemental=0.37),
+    _char("Yoruki", 4, CharacterClass.SUPPORT_DPS,
+          "Unhurried to the point of being unnerving. She has never once been seen to rush, and "
+          "everything she sets alight stays alight — which she considers two halves of the same "
+          "philosophy.",
+          "yoruki_skill", "yoruki_ultimate",
+          base_elemental=9, growth_elemental=0.40),
+    _char("ASC", 4, CharacterClass.SUPPORT_DPS,
+          "Waits. Says almost nothing. Then, at the precise moment something's guard finally "
+          "gives, hits it harder than anyone his size has any business hitting. Claims this is "
+          "just good timing.",
+          "asc_skill", "asc_ultimate",
+          base_attack=10, growth_attack=0.44),
 ]

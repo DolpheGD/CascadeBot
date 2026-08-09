@@ -41,6 +41,7 @@ from bot.game.loot.rarity_config import (
 )
 from bot.game.loot.stat_pools import (
     MAIN_STAT_GROWTH_PER_LEVEL,
+    main_stat_level_multiplier,
     STAT_KEYS,
     roll_substat_value,
     roll_substat_value_type,
@@ -104,7 +105,11 @@ class LootGenerator:
     ) -> float:
         multiplier = RARITY_STAT_MULTIPLIER[rarity]
         growth = MAIN_STAT_GROWTH_PER_LEVEL.get(template.main_stat, 1.0)
-        value = (template.base_main_stat_value + (item_level - 1) * growth) * multiplier
+        # The additive growth term keeps per-stat character (recharge
+        # crawls, max_hp climbs); the level multiplier is what makes
+        # upgrading matter at all. See stat_pools.main_stat_level_multiplier.
+        value = (template.base_main_stat_value + (item_level - 1) * growth) \
+            * main_stat_level_multiplier(item_level) * multiplier
         return round(value, 2)
 
     # ------------------------------------------------------------------

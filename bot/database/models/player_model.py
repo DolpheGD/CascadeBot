@@ -44,6 +44,9 @@ class Player(Base):
     xp: Mapped[int] = mapped_column(Integer, default=0)
     gold: Mapped[int] = mapped_column(Integer, default=0)
     shards: Mapped[int] = mapped_column(Integer, default=0)  # premium-ish currency: gacha, rare shop items
+    # Character Card pulls. A separate pool from shards on purpose -- see
+    # the CORE_EMOJI block in bot/services/currency_service.py.
+    cores: Mapped[int] = mapped_column(Integer, default=0)
 
     # Reroll tokens: spent (alongside a flat, non-scaling gold cost) to
     # reroll an item's existing substats, or -- in much greater quantity --
@@ -78,6 +81,13 @@ class Player(Base):
     # a restart, and so single and 10x pulls share one continuous count.
     pity_since_five_star: Mapped[int] = mapped_column(Integer, default=0)
     pity_since_four_star: Mapped[int] = mapped_column(Integer, default=0)
+
+    # The Character Card banner keeps its OWN pity cycle. Sharing the
+    # counters would mean pulling on one banner advanced your guarantee
+    # on the other, which is either an exploit or a theft depending on
+    # which way round you look at it.
+    card_pity_since_five_star: Mapped[int] = mapped_column(Integer, default=0)
+    card_pity_since_four_star: Mapped[int] = mapped_column(Integer, default=0)
 
     last_daily_claimed_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

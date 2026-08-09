@@ -473,7 +473,22 @@ async def _open_station(interaction: discord.Interaction, db, player, result: di
         return False
 
     embed, view = built
-    await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+    # responses.send, NOT interaction.followup.send.
+    #
+    # This was the "standing on the forge breaks it" bug, and the Echo
+    # booth one, which were the same bug. `followup.send` is only valid
+    # once the interaction's response slot has been SPENT -- by a defer
+    # or an earlier reply. _interact never defers: every other branch
+    # ends at responses.edit(), which picks the right call itself. So
+    # the station branch was the one path that reached a raw followup on
+    # a fresh interaction, and Discord answered every press with
+    # 404 Unknown Webhook.
+    #
+    # It only showed up on the forge and Chary's booth because a station
+    # whose feature is still LOCKED returns earlier, through
+    # require_feature's own (correct) reply. Locked stations worked;
+    # every station you had actually unlocked was broken.
+    await responses.send(interaction, embed=embed, view=view, ephemeral=True)
     return True
 
 

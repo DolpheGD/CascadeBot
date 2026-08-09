@@ -204,7 +204,77 @@ def sell_by_rarity(db, player, rarity: Rarity) -> tuple[bool, str, int, int]:
     return True, message, count, total_value
 
 
-def list_combined_entries(db, player_id: int) -> list["InventoryEntry"]:
+# ----------------------------------------------------------------------
+# SORT MODES
+#
+# The inventory had exactly one order -- slot, then rarity -- which is a
+# reasonable default and useless for every actual question a player has.
+# "What's my worst item" and "what's my highest-attack weapon" and
+# "what did I just pick up" are the three reasons anyone opens this
+# screen, and none of them were answerable without scrolling the whole
+# list.
+#
+# Each mode is a key function over an InventoryItem. Every one of them
+# ends in `item.id` so the order is TOTAL -- ties broken consistently.
+# That matters more than it looks: the detail view walks prev/next
+# through this same list, so an unstable sort would let "next" loop or
+# skip when two items compare equal.
+# ----------------------------------------------------------------------
+
+def _main_stat_value(item) -> float:
+    return float(getattr(item, "main_stat_value", 0) or 0)
+
+
+SORT_MODES: dict[str, dict] = {
+    "slot": {
+        "label": "Slot, then rarity",
+        "description": "The default — everything of a kind together.",
+        "emoji": "🎒",
+        "key": lambda i: (i.slot.value, -i.rarity.sort_order, -i.item_level, i.id),
+    },
+    "rarity": {
+        "label": "Rarity (best first)",
+        "description": "Divine down to Common.",
+        "emoji": "💠",
+        "key": lambda i: (-i.rarity.sort_order, -i.item_level, i.slot.value, i.id),
+    },
+    "level": {
+        "label": "Item level (highest first)",
+        "description": "What you've actually invested in.",
+        "emoji": "⬆️",
+        "key": lambda i: (-i.item_level, -i.rarity.sort_order, i.id),
+    },
+    "main_stat": {
+        "label": "Main stat (biggest first)",
+        "description": "Raw numbers, regardless of slot.",
+        "emoji": "📈",
+        "key": lambda i: (-_main_stat_value(i), -i.rarity.sort_order, i.id),
+    },
+    "newest": {
+        "label": "Newest first",
+        "description": "What you just picked up.",
+        "emoji": "🆕",
+        "key": lambda i: (-i.id,),
+    },
+    "worst": {
+        "label": "Worst first",
+        "description": "For clearing out the junk.",
+        "emoji": "🗑️",
+        "key": lambda i: (i.rarity.sort_order, i.item_level, _main_stat_value(i), i.id),
+    },
+}
+
+DEFAULT_SORT = "slot"
+
+
+def sort_mode(name: str | None) -> str:
+    """Falls back to the default rather than raising -- a stale custom_id
+    from a message left open across a deploy should reorder the list, not
+    kill the interaction."""
+    return name if name in SORT_MODES else DEFAULT_SORT
+
+
+def list_combined_entries(db, player_id: int, sort: str | None = None) -> list["InventoryEntry"]:
     """Despite the name (kept to avoid touching every call site), this is
     now ITEMS ONLY -- lootboxes moved to their own general-inventory view
     (/stash, see cogs/inventory.py's general_inventory command) since they
@@ -213,27 +283,32 @@ def list_combined_entries(db, player_id: int) -> list["InventoryEntry"]:
     always "item" now; kept on InventoryEntry rather than collapsing the
     type entirely in case a different non-item entry needs to slot in here
     again later."""
+    key = SORT_MODES[sort_mode(sort)]["key"]
     entries: list[InventoryEntry] = []
     for item in list_inventory(db, player_id):
         entries.append(InventoryEntry(
             entry_id=f"item:{item.id}",
             kind="item",
             obj=item,
-            sort_key=(0, item.slot.value, -item.rarity.sort_order, item.id),
+            sort_key=key(item),
         ))
     entries.sort(key=lambda e: e.sort_key)
     return entries
 
 
-def get_combined_entry(db, player_id: int, entry_id: str) -> "InventoryEntry | None":
-    for entry in list_combined_entries(db, player_id):
+def get_combined_entry(db, player_id: int, entry_id: str,
+                       sort: str | None = None) -> "InventoryEntry | None":
+    for entry in list_combined_entries(db, player_id, sort):
         if entry.entry_id == entry_id:
             return entry
     return None
 
 
-def get_neighbor_entry_id(db, player_id: int, current_entry_id: str, direction: str) -> str | None:
-    ids = [e.entry_id for e in list_combined_entries(db, player_id)]
+def get_neighbor_entry_id(db, player_id: int, current_entry_id: str, direction: str,
+                          sort: str | None = None) -> str | None:
+    # Same sort as the page it was opened from -- otherwise "next" walks
+    # a different list than the one the player is looking at.
+    ids = [e.entry_id for e in list_combined_entries(db, player_id, sort)]
     if current_entry_id not in ids:
         return None
 
@@ -243,8 +318,9 @@ def get_neighbor_entry_id(db, player_id: int, current_entry_id: str, direction: 
     return ids[idx + 1] if idx < len(ids) - 1 else None
 
 
-def entry_index_and_total(db, player_id: int, entry_id: str) -> tuple[int, int]:
-    ids = [e.entry_id for e in list_combined_entries(db, player_id)]
+def entry_index_and_total(db, player_id: int, entry_id: str,
+                          sort: str | None = None) -> tuple[int, int]:
+    ids = [e.entry_id for e in list_combined_entries(db, player_id, sort)]
     if entry_id not in ids:
         return 0, len(ids)
     return ids.index(entry_id), len(ids)

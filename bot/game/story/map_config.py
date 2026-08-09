@@ -872,11 +872,17 @@ AREAS: dict[str, dict] = {
         "name": "Cascade Central — The Gatehouse",
         "region": "Team Cascade",
         "blurb": "The last warm room before the cold one. Somebody has written GOOD LUCK on the door in marker.",
+        # Grown by two rows for Act Three. The Gatehouse is where every
+        # job now launches from, so the three new missions live here
+        # rather than in a new room -- a fourth area between "the hub"
+        # and "the door out" would be a corridor with tiles in it.
         "grid": [
             "#########",
             "#cc.N.cc#",
             "#c.Y.Z.c#",
             "#..K.L..#",
+            "#c.P.Q.c#",
+            "#c..R..c#",
             "#c..@..c#",
             "#cc.D.cc#",
             "#########",
@@ -899,12 +905,39 @@ AREAS: dict[str, dict] = {
                 "requires_mission": "pr9_first_contract",
                 "locked_text": "You'd have to be coming back from something first.",
             },
+            "P": {
+                "kind": "mission",
+                "emoji": "🧹",
+                "name": "The yard sweep, with Josh",
+                "mission": "pr12_quiet_yard",
+                "requires_mission": "pr10_the_convoy",
+                "locked_text": "Josh isn't taking you anywhere yet.",
+            },
+            "Q": {
+                "kind": "mission",
+                "emoji": "🕴",
+                "name": "The man in the south yard",
+                "mission": "pr13_the_figure",
+                "requires_mission": "pr12_quiet_yard",
+                "locked_text": "There's nobody out there. Yet.",
+            },
+            "R": {
+                "kind": "mission",
+                "emoji": "📡",
+                "name": "Something came over the ridge",
+                "mission": "pr14_what_he_sent",
+                "requires_mission": "pr13_the_figure",
+                "locked_text": "Nothing's coming. Enjoy it.",
+            },
             "D": {
                 "kind": "mission",
                 "emoji": "🚪",
                 "name": "The door, with GOOD LUCK on it",
                 "mission": "pr11_the_gate",
-                "requires_mission": "pr10_the_convoy",
+                # Now gated behind the WHOLE of Act Three rather than the
+                # convoy, so the gate is the last thing you reach and the
+                # call to action lands after the reason for it exists.
+                "requires_mission": "pr14_what_he_sent",
                 "locked_text": "Not yet. Dolphe wants a word before you go out properly.",
             },
             "L": {

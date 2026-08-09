@@ -582,6 +582,72 @@ def _check_chapter_climaxes(failures: list[str]) -> list[tuple[str, str, float]]
     return measured
 
 
+def _check_doorways_line_up(failures: list[str]) -> tuple[int, int]:
+    """A two-way doorway must be the SAME doorway from both sides.
+
+    map_service.travel derives the landing tile from the destination's
+    door back, precisely so this can't be got wrong by hand -- but the
+    property is worth asserting, because it's the one a player feels
+    immediately and nobody would think to re-test after editing a grid.
+
+    Before it was derived, the hand-authored coordinates had drifted:
+    entering a side room from the Atrium landed on that room's door
+    correctly, but coming back out put the player 5, 6 and 7 tiles from
+    the door they'd just used, standing in the middle of the Atrium.
+    Doors read as teleporters rather than doors.
+
+    One-way exits are exempt and counted separately -- the prologue lab
+    collapses behind you, so there is deliberately no door to arrive on.
+
+    This calls map_service.landing_tile -- the function travel() actually
+    uses -- rather than re-deriving the answer from map_config. The first
+    version of this check did the latter, comparing map data against map
+    data, and passed unchanged when the fix was deleted from travel(). A
+    check that stays green while the behaviour it names is removed is
+    worse than no check, so this one goes through the real code.
+    """
+    from bot.game.story import map_config as mc
+    from bot.services import map_service
+
+    exits: list[tuple[str, int, int, dict]] = []
+    for area_id, area in mc.AREAS.items():
+        legend = area.get("legend") or {}
+        for y, row in enumerate(area["grid"]):
+            for x, char in enumerate(row):
+                content = legend.get(char)
+                if content and content.get("kind") == "exit":
+                    exits.append((area_id, x, y, content))
+
+    two_way = one_way = 0
+    for area_id, x, y, content in exits:
+        destination = content.get("to_area")
+        # Is there a door in `destination` that leads back here?
+        back = [(bx, by, c) for (a, bx, by, c) in exits
+                if a == destination and c.get("to_area") == area_id]
+        if not back:
+            one_way += 1
+            continue
+        two_way += 1
+
+        # Walk through, then walk back, using the real function.
+        arrived = map_service.landing_tile(area_id, destination, content["to"])
+        bx, by, back_content = back[0]
+        if arrived != (bx, by):
+            failures.append(
+                f"doorway '{area_id}'({x},{y}) -> '{destination}': you arrive at "
+                f"{arrived}, but the door back to '{area_id}' is at ({bx},{by}) -- "
+                f"you land in the middle of the room instead of in the doorway"
+            )
+            continue
+        returned = map_service.landing_tile(destination, area_id, back_content["to"])
+        if returned != (x, y):
+            failures.append(
+                f"doorway '{area_id}'({x},{y}) -> '{destination}' does not round-trip: "
+                f"coming back lands at {returned}, not the door you left by"
+            )
+    return two_way, one_way
+
+
 def _check_map_is_navigable(failures: list[str]) -> tuple[int, int]:
     """Every room must be REACHABLE and LEAVABLE in both directions.
 
@@ -688,6 +754,7 @@ def main() -> int:
                         )
 
     map_links, _one_way = _check_map_is_navigable(failures)
+    two_way_doors, one_way_doors = _check_doorways_line_up(failures)
     climax = _check_chapter_climaxes(failures)
     missions = sc.all_missions()
     ids = [m["id"] for m in missions]
@@ -811,6 +878,8 @@ def main() -> int:
     from bot.game.story import map_config as _mc
     print(f"map      : {len(_mc.AREAS)} rooms, {map_links} exits "
           f"({map_links / max(1, len(_mc.AREAS)):.1f} per room, all two-way)")
+    print(f"doorways : {two_way_doors} line up door-to-door both ways, "
+          f"{one_way_doors} declared one-way")
     if climax:
         print("fights   : cost to a level-appropriate squad, in % of its health")
         last_chapter = None

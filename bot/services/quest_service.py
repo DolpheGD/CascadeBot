@@ -213,6 +213,13 @@ def _quest_config_by_id(quest_id: str) -> dict | None:
     return None
 
 
+# Goal types where `amount` is a LEVEL OR DEPTH REACHED rather than a
+# count of things done, so progress takes the maximum instead of summing.
+# Getting this wrong is silent: "reach floor 20" would quietly complete
+# after two runs to floor 10.
+HIGH_WATER_GOALS = {"reach_floor", "hq_level"}
+
+
 def record_progress(db, player, goal_type: str, amount: int = 1) -> list[PlayerQuest]:
     """Advances every active quest (beginner or basic) matching goal_type
     by `amount`, completing (and immediately rewarding) any that cross
@@ -234,7 +241,14 @@ def record_progress(db, player, goal_type: str, amount: int = 1) -> list[PlayerQ
 
     newly_completed = []
     for quest in quests:
-        quest.progress = min(quest.progress + amount, quest.goal_count)
+        if goal_type in HIGH_WATER_GOALS:
+            # A DEPTH, not a tally. "Reach floor 20" is one number that
+            # only ever goes up -- adding each run's floor together would
+            # complete it after two shallow runs, which is not what the
+            # quest says and not what it should reward.
+            quest.progress = min(max(quest.progress, amount), quest.goal_count)
+        else:
+            quest.progress = min(quest.progress + amount, quest.goal_count)
         if quest.progress >= quest.goal_count:
             quest.is_completed = True
             quest.completed_at = dt.datetime.now(dt.timezone.utc)

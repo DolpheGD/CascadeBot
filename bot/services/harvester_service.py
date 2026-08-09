@@ -91,6 +91,59 @@ def buy_harvester(db, player, template_id: int, hq_level: int = 1) -> tuple[bool
     return True, f"Acquired {template.name}!", harvester
 
 
+# ----------------------------------------------------------------------
+# STORAGE -- how long a harvester keeps accruing before it fills up
+#
+# `max_accumulation_hours` used to be the whole answer: a flat 8 hours,
+# forever, for every harvester at every level. Two problems with that,
+# and the second is the one that matters.
+#
+#   * 8 hours is shorter than a night's sleep, so the intended pattern --
+#     check in, collect, come back later -- lost you production every
+#     single time unless you happened to log in twice a day.
+#
+#   * more importantly it never CHANGED. Levelling a harvester raised the
+#     rate but not the tank, so the fuller cap filled faster, and past a
+#     certain level upgrading actively shortened how long you could be
+#     away. A progression system whose reward is a tighter leash is
+#     working against itself.
+#
+# So capacity now grows from three sources the player can act on, all of
+# them visible in the harvester panel:
+#
+#   1. the template's own base hours (raised to 12, past a night)
+#   2. +STORAGE_HOURS_PER_LEVEL per harvester level -- levelling the
+#      harvester enlarges the tank as well as the tap
+#   3. the Research Lab's Logistics branch, via the
+#      `harvester_storage_hours` perk
+# ----------------------------------------------------------------------
+
+# Each harvester level adds this many hours of storage. At 0.5, a level-20
+# harvester holds 12 + 9.5 = 21.5 hours before the lab touches it -- a
+# full day's absence with a little slack, which is the shape the pattern
+# wanted in the first place.
+STORAGE_HOURS_PER_LEVEL = 0.5
+
+
+def storage_hours(db, harvester: PlayerHarvester) -> float:
+    """Total hours this harvester can bank before it stops accruing."""
+    from bot.services import research_service
+
+    hours = harvester.template.max_accumulation_hours
+    hours += STORAGE_HOURS_PER_LEVEL * (harvester.level - 1)
+    hours += research_service.perk_value(
+        db, harvester.player_id, "harvester_storage_hours"
+    ) or 0
+    return hours
+
+
+def storage_capacity(db, harvester: PlayerHarvester) -> int:
+    """How many units this harvester holds when completely full -- the
+    number the panel shows as the denominator."""
+    rate = get_production_rate(harvester.template, harvester.level)
+    return round(rate * storage_hours(db, harvester))
+
+
 def collect_harvester(db, harvester: PlayerHarvester) -> int:
     """Adds accrued production to the owner's balance (or grants XP), resets the clock.
     Returns the amount collected (0 if nothing had accrued)."""
@@ -100,7 +153,7 @@ def collect_harvester(db, harvester: PlayerHarvester) -> int:
     last_collected = as_utc(harvester.last_collected_at)
 
     elapsed_hours = (now - last_collected).total_seconds() / 3600
-    elapsed_hours = min(elapsed_hours, template.max_accumulation_hours)
+    elapsed_hours = min(elapsed_hours, storage_hours(db, harvester))
     elapsed_hours = max(elapsed_hours, 0.0)
 
     rate = get_production_rate(template, harvester.level)

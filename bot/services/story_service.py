@@ -464,7 +464,7 @@ def _grant(db, player, grant: dict) -> list[str]:
     """Apply a reward block. Deliberately narrow: currencies and a single
     item. Anything more elaborate belongs in an `encounter` beat, which
     gets the full encounter interpreter for free."""
-    from bot.database.models.enums import Rarity
+    from bot.database.models.enums import EquipmentSlot, Rarity
     from bot.services import item_template_service
     from bot.services.currency_service import CURRENCY_EMOJI, VALID_CURRENCIES
 
@@ -495,9 +495,22 @@ def _grant(db, player, grant: dict) -> list[str]:
                 echoes = (dupe or {}).get("echoes", 0)
                 lines.append(f"👥 **{template.name}** — already with you (+{echoes} ✴️)")
         elif key == "item":
+            # "item": "rare"                 -- any slot, that rarity
+            # "item": ("rare", "weapon")     -- that slot, guaranteed
+            #
+            # The slot form exists for the prologue's first gear grant.
+            # A new player is handed gear immediately before their first
+            # real fight, and an any-slot roll could hand them boots --
+            # which teaches that equipping things doesn't visibly matter,
+            # the opposite of the intended lesson. See
+            # item_template_service.pick_random_template.
+            slot = None
+            if isinstance(amount, (list, tuple)):
+                amount, slot_name = amount[0], amount[1]
+                slot = EquipmentSlot(slot_name)
             rarity = Rarity(amount) if isinstance(amount, str) else Rarity.COMMON
             template = item_template_service.pick_random_template(
-                db, rng=random.Random(), rarity=rarity
+                db, rng=random.Random(), rarity=rarity, slot=slot
             )
             if template is None:
                 continue

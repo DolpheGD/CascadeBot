@@ -269,12 +269,70 @@ def move(db, story, direction: str) -> dict:
     return look(db, story)
 
 
+def return_door(from_area: str, to_area: str) -> tuple[int, int] | None:
+    """Where in `to_area` the door back to `from_area` is, if there is
+    one. This is what makes a doorway a doorway from both sides."""
+    area = mc.get_area(to_area)
+    if area is None:
+        return None
+    legend = area.get("legend") or {}
+    for y, row in enumerate(area["grid"]):
+        for x, char in enumerate(row):
+            content = legend.get(char)
+            if content and content.get("kind") == "exit" \
+                    and content.get("to_area") == from_area:
+                return x, y
+    return None
+
+
+def landing_tile(from_area: str, to_area: str,
+                 authored: list[int] | tuple[int, int]) -> tuple[int, int]:
+    """Where the player appears when walking from `from_area` into
+    `to_area` -- the door back if there is one, else the authored `to`.
+
+    Split out of travel() so it can be exercised directly. It was
+    originally inline, and the check written to protect it compared map
+    data to map data: it passed just as happily with the derivation
+    deleted, which made it decoration rather than a test.
+    """
+    door = return_door(from_area, to_area)
+    if door is not None:
+        return door
+    return int(authored[0]), int(authored[1])
+
+
 def travel(db, story, to_area: str, to: list[int] | tuple[int, int]) -> dict:
-    """Move through an exit into another area."""
+    """Move through an exit into another area.
+
+    ----------------------------------------------------------------------
+    You arrive AT THE DOOR YOU CAME THROUGH
+    ----------------------------------------------------------------------
+    Every exit carries a hand-authored `to` coordinate, and keeping the
+    two sides of a doorway agreeing by hand did not survive contact with
+    an eight-room hub. Measured across all 11 exits: walking from the
+    Atrium into a side room landed correctly on that room's door, but
+    walking back out dropped the player 5, 6 and 7 tiles from the door
+    they had just used -- in the middle of the Atrium, facing the wrong
+    way, with no sense of having come through anything. Doors felt like
+    teleporters.
+
+    So the landing tile is DERIVED rather than authored: if the room
+    you're entering has a door leading back where you came from, that
+    door is where you appear. Reciprocity is then structural -- a doorway
+    lines up from both sides because it is the same doorway, and it can't
+    drift out of alignment when someone edits a grid.
+
+    The authored `to` is still the fallback, and still does real work for
+    the one-way exits (the prologue lab collapses room by room behind
+    you, so there is no door back to stand on) and for any exit whose
+    destination genuinely has no return.
+    """
     area = mc.get_area(to_area)
     if area is None:
         raise MapError("That way leads nowhere yet.")
-    x, y = int(to[0]), int(to[1])
+
+    x, y = landing_tile(story.area, to_area, to)
+
     if mc.is_wall(area, x, y):
         # An exit pointing into a wall is an authoring error that
         # check_story catches, but arriving inside one would strand the

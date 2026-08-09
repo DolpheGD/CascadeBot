@@ -15,6 +15,20 @@ DAILY_STREAK_GOLD_CAP_DAYS = 20  # streak bonus stops growing past this many day
 DAILY_SHARD_MILESTONE_INTERVAL = 7
 DAILY_SHARD_MILESTONE_AMOUNT = 150
 
+# CORES on the same 7-day milestone -- the reliable, no-skill source.
+#
+# Deliberately the ONE place Cores arrive just for turning up. Every
+# other source is content you have to be good enough to clear (elite and
+# nightmare raids, deep Abyss floors), which is right for the ceiling and
+# wrong as the only door: a player who cannot yet clear an Elite would
+# otherwise never see the Card banner at all after the prologue's
+# starter allocation ran out.
+#
+# 25 a week is a quarter of a ten-pull -- slow enough that it is not the
+# way anyone builds a collection, steady enough that the banner is never
+# fully closed to you.
+DAILY_CORE_MILESTONE_AMOUNT = 25
+
 # Reroll tokens on every claim -- a small, reliable source of the equipment
 # reroll/substat currency, separate from dungeon drops. Part of making
 # dailies feel more impactful now that dungeon gold was trimmed down.
@@ -54,6 +68,13 @@ DAILY_MATERIAL_STREAK_CAP_DAYS = 20
 # counts). Claiming again before 24h has passed is blocked entirely.
 DAILY_COOLDOWN_HOURS = 24
 DAILY_STREAK_GRACE_HOURS = 48
+
+
+def compute_daily_cores(streak: int) -> int:
+    """Cores for this claim -- only on the milestone, see the constant."""
+    if streak and streak % DAILY_SHARD_MILESTONE_INTERVAL == 0:
+        return DAILY_CORE_MILESTONE_AMOUNT
+    return 0
 
 
 def compute_daily_reward(streak: int) -> tuple[int, int, int]:

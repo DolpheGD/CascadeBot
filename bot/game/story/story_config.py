@@ -98,6 +98,7 @@ FEATURES: dict[str, str] = {
     "quests": "Quests",
     "gifting": "Gifting",
     "daily": "Daily rewards",
+    "cards": "Character Cards",
     "abyss": "The Void Abyss",
 }
 
@@ -407,7 +408,30 @@ CHAPTERS: list[dict] = [
                         "text": (
                             "**`/quests` is open.**\n\n"
                             "Standing objectives that pay out as you go. You don't stop "
-                            "and *do* quests — you play, and they notice."
+                            "and *do* quests — you play, and they notice.\n\n"
+                            "The starter set is the one to actually finish. Clearing "
+                            "all of it pays a lump of Shards big enough to matter, and "
+                            "the last few ask for real work — a base upgrade, a deep "
+                            "run — so it doubles as a list of what you should be "
+                            "learning to do next."
+                        ),
+                    },
+                    {
+                        # /rename, introduced. It has always existed and
+                        # the story has never mentioned it, so the one
+                        # thing every player wants in the first five
+                        # minutes -- to not be called "You" -- was
+                        # undiscoverable. Put on the ID badge because
+                        # that is the object it is about.
+                        "kind": "dialogue",
+                        "speaker": "Refender",
+                        "text": (
+                            "She hands you a laminated badge. The name field reads "
+                            "**YOU** in the flat grey of a default nobody chose.\n\n"
+                            "\"Printer does that. It'll keep doing that until you tell "
+                            "it otherwise — `/rename`, whatever you want on it.\"\n\n"
+                            "She's already walking. \"Mine said BEE for a year. I let "
+                            "it. Different situation.\""
                         ),
                     },
                 ],
@@ -441,6 +465,39 @@ CHAPTERS: list[dict] = [
                         ),
                     },
                     {
+                        # A WEAPON, BEFORE THE DUMMY. Guaranteed slot, not
+                        # a random roll -- see story_service's "item"
+                        # grant and item_template_service.pick_random_template.
+                        #
+                        # Reported: the dummy fight could stall out. A
+                        # level-1 avatar with no weapon does chip damage
+                        # into a sack designed to absorb it, and the
+                        # lesson the player takes from a fight that goes
+                        # nowhere is that combat is slow, not that gear
+                        # matters. Handing over a weapon immediately
+                        # before the first real swing teaches the
+                        # opposite, and teaches it in the one place the
+                        # difference is impossible to miss.
+                        "kind": "reward",
+                        "text": (
+                            "Jofrog opens a locker with the air of a man performing a "
+                            "ceremony he invented himself this morning.\n\n"
+                            "\"Standard issue. It is not good. It is yours, which the "
+                            "policy says makes it good.\""
+                        ),
+                        "grant": {"item": ("uncommon", "weapon")},
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Jofrog",
+                        "text": (
+                            "\"Equip it. `/inventory`.\"\n\nHe waits. He is very good at "
+                            "waiting.\n\n"
+                            "\"I will know if you have not. The dummy will also know, "
+                            "and the dummy gossips.\""
+                        ),
+                    },
+                    {
                         "kind": "battle",
                         "enemies": ["Training Dummy"],
                         "level": 3,
@@ -469,6 +526,54 @@ CHAPTERS: list[dict] = [
                             "role if you can — DPS, Support DPS, Amplifier, Sustain. "
                             "Jofrog has a chart about this and would love to be asked."
                         ),
+                    },
+                    {
+                        # CLASS CHANGE, introduced where it means
+                        # something. /class has existed the whole time
+                        # and the story never mentioned it, so the one
+                        # character a player keeps forever -- their own --
+                        # was the one they never learned they could
+                        # rebuild. Taught here, immediately after the
+                        # four roles are named, because that is the only
+                        # moment the words "Amplifier" and "Sustain"
+                        # mean anything to them yet.
+                        "kind": "choice",
+                        "speaker": "Jofrog",
+                        "prompt": (
+                            "\"One more thing, and it is the important one.\"\n\n"
+                            "He points at you with the chart.\n\n"
+                            "\"You are not fixed. Everyone else out there is what they "
+                            "are. You can be any of the four, whenever you like, with "
+                            "`/class`. Between runs. As often as you want.\"\n\n"
+                            "\"It costs nothing. People do not believe me about this "
+                            "part.\""
+                        ),
+                        "options": [
+                            {
+                                "id": "class_hit",
+                                "label": "\"What should I be right now?\"",
+                                "text": (
+                                    "\"Right now? Whatever is missing.\" He shrugs, which "
+                                    "on him is a structural event.\n\n"
+                                    "\"You are one person and there are four jobs. Look "
+                                    "at who you have got, find the hole, be the hole. "
+                                    "That is the entire strategy. I have a longer version "
+                                    "with diagrams.\""
+                                ),
+                                "flag": "asked_about_class",
+                            },
+                            {
+                                "id": "class_free",
+                                "label": "\"Nothing is free here.\"",
+                                "text": (
+                                    "\"This is.\" A pause. \"Almost nothing else is. You "
+                                    "are correct to be suspicious and wrong about this "
+                                    "specific case, which is the best kind of wrong.\"\n\n"
+                                    "He makes a note. You suspect it is about you."
+                                ),
+                                "flag": "suspicious_of_jofrog",
+                            },
+                        ],
                     },
                     {
                         "kind": "unlock",
@@ -564,6 +669,81 @@ CHAPTERS: list[dict] = [
                             "minor moral failing."
                         ),
                     },
+                    {
+                        # CHARACTER CARDS, taught in the Armory, because
+                        # the whole lesson is a comparison against the
+                        # gear the player was handed four beats ago. A
+                        # Card explained anywhere else is just a second
+                        # inventory; explained here it is "this is the
+                        # one that isn't like the others".
+                        "kind": "dialogue",
+                        "speaker": "Refender",
+                        "text": (
+                            "She pulls a flat case out from under the bench and does not "
+                            "open it straight away.\n\n"
+                            "\"Everything in that crate, you'll replace. Month, maybe "
+                            "two. That's fine — that's what it's for.\"\n\n"
+                            "\"This isn't that.\""
+                        ),
+                    },
+                    {
+                        "kind": "choice",
+                        "prompt": (
+                            "Inside is a card. Not a component, not a chip — a card, "
+                            "printed and worn at the corners, with something written on "
+                            "it in a hand that isn't hers."
+                        ),
+                        "options": [
+                            {
+                                "id": "card_what",
+                                "label": "\"What is it?\"",
+                                "text": (
+                                    "\"Nobody's sure. They come out of the Cascade like "
+                                    "this — already old, already about something.\"\n\n"
+                                    "She turns it over. \"One per person. Big numbers, and "
+                                    "one thing it does that nothing else does. You don't "
+                                    "find them. They find their way to you.\""
+                                ),
+                                "flag": "pro_asked_card",
+                            },
+                            {
+                                "id": "card_whose",
+                                "label": "\"Whose handwriting is that?\"",
+                                "text": (
+                                    "She looks at it for a second longer than the question "
+                                    "needs.\n\n"
+                                    "\"Somebody who isn't using it any more.\" The case "
+                                    "shuts. \"Go and get your own.\""
+                                ),
+                                "flag": "pro_card_handwriting",
+                            },
+                        ],
+                    },
+                    {
+                        "kind": "unlock",
+                        "feature": "cards",
+                        "text": (
+                            "**`/cards` and `/cardpull` are open.**\n\n"
+                            "Cards run on **Cores**, not Shards — a separate pull, a "
+                            "separate count. One card per character, three big stats, and "
+                            "an ability strong enough that gear no longer rolls anything "
+                            "like it.\n\n"
+                            "You do not need one. You will want one."
+                        ),
+                    },
+                    {
+                        "kind": "reward",
+                        "text": (
+                            "\"Starter allocation,\" she says, in the voice of someone "
+                            "reading a policy she wrote herself. \"Spend it badly if you "
+                            "like. Everyone does the first time.\""
+                        ),
+                        # Exactly one 10-pull (CARD_PULL_COST 10 x 10), so
+                        # the tutorial ends on the multi rather than on a
+                        # single roll -- same reasoning as the beginner
+                        # quests' 1,200 shards.
+                        "grant": {"cores": 100},
+                    },
                 ],
             },
             {
@@ -634,8 +814,12 @@ CHAPTERS: list[dict] = [
                         "feature": "exchange",
                         "text": (
                             "**`/exchange` is open.**\n\n"
-                            "Duplicate pulls pay Echoes; Echoes buy exactly the character "
-                            "you wanted instead of the one you got."
+                            "You've pulled by now, which means you've had the other "
+                            "thing happen: the same face twice.\n\n"
+                            "A duplicate isn't a wasted pull. It pays **Echoes**, and "
+                            "Echoes buy a specific character outright — no rolling, no "
+                            "luck. It's slow on purpose. It is also the only way in "
+                            "this building to get exactly what you wanted."
                         ),
                     },
                     {
@@ -817,10 +1001,303 @@ CHAPTERS: list[dict] = [
                     },
                 ],
             },
+            # ==========================================================
+            # ACT THREE -- the turn.
+            #
+            # The prologue used to end four beats after the convoy: one
+            # contract, one uneasy sight on the road home, and then a
+            # goodbye at the door. That gave the player a job and a hub
+            # but never a REASON -- nothing had happened TO them, so
+            # "everything else is out there, off you go" was an
+            # invitation rather than a call to action, and an invitation
+            # is easy to decline.
+            #
+            # These three missions are the turn. You work a couple of
+            # real jobs alongside people you now know, which makes the
+            # crew feel like a crew rather than a tutorial rota; then
+            # somebody stands in a yard and looks at you specifically;
+            # then he sends something to find out what you are. You
+            # arrive at the gate having been noticed, which is a very
+            # different thing to walk out of a door with.
+            #
+            # NOTE ON IDS: these are numbered above pr11_the_gate but
+            # ordered before it. Renaming pr11_the_gate to keep the
+            # numbers tidy would strip its completion from every player
+            # currently mid-prologue -- completed_missions stores the id
+            # string. Cosmetic disorder beats wiping saves.
+            # ==========================================================
+            {
+                "id": "pr12_quiet_yard",
+                "name": "The Quiet Yard",
+                "summary": "A routine sweep with Josh, who does not do routine.",
+                "beats": [
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Josh",
+                        "text": (
+                            "\"Dolphe says sweep the yard. So we sweep the yard.\"\n\n"
+                            "He is checking corners that do not need checking, in an "
+                            "order he clearly worked out in advance.\n\n"
+                            "\"I want to be very clear that I still don't like you. This "
+                            "is professional courtesy. It runs out.\""
+                        ),
+                    },
+                    {
+                        "kind": "choice",
+                        "prompt": (
+                            "The yard is four crates, a dead floodlight and about an acre "
+                            "of nothing. Josh has not stopped moving since you got here."
+                        ),
+                        "options": [
+                            {
+                                "id": "yard_ask_rex",
+                                "label": "\"Who's Rex?\"",
+                                "text": (
+                                    "He stops moving.\n\n"
+                                    "That's the whole answer, and it lasts about four "
+                                    "seconds, and then he starts moving again.\n\n"
+                                    "\"Not today. Check the north side.\""
+                                ),
+                                "flag": "pro_asked_rex",
+                            },
+                            {
+                                "id": "yard_work",
+                                "label": "\"North side. On it.\"",
+                                "text": (
+                                    "\"...Right.\" He sounds faintly thrown, like he had "
+                                    "an argument prepared and you have declined to have "
+                                    "it.\n\n\"Good. Fine. North side.\""
+                                ),
+                                "flag": "pro_easy_with_josh",
+                            },
+                        ],
+                    },
+                    {
+                        "kind": "battle",
+                        "enemies": ["Josh Hater", "Refense Hater"],
+                        "level": 6,
+                        "intro": (
+                            "They come out from behind the crates with the specific "
+                            "confidence of people who have rehearsed this.\n\n"
+                            "\"JOSH!\" one of them shouts, delightedly, as though "
+                            "arriving at a party."
+                        ),
+                        "on_win": (
+                            "Josh stands over the quieter of the two for a moment "
+                            "longer than the situation requires.\n\n"
+                            "\"They knew I'd be here,\" he says. \"Dolphe assigned this "
+                            "an hour ago.\"\n\n"
+                            "He doesn't say the rest of it. He doesn't have to."
+                        ),
+                        "on_lose": (
+                            "Josh gets you behind a crate, which is not where either of "
+                            "you wanted to end up.\n\n\"Again. Properly this time.\""
+                        ),
+                    },
+                    {
+                        "kind": "reward",
+                        "text": (
+                            "He hands you half of what was in their bag without counting "
+                            "it, which from Josh is practically a hug."
+                        ),
+                        "grant": {"gold": 500, "metal": 25, "lootbox": ("uncommon", 2)},
+                    },
+                ],
+            },
+            {
+                "id": "pr13_the_figure",
+                "name": "The Man In The Yard",
+                "summary": "Somebody has been waiting for you to be worth talking to.",
+                "beats": [
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Blueflame",
+                        "text": (
+                            "\"Third job this week where they knew we were coming,\" "
+                            "Blueflame says, cheerfully, eating something she has not "
+                            "identified. \"Statistically that's a leak. Emotionally "
+                            "it's a bit rude.\"\n\n"
+                            "\"Anyway. There's a man standing in the south yard. He's "
+                            "been there forty minutes. He's not doing anything.\""
+                        ),
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Rohan",
+                        "text": (
+                            "He is dressed for an office that does not exist out here. "
+                            "He does not look at Blueflame at all.\n\n"
+                            "\"You came out of Ocellios,\" he says. To you. Only to "
+                            "you.\n\n"
+                            "\"Nine days ago there was nothing in that building worth "
+                            "the electricity. Then there was you. I would like to know "
+                            "which of those facts caused the other.\""
+                        ),
+                    },
+                    {
+                        "kind": "choice",
+                        "prompt": (
+                            "Blueflame has stopped eating. That, more than anything he "
+                            "has said, is the part that worries you."
+                        ),
+                        "options": [
+                            {
+                                "id": "rohan_who",
+                                "label": "\"Who are you?\"",
+                                "text": (
+                                    "\"Rohan.\" As though that settles it. As though you "
+                                    "should have known.\n\n"
+                                    "\"I keep an inventory. You are not on it. That is "
+                                    "the entire problem and I would like it solved.\""
+                                ),
+                                "flag": "pro_asked_rohan_name",
+                            },
+                            {
+                                "id": "rohan_hands",
+                                "label": "*Look at your hands. Say nothing.*",
+                                "text": (
+                                    "He follows your eyes down, and something in his "
+                                    "face resolves — not surprise. Confirmation.\n\n"
+                                    "\"Thank you,\" he says. \"That was the answer.\"\n\n"
+                                    "You did not say anything. That appears not to have "
+                                    "mattered."
+                                ),
+                                "flag": "pro_showed_rohan",
+                            },
+                            {
+                                "id": "rohan_leave",
+                                "label": "\"You're standing in our yard.\"",
+                                "text": (
+                                    "\"I am.\" He does not move. \"It is a good yard. "
+                                    "You have kept it better than the last people to "
+                                    "hold it.\"\n\n"
+                                    "The past tense sits there for a while after he "
+                                    "stops speaking."
+                                ),
+                                "flag": "pro_pushed_rohan",
+                            },
+                        ],
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Rohan",
+                        "text": (
+                            "\"I am not going to fight you,\" he says, and turns to "
+                            "go.\n\n"
+                            "\"I don't know what you are yet. It would be poor practice "
+                            "to spend myself finding out.\"\n\n"
+                            "At the gate he pauses, without turning round.\n\n"
+                            "\"I have sent something that will tell me. Try to survive "
+                            "it — the data is worthless otherwise.\""
+                        ),
+                    },
+                ],
+            },
+            {
+                "id": "pr14_what_he_sent",
+                "name": "What He Sent",
+                "summary": "The prologue's last fight, and it is not a formality.",
+                "beats": [
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Refender",
+                        "text": (
+                            "\"It came in over the ridge and it is not squawking any "
+                            "transponder I have on file,\" Refender says, already moving. "
+                            "\"Which means somebody built it to not be on file, which is "
+                            "an expensive thing to want.\"\n\n"
+                            "She hands you the good radio. She does not usually hand "
+                            "anyone the good radio."
+                        ),
+                    },
+                    {
+                        # THE PROLOGUE BOSS, and the numbers here were
+                        # measured rather than chosen.
+                        #
+                        # It was written as "Rohan's Herald" at level 8,
+                        # which check_story rejected outright: 100% of a
+                        # 4-character level-3 party, i.e. everything they
+                        # have. Dropping the level did nothing -- 99% at
+                        # 4, 100% at 6 -- because the template itself is
+                        # endgame-statted, not because the level was
+                        # wrong. Worth remembering: for a fight this far
+                        # outside a party's weight class, picking a
+                        # different enemy is the fix, and re-levelling is
+                        # a way to spend an afternoon not fixing it.
+                        #
+                        # Rohan's Warden at 9 costs 33%, against The
+                        # Quiet Yard's 10% earlier in the chapter -- a
+                        # climax that is clearly the hardest thing in the
+                        # prologue while still leaving a party that
+                        # played well two thirds of its health. It is
+                        # also one of HIS, which the fiction requires:
+                        # he says he sent something, so the thing that
+                        # arrives should have his name on it.
+                        "kind": "battle",
+                        "enemies": ["Rohan's Warden"],
+                        "level": 9,
+                        "intro": (
+                            "It sets down in the yard without hurrying and takes a "
+                            "moment to look at each of you in turn.\n\n"
+                            "It spends noticeably longer on you."
+                        ),
+                        "on_win": (
+                            "It goes down in one piece, which somehow reads worse than "
+                            "coming apart would have.\n\n"
+                            "Refender crouches by the housing and goes very still.\n\n"
+                            "\"There's no weapons log,\" she says. \"There's a *camera* "
+                            "log. It wasn't sent here to win.\""
+                        ),
+                        "on_lose": (
+                            "You wake up in the Mess with Blueflame's coat over you and "
+                            "Jofrog standing in the doorway like a very large closed "
+                            "door.\n\n"
+                            "It left. Nobody can tell you why it left."
+                        ),
+                    },
+                    {
+                        "kind": "reward",
+                        "text": (
+                            "Josh pulls the core out and turns it over twice before he "
+                            "hands it to you.\n\n"
+                            "\"He watched you,\" he says. \"That's what he came for. "
+                            "That's what he *always* comes for.\"\n\n"
+                            "It is the first time he has looked at you like you are on "
+                            "the same side of something."
+                        ),
+                        # NO SHARDS HERE, deliberately, and it is the one
+                        # reward in the prologue that looks like it is
+                        # missing something.
+                        #
+                        # The spec was 120 Shards when pulls unlock and
+                        # roughly 360 more across the rest -- 480 total,
+                        # four pulls. Act Three added a fourth grant
+                        # point and quietly pushed that to 600. Paying
+                        # the boss in gear and materials instead keeps
+                        # the pull budget exactly where it was set while
+                        # still making it the richest fight in the
+                        # chapter. Easy to flip if the prologue should
+                        # end on five pulls rather than four.
+                        "grant": {"item": "rare", "gold": 1400, "crystal": 45,
+                                  "metal": 60, "lootbox": ("rare", 3)},
+                    },
+                    {
+                        "kind": "dialogue",
+                        "speaker": "Dolphe",
+                        "text": (
+                            "Dolphe reads the camera log twice, then puts it face-down "
+                            "on the table, which he has never once done with anything.\n\n"
+                            "\"Right,\" he says. \"So he knows.\"\n\n"
+                            "\"Then we stop waiting to be found and we go and be "
+                            "somewhere first. Everyone in the Gatehouse. Now, please.\""
+                        ),
+                    },
+                ],
+            },
             {
                 "id": "pr11_the_gate",
                 "name": "Good Luck, In Marker",
-                "summary": "Everything else is out there. Off you go.",
+                "summary": "He knows your name now. Go and be somewhere first.",
                 "beats": [
                     {
                         "kind": "dialogue",
@@ -831,7 +1308,12 @@ CHAPTERS: list[dict] = [
                             "marker, and somebody else has added a comma and a name that "
                             "has been rubbed almost out.\n\n"
                             "\"That's you done,\" Dolphe says. \"You know where everything "
-                            "is and you know what it costs. The rest is out there.\""
+                            "is and you know what it costs.\"\n\n"
+                            "He taps the camera core, still sitting on the table where "
+                            "he put it face-down.\n\n"
+                            "\"And a man who keeps an inventory has put you on it. So "
+                            "we're not settling in any more. The rest is out there, and "
+                            "I'd rather we got to it first.\""
                         ),
                     },
                     {
@@ -926,6 +1408,46 @@ CHAPTERS: list[dict] = [
 # Lookups. Missions are addressed by a globally unique id, so nothing
 # needs to know which chapter it's in to run it.
 # ----------------------------------------------------------------------
+
+def mission_rewards(mission: dict) -> dict:
+    """Everything a mission pays, summed across its `reward` beats.
+
+    DERIVED from the beats rather than authored as a separate field on
+    the mission, on purpose. A hand-written summary is a second source of
+    truth that nobody updates: edit a grant, forget the summary, and the
+    screen now advertises a payout the mission doesn't give. Reading the
+    beats means the advertised reward is the reward, always.
+
+    Returns a plain {key: total} -- currencies sum, and "item"/"lootbox"
+    accumulate as {tier: count} since those are rarities, not amounts.
+    """
+    totals: dict = {}
+    for beat in mission.get("beats", []):
+        if beat.get("kind") != "reward":
+            continue
+        for key, value in (beat.get("grant") or {}).items():
+            if key in ("item", "lootbox"):
+                # Both keys accept a bare tier ("epic") or a 2-tuple, but
+                # the SECOND element means different things:
+                #
+                #     "lootbox": ("epic", 3)        -> 3 of them
+                #     "item":    ("epic", "weapon") -> one, in that slot
+                #
+                # Reading the item form as a count produced
+                # `0 + "weapon"` and a TypeError the first time the
+                # prologue's rewards were totalled. Splitting on the key
+                # rather than on the shape is what keeps that honest --
+                # the two forms are the same shape and always will be.
+                tier, second = (value if isinstance(value, (list, tuple)) else (value, None))
+                count = second if (key == "lootbox" and second is not None) else 1
+                bucket = totals.setdefault(key, {})
+                bucket[tier] = bucket.get(tier, 0) + count
+            elif key == "character":
+                totals.setdefault("character", []).append(value)
+            else:
+                totals[key] = totals.get(key, 0) + value
+    return totals
+
 
 def all_missions() -> list[dict]:
     return [m for chapter in CHAPTERS for m in chapter["missions"]]

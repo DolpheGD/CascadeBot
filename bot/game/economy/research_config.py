@@ -37,6 +37,8 @@ research_service.perk_value:
     gacha_pity_reduction  character_gacha_service -- earlier 5-star pity
     character_xp_percent  combat_service -- more XP per battle
     harvester_percent     harvester_service -- better passive income
+    harvester_storage_hours harvester_service -- longer before a harvester
+                          fills up and stops accruing
     shop_discount_percent base_service -- cheaper shop purchases
     forge_cost_percent    forge_service -- cheaper crafting
     starting_energy       factory -- squad begins battles with energy
@@ -150,12 +152,35 @@ RESEARCH_PROJECTS: list[dict] = [
         "cost": {"gold": 3000, "stone": 220, "metal": 90},
         "perk": "shop_discount_percent", "value": 8,
     },
+    # The two storage projects. Harvester capacity is otherwise fixed by
+    # the template and the harvester's own level (see
+    # harvester_service.storage_hours) -- these are the part of it the
+    # player buys deliberately rather than accrues.
+    #
+    # They're cheap for their tier and gated early on purpose: "I can
+    # leave it overnight now" is a much more legible reward than a
+    # percentage, and it's the upgrade a player actually feels the next
+    # morning.
+    {
+        "id": "holding_silos", "name": "Holding Silos", "branch": "Logistics",
+        "description": "Somewhere to put it all. Harvesters store 8 more hours.",
+        "requires": ["supply_routing"], "lab_level": 2, "minutes": 90,
+        "cost": {"gold": 2200, "wood": 260, "stone": 180},
+        "perk": "harvester_storage_hours", "value": 8,
+    },
     {
         "id": "automated_haulers", "name": "Automated Haulers", "branch": "Logistics",
         "description": "Harvesters run themselves better than you ever did.",
         "requires": ["supply_routing"], "lab_level": 3, "minutes": 180,
         "cost": {"gold": 9000, "metal": 320, "crystal": 110},
         "perk": "harvester_percent", "value": 18,
+    },
+    {
+        "id": "deep_reservoirs", "name": "Deep Reservoirs", "branch": "Logistics",
+        "description": "Dig down and keep going. Harvesters store 16 more hours.",
+        "requires": ["holding_silos"], "lab_level": 4, "minutes": 260,
+        "cost": {"gold": 15000, "metal": 380, "crystal": 190},
+        "perk": "harvester_storage_hours", "value": 16,
     },
     {
         "id": "cascade_brokerage", "name": "Cascade Brokerage", "branch": "Logistics",

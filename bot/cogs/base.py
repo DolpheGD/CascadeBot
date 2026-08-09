@@ -34,6 +34,8 @@ from bot.services.harvester_service import (
     get_upgrade_cost,
     get_production_rate,
     effective_max_level,
+    storage_hours,
+    storage_capacity,
 )
 from bot.game.economy.hq_config import (
     MATERIAL_GOLD_VALUE,
@@ -56,6 +58,7 @@ PERK_LABELS = {
     "gacha_pity_reduction": "Pity reduction",
     "character_xp_percent": "Character XP %",
     "harvester_percent": "Harvester yield %",
+    "harvester_storage_hours": "Harvester storage (hrs)",
     "shop_discount_percent": "Shop discount %",
     "forge_cost_percent": "Forge discount %",
     "starting_energy": "Starting energy",
@@ -384,9 +387,21 @@ def _build_harvester_embed(db, player) -> discord.Embed:
         cap = effective_max_level(template, hq_level)
         if owned_harvester:
             rate = get_production_rate(template, owned_harvester.level)
+            # STORAGE, stated outright. A harvester silently stops
+            # accruing when it's full, and until this was shown the only
+            # way to learn the cap existed was to lose production to it:
+            # you'd come back after a long break, collect noticeably less
+            # than you expected, and have nothing on screen explaining
+            # why. Both numbers are here because both are upgradeable --
+            # hours by harvester level and the lab's Logistics branch,
+            # units by the rate on the line above.
+            hours = storage_hours(db, owned_harvester)
+            held = storage_capacity(db, owned_harvester)
             value = (
                 f"Owned - Level {owned_harvester.level}/{template.max_level} (cap {cap})\n"
-                f"Producing {format_currency(template.currency, round(rate * 10) / 10)}/hr"
+                f"Producing {format_currency(template.currency, round(rate * 10) / 10)}/hr\n"
+                f"Holds {format_currency(template.currency, held)} "
+                f"({hours:.0f}h before it fills up)"
             )
         else:
             cost = "Free" if template.unlock_cost == 0 else format_currency(template.unlock_currency, template.unlock_cost)

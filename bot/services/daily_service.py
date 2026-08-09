@@ -14,6 +14,7 @@ from bot.game.economy.daily_config import (
     DAILY_STREAK_GRACE_HOURS,
     compute_daily_lootboxes,
     compute_daily_materials,
+    compute_daily_cores,
     compute_daily_reward,
 )
 from bot.services import lootbox_service, quest_service
@@ -49,6 +50,7 @@ def claim_daily(db, player) -> dict:
         player.daily_streak = 1
 
     gold, shards, reroll_tokens = compute_daily_reward(player.daily_streak)
+    cores = compute_daily_cores(player.daily_streak)
     lootbox_tiers = compute_daily_lootboxes(player.daily_streak)
     materials = compute_daily_materials(player.daily_streak)
     player.last_daily_claimed_at = now
@@ -58,6 +60,8 @@ def claim_daily(db, player) -> dict:
         add_currency(db, player, "gold", gold)
     if shards:
         add_currency(db, player, "shards", shards)
+    if cores:
+        add_currency(db, player, "cores", cores)
     if reroll_tokens:
         add_currency(db, player, "reroll_tokens", reroll_tokens)
     for material, amount in materials.items():
@@ -67,6 +71,7 @@ def claim_daily(db, player) -> dict:
     quest_service.record_progress(db, player, "claim_daily")
 
     return {
-        "gold": gold, "shards": shards, "reroll_tokens": reroll_tokens, "streak": player.daily_streak,
+        "gold": gold, "shards": shards, "cores": cores,
+        "reroll_tokens": reroll_tokens, "streak": player.daily_streak,
         "lootbox_tiers": lootbox_tiers, "materials": materials,
     }

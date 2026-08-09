@@ -228,9 +228,31 @@ def _break_damage_percent(attacker: Combatant) -> float:
     break-focused build can invest in cashing breaks in harder without
     raising the number for everyone (which is what made the mechanic
     oppressive in the first place)."""
-    return BREAK_DAMAGE_BONUS_PERCENT + sum(
-        p["effect"].get("percent", 0) for p in attacker.find_passive("break_damage_bonus")
+    return (
+        BREAK_DAMAGE_BONUS_PERCENT
+        + sum(p["effect"].get("percent", 0)
+              for p in attacker.find_passive("break_damage_bonus"))
+        + sum(m.percent for m in attacker.modifiers
+              if m.stat == BREAK_DAMAGE_STAT)
     )
+
+
+# A StatModifier on this pseudo-stat is a TEMPORARY break-damage buff --
+# the timed counterpart of the permanent `break_damage_bonus` passive,
+# and the twin of POISE_DAMAGE_STAT below.
+#
+# The break economy had two halves and only one of them could be bought
+# on a timer. Poise damage (how fast you break something) got a team buff
+# with Polo; break damage (how hard you hit it once broken) had only
+# always-on sources -- relics and passives, both permanent account-level
+# decisions. That asymmetry is what left Nebula's speed buff feeling
+# weightless: speed moves turns around, but nothing in her kit changed
+# what a turn was WORTH.
+#
+# Same reasoning as POISE_DAMAGE_STAT for reusing StatModifier: duration
+# ticking, serialization and the ℹ️ Info display all come free, and
+# staying out of STAT_KEYS means effective_stat can never collide with it.
+BREAK_DAMAGE_STAT = "break_damage"
 
 
 # A StatModifier on this pseudo-stat is a TEMPORARY poise-damage buff.
@@ -276,6 +298,18 @@ def total_poise_damage_bonus(attacker: Combatant) -> int:
 # _resolve_hit.
 # ----------------------------------------------------------------------
 DOT_VULNERABILITY_STAT = "dot"
+
+# BLASTIX'S OWN damage-over-time type.
+#
+# A plain string rather than a new class, because Void Corruption is
+# deliberately not mechanically special: it ticks, amplifies and
+# detonates through the same DamageOverTime machinery as every bleed and
+# burn in the game. What it needs is to be DISTINGUISHABLE -- his kit is
+# built on setting other people's DoTs off, so the board has to be able
+# to say which ones were his. Sharing a source name with a burn would
+# have made "detonate the squad's damage-over-time" read, in a solo test,
+# exactly like "detonate my own burn".
+VOID_CORRUPTION = "Void Corruption"
 
 
 # ----------------------------------------------------------------------
@@ -340,6 +374,7 @@ _EVENT_KINDS: dict[str, set[str]] = {
         "team_buff", "team_double_buff", "team_buff_and_resource", "ally_buff",
         "self_buff_debuff", "heal_and_self_buff", "sacrifice_hp_team_buff",
         "team_shield_and_buff", "team_heal_and_buff",
+        "team_break_damage_buff", "team_break_and_poise_buff",
     },
     "debuff": {
         "damage_and_debuff", "damage_and_double_debuff", "team_debuff",
@@ -350,9 +385,10 @@ _EVENT_KINDS: dict[str, set[str]] = {
     # specific circumstances.
     "conditional_damage": {
         "damage_bonus_if_target_healthy", "damage_scales_with_enemy_count",
-        "damage_ramp_per_use",
+        "damage_ramp_per_use", "damage_bonus_if_target_broken",
     },
-    "dot": {"damage_and_dot", "aoe_damage_chance_dot"},
+    "dot": {"damage_and_dot", "aoe_damage_chance_dot",
+            "damage_and_void_corruption", "aoe_damage_detonate_dots"},
     "cleanse": {"cleanse_ally_and_heal", "cleanse_self_and_heal", "team_shield_and_cleanse"},
     "sacrifice": {
         "sacrifice_hp_heal_lowest_ally_percent_max_hp",
@@ -839,6 +875,7 @@ AOE_OPPONENT_KINDS = frozenset({
     "team_debuff",
     "team_dot_amplify",
     "team_poise_strike",
+    "aoe_damage_detonate_dots",
 })
 
 # Effect kinds that affect the CASTER'S OWN whole side (buffs, team heals,
@@ -858,6 +895,8 @@ TEAM_SELF_KINDS = frozenset({
     "sacrifice_hp_heal_team_percent_max_hp",
     "sacrifice_hp_team_buff",
     "taunt_and_team_shield",
+    "team_break_damage_buff",
+    "team_break_and_poise_buff",
 })
 
 # Kinds that only ever affect the caster.
@@ -1178,12 +1217,40 @@ def resolve_active_ability(
                    f"{target.name} (scaling off {stat.upper()}).")
 
     elif kind == "team_heal_from_stat":
+        # Heals the squad off the CASTER'S stat, and optionally buffs
+        # them on the way past.
+        #
+        # THE BUFF HALF WAS MISSING, and this is a real bug that shipped:
+        # Refender's ultimate reads "Heal the whole team ... and raise
+        # their DEF by 35% for 3 turns", and its effect duly carried
+        # buff_stat/buff_percent/duration -- which this branch never
+        # looked at. His ultimate delivered exactly half of what it
+        # promised, every time, and nothing noticed because
+        # check_descriptions only asks whether the numbers in the text
+        # APPEAR in the effect. They did. Nothing read them.
+        #
+        # Found by tools/check_effect_keys.py, which exists specifically
+        # for this shape of failure.
         stat = effect.get("stat", "defense")
         amount = attacker.effective_stat(stat) * effect["percent"] / 100
+        buff_stat = effect.get("buff_stat")
         for member in [attacker] + [a for a in allies if a.is_alive()]:
             healed = member.heal(amount)
             if healed:
                 log.append(f"💚 {member.name} is healed for {healed} HP by {ability['name']}.")
+            if buff_stat:
+                member.modifiers.append(StatModifier(
+                    stat=buff_stat,
+                    percent=_buffed(attacker, effect["buff_percent"]),
+                    duration=effect.get("duration", 2),
+                    source=ability["name"],
+                ))
+        if buff_stat:
+            log.append(
+                f"🛡️ {attacker.name}'s {ability['name']} raises the team's "
+                f"{buff_stat} by {effect['buff_percent']}% for "
+                f"{effect.get('duration', 2)} turns."
+            )
 
     elif kind == "team_heal_percent_max_hp":
         # Sustain ultimate piece -- heals the whole team at once.
@@ -1429,6 +1496,136 @@ def resolve_active_ability(
         log.append(
             f"🪓 {attacker.name}'s {ability['name']}: the whole squad chips "
             f"+{amount} Poise per hit for {duration} turns."
+        )
+
+    elif kind == "damage_and_void_corruption":
+        # BLASTIX'S SKILL. One target, one very large stack of VOID
+        # CORRUPTION -- his own damage-over-time type, distinct from the
+        # bleed and burn everyone else applies.
+        #
+        # WHY A SEPARATE TYPE AT ALL. Blastix's whole identity is that he
+        # sets other people's damage-over-time off (see his ultimate).
+        # If the thing he applies were just another burn, he would be
+        # detonating his own burns most of the time and the "team" half
+        # of the fantasy would never come up in a squad without a second
+        # DoT applier. Void Corruption being ITS OWN named source means
+        # the board can always tell you what came from where -- and it
+        # ticks, amplifies and detonates through exactly the same
+        # machinery as bleed and burn, so nothing else has to learn about
+        # it.
+        #
+        # SINGLE TARGET, and heavy. He used to spray a small burn across
+        # the whole field, which made him an AoE character who happened
+        # to use DoT. Concentrating it makes him a character who picks a
+        # target and ruins it, and gives the ultimate something worth
+        # detonating rather than a thin film of chip damage.
+        stat = effect.get("damage_stat", "attack")
+        _hit(attacker, defender, effect.get("damage_percent", 120), stat, rng, log,
+             defender_allies=defender_allies)
+        if defender.is_alive():
+            flat = attacker.effective_stat(effect.get("dot_stat", stat)) \
+                * effect.get("dot_percent", 90) / 100
+            for passive in attacker.find_passive("dot_amplifier"):
+                flat *= 1 + passive["effect"].get("percent", 0) / 100
+            duration = effect.get("duration", 3)
+            # REFRESH, don't stack -- one Corruption per target, reset to
+            # full and re-based on current stats. Stacking made his old
+            # kit grow quadratically in cast count; see the git history
+            # on aoe_damage_and_pulse_dots.
+            existing = next((d for d in defender.dots
+                             if d.source == VOID_CORRUPTION), None)
+            if existing is not None:
+                existing.flat_amount = flat
+                existing.duration = duration
+            else:
+                defender.dots.append(DamageOverTime(
+                    flat_amount=flat, duration=duration,
+                    source=VOID_CORRUPTION, stat_source=stat,
+                ))
+            log.append(
+                f"🟣 {defender.name} is riddled with {VOID_CORRUPTION} — "
+                f"{round(flat)} damage a turn for {duration} turns."
+            )
+
+    elif kind == "aoe_damage_detonate_dots":
+        # BLASTIX'S ULTIMATE. Damage everything, then set off EVERY
+        # damage-over-time effect on EVERY enemy -- his own Void
+        # Corruption, Yoruki's burns, Slikrz's bleed, a weapon's proc,
+        # anything -- converting whatever each had left to deal into
+        # damage right now.
+        #
+        # SOURCE-BLIND ON PURPOSE. This is the line that makes him a
+        # team piece rather than a solo DoT carry: the more
+        # damage-over-time the rest of the squad brings, the bigger his
+        # ultimate is, and the squad's appliers stop being people who
+        # deal damage slowly and start being people who load his button.
+        #
+        # Detonation reads REMAINING damage (flat_amount x turns left)
+        # rather than a flat number, which is what makes the whole kit
+        # cohere: the ultimate is worth exactly as much as the burns you
+        # set up for it, so the skill is the setup and this is the payoff.
+        # A multiplier under 100% would make holding burns strictly better
+        # than spending them, so it sits above 100 and the burns are gone
+        # afterwards -- a real choice, with a real cost.
+        stat = effect.get("damage_stat", "attack")
+        detonate = effect.get("detonate_percent", 130)
+
+        total = 0
+        for target in [o for o in opponents if o.is_alive()]:
+            target_allies = [o for o in opponents if o is not target and o.is_alive()]
+            _hit(attacker, target, effect.get("damage_percent", 200), stat, rng, log,
+                 defender_allies=target_allies)
+            if not target.is_alive() or not target.dots:
+                continue
+            amplify = 1 + target.total_vulnerability_percent(DOT_VULNERABILITY_STAT) / 100
+            remaining = sum(d.flat_amount * d.duration for d in target.dots)
+            dealt = target.take_raw_hp_loss(remaining * amplify * detonate / 100)
+            target.dots = []
+            if dealt:
+                total += dealt
+                log.append(f"💥 Everything eating away at {target.name} goes off at "
+                           f"once for {dealt} damage.")
+        if not total:
+            log.append(f"💨 {ability['name']} finds nothing to set off — "
+                       f"somebody has to apply it first.")
+
+    elif kind == "team_break_damage_buff":
+        # NEBULA. The team hits broken enemies harder for a few turns.
+        #
+        # This is the other half of Polo's buff: he makes the squad break
+        # things faster, she makes the break worth more. Bringing both is
+        # the point -- a shorter fuse and a bigger payload are separately
+        # useful and multiply when combined, which is the kind of
+        # two-character synergy the roster was short of.
+        percent = effect.get("percent", 40)
+        duration = effect.get("duration", 3)
+        for member in [attacker] + [a for a in allies if a.is_alive()]:
+            member.modifiers.append(
+                StatModifier(BREAK_DAMAGE_STAT, percent, duration, ability["name"])
+            )
+        log.append(
+            f"🎯 {attacker.name}'s {ability['name']}: the squad deals +{percent}% "
+            f"damage to BROKEN enemies for {duration} turns."
+        )
+
+    elif kind == "team_break_and_poise_buff":
+        # NEBULA'S ULTIMATE. Both halves of the break economy at once --
+        # the squad breaks faster AND cashes the break harder, so the
+        # ultimate is the window you plan a whole rotation around rather
+        # than a bigger version of the skill.
+        percent = effect.get("break_percent", 70)
+        poise = effect.get("poise_amount", 2)
+        duration = effect.get("duration", 3)
+        for member in [attacker] + [a for a in allies if a.is_alive()]:
+            member.modifiers.append(
+                StatModifier(BREAK_DAMAGE_STAT, percent, duration, ability["name"])
+            )
+            member.modifiers.append(
+                StatModifier(POISE_DAMAGE_STAT, poise, duration, ability["name"])
+            )
+        log.append(
+            f"🎯 {attacker.name}'s {ability['name']}: +{poise} Poise per hit AND "
+            f"+{percent}% damage to broken enemies, squad-wide, for {duration} turns."
         )
 
     elif kind == "sacrifice_hp_team_poise_buff":
@@ -1697,6 +1894,29 @@ def resolve_active_ability(
         _hit(attacker, defender, percent, effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
         if has_debuff:
             log.append(f"🎯 {attacker.name} exploits {defender.name}'s weakened state!")
+
+    elif kind == "damage_bonus_if_target_broken":
+        # ASC. Ordinary against a standing enemy, devastating against a
+        # BROKEN one -- the break economy's payoff carry.
+        #
+        # The economy had three setup pieces and no specialist to spend
+        # them on. Polo shortens the fuse (team poise damage), Nebula
+        # enlarges the payload (team break damage), Nyrvite breaks things
+        # herself -- and then everyone cashed the window with whatever
+        # generic carry they already had. A character who is genuinely
+        # WEAK outside the window is what makes building for it a real
+        # decision rather than a stat bonus you passively enjoy.
+        #
+        # Deliberately conditional on the DEFENDER'S state rather than
+        # the attacker's, so it reads off the thing the rest of the squad
+        # spent turns creating. His own poise contribution is small on
+        # purpose: he is the payoff, not the setup.
+        broken = defender.is_broken()
+        percent = effect["damage_percent"] + (effect["bonus_damage_percent"] if broken else 0)
+        _hit(attacker, defender, percent, effect.get("damage_stat", "attack"), rng, log,
+             defender_allies=defender_allies)
+        if broken:
+            log.append(f"🩸 {defender.name} is BROKEN — {ability['name']} lands at full force.")
 
     elif kind == "damage_bonus_if_target_healthy":
         # THE OPENER. Huge on a target still above `hp_threshold_percent`,

@@ -109,7 +109,24 @@ SHRINE_TEMPLATES: list[dict] = [
         "description": "A warm, pulsing monolith. Bolsters the whole party's vitality.",
         "stat": "max_hp",
         "bonus_type": "flat",
-        "base_bonus_per_level": 20.0,
+        # 8 per level, down from 20.
+        #
+        # At 20 this was the single most distorting purchase in the early
+        # game: a level-1 character sits on ~100 HP, so three shrine
+        # levels took them to 160 -- a 60% health increase, bought with
+        # gold, before they had learned what any of the combat systems
+        # did. Every fight the prologue and Glacier 15 are tuned around
+        # was being read through that, which is why the early game felt
+        # loose.
+        #
+        # 8 keeps a maxed shrine meaningful (+160 at level 20, and it
+        # scales with character level from there -- see
+        # base_service.shrine_bonus_at_level) while making it a steady
+        # investment rather than a switch that doubles you. The attack
+        # and defence shrines are untouched: 3/level was never the
+        # problem, and the player is meant to come out of this pass with
+        # slightly MORE attack than health relative to the curve.
+        "base_bonus_per_level": 8.0,
         "max_level": 20,
         "unlock_hq_level": 1,
         "build_cost_gold": 300,

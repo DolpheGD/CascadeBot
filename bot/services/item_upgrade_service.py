@@ -51,10 +51,33 @@ from bot.services.currency_service import add_currency, format_currency, spend_c
 #     cap, so only high-rarity items ever reach the bands that consume
 #     Void and Entropy.
 # ---------------------------------------------------------------------
-LEVEL_UP_GOLD_PER_LEVEL = 15          # kept as the linear base
-LEVEL_UP_MATERIAL_BASE = 2            # materials at level 1
-LEVELS_PER_MATERIAL_STEP = 4          # +1 material every N levels
-GOLD_SUPERLINEAR_DIVISOR = 38         # smaller = steeper high-level gold
+# ---------------------------------------------------------------------
+# COSTS WENT UP WITH THE PAYOFF.
+#
+# The main-stat curve was rebuilt so levelling gear actually does
+# something (see stat_pools.main_stat_level_multiplier): a maxed item is
+# now several times a fresh one instead of ~1.2x. An upgrade that
+# matters that much should not cost what an upgrade that mattered
+# nothing cost -- otherwise the whole material economy is trivially
+# satisfied and the "grind" is three expeditions long.
+#
+# Measured, taking one item from level 1 to its cap:
+#
+#                    before               after
+#     rare        1,975 g /  46 mat    3,745 g /  84 mat
+#     legendary   6,434 g / 108 mat   12,700 g / 204 mat
+#     divine     14,326 g / 196 mat   29,155 g / 374 mat
+#
+# Roughly 2x gold and 2x materials. Deliberately weighted toward
+# MATERIALS rather than gold: gold is the currency every system already
+# pays out, so a gold-only cost is a delay, while materials are what the
+# harvesters, expeditions and shop are all for -- raising those is what
+# makes the rest of the economy the thing feeding your gear.
+# ---------------------------------------------------------------------
+LEVEL_UP_GOLD_PER_LEVEL = 26          # kept as the linear base
+LEVEL_UP_MATERIAL_BASE = 3            # materials at level 1
+LEVELS_PER_MATERIAL_STEP = 2          # +1 material every N levels
+GOLD_SUPERLINEAR_DIVISOR = 26         # smaller = steeper high-level gold
 
 # (max_level_inclusive, materials). Checked in order; the last entry
 # catches everything above it.

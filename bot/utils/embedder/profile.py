@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import discord
 
+from bot.services import card_service
+
 from bot.database.models.enums import (
     CLASS_DISPLAY_NAME,
     EquipmentSlot,
@@ -43,12 +45,14 @@ def profile_embed(
     if page == 0:
         return _profile_overview_page(player, character, equipped_items, avatar_url, db)
     if page == 1:
-        return _profile_equipment_page(player, character, equipped_items, avatar_url)
-    return _profile_abilities_page(player, character, equipped_items, avatar_url)
+        return _profile_equipment_page(player, character, equipped_items, avatar_url, db)
+    return _profile_abilities_page(player, character, equipped_items, avatar_url, db)
 
 
 def _profile_overview_page(player, character, equipped_items, avatar_url, db=None) -> discord.Embed:
-    combatant = build_character_combatant(character, equipped_items)
+    combatant = build_character_combatant(
+        character, equipped_items,
+        card=card_service.get_equipped_card(db, character.id) if db is not None else None)
     if db is not None:
         from bot.services import base_service
         base_service.apply_shrine_bonuses(db, player, [combatant])
@@ -95,7 +99,7 @@ def _profile_overview_page(player, character, equipped_items, avatar_url, db=Non
     return embed
 
 
-def _profile_equipment_page(player, character, equipped_items, avatar_url) -> discord.Embed:
+def _profile_equipment_page(player, character, equipped_items, avatar_url, db=None) -> discord.Embed:
     by_slot: dict[EquipmentSlot, list] = {slot: [] for slot in EquipmentSlot}
     for item in equipped_items:
         by_slot[item.slot].append(item)
@@ -124,12 +128,34 @@ def _profile_equipment_page(player, character, equipped_items, avatar_url) -> di
         name = f"{SLOT_EMOJI[slot]} {SLOT_DISPLAY_NAME[slot]}" + (f" ({len(items)}/{capacity})" if capacity > 1 else "")
         embed.add_field(name=name, value="\n".join(lines), inline=True)
 
-    embed.set_footer(text="Equip gear with /inventory. Weapon/Artifact hold 1 item; Armor/Accessory hold 2 each.")
+    # THE CARD SLOT, shown alongside the gear slots even though it is a
+    # different system. A player looking at "what is this character
+    # wearing" means all of it -- sending them to a second screen to
+    # find out whether the card slot is filled would be the kind of
+    # separation that is tidy in the code and annoying in the hand.
+    card = card_service.get_equipped_card(db, character.id) if db is not None else None
+    if card is not None:
+        stats = card_service.card_stats(card)
+        embed.add_field(
+            name="🃏 Character Card",
+            value=(f"**{card.template.name}** · Lv{card.level}\n"
+                   + " · ".join(f"+{v:g} {k.replace('_', ' ')}"
+                                for k, v in stats.items()))[:1024],
+            inline=False,
+        )
+    elif db is not None:
+        embed.add_field(name="🃏 Character Card", value="*Empty* — see `/cards`",
+                        inline=False)
+
+    embed.set_footer(text="Equip gear with /inventory, cards with /cards. "
+                          "Weapon/Artifact hold 1 item; Armor/Accessory hold 2 each.")
     return embed
 
 
-def _profile_abilities_page(player, character, equipped_items, avatar_url) -> discord.Embed:
-    combatant = build_character_combatant(character, equipped_items)
+def _profile_abilities_page(player, character, equipped_items, avatar_url, db=None) -> discord.Embed:
+    combatant = build_character_combatant(
+        character, equipped_items,
+        card=card_service.get_equipped_card(db, character.id) if db is not None else None)
 
     embed = discord.Embed(
         title=f"{character.display_name}'s Abilities",

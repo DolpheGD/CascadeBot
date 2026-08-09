@@ -498,7 +498,7 @@ RAID_TIERS: list[dict] = [
         "description": "A tougher boss and a much bigger pool. Bring the server -- nobody clears this on their own attacks.",
         "rewards": {
             "gold": 17_000,
-            "shards": 210,
+            "shards": 210, "cores": 35,
             "crystal": 220,
             "xendium": 110,
             "void": 50,
@@ -537,6 +537,11 @@ RAID_TIERS: list[dict] = [
         "rewards": {
             "gold": 44_000,
             "shards": 480,
+            # CORES on the two hardest tiers only. Cards should be
+            # something the endgame pays for -- a starter raid handing
+            # them out would make the banner a thing you drift into
+            # rather than something you go and earn.
+            "cores": 90,
             "crystal": 520,
             "xendium": 280,
             "void": 160,

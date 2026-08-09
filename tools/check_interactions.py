@@ -11,7 +11,7 @@ or a raid attack commits. When that happened the token died and the
 handler crashed with 404 Unknown interaction (10062), which is what
 took out /gift, /squad and the inventory paginator in one evening.
 
-Three structural properties are checked, plus the behaviour of the helpers
+Four structural properties are checked, plus the behaviour of the helpers
 that make them safe. Both are things a future command can silently get
 wrong, which is the only reason this file exists:
 
@@ -22,6 +22,10 @@ wrong, which is the only reason this file exists:
   * no cog reaches for interaction.response.send_message /
     edit_message directly, because those are the calls that raise once
     the response slot has been spent by that defer
+
+  * no raw interaction.followup.send runs before something has spent
+    the response slot -- before a defer or a reply there is no webhook to
+    follow up to, and Discord returns 404 Unknown Webhook
 
   * no command defers TWICE -- the second call raises
     InteractionResponded, which is not an HTTPException and so is caught
@@ -40,6 +44,9 @@ import pathlib
 import sys
 
 COGS = pathlib.Path("bot/cogs")
+# Followup ordering is checked across the WHOLE bot package, not just
+# cogs: bot/utils/ui_guard.py replies too, and views live outside cogs.
+ROOT = pathlib.Path("bot")
 
 # Commands whose primary reply is private, and which must therefore
 # defer privately -- a public defer would leave a visible "thinking..."
@@ -97,6 +104,158 @@ def check_no_raw_responses(failures: list[str]) -> None:
                     f"{path.name}:{line} calls {call} directly -- it raises once the "
                     f"command has deferred; use responses.send / responses.edit"
                 )
+
+
+def _dotted(node: ast.AST) -> tuple[str, ...]:
+    """('interaction', 'followup', 'send') for an attribute chain."""
+    parts: list[str] = []
+    while isinstance(node, ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    if isinstance(node, ast.Name):
+        parts.append(node.id)
+    return tuple(reversed(parts))
+
+
+# Calls that SPEND the interaction's one response slot. After any of
+# these, followup.send is the correct call; before them, it 404s.
+SLOT_SPENDERS = {
+    ("responses", "defer"), ("responses", "edit"), ("responses", "send"),
+    ("interaction", "response", "defer"),
+    ("interaction", "response", "send_message"),
+    ("interaction", "response", "edit_message"),
+}
+
+
+def check_followups_come_after_a_response(failures: list[str]) -> int:
+    """A raw `interaction.followup.send` must not be the FIRST reply.
+
+    Discord gives an interaction exactly one response slot. Until it's
+    spent -- by a defer or a reply -- there is no webhook to follow up
+    to, and `followup.send` fails with 404 Unknown Webhook. After it's
+    spent, followup is the only thing that works. Neither call is wrong;
+    the ORDER is what decides.
+
+    This is here because of a live bug that check_no_raw_responses could
+    not see. bot/cogs/story.py's station branch -- the tile that opens
+    the Forge, the Echo booth, Cascade HQ -- opened its panel with a bare
+    `interaction.followup.send`, in a handler that never defers. Every
+    other branch of that handler ends at responses.edit(), which spends
+    the slot itself, so the station tiles were the one path that reached
+    a followup on an untouched interaction. Standing on the forge and
+    pressing Interact 404'd every single time.
+
+    It hid for a while because a station whose feature is still LOCKED
+    returns earlier through require_feature's own reply: locked stations
+    worked, and only the ones you'd actually unlocked were broken.
+
+    A blanket ban would be wrong -- ten legitimate call sites send a
+    SECOND message after editing the first, and that genuinely requires
+    followup. So the rule is ordering, not prohibition: some slot-spender
+    must be GUARANTEED to have run first, or the function must branch on
+    `response.is_done()` and handle both sides (which is exactly what
+    responses.py and ui_guard.py do).
+
+    ----------------------------------------------------------------------
+    Why this walks control flow instead of comparing line numbers
+    ----------------------------------------------------------------------
+    The first version of this check asked "is there a slot-spender on an
+    earlier LINE?" -- and it passed the very bug it was written for. In
+    _open_station the preceding responses.send() sits inside
+
+        if built is None:
+            await responses.send(...)   # earlier line
+            return                      # ...but it RETURNS
+
+    so on every path that actually reaches the followup, that send never
+    ran. Line order is not execution order, and a conditional reply in a
+    branch that returns has spent nothing.
+
+    So only statements that are UNCONDITIONALLY reached count: the
+    function's own body, and the bodies of try/with (which always run).
+    Anything inside an if / loop / except may be skipped, so it is
+    scanned for violations but never credited with spending the slot.
+    """
+    checked = 0
+    # try/with bodies run unconditionally, so a reply inside one really
+    # has spent the slot for everything after it. if/for/while/match
+    # bodies may be skipped, so they are scanned for violations but never
+    # allowed to mark the slot spent for their followers.
+    ALWAYS_RUNS = (ast.Try, ast.With, ast.AsyncWith)
+    NESTED_FUNCTION = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+
+    def calls_in(stmt: ast.stmt):
+        """Calls in this statement, not descending into nested blocks --
+        those are walked separately, in order."""
+        for node in ast.walk(stmt):
+            if isinstance(node, ast.Call):
+                yield node
+
+    def scan(body: list[ast.stmt], spent: bool, report: list[tuple[int, bool]]) -> bool:
+        """Walk statements in order, recording each followup against
+        what is known at the point it actually executes. Returns whether
+        the slot is definitely spent once this block completes."""
+        for stmt in body:
+            if isinstance(stmt, NESTED_FUNCTION):
+                continue  # visited on its own by the caller's ast.walk
+
+            blocks = [b for name in ("body", "handlers", "orelse", "finalbody")
+                      for b in [getattr(stmt, name, None)] if isinstance(b, list)]
+
+            if not blocks:
+                # A simple statement: judge its followups at the current
+                # state, then see whether it spends the slot itself.
+                for node in calls_in(stmt):
+                    if _dotted(node.func) == ("interaction", "followup", "send"):
+                        report.append((node.lineno, spent))
+                if not spent:
+                    spent = any(_dotted(n.func) in SLOT_SPENDERS for n in calls_in(stmt))
+                continue
+
+            if isinstance(stmt, ALWAYS_RUNS):
+                # The body runs; propagate what it establishes. Handlers
+                # and else/finally are conditional, so they see the
+                # post-body state but can't publish their own.
+                after_body = scan(stmt.body, spent, report)
+                for handler in getattr(stmt, "handlers", []) or []:
+                    scan(handler.body, spent, report)
+                for name in ("orelse", "finalbody"):
+                    scan(getattr(stmt, name, []) or [], after_body, report)
+                spent = after_body
+            else:
+                # Conditional: scan every branch at the current state and
+                # throw away whatever they establish.
+                for block in blocks:
+                    if block and isinstance(block[0], ast.ExceptHandler):
+                        for handler in block:
+                            scan(handler.body, spent, report)
+                    else:
+                        scan(block, spent, report)
+        return spent
+
+    for path in sorted(ROOT.rglob("*.py")):
+        if path.name == "responses.py":
+            continue  # the helper that implements the rule
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for fn in ast.walk(tree):
+            if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if any(isinstance(n, ast.Attribute) and n.attr == "is_done"
+                   for n in ast.walk(fn)):
+                continue  # handles both sides itself
+            report: list[tuple[int, bool]] = []
+            scan(fn.body, False, report)
+            checked += len(report)
+            for line, was_spent in report:
+                if not was_spent:
+                    failures.append(
+                        f"{path.name}:{line} in {fn.name}() calls "
+                        f"interaction.followup.send on a path where nothing has "
+                        f"spent the response slot yet -- Discord answers that with "
+                        f"404 Unknown Webhook. Use responses.send, which picks the "
+                        f"right call either way."
+                    )
+    return checked
 
 
 def check_no_double_defer(failures: list[str]) -> None:
@@ -217,11 +376,13 @@ def main() -> int:
     failures: list[str] = []
     total = check_every_command_defers(failures)
     check_no_raw_responses(failures)
+    followups = check_followups_come_after_a_response(failures)
     check_no_double_defer(failures)
     check_helpers_survive_a_dead_token(failures)
 
     print(f"commands  : {total} slash commands, all deferring before any DB work")
     print("raw calls : 0 direct response.send_message / edit_message left in cogs")
+    print(f"followups : {followups} raw followup.send calls checked for ordering")
     print("helpers   : absorb 10062, re-raise everything else, route either side of a defer")
     print()
     if failures:

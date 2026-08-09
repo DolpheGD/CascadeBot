@@ -38,6 +38,7 @@ from bot.game.dungeon.relic_config import CAMPFIRE_REST_PERCENT, ELITE_RELIC_DRO
 from bot.game.economy.lootbox_config import tier_for_floor_and_region
 from bot.game.loot.generator import LootGenerator
 from bot.services import (
+    card_service,
     character_service,
     combat_service,
     item_template_service,
@@ -364,6 +365,17 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
     node = expedition.graph["nodes"][expedition.current_node_id]
     room_type = RoomType(node["room_type"])
     difficulty = get_region_difficulty(expedition.region)
+
+    # HOW DEEP THE PLAYER HAS EVER GOT, recorded on entering the room
+    # rather than on clearing it -- "make it past floor 20" is about
+    # arriving, and a run that ends ON floor 20 should still count it.
+    #
+    # This is a HIGH-WATER goal (quest_service.HIGH_WATER_GOALS): the
+    # amount is the floor number, not an increment, so ten runs to floor
+    # 5 never add up to floor 50.
+    quest_service.record_progress(
+        db, player, "reach_floor", amount=int(node["floor"]) + 1
+    )
 
     if room_type in (RoomType.COMBAT, RoomType.ELITE, RoomType.BOSS):
         if expedition.combat_state:
@@ -809,8 +821,11 @@ def _rest_squad(db, squad: list) -> str:
 
     equipped_by_char = character_service.get_equipped_items_by_character(db, [pc.id for pc in squad])
     healed_lines = []
+    # _rest_squad has no player object -- the squad rows carry the id.
+    _cards = card_service.cards_by_character(db, squad[0].player_id)
     for pc in squad:
-        combatant = build_character_combatant(pc, equipped_by_char.get(pc.id, []))
+        combatant = build_character_combatant(pc, equipped_by_char.get(pc.id, []),
+                                              card=_cards.get(pc.id))
         if combatant.current_hp >= combatant.max_hp:
             continue
         restored = max(1, round(combatant.max_hp * CAMPFIRE_REST_PERCENT / 100))
@@ -892,7 +907,8 @@ def _apply_hp_damage(db, player, rng: random.Random, percent: int) -> str | None
 
     equipped_by_char = character_service.get_equipped_items_by_character(db, [pc.id for pc in squad])
     victim = rng.choice(squad)
-    combatant = build_character_combatant(victim, equipped_by_char.get(victim.id, []))
+    combatant = build_character_combatant(victim, equipped_by_char.get(victim.id, []),
+                                          card=card_service.get_equipped_card(db, victim.id))
     lost = max(1, round(combatant.max_hp * percent / 100))
     victim.current_hp = max(1, combatant.current_hp - lost)
     return f"{victim.display_name} takes {lost} damage!"
@@ -1053,8 +1069,10 @@ def _apply_heal(db, player, rng: random.Random, heal_spec) -> str | None:
 
     equipped_by_char = character_service.get_equipped_items_by_character(db, [pc.id for pc in squad])
     healed_any = False
+    _cards = card_service.cards_by_character(db, player.id)
     for pc in squad:
-        combatant = build_character_combatant(pc, equipped_by_char.get(pc.id, []))
+        combatant = build_character_combatant(pc, equipped_by_char.get(pc.id, []),
+                                              card=_cards.get(pc.id))
         if combatant.current_hp >= combatant.max_hp:
             continue
         restored = max(1, round(combatant.max_hp * heal_spec / 100))

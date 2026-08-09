@@ -107,6 +107,47 @@ BEGINNER_QUESTS: list[dict] = [
         "goal_count": 1,
         "reward": {"gold": 96, "reroll_tokens": 3},
     },
+
+    # ------------------------------------------------------------------
+    # THE THREE THAT TAKE MORE THAN ONE PRESS.
+    #
+    # Every quest above completes the first time you do the thing, which
+    # made the whole beginner set a checklist of firsts you could finish
+    # in one sitting without engaging with anything. That was fine when
+    # the completion bonus was small; against 1,200 shards it is not --
+    # the reward should mean the player has actually PLAYED, not that
+    # they clicked each button once.
+    #
+    # So the set now ends on three that take real progress, chosen to
+    # point at the three systems a new player otherwise bounces off:
+    # the base, depth, and repeat expeditions.
+    #
+    # Both of the first two are HIGH-WATER goals -- see
+    # quest_service.HIGH_WATER_GOALS. Their `amount` is a level or a
+    # floor reached, not a count, so they cannot be satisfied by
+    # repetition at a shallower depth.
+    # ------------------------------------------------------------------
+    {
+        "id": "beginner_hq_two",
+        "description": "Upgrade Cascade HQ to level 2 with `/base`.",
+        "goal_type": "hq_level",
+        "goal_count": 2,
+        "reward": {"gold": 400, "wood": 60, "stone": 60},
+    },
+    {
+        "id": "beginner_floor_twenty",
+        "description": "Reach floor 20 of an expedition.",
+        "goal_type": "reach_floor",
+        "goal_count": 20,
+        "reward": {"gold": 600, "shards": 60},
+    },
+    {
+        "id": "beginner_three_adventures",
+        "description": "Complete three expeditions.",
+        "goal_type": "complete_adventures",
+        "goal_count": 3,
+        "reward": {"gold": 300, "reroll_tokens": 6},
+    },
 ]
 
 # ----------------------------------------------------------------------
@@ -131,7 +172,7 @@ BEGINNER_QUESTS: list[dict] = [
 # it is not only restored but raised to the round number it should always
 # have been.
 # ----------------------------------------------------------------------
-BEGINNER_BONUS_REWARD: dict[str, int] = {"shards": 1200}
+BEGINNER_BONUS_REWARD: dict[str, int] = {"shards": 1200, "cores": 150}
 
 
 # ----------------------------------------------------------------------

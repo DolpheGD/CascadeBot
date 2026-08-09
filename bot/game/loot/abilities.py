@@ -1735,8 +1735,30 @@ ARMOR_PASSIVES: list[dict] = [
 
 
 def abilities_for_rarity(pool: list[dict], rarity: Rarity) -> list[dict]:
-    """Every ability in `pool` unlocked at `rarity` or below."""
-    return [a for a in pool if a["min_rarity"].sort_order <= rarity.sort_order]
+    """Every ability in `pool` unlocked at `rarity` or below, MINUS the
+    ones that now live only on Character Cards.
+
+    The sixteen strongest abilities -- everything that used to be gated
+    to mythic/divine -- were moved onto Cards (see
+    card_config.CARD_ONLY_ABILITY_IDS). They are still defined in this
+    file, because Cards reference them by id and there is no reason to
+    keep two copies of an ability definition, but they can no longer roll
+    on a dropped item.
+
+    The reason for the move, briefly, since this function is where it
+    actually takes effect: a Divine drop could hand a brand-new player
+    Cataclysm's Edge on a weapon whose stats they would outgrow in a
+    week. The best ability in the game was attached to the most
+    disposable object in it, and getting it was a lottery inside a
+    lottery. On a Card it is one per character, chosen, and permanent.
+    """
+    from bot.game.economy.card_config import CARD_ONLY_ABILITY_IDS
+
+    return [
+        a for a in pool
+        if a["min_rarity"].sort_order <= rarity.sort_order
+        and a["id"] not in CARD_ONLY_ABILITY_IDS
+    ]
 
 
 def get_ability_by_id(pool: list[dict], ability_id: str) -> dict:

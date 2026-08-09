@@ -15,6 +15,43 @@ from bot.game.story import story_config as sc
 
 STORY_COLOR = discord.Color.from_rgb(88, 101, 242)
 
+# Rarity/tier glyphs for the reward line. Kept here rather than imported
+# from the loot layer because this is display shorthand for a one-line
+# summary, not the authoritative rarity styling.
+_TIER_ICON = {
+    "common": "⚪", "uncommon": "🟢", "rare": "🔵",
+    "epic": "🟣", "legendary": "🟠", "mythic": "🔴",
+}
+
+
+def _reward_summary(totals: dict) -> str:
+    """One line: '💰 200 gold · 🟢 Uncommon gear · ⚪ 1 lootbox'.
+
+    Empty string when a mission grants nothing, so the caller can leave
+    the label off entirely rather than printing 'Rewards: none' -- plenty
+    of story missions are pure narrative and shouldn't look like they're
+    short-changing anyone.
+    """
+    from bot.services.currency_service import format_currency
+
+    parts: list[str] = []
+    for key, value in totals.items():
+        if key == "item":
+            for tier, count in value.items():
+                icon = _TIER_ICON.get(tier, "🎁")
+                parts.append(f"{icon} {count}× {tier.title()} gear"
+                             if count > 1 else f"{icon} {tier.title()} gear")
+        elif key == "lootbox":
+            for tier, count in value.items():
+                icon = _TIER_ICON.get(tier, "🎁")
+                parts.append(f"{icon} {count}× {tier.title()} lootbox"
+                             if count > 1 else f"{icon} {tier.title()} lootbox")
+        elif key == "character":
+            parts.extend(f"⭐ {name}" for name in value)
+        else:
+            parts.append(format_currency(key, value))
+    return " · ".join(parts)
+
 
 def story_menu_embed(story, next_mission: dict | None, player) -> discord.Embed:
     """The `/story` landing screen: where you are and what's next."""
@@ -31,9 +68,23 @@ def story_menu_embed(story, next_mission: dict | None, player) -> discord.Embed:
         embed.description = (
             f"**{chapter['name']}**\n{chapter['blurb']}" if chapter else ""
         )
+        # WHAT IT PAYS, on the same field as what it is.
+        #
+        # The menu named the next mission and described it, and said
+        # nothing at all about the reward -- so the only way to find out
+        # what a mission was worth was to finish it. Every other
+        # content screen in the game (quests, raids, the shop) leads with
+        # its payout; story was the one place you were asked to commit
+        # blind.
+        #
+        # The line is built from story_config.mission_rewards, which reads
+        # the mission's own reward beats, so it cannot advertise something
+        # the mission doesn't actually grant.
+        reward_line = _reward_summary(sc.mission_rewards(next_mission))
         embed.add_field(
             name=f"▶ Next: {next_mission['name']}",
-            value=next_mission.get("summary", "​"),
+            value=(next_mission.get("summary", "​")
+                   + (f"\n\n**Rewards:** {reward_line}" if reward_line else "")),
             inline=False,
         )
 

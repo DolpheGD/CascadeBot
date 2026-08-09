@@ -410,7 +410,8 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     ),
     "slikrz_ultimate": _ultimate(
         "slikrz_ultimate", "Flatline Frenzy",
-        "Mark every enemy: all damage-over-time on them hits 70% harder, stacking up to 3 times.",
+        "Mark every enemy: all damage-over-time on them hits 25% harder per mark, "
+        "stacking up to 3 marks.",
         # SLIKRZ IS NOW A DoT AMPLIFIER, not a second DoT applier.
         #
         # team_dot_amplify existed in the engine and NO character used it
@@ -423,7 +424,21 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         #
         # His skill still applies bleed, so he sets up his own payoff and
         # gets better the more DoT the rest of the squad brings.
-        {"kind": "team_dot_amplify", "percent": 70, "max_stacks": 3, "duration": 4},
+        # "percent_per_stack", NOT "percent" -- _apply_dot_vulnerability
+        # reads the former and this kit declared the latter, so the key
+        # was ignored entirely and the mark silently ran at the 15%
+        # default: 45% at full stacks against an advertised 70%.
+        #
+        # check_descriptions could not see it. Its rule is that every %
+        # in the text must appear somewhere in the effect, and 70 did
+        # appear -- under a key nothing reads. A number being PRESENT is
+        # not the same as a number being USED, which is the gap that let
+        # this sit here since Slikrz was written.
+        # NO "duration": a Vulnerability persists for the rest of the
+        # battle by design (status.Vulnerability), so the key was inert.
+        # It read as a 4-turn window that did not exist -- the mark never
+        # expired and never had.
+        {"kind": "team_dot_amplify", "percent_per_stack": 25, "max_stacks": 3},
     ),
     "evz_skill": _skill(
         "evz_skill", "Bedside Manner", 18, 1,
@@ -536,16 +551,37 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     # _build_cycle_order) and fits "reads the terrain, always a step
     # ahead" better than a flat damage number would. Her ultimate keeps a
     # DEF rider so the mountaineer-survivalist flavor survives.
+    # REWORKED AGAIN, into the BREAK-DAMAGE buffer.
+    #
+    # The Speed rework above fixed her class identity but not her value.
+    # Speed rearranges WHEN turns happen; it does not change what a turn
+    # is worth, so in practice a squad with Nebula killed things at
+    # almost exactly the rate a squad without her did -- it just got
+    # there in a different order. A buff you cannot see in the damage
+    # numbers is a buff players correctly ignore.
+    #
+    # Break was the obvious place to put her, because the break economy
+    # was lopsided. Polo buffs POISE damage (how fast you break something)
+    # on a timer; break DAMAGE (how much harder a broken enemy takes hits)
+    # had only permanent sources -- relics and passives. Giving Nebula the
+    # timed half makes her the payoff to everyone else's setup, and makes
+    # her and Polo genuinely multiplicative rather than merely stackable:
+    # he shortens the fuse, she enlarges the payload.
+    #
+    # "Reads the terrain, always a step ahead" survives the change intact
+    # -- she still tells the squad where to hit, just in damage rather
+    # than in turn order.
     "nebula_skill": _skill(
         "nebula_skill", "Tactical Ground", 20, 2,
-        "Boost the whole team's SPD by 40% for 3 turns -- everyone acts sooner.",
-        {"kind": "team_buff", "buff_stat": "speed", "buff_percent": 40, "duration": 3},
+        "The whole squad deals +45% damage to BROKEN enemies for 3 turns.",
+        {"kind": "team_break_damage_buff", "percent": 45, "duration": 3},
     ),
     "nebula_ultimate": _ultimate(
         "nebula_ultimate", "Summit Advantage",
-        "Boost the whole team's SPD by 65% and DEF by 50% for 4 turns.",
-        {"kind": "team_double_buff", "buff_stat_1": "speed", "buff_percent_1": 65,
-         "buff_stat_2": "defense", "buff_percent_2": 50, "duration": 4},
+        "For 3 turns the whole squad chips +2 Poise per hit AND deals +80% damage to "
+        "BROKEN enemies -- break it faster, then hit it far harder.",
+        {"kind": "team_break_and_poise_buff", "break_percent": 80,
+         "poise_amount": 2, "duration": 3},
     ),
     "andy_skill": _skill(
         "andy_skill", "Wide Command Strafe", 20, 1,
@@ -649,16 +685,33 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     ),
 
     # --- 5-star ---
+    # JOSH IS THE ROSTER'S STRONGEST CARRY, and these numbers were
+    # measured against Blastix rather than picked.
+    #
+    # Before this pass Blastix topped both bench_dps columns -- plain AND
+    # crowd -- which the bench's own docstring calls out as a default
+    # pick rather than a design: nothing about the fight ever made him
+    # the wrong answer. Raising Josh past him and trimming Blastix a step
+    # fixes both halves of that at once.
+    #
+    # Measured (tools/bench_dps.py, plain / crowd):
+    #     Josh     944 / 1,317   <- top carry, modest crowd bonus
+    #     Blastix  844 / 1,709   <- second, but by far the best into a mob
+    #
+    # So Josh leads by ~12% on raw output while Blastix keeps the highest
+    # crowd multiplier on the roster. "Who is stronger" now has the
+    # answer the design wants, and "which do I bring" still depends on
+    # what you are walking into.
     "josh_skill": _skill(
         "josh_skill", "Aligner's Resolve", 22, 1,
-        "Deal 160% ATK damage, increased by up to 140% more the lower the target's HP is.",
-        {"kind": "damage_scales_with_missing_hp", "base_damage_percent": 160,
-         "bonus_damage_percent_at_zero_hp": 140, "damage_stat": "attack"},
+        "Deal 275% ATK damage, increased by up to 175% more the lower the target's HP is.",
+        {"kind": "damage_scales_with_missing_hp", "base_damage_percent": 275,
+         "bonus_damage_percent_at_zero_hp": 175, "damage_stat": "attack"},
     ),
     "josh_ultimate": _ultimate(
         "josh_ultimate", "Catastrophe Ball",
-        "Hurl a catastrophic payload that devastates every enemy at once for 260% ATK damage.",
-        {"kind": "aoe_damage", "damage_percent": 260, "damage_stat": "attack"},
+        "Hurl a catastrophic payload that devastates every enemy at once for 400% ATK damage.",
+        {"kind": "aoe_damage", "damage_percent": 400, "damage_stat": "attack"},
     ),
     # SUSTAIN contract: his skill was a pure single-target DAMAGE ability
     # -- the one thing a Sustain isn't supposed to be doing with its
@@ -776,21 +829,65 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     #   Aizer     -- the only character who scales off the enemy's missing
     #                health rather than their own.
     # ==================================================================
+    # ------------------------------------------------------------------
+    # BLASTIX -- reworked from a generic AOE DPS into the roster's DoT
+    # DPS, and specifically into its DETONATOR.
+    #
+    # He used to be "AOE that scales with enemy count", which read as a
+    # number rather than a character: strong into crowds, weak into
+    # bosses, and identical to play in both cases. Meanwhile the game had
+    # a whole damage-over-time economy -- burns, `dot_amplifier`,
+    # DOT_VULNERABILITY_STAT -- with appliers and amplifiers but nothing
+    # that CASHED IT IN. Burns just sat there ticking on someone else's
+    # clock, which is the standard problem with DoT in a turn game: it's
+    # damage you don't get to play.
+    #
+    # So both his buttons now act on burns rather than merely adding
+    # them, which is what "he can trigger DoTs" has to mean to be a
+    # rotation instead of a delay:
+    #
+    #   SKILL -- damage, burn everything, then make every burn on the
+    #            field tick immediately WITHOUT spending its duration.
+    #            Free value out of burns you keep. Repeatable.
+    #   ULT   -- damage, then CONSUME every burn for a multiple of what
+    #            it had left to deal. Cashes the setup out.
+    #
+    # The detonate multiplier is deliberately above 100%: at or below it,
+    # holding burns would strictly beat spending them and the ultimate
+    # would be a trap. Above it, the ultimate is worth exactly as much as
+    # the skill you spent turns setting it up with.
+    # ------------------------------------------------------------------
+    # NUMBERS ON BOTH BUTTONS ARE MEASURED, not chosen, and they moved a
+    # long way. Concentrating his damage-over-time onto ONE target made
+    # him vastly stronger than the spread version at the same
+    # percentages: the first pass at 90% ATK a turn benched at 5,203
+    # against a roster whose next-best carry managed 819. Six times the
+    # field, because a refreshed single-target DoT is applied every
+    # single cast to the same health bar, where the old spray was
+    # divided across three.
+    #
+    # Walked down over three measured passes to 45% / 7%:
+    #     Josh     971 plain   (top carry, as intended)
+    #     Blastix  840 plain   (second, and now the team piece)
+    #
+    # His crowd multiplier came DOWN with this rework and that is
+    # correct -- a single-target applier should not also be the best
+    # mob-clearer. What he gains instead is the ultimate, which scales
+    # with how much damage-over-time the REST of the squad brought.
     "blastix_skill": _skill(
         "blastix_skill", "Overpressure Round", 22, 1,
-        "Deal 95% ATK damage to ALL enemies, +45% per additional enemy present.",
-        # Scales with how many targets there are, which is what
-        # "demolitions, enthusiastically" should mean. Weak into a single
-        # boss, devastating into a crowd -- a real reason to swap him in
-        # and out rather than a number that never changes.
-        {"kind": "damage_scales_with_enemy_count", "damage_percent": 95,
-         "bonus_per_enemy": 45, "damage_stat": "attack"},
+        "Deal 45% ATK damage to ONE enemy and afflict them with Void Corruption: "
+        "7% ATK a turn for 3 turns.",
+        {"kind": "damage_and_void_corruption", "damage_percent": 45, "damage_stat": "attack",
+         "dot_stat": "attack", "dot_percent": 7, "duration": 3},
     ),
     "blastix_ultimate": _ultimate(
         "blastix_ultimate", "Total Detonation",
-        "Deal 210% ATK damage to every enemy and chip 4 Poise from each of them.",
-        {"kind": "aoe_damage_chance_poise_strike", "damage_percent": 210, "damage_stat": "attack",
-         "poise_chance_percent": 100, "bonus_poise": 4},
+        "Deal 110% ATK damage to every enemy, then DETONATE every damage-over-time "
+        "effect on all of them — Void Corruption, burns, bleeds, anyone's — for 110% "
+        "of the damage it had left to deal. They are consumed.",
+        {"kind": "aoe_damage_detonate_dots", "damage_percent": 110, "damage_stat": "attack",
+         "detonate_percent": 110},
     ),
     "gostley_skill": _skill(
         "gostley_skill", "Grave Tithe", 20, 1,
@@ -873,6 +970,100 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         "+1 more Poise per hit for 2 turns.",
         {"kind": "sacrifice_hp_team_poise_buff", "self_cost_percent": 75,
          "hp_per_point": 200, "duration": 2},
+    ),
+
+    # ==================================================================
+    # ROMAIN, YORUKI, ASC -- filling out the two archetypes the roster
+    # had exactly one seat in each of.
+    #
+    # After the Blastix and Nebula reworks, DoT and Break both had a
+    # payoff piece and a buff piece and nothing else, which meant
+    # "building around" either one was really "owning one specific
+    # character". These three give each archetype a second, differently
+    # shaped seat rather than a stronger version of the first:
+    #
+    #   ROMAIN -- DoT AMPLIFIER on both buttons. Slikrz amplifies only on
+    #             his ultimate and spends his skill applying bleed, so
+    #             the multiplier arrives once a fight and the DoT build
+    #             was gated on his energy. Romain is the dedicated
+    #             multiplier: he applies no damage-over-time at all and
+    #             is worthless without someone who does, which is what
+    #             makes him a BUILD rather than a pick.
+    #   YORUKI -- SINGLE-TARGET DoT applier. Blastix is AoE and Blueflame
+    #             is chance-based; neither reliably loads one boss. She
+    #             stacks a real burn on one thing, which is the setup
+    #             Blastix's detonation and Romain's mark both want and
+    #             neither can produce against a single enemy.
+    #   ASC    -- BREAK PAYOFF carry. Polo shortens the fuse, Nebula
+    #             enlarges the payload, Nyrvite breaks things -- and then
+    #             the window got cashed by whatever generic carry was
+    #             already in the squad. ASC is weak outside it and
+    #             enormous inside it, which is what turns break from a
+    #             stat everyone passively enjoys into something worth
+    #             building a squad around.
+    # ==================================================================
+
+    # --- Romain (5-star Amplifier) -------------------------------------
+    "romain_skill": _skill(
+        "romain_skill", "Read The Room", 20, 2,
+        "Mark every enemy: all damage-over-time on them hits 35% harder per mark, "
+        "stacking up to 3 marks.",
+        # The SKILL amplifies, which is the whole point of him. Repeat
+        # casts build stacks toward the cap, so a DoT squad's opening
+        # turns are spent loading the multiplier rather than waiting on
+        # an ultimate.
+        {"kind": "team_dot_amplify", "percent_per_stack": 35, "max_stacks": 3},
+    ),
+    "romain_ultimate": _ultimate(
+        "romain_ultimate", "Nothing Personal",
+        "Deal 130% ELE damage to every enemy and mark each of them: damage-over-time "
+        "hits 35% harder per mark, stacking up to 3 times.",
+        # Damage attached so he isn't a turn of pure setup -- an
+        # Amplifier whose ultimate does nothing visible is one players
+        # stop pressing, however correct the maths is.
+        {"kind": "aoe_damage_chance_dot_amplify", "damage_percent": 130,
+         "damage_stat": "elemental", "amplify_chance_percent": 100,
+         "percent_per_stack": 35, "max_stacks": 3, "duration": 4},
+    ),
+
+    # --- Yoruki (4-star Support DPS) -----------------------------------
+    "yoruki_skill": _skill(
+        "yoruki_skill", "Slow Work", 18, 1,
+        "Deal 85% ELE damage and set the target burning for 55% ELE a turn (4 turns).",
+        # NOTE the key is "duration", not "dot_duration" -- that's what
+        # damage_and_dot reads. Authoring it as dot_duration raised
+        # KeyError the first time the ability was ever cast, and neither
+        # check_descriptions nor check_runtime caught it: the description
+        # matched the effect, and check_runtime exercises encounters
+        # rather than character kits. Only actually casting it found it.
+        {"kind": "damage_and_dot", "damage_percent": 85, "damage_stat": "elemental",
+         "dot_stat": "elemental", "dot_percent": 55, "duration": 4},
+    ),
+    "yoruki_ultimate": _ultimate(
+        "yoruki_ultimate", "Everything Catches",
+        "Deal 145% ELE damage to all enemies and set every one of them burning for "
+        "45% ELE a turn (4 turns).",
+        {"kind": "aoe_damage_chance_dot", "damage_percent": 145, "damage_stat": "elemental",
+         "dot_chance_percent": 100, "dot_stat": "elemental",
+         "dot_percent": 45, "duration": 4},
+    ),
+
+    # --- ASC (5-star Support DPS) --------------------------------------
+    "asc_skill": _skill(
+        "asc_skill", "Opening", 20, 1,
+        "Deal 90% ATK damage -- or 260% if the target is BROKEN.",
+        {"kind": "damage_bonus_if_target_broken", "damage_percent": 90,
+         "bonus_damage_percent": 170, "damage_stat": "attack"},
+    ),
+    "asc_ultimate": _ultimate(
+        "asc_ultimate", "Closing",
+        "Deal 150% ATK damage to every enemy and chip 5 Poise from each of them.",
+        # His ultimate is the one part of him that CREATES the window
+        # rather than spending it, so a squad without a dedicated breaker
+        # can still switch him on -- just far less often than one built
+        # around Polo or Nyrvite.
+        {"kind": "aoe_damage_chance_poise_strike", "damage_percent": 150,
+         "damage_stat": "attack", "poise_chance_percent": 100, "bonus_poise": 5},
     ),
 
     "aizer_skill": _skill(
@@ -1152,6 +1343,30 @@ CHARACTER_PASSIVE_MAP: dict[str, dict] = {
         # person for the thing he sets up. Easy to flip to "self_heal" if
         # that was the intent.
         {"kind": "kit_reaction", "event": "break", "reward": "team_heal", "percent": 15},
+    ),
+    "romain_passive": _passive(
+        "romain_passive", "Long Memory", "always",
+        "Every damage-over-time effect in the squad's arsenal ticks 20% harder.",
+        # dot_amplifier is normally the APPLIER'S passive -- it scales
+        # burns at the moment they're applied. On Romain, who applies
+        # none, it does nothing at all on its own, which is exactly the
+        # shape his whole design wants: three lines of kit that are worth
+        # zero in a squad with no damage-over-time and multiply everything
+        # in one that has it.
+        {"kind": "dot_amplifier", "percent": 20},
+    ),
+    "yoruki_passive": _passive(
+        "yoruki_passive", "Patience", "always",
+        "The burns she sets are 25% stronger.",
+        {"kind": "dot_amplifier", "percent": 25},
+    ),
+    "asc_passive": _passive(
+        "asc_passive", "Follow Through", "always",
+        "Deals 35% more damage to enemies that are already broken.",
+        # Stacks with his skill's own condition on purpose: he should be
+        # unmistakably the best thing to point at a broken enemy, since
+        # being mediocre at everything else is the price he pays for it.
+        {"kind": "break_damage_bonus", "percent": 35},
     ),
 }
 

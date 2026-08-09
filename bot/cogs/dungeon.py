@@ -6,7 +6,8 @@ from discord import app_commands
 from bot.utils import responses
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
-from bot.services import character_service, combat_service, dungeon_service, relic_service
+from bot.services import (card_service, character_service, combat_service,
+                          dungeon_service, relic_service)
 from bot.utils import combat_ui, embedder
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils.ui_guard import OwnedView, require_feature
@@ -28,7 +29,9 @@ def _squad_hp_lines(db, player) -> list[str]:
         return []
 
     equipped_by_char = character_service.get_equipped_items_by_character(db, [pc.id for pc in squad])
-    combatants = [build_character_combatant(pc, equipped_by_char.get(pc.id, [])) for pc in squad]
+    _cards = card_service.cards_by_character(db, player.id)
+    combatants = [build_character_combatant(pc, equipped_by_char.get(pc.id, []),
+                                           card=_cards.get(pc.id)) for pc in squad]
 
     # Apply shrine bonuses so max_hp / max_mana are up-to-date outside of battle
     base_service.apply_shrine_bonuses(db, player, combatants)

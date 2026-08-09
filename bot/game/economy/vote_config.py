@@ -66,7 +66,31 @@ VOTE_STREAK_GRACE_HOURS = 36
 # voter, against sixteen. The lootbox progression below is untouched --
 # an epic box rising to mythic every single vote is a genuinely strong
 # reward and is now the actual reason to vote.
-VOTE_BASE_SHARDS = 70
+#
+# ----------------------------------------------------------------------
+# REVISED AGAIN: base shards back to 200
+# ----------------------------------------------------------------------
+# The cut above went too far. 70 base was set to kill a 980-shard vote,
+# and it did, but it also made the shard half of the reward stop
+# registering: at under a pull per vote, the number on the screen wasn't
+# worth reading. Voting should feel like it pays.
+#
+# 200 is a pull and change per vote, restoring the value this used to
+# have. Measured across the streak curve, with the milestone below
+# folded in:
+#
+#     streak  1 -> 200 shards (1.7 pulls)
+#     streak  5 -> 370        (3.1)      <- milestone vote
+#     streak 20 -> 445        (3.7)      <- milestone vote, at cap
+#
+# So a committed voter taking both daily votes lands around 890 shards a
+# day at a capped streak -- about 7 pulls, or 15 on a top.gg weekend.
+#
+# That is deliberately generous and is the largest recurring shard source
+# in the game. Worth knowing if the gacha ever needs tightening: this is
+# the number to look at first, and VOTE_SHARDS_PER_STREAK is the gentler
+# lever, since it only affects players who have already committed.
+VOTE_BASE_SHARDS = 200
 VOTE_SHARDS_PER_STREAK = 5
 VOTE_STREAK_CAP = 20  # streak stops scaling any reward past this
 
