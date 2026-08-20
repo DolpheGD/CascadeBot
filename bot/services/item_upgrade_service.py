@@ -11,6 +11,7 @@ the display requirement that costs should always be visible up front.
 from __future__ import annotations
 
 from bot.database.models.enums import MaterialType, Rarity
+from bot.game.economy import evolution_config
 from bot.game.loot.rarity_config import (
     ADD_SUBSTAT_COST,
     MAX_SUBSTATS,
@@ -194,10 +195,16 @@ def get_level_up_cost(item, levels: int = 1, db=None, player=None) -> dict:
     # batch that crosses a material band boundary correctly draws on both
     # bands rather than picking one for the whole run.
     gold = 0
+    fragments = 0
     materials: dict[str, int] = {}
     for i in range(max_levels):
         level = item.item_level + i
         gold += _gold_for_level(level)
+        # EVOLUTION FRAGMENTS at every 5th level -- 0 on the other four,
+        # so this is unconditional. Accumulated in the SAME per-level
+        # loop as gold and materials, which is what makes a multi-level
+        # upgrade that crosses two breakthroughs charge for both.
+        fragments += evolution_config.gear_breakthrough_cost(level, item.rarity)
 
         band = materials_for_level(level)
         qty = material_qty_for_level(level)
@@ -217,8 +224,23 @@ def get_level_up_cost(item, levels: int = 1, db=None, player=None) -> dict:
             factor = 1 - discount / 100
             gold = max(1, int(round(gold * factor)))
             materials = {k: max(1, int(round(v * factor))) for k, v in materials.items()}
+            # FRAGMENTS ARE NOT DISCOUNTED. The Research Lab perk exists
+            # to soften a BULK cost; a breakthrough is a gate, and a gate
+            # you can buy a discount on is a slightly cheaper gate rather
+            # than a checkpoint. Left explicit here because the obvious
+            # reading of the block above is that it discounts everything.
 
-    return {"levels": max_levels, "gold": gold, "materials": materials, "at_cap": max_levels < levels}
+    return {
+        "levels": max_levels,
+        "gold": gold,
+        "materials": materials,
+        "fragments": fragments,
+        # Whether this upgrade crosses a breakthrough at all, so the UI
+        # can say WHY it suddenly costs a resource it never asked for
+        # before rather than just listing one more line.
+        "breakthrough": fragments > 0,
+        "at_cap": max_levels < levels,
+    }
 
 
 def level_up_item(db, player, item, levels: int = 1) -> tuple[bool, str]:
@@ -226,6 +248,26 @@ def level_up_item(db, player, item, levels: int = 1) -> tuple[bool, str]:
     if cost["levels"] <= 0:
         cap = upgrade_level_cap(item.rarity)
         return False, f"{item.display_name} is already at its upgrade cap for {item.rarity.value} rarity ({cap})."
+
+    # FRAGMENTS ARE CHECKED BEFORE ANYTHING IS SPENT.
+    #
+    # The gold/material path below spends first and refunds on failure,
+    # which works but is the fiddliest code in this file. A breakthrough
+    # is also the one cost a player is likely to be short of -- it is
+    # designed to be -- so it would be the refund path taken most often.
+    # Refusing up front means the common failure touches nothing, and it
+    # can explain itself properly instead of saying "not enough" about a
+    # resource the player has never been asked for before.
+    needed = cost.get("fragments", 0)
+    if needed and getattr(player, "evolution_fragments", 0) < needed:
+        have = getattr(player, "evolution_fragments", 0)
+        boundary = evolution_config.GEAR_BREAKTHROUGH_EVERY
+        return False, (
+            f"**{item.display_name}** is at a breakthrough. Every {boundary} levels "
+            f"an item needs {format_currency('evolution_fragments', needed)} to go "
+            f"further, and you have {have}. Rarer gear needs more — this one is "
+            f"{item.rarity.value}."
+        )
 
     if not spend_currency(db, player, "gold", cost["gold"]):
         return False, f"Not enough {format_currency('gold', cost['gold'])}."
@@ -242,8 +284,14 @@ def level_up_item(db, player, item, levels: int = 1) -> tuple[bool, str]:
             return False, f"Not enough {format_currency(mat_name, qty)}."
         spent_materials.append((mat_name, qty))
 
+    if needed:
+        spend_currency(db, player, "evolution_fragments", needed)
+
     level_up(item, cost["levels"])
     db.commit()
     quest_service.record_progress(db, player, "upgrade_gear")
     note = " (capped)" if cost["at_cap"] else ""
-    return True, f"{item.display_name} leveled up to {item.item_level} for {format_currency('gold', cost['gold'])}{note}."
+    price = format_currency("gold", cost["gold"])
+    if needed:
+        price += f" + {format_currency('evolution_fragments', needed)}"
+    return True, f"{item.display_name} leveled up to {item.item_level} for {price}{note}."

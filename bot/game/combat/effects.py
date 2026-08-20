@@ -1047,6 +1047,47 @@ def resolve_active_ability(
         kwargs.setdefault("attacker_allies", allies)
         return _resolve_hit(*args, **kwargs)
 
+    # ------------------------------------------------------------------
+    # SPLASH -- a little AOE on top of whatever the ability already did.
+    #
+    # Applied here rather than folded into each effect kind because it is
+    # a ROLE rule, not an ability one: every Support DPS skill should
+    # touch the whole enemy side, so a Support DPS with a pure buff or a
+    # pure single-target debuff reads as an Amplifier wearing the wrong
+    # label. Doing it in one place means it works for every kind that
+    # exists now and every one added later, and an ability opts in with a
+    # single key.
+    #
+    # Deliberately small, and deliberately skipping the primary target --
+    # the ability's own damage already handled them, and hitting them
+    # twice would make splash a damage buff rather than a reach buff.
+    def _splash() -> None:
+        percent = effect.get("splash_percent")
+        if not percent or not opponents:
+            return
+        stat = effect.get("damage_stat", "attack")
+
+        # Skip the primary target ONLY if the ability already hit them.
+        # A pure-buff kind (Polo's team poise buff) deals no damage of
+        # its own, so excluding the defender there left the character the
+        # splash was added for doing nothing to the enemy in front of
+        # them -- which is the exact complaint splash exists to fix.
+        deals_own_damage = any(
+            key in effect for key in
+            ("damage_percent", "base_damage_percent", "execute_damage_percent")
+        )
+        targets = [o for o in opponents if o.is_alive()
+                   and (o is not defender or not deals_own_damage)]
+
+        hit_any = False
+        for other in targets:
+            others = [o for o in opponents if o is not other and o.is_alive()]
+            _hit(attacker, other, percent, stat, rng, log, defender_allies=others)
+            hit_any = True
+        if hit_any:
+            log.append(f"💢 The blast catches everything else for {percent}% "
+                       f"{stat.upper()}.")
+
     if kind == "damage_multiplier":
         _hit(attacker, defender, effect["damage_percent"],
                      effect.get("damage_stat", "attack"), rng, log, defender_allies=defender_allies)
@@ -2214,6 +2255,10 @@ def resolve_active_ability(
 
     else:
         log.append(f"({ability['name']} has no combat effect implemented yet)")
+
+    # Splash lands after the ability's own effect, before kit reactions,
+    # so a reaction that keys off damage sees the whole thing.
+    _splash()
 
     # Kit reactions fire AFTER the ability has fully resolved, so a
     # passive that grants a shield off a heal can't be undone by the heal

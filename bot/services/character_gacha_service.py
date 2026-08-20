@@ -76,7 +76,20 @@ def _pull_one(db, player, templates_by_star: dict[int, list[CharacterTemplate]],
         player.pity_since_four_star += 1
 
     pool = templates_by_star.get(star) or [t for tier in templates_by_star.values() for t in tier]
-    template = rng.choice(pool)
+
+    # WHICH 5-star, if this is one, honours the player's target. Every
+    # other star is an ordinary uniform pick -- targeting is a 5-star
+    # mechanic and applying it lower down would quietly narrow the 4-star
+    # pool as well.
+    hit_target = False
+    if star >= 5:
+        template, hit_target, player.target_character_guaranteed = (
+            pull_service.resolve_five_star(
+                rng, pool, player.target_character,
+                lambda t: t.name, bool(player.target_character_guaranteed))
+        )
+    else:
+        template = rng.choice(pool)
 
     pc, is_new, dupe_reward = character_service.grant_character(db, player, template)
     from_pity = (star >= 5 and was_hard_pity) or (star == 4 and was_four_star_pity)
@@ -92,6 +105,12 @@ def _pull_one(db, player, templates_by_star: dict[int, list[CharacterTemplate]],
         # such -- a pity payout landing with no acknowledgement reads as
         # coincidence, which wastes the reassurance the system exists for.
         "from_pity": from_pity,
+        # Whether this was the character the player nominated. Surfaced
+        # so the results embed can say so -- a targeted pull landing with
+        # no acknowledgement is indistinguishable from luck, which is the
+        # whole thing the system exists to remove.
+        "hit_target": hit_target,
+        "target_guaranteed_next": bool(player.target_character_guaranteed),
     }
 
 

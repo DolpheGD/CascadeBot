@@ -86,10 +86,110 @@ from bot.database.models.enums import Rarity
 # Uncommon. Difficulty and preparation moved together; either alone
 # would have been a regression.
 # ----------------------------------------------------------------------
+# THE LATE LADDER WAS RECALIBRATED FOR REAL RUN LENGTH.
+#
+# Wastelands 18/24 -> 15/20, Hotlands 26/33 -> 20/27, Voidcrest
+# 30/39 -> 24/33.
+#
+# Not a nerf on its own terms -- a correction for run length. Every
+# region's offsets were calibrated against tools/bench_roles when that
+# benchmark walked a hard-coded 9 floors; it now walks a real generated
+# map, which is ~45 rooms and 18 fights. Voidcrest measured a 15% clear
+# rate for the reference comp under the honest model and 45% at these
+# offsets, which is where it was always meant to sit.
+#
+# ABYSSNIA IS DELIBERATELY NOT ADJUSTED HERE, and it currently measures
+# about 2%. Its offsets are not what is wrong with it: dropping them by
+# 12 moved the clear rate by nothing, while the same change took
+# Voidcrest from 15% to 77%. What changed for Abyssnia is BOSS COUNT --
+# a run is now 3-4 boss fights rather than the ~1 the old benchmark
+# measured, and Abyssnia's bosses are the hardest in the game. That is a
+# content problem (its boss pool), not a scaling constant, and it wants
+# its own pass rather than a number nudged until the benchmark goes
+# green.
+# EXPECTED SQUAD LEVEL / GEAR: what a player is assumed to bring here.
+#
+# The game had no such concept, and both tools/bench_roles.py and
+# tools/check_final_bosses.py carried a private copy of it called
+# REGION_PROFILE. Two benchmarks with their own idea of who plays a
+# region, and a game with none at all, is the same two-sources-of-truth
+# shape that has produced most of the bugs in this project -- so it lives
+# here now and both tools read it.
+#
+# It is also what a FINAL BOSS should be levelled against. Enemy level is
+# floor // 10 + 1 + level_offset, which tops out near 5 + offset and
+# drifts further below the squad the deeper the region goes: measured,
+# final bosses sat at level 12/23/33/32/45/51 against squads of
+# 8/22/38/52/70/85. Voidcrest's finale was TWENTY levels under the party
+# that reaches it, which is why it was won every single time.
+#
+# FINAL-BOSS LEVEL DELTA, relative to expected_squad_level.
+#
+# The ANCHOR is the structural fix; this delta only absorbs how strong a
+# region's particular finale template is, which genuinely varies -- the
+# Wastelands finale is a FOUR-enemy boss group and Glacier's is a single
+# weak hydra, so the same level means very different things.
+#
+# Solved per region against a full-health reference squad:
+#
+#   region              -16   -12    -8    -4    +0    +4    +8   +12
+#   Glacier 15         100%  100%  100%  100%  100%  100%  100%   70%
+#   The Wastelands     100%  100%  100%  100%   85%   50%   10%    0%
+#   The Hotlands       100%  100%  100%   75%   55%   40%   15%    5%
+#   Voidcrest Desert    60%   30%   25%   20%   20%   10%    5%    0%
+#   Abyssnia            55%   55%   45%   45%   35%   25%   15%    0%
+#
+# Note Glacier is flat at 100% until +12: its finale is not under-
+# levelled, its TEMPLATE is weak, and no amount of anchoring fixes that.
+# That is the honest reason its delta is large and everyone else's is
+# negative.
+#
+# Enemy level is floor // 10 + 1 + level_offset, which tops out near
+# 5 + offset -- so a region's final boss arrived at level 6/20/25/29/45
+# while the squad reaching it is level 8/22/38/52/70. The gap widens with
+# depth, and tools/check_final_bosses measured four of five region
+# finales at a 100% win rate from full health. The run was hard; the
+# fight that ends it was a formality.
+#
+# Swept per region (win rate from full health, by bonus):
+#
+#     region             +0    +6   +12   +18   +24   +30
+#     Glacier 15        100%  100%   90%   45%   10%    0%
+#     The Wastelands    100%   50%    0%    0%    0%    0%
+#     The Hotlands      100%  100%   65%   40%    5%    5%
+#     Voidcrest Desert  100%   60%   30%   20%   15%    0%
+#     Abyssnia           60%   55%   55%   45%   40%   25%
+#
+# THE SWEEP ABOVE IS THE WRONG TARGET, AND IS KEPT AS A WARNING.
+#
+# Tuning to 55-65% from FULL health gave +16/+5/+12/+6/+0 and looked
+# right in isolation. Measured as a whole run, Glacier's clear rate fell
+# from 80% to 10%: players do not arrive at a finale at full health, or
+# even at the 60% the check's second column models. The isolated-fight
+# number is a useful floor ("is this winnable at all") and a bad target.
+#
+# So the shipped values are solved against the RUN clear rate in
+# tools/bench_roles instead, which is the number a player experiences:
+#
+#     bonuses          Glacier  Wastelands  Hotlands  Voidcrest  Abyssnia
+#     +16/5/12/6/0        10%       52%       60%       30%       32%
+#     +6/3/6/3/0          74%       68%       75%       42%       28%
+#     +6/3/8/3/0        <- shipped
+#
+# The values still differ widely because the curves do -- the Wastelands
+# finale is a FOUR-enemy boss group, so every level is worth four times
+# as much there, and Abyssnia needs none at all now that its bosses have
+# been rescaled.
+#
+# Deliberately a LEVEL bonus rather than a stat multiplier: levels run
+# through the same level_scale_percent curve as every other enemy, so a
+# boss stays recognisably itself and does not become a bespoke stat block
+# that has to be retuned separately forever.
 REGION_DIFFICULTY: dict[str, dict] = {
     "Glacier 15": {
+        "expected_squad_level": 8, "expected_gear_rarity": Rarity.RARE, "expected_gear_level": 12,
         "tier": 1, "difficulty_label": "Easy",
-        "level_offset": 1, "combat_level_offset": 2, "reward_multiplier": 1.3,
+        "final_boss_level_delta": 4, "level_offset": 1, "combat_level_offset": 2, "reward_multiplier": 1.3,
         "gold_multiplier": 1.3,
         "max_item_rarity": Rarity.RARE, "max_lootbox_tier": "rare",
         "rarity_weight_bonus": 0,
@@ -97,8 +197,9 @@ REGION_DIFFICULTY: dict[str, dict] = {
         "elite_squad_weights": {1: 100},
     },
     "The Wastelands": {
+        "expected_squad_level": 22, "expected_gear_rarity": Rarity.EPIC, "expected_gear_level": 18,
         "tier": 2, "difficulty_label": "Normal",
-        "level_offset": 18, "combat_level_offset": 24, "reward_multiplier": 1.8,
+        "final_boss_level_delta": 0, "level_offset": 15, "combat_level_offset": 20, "reward_multiplier": 1.8,
         "gold_multiplier": 3.0,
         "max_item_rarity": Rarity.EPIC, "max_lootbox_tier": "epic",
         "rarity_weight_bonus": 60,
@@ -119,8 +220,9 @@ REGION_DIFFICULTY: dict[str, dict] = {
         # every stat at once, rather than hand-editing the templates it
         # shares with four other regions. Kept below Voidcrest's 27/36 so
         # the ladder still rises.
+        "expected_squad_level": 38, "expected_gear_rarity": Rarity.LEGENDARY, "expected_gear_level": 22,
         "tier": 3, "difficulty_label": "Hard",
-        "level_offset": 26, "combat_level_offset": 33, "reward_multiplier": 2.8,
+        "final_boss_level_delta": -4, "level_offset": 20, "combat_level_offset": 27, "reward_multiplier": 2.8,
         "gold_multiplier": 8.0,
         "max_item_rarity": Rarity.LEGENDARY, "max_lootbox_tier": "legendary",
         "rarity_weight_bonus": 130,
@@ -128,8 +230,9 @@ REGION_DIFFICULTY: dict[str, dict] = {
         "elite_squad_weights": {1: 50, 2: 50},
     },
     "Voidcrest Desert": {
+        "expected_squad_level": 52, "expected_gear_rarity": Rarity.MYTHIC, "expected_gear_level": 28,
         "tier": 4, "difficulty_label": "Insane",
-        "level_offset": 30, "combat_level_offset": 39, "reward_multiplier": 4.5,
+        "final_boss_level_delta": -20, "level_offset": 24, "combat_level_offset": 33, "reward_multiplier": 4.5,
         "gold_multiplier": 20.0,
         "max_item_rarity": Rarity.MYTHIC, "max_lootbox_tier": "mythic",
         "rarity_weight_bonus": 220,
@@ -147,13 +250,48 @@ REGION_DIFFICULTY: dict[str, dict] = {
         # through harder fights and bigger payouts instead of a higher
         # loot ceiling: a genuine "hardest content in the game" tier
         # rather than a "strictly better loot" tier.
+        "expected_squad_level": 70, "expected_gear_rarity": Rarity.DIVINE, "expected_gear_level": 34,
         "tier": 5, "difficulty_label": "Nightmare",
-        "level_offset": 40, "combat_level_offset": 50, "reward_multiplier": 6.5,
+        "final_boss_level_delta": -16, "level_offset": 40, "combat_level_offset": 50, "reward_multiplier": 6.5,
         "gold_multiplier": 45.0,
         "max_item_rarity": Rarity.DIVINE, "max_lootbox_tier": "mythic",
         "rarity_weight_bonus": 320,
         "combat_squad_weights": {3: 10, 4: 35, 5: 55},
         "elite_squad_weights": {1: 10, 2: 35, 3: 55},
+    },
+    "Entrospire Deepworks": {
+        # REGION SIX. The company the story keeps naming and never shows:
+        # Entrospire hired two of Josh's people nine years ago (the
+        # photograph in the Cascade bunks) and this is where that work was
+        # done -- a facility still running its own process with nobody
+        # left to stop it.
+        #
+        # WHAT IT ESCALATES, given it cannot escalate loot.
+        #
+        # Rarity.DIVINE and lootbox tier "mythic" are already the hard
+        # ceiling (raising either needs a new Rarity value and a schema
+        # change). Abyssnia hit that ceiling, so region six cannot be a
+        # "better loot" tier either -- and stacking difficulty alone on
+        # top of a region that already clears at 28% would just be a wall.
+        #
+        # So the step is deliberately SHALLOW in difficulty and steep in
+        # VOLUME: +6/+7 level offsets over Abyssnia rather than the +10
+        # every earlier gap used, and a much higher rarity_weight_bonus
+        # plus reward multiplier. It is the place you farm divines once
+        # you can survive Abyssnia, not a fresh difficulty cliff.
+        #
+        # The enemy roster is machinery rather than soldiers (see
+        # enemies.py) -- sustained pressure and inevitability instead of
+        # burst, which is also what makes it survivable at these offsets.
+        "expected_squad_level": 85, "expected_gear_rarity": Rarity.DIVINE, "expected_gear_level": 35,
+        "tier": 6, "difficulty_label": "Terminal",
+        "final_boss_level_delta": -24, "level_offset": 46, "combat_level_offset": 57,
+        "reward_multiplier": 8.5,
+        "gold_multiplier": 70.0,
+        "max_item_rarity": Rarity.DIVINE, "max_lootbox_tier": "mythic",
+        "rarity_weight_bonus": 420,
+        "combat_squad_weights": {3: 8, 4: 32, 5: 60},
+        "elite_squad_weights": {1: 8, 2: 32, 3: 60},
     },
 }
 

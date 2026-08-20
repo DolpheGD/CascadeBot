@@ -28,6 +28,7 @@ import random
 from bot.game.combat.combatant import STAT_KEYS
 from bot.game.dungeon.relic_config import (
     OFFER_SIZE,
+    RELICS,
     get_relic,
     roll_offer,
 )
@@ -91,7 +92,8 @@ def offer_relics(expedition, rng: random.Random | None = None, size: int = OFFER
                       allow_cursed=allow_cursed)
 
 
-def grant_random_relic(db, expedition, rng: random.Random | None = None) -> dict | None:
+def grant_random_relic(db, expedition, rng: random.Random | None = None,
+                      rarity: str | None = None) -> dict | None:
     """Grants ONE weighted-random relic outright, no choice offered -- the
     boss-clear and elite-victory drop path. Returns the relic, or None if
     the player somehow already holds the entire catalog.
@@ -102,6 +104,28 @@ def grant_random_relic(db, expedition, rng: random.Random | None = None) -> dict
     simply a punishment for winning when it arrives unasked after a boss
     fight. Cursed relics still exist and are still strong -- they're just
     reachable only where you can say no."""
+    # A NAMED RARITY BYPASSES THE WEIGHTED ROLL -- and only then may it
+    # be cursed.
+    #
+    # An encounter that says "a cursed relic, and here is exactly what it
+    # will cost you" is the one place a drawback is fair, because the
+    # player read the offer and pressed the button. That is different in
+    # kind from a boss drop, which is why allow_cursed stays False on the
+    # unnamed path below.
+    if rarity is not None:
+        rng = rng or random.Random()
+        held = set(held_ids(expedition))
+        pool = [r for r in RELICS
+                if r["rarity"] == rarity and r["id"] not in held]
+        if not pool:
+            # Every relic of that rarity is already held. Fall through to
+            # an ordinary roll rather than returning nothing -- an event
+            # the player paid HP for must not pay out empty.
+            pool = [r for r in RELICS if r["id"] not in held]
+        if not pool:
+            return None
+        return grant_relic(db, expedition, rng.choice(pool)["id"])
+
     offer = offer_relics(expedition, rng=rng, size=1, allow_cursed=False)
     if not offer:
         return None

@@ -47,6 +47,23 @@ def list_player_lootboxes(db, player_id: int) -> list[PlayerLootbox]:
 def grant_lootbox(db, player, tier: str, quantity: int = 1) -> None:
     template = get_template(db, tier)
     if template is None:
+        # SEED ON DEMAND, THEN RETRY.
+        #
+        # Templates are normally seeded when the economy cog loads, which
+        # makes every caller of this function quietly dependent on cog
+        # load order. Story rewards call it, and story rewards are paid
+        # inside a loop over currencies -- so an unseeded table did not
+        # produce "no lootbox", it produced a ValueError halfway through
+        # a mission payout, with the gold already granted and the beat
+        # not advanced. Found by a bug-hunt that happened to seed
+        # characters and cards but not lootboxes, which is exactly the
+        # ordering a fresh deploy can produce.
+        #
+        # The raise below is kept for a tier that genuinely does not
+        # exist, because that IS a config bug and should be loud.
+        ensure_lootbox_templates_seeded(db)
+        template = get_template(db, tier)
+    if template is None:
         raise ValueError(f"No lootbox template for tier {tier!r}")
 
     owned = (

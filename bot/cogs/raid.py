@@ -253,12 +253,25 @@ class RaidDifficultySelect(discord.ui.Select):
         options = []
         for d in RAID_DIFFICULTIES:
             level = raid_boss_level(raid.boss_level, d)
+            # NO `default=True` ON ANY OPTION.
+            #
+            # This is why Standard could not be fought. Standard is
+            # DEFAULT_RAID_DIFFICULTY, so it was marked default -- and a
+            # Discord select treats a default option as ALREADY SELECTED.
+            # Picking the value that is already selected dispatches no
+            # interaction at all, so the one difficulty most players
+            # wanted was the one where clicking did nothing. Every other
+            # difficulty worked, which made it look like a Standard
+            # problem rather than a select problem.
+            #
+            # The placeholder already tells the player to choose, and
+            # marking a default on a menu whose entire purpose is to make
+            # a choice buys nothing.
             options.append(discord.SelectOption(
                 label=f"{d['name']} — Lv.{level} · {d['contribution_multiplier']}x credit",
                 value=d["id"],
                 emoji=d["emoji"],
                 description=d["description"][:100],
-                default=(d["id"] == DEFAULT_RAID_DIFFICULTY),
             ))
         super().__init__(placeholder="Choose your difficulty...", options=options,
                          min_values=1, max_values=1)

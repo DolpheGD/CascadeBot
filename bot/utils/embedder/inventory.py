@@ -80,6 +80,7 @@ def item_detail_embed(item, position: int | None = None, total: int | None = Non
     from bot.game.loot.rarity_config import (
         add_substat_cost, reroll_cost, upgrade_level_cap, MAX_SUBSTATS,
     )
+    from bot.game.economy import evolution_config
     from bot.services.inventory_service import get_sell_value
     from bot.services.item_upgrade_service import get_level_up_cost
 
@@ -92,7 +93,19 @@ def item_detail_embed(item, position: int | None = None, total: int | None = Non
                 for name, qty in next_cost["materials"].items() if qty > 0
             )
             value = format_currency("gold", next_cost["gold"]) + (f" + {mat_text}" if mat_text else "")
-            embed.add_field(name=f"⬆️ Level Up Cost (Lv{item.item_level}→{item.item_level + 1}, cap {cap})", value=value, inline=False)
+            label = f"⬆️ Level Up Cost (Lv{item.item_level}→{item.item_level + 1}, cap {cap})"
+            # A BREAKTHROUGH SAYS SO, on the screen where the player is
+            # deciding. Every 5th level costs a resource none of the
+            # other four do, and a cost line that silently grows a third
+            # entry reads as a bug rather than a rule.
+            if next_cost.get("fragments"):
+                value += f" + {format_currency('evolution_fragments', next_cost['fragments'])}"
+                label = f"⭐ BREAKTHROUGH (Lv{item.item_level}→{item.item_level + 1}, cap {cap})"
+                value += (
+                    f"\n*Every {evolution_config.GEAR_BREAKTHROUGH_EVERY} levels gear "
+                    f"needs Evolution Fragments to go further. Rarer gear needs more.*"
+                )
+            embed.add_field(name=label, value=value, inline=False)
     else:
         embed.add_field(name="⬆️ Level Up", value=f"At cap ({cap}) for {item.rarity.value} rarity", inline=True)
 
@@ -212,6 +225,8 @@ def general_inventory_embed(player, owned_lootboxes: list) -> discord.Embed:
             f"🪙 Gold: {player.gold}\n"
             f"{currency_emoji('shards')} Shards: {player.shards}\n"
             f"{currency_emoji('cores')} Cores: {player.cores}\n"
+            f"{currency_emoji('evolution_fragments')} Evolution Fragments: "
+            f"{player.evolution_fragments}\n"
             f"🎲 Reroll Tokens: {player.reroll_tokens}"
         ),
         inline=False,

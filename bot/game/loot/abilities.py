@@ -436,6 +436,54 @@ WEAPON_SKILLS: list[dict] = [
         "effect": {"kind": "damage_scales_with_missing_hp", "base_damage_percent": 170,
                    "bonus_damage_percent_at_zero_hp": 200, "damage_stat": "attack"},
     },
+
+    # ==================================================================
+    # CARD-ONLY, ADDED IN THE CATALOG EXPANSION.
+    #
+    # Every one of these is excluded from gear rolls (see
+    # card_config.CARD_ONLY_ABILITY_IDS) and exists to give the Card
+    # banner more to pull. They are deliberately built on effect KINDS
+    # the engine already resolves rather than new ones: a brand-new kind
+    # needs a new branch in the dispatcher, and an ability whose kind
+    # nothing handles equips fine, reads fine, and silently does nothing
+    # -- which is exactly the failure two ultimate-pool cards shipped
+    # with. Reusing a proven kind with new numbers cannot fail that way.
+    # ==================================================================
+    {
+        "id": "tidebreaker_arc",
+        "name": "Tidebreaker Arc",
+        "min_rarity": Rarity.LEGENDARY,
+        "resource_cost": 32, "resource_type": "mana", "cooldown": 3,
+        # Multi-hit is the best breaking tool in the game (poise is
+        # chipped once PER HIT), so this is the card for a squad that
+        # wins by breaking rather than by raw damage.
+        "description": "Strike three times for 68% ATK each.",
+        "effect": {"kind": "multi_hit", "hits": 3,
+                   "damage_percent_per_hit": 68, "damage_stat": "attack"},
+    },
+    {
+        "id": "riven_horizon",
+        "name": "Riven Horizon",
+        "min_rarity": Rarity.MYTHIC,
+        "resource_cost": 38, "resource_type": "mana", "cooldown": 3,
+        "description": "Deal 190% ATK damage, or 330% if the target is below 32% HP.",
+        "effect": {"kind": "execute_below_threshold", "damage_percent": 190,
+                   "damage_stat": "attack", "execute_damage_percent": 330,
+                   "hp_threshold_percent": 32},
+    },
+    {
+        "id": "sovereign_gambit",
+        "name": "Sovereign Gambit",
+        "min_rarity": Rarity.DIVINE,
+        "resource_cost": 44, "resource_type": "mana", "cooldown": 4,
+        # Pairs with the HP-loss archetype (Kotori, Fax, Yoruki): the
+        # characters that spend health now have a card that pays for it.
+        "description": "Deal 150% ATK damage, rising to 410% at 1 HP.",
+        "effect": {"kind": "damage_scales_with_missing_hp",
+                   "base_damage_percent": 150,
+                   "bonus_damage_percent_at_zero_hp": 260,
+                   "damage_stat": "attack"},
+    },
 ]
 
 ARTIFACT_SKILLS: list[dict] = [
@@ -1045,6 +1093,69 @@ ARTIFACT_SKILLS: list[dict] = [
         "description": "Sacrifice 15% of your own max HP to boost your whole side's ELE by 25% for 3 turns.",
         "effect": {"kind": "sacrifice_hp_team_buff", "self_cost_percent": 15,
                    "buff_stat": "elemental", "buff_percent": 25, "duration": 3},
+    },
+
+    # ==================================================================
+    # CARD-ONLY, ADDED IN THE CATALOG EXPANSION.
+    #
+    # Every one of these is excluded from gear rolls (see
+    # card_config.CARD_ONLY_ABILITY_IDS) and exists to give the Card
+    # banner more to pull. They are deliberately built on effect KINDS
+    # the engine already resolves rather than new ones: a brand-new kind
+    # needs a new branch in the dispatcher, and an ability whose kind
+    # nothing handles equips fine, reads fine, and silently does nothing
+    # -- which is exactly the failure two ultimate-pool cards shipped
+    # with. Reusing a proven kind with new numbers cannot fail that way.
+    # ==================================================================
+    {
+        "id": "standing_order",
+        "name": "Standing Order",
+        "min_rarity": Rarity.LEGENDARY,
+        "resource_cost": 30, "resource_type": "mana", "cooldown": 3,
+        "description": "Your whole side gains 18% ATK and 12% SPD for 3 turns.",
+        "effect": {"kind": "team_double_buff", "buff_stat_1": "attack",
+                   "buff_percent_1": 18, "buff_stat_2": "speed",
+                   "buff_percent_2": 12, "duration": 3},
+    },
+    {
+        "id": "emberline",
+        "name": "Emberline",
+        "min_rarity": Rarity.LEGENDARY,
+        "resource_cost": 34, "resource_type": "mana", "cooldown": 3,
+        "description": "Deal 110% ELE damage to every enemy, with a 60% chance to burn each for 30% ELE over 3 turns.",
+        "effect": {"kind": "aoe_damage_chance_dot", "damage_percent": 110,
+                   "damage_stat": "elemental", "dot_chance_percent": 60,
+                   "dot_percent": 30, "dot_stat": "elemental", "duration": 3},
+    },
+    {
+        "id": "chorus_of_thorns",
+        "name": "Chorus of Thorns",
+        "min_rarity": Rarity.MYTHIC,
+        "resource_cost": 36, "resource_type": "mana", "cooldown": 4,
+        "description": "Shield your whole side for 26% of their max HP and give them 20% DEF for 3 turns.",
+        "effect": {"kind": "team_shield_and_buff", "shield_percent": 26,
+                   "buff_stat": "defense", "buff_percent": 20, "duration": 3},
+    },
+    {
+        "id": "deepwater_cadence",
+        "name": "Deepwater Cadence",
+        "min_rarity": Rarity.MYTHIC,
+        "resource_cost": 34, "resource_type": "mana", "cooldown": 5,
+        "description": "Your whole side regenerates 7% max HP at the start of each of their turns for 4 turns.",
+        "effect": {"kind": "team_regen_over_time",
+                   "percent_max_hp_per_turn": 7, "duration": 4},
+    },
+    {
+        "id": "the_long_count",
+        "name": "The Long Count",
+        "min_rarity": Rarity.DIVINE,
+        "resource_cost": 40, "resource_type": "mana", "cooldown": 2,
+        # "all" rather than one damage stat -- the mark helps the whole
+        # squad, not only characters sharing the marker's scaling.
+        "description": "Deal 150% ELE damage and mark the target, increasing ALL damage it takes by 13% per stack (max 4).",
+        "effect": {"kind": "apply_vulnerability_stack", "damage_percent": 150,
+                   "damage_stat": "elemental", "vulnerable_damage_stat": "all",
+                   "percent_per_stack": 13, "max_stacks": 4},
     },
 ]
 
@@ -1730,6 +1841,64 @@ ARMOR_PASSIVES: list[dict] = [
         "description": "Reduce incoming damage by 4%, plus up to 14% more the lower your HP.",
         "effect": {"kind": "damage_reduction_scales_with_missing_hp",
                    "base_percent": 4, "bonus_percent_at_zero_hp": 14},
+    },
+
+    # ==================================================================
+    # CARD-ONLY, ADDED IN THE CATALOG EXPANSION.
+    #
+    # Every one of these is excluded from gear rolls (see
+    # card_config.CARD_ONLY_ABILITY_IDS) and exists to give the Card
+    # banner more to pull. They are deliberately built on effect KINDS
+    # the engine already resolves rather than new ones: a brand-new kind
+    # needs a new branch in the dispatcher, and an ability whose kind
+    # nothing handles equips fine, reads fine, and silently does nothing
+    # -- which is exactly the failure two ultimate-pool cards shipped
+    # with. Reusing a proven kind with new numbers cannot fail that way.
+    # ==================================================================
+    {
+        "id": "last_ward",
+        "name": "Last Ward",
+        "min_rarity": Rarity.LEGENDARY,
+        "trigger": "always",
+        "description": "Take 6% less damage, rising to 28% less at 1 HP.",
+        "effect": {"kind": "damage_reduction_scales_with_missing_hp",
+                   "base_percent": 6, "bonus_percent_at_zero_hp": 22},
+    },
+    {
+        "id": "quartermasters_seal",
+        "name": "Quartermaster's Seal",
+        "min_rarity": Rarity.LEGENDARY,
+        # "on_turn_start", not "turn_start". trigger_on_turn_start filters
+        # on the exact string, so the near-miss made this passive load,
+        # display and do nothing at all.
+        "trigger": "on_turn_start",
+        "description": "Restore 12 SP at the start of each of your turns.",
+        "effect": {"kind": "resource_regen", "resource_type": "mana", "amount": 12},
+    },
+    {
+        "id": "hollow_reprisal",
+        "name": "Hollow Reprisal",
+        "min_rarity": Rarity.MYTHIC,
+        # "always" -- the retaliation kinds are checked inside the hit
+        # resolver, not dispatched from a trigger name, and both existing
+        # chance_stun_attacker passives use "always".
+        "trigger": "always",
+        "description": "22% chance to stun any enemy that attacks you for 1 turn.",
+        "effect": {"kind": "chance_stun_attacker", "percent": 22, "duration": 1},
+    },
+    {
+        "id": "unbroken_line",
+        "name": "Unbroken Line",
+        "min_rarity": Rarity.DIVINE,
+        "trigger": "on_low_hp",
+        # THE EMERGENCY BUTTON the Sustain roster lost when Bee Jee and
+        # Lily traded their lump heals for lifesteal and regen. Regen
+        # cannot answer a spike; a once-per-fight heal at the cliff edge
+        # can, and putting it on a card means it is a choice rather than
+        # something every healer carries by default.
+        "description": "The first time your HP drops below 1% in a fight, heal 38% of max HP.",
+        "effect": {"kind": "heal_percent_max_hp", "percent": 38,
+                   "charges_per_combat": 1},
     },
 ]
 

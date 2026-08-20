@@ -36,6 +36,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    JSON,
     String,
     UniqueConstraint,
     func,
@@ -123,6 +124,16 @@ class PlayerCharacter(Base):
     # "no custom name set yet", i.e. still shows the template's own name
     # ("You" for the avatar) -- see the display_name property below.
     custom_name: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+    # TALENTS: the list of bought node ids, e.g. ["a1", "a2", "b1"].
+    #
+    # A list of ids and nothing else -- no points-spent total, no cached
+    # stat bonus. Both of those are derivable from this list plus the
+    # config, and storing a derived value alongside its source is how the
+    # two end up disagreeing after a config retune. Points spent is
+    # recomputed on read (talent_service.spent_points); the stat bonus is
+    # recomputed per combat build.
+    talents: Mapped[list] = mapped_column(JSON, default=list)
 
     # Persisted between battles -- NULL means "full HP" (nothing to clamp
     # yet, e.g. a freshly pulled or leveled character). Combat reads this

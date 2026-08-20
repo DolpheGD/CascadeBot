@@ -26,6 +26,7 @@ from __future__ import annotations
 import datetime as dt
 
 from bot.game.economy.vote_config import (
+    compute_vote_fragments,
     VOTE_COOLDOWN_HOURS,
     VOTE_STREAK_GRACE_HOURS,
     compute_vote_cores,
@@ -115,6 +116,7 @@ def claim_vote(db, player, is_weekend: bool = False) -> dict:
     streak = _next_streak(player)
     shards, gold, reroll_tokens = compute_vote_currency(streak, is_weekend=is_weekend)
     cores = compute_vote_cores(streak, is_weekend=is_weekend)
+    fragments = compute_vote_fragments(streak, is_weekend=is_weekend)
     materials = compute_vote_materials(streak)
     lootbox_tiers = compute_vote_lootboxes(streak)
 
@@ -131,6 +133,8 @@ def claim_vote(db, player, is_weekend: bool = False) -> dict:
         add_currency(db, player, "shards", shards)
     if cores:
         add_currency(db, player, "cores", cores)
+    if fragments:
+        add_currency(db, player, "evolution_fragments", fragments)
     if gold:
         add_currency(db, player, "gold", gold)
     if reroll_tokens:
@@ -147,6 +151,7 @@ def claim_vote(db, player, is_weekend: bool = False) -> dict:
         "total_votes": player.total_votes,
         "shards": shards,
         "cores": cores,
+        "evolution_fragments": fragments,
         "gold": gold,
         "reroll_tokens": reroll_tokens,
         "materials": materials,

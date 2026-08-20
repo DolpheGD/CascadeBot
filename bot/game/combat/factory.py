@@ -216,7 +216,7 @@ def base_character_stats(player_character) -> dict:
     template = player_character.template
     levels = max(0, player_character.level - 1)
     power = level_power_multiplier(player_character.level)
-    return {
+    stats = {
         "attack": (template.base_attack + template.growth_attack * levels) * power,
         "defense": (template.base_defense + template.growth_defense * levels) * power,
         "elemental": (template.base_elemental + template.growth_elemental * levels) * power,
@@ -227,6 +227,32 @@ def base_character_stats(player_character) -> dict:
         "crit_damage": template.base_crit_damage,
         "recharge": template.base_recharge,
     }
+
+    # TALENTS, applied to the PRE-GEAR stat block.
+    #
+    # This is the only place they are applied, and it has to be this one:
+    # _resolve_gear_stats computes every percent substat against the
+    # values this function returns, so a talent applied after gear would
+    # be invisible to those substats, and a talent applied in the combat
+    # UI instead would not exist in any simulation -- including the ones
+    # the entire difficulty ladder is tuned against.
+    #
+    # Percentages sum rather than compound (see talent_config), and the
+    # crit/recharge flats are the only way those three stats move from
+    # levelling at all, which is deliberate: the levelling spec makes
+    # them gear's job, and talents are the one exception a player chooses.
+    try:
+        from bot.services import talent_service
+        percent, flat = talent_service.bonuses(player_character)
+    except Exception:  # pragma: no cover - a character with no talents column
+        percent, flat = {}, {}
+    for stat, amount in percent.items():
+        if stat in stats:
+            stats[stat] *= 1 + amount / 100
+    for stat, amount in flat.items():
+        if stat in stats:
+            stats[stat] += amount
+    return stats
 
 
 def _resolve_gear_stats(base_stats: dict, equipped_items: list) -> dict:
@@ -336,27 +362,45 @@ def build_character_combatant(player_character, equipped_items: list,
     # armor, and one carrying a weapon skill becomes a usable button --
     # the ability does not change because of what it is printed on.
     card_ability = _card_ability(card)
+    card_ultimate = None
     if card_ability is not None:
         entry = dict(card_ability)
         entry["source"] = "card"
         pool = (card.template.ability_pool if card is not None else "artifact")
         if pool == "armor":
             passive_abilities.append(entry)
+        elif pool == "ultimate":
+            # AN ULTIMATE-POOL CARD REPLACES THE CHARACTER'S ULTIMATE.
+            #
+            # It used to fall into `passive_abilities`, which is only
+            # ever read by find_passive(kind) -- and an ultimate's kind
+            # ("aoe_damage", "damage_multiplier") matches no passive
+            # handler, so the ability sat in a list nothing consulted and
+            # did precisely nothing. Two 4-star cards were affected:
+            # "Everything He Keeps An Inventory Of" (World Ender) and
+            # "Somebody Has To" (Ascension). They equipped, showed their
+            # three stats, printed their ability on the info page, and
+            # were inert in every fight.
+            #
+            # Replacing the ultimate is the honest reading of what these
+            # cards are: an ultimate is an ultimate, and a card that
+            # carries one is a build decision about which ultimate you
+            # want. The alternative -- a second ultimate button -- would
+            # give one card two of the strongest actions in the game.
+            card_ultimate = entry
         elif pool == "weapon" and not weapon_skill:
             weapon_skill = entry
         elif pool == "artifact" and not artifact_skill:
             artifact_skill = entry
         else:
-            # An ultimate-pool card, or a slot the gear already filled.
-            # Cards win ties -- they are the scarcer, chosen item, and a
-            # card whose ability is silently suppressed by a dropped
-            # weapon would be the single most confusing outcome here.
+            # A slot the gear already filled. Cards win ties -- they are
+            # the scarcer, chosen item, and a card whose ability is
+            # silently suppressed by a dropped weapon would be the single
+            # most confusing outcome here.
             if pool == "weapon":
                 weapon_skill = entry
-            elif pool == "artifact":
-                artifact_skill = entry
             else:
-                passive_abilities.append(entry)
+                artifact_skill = entry
 
     if character_passive:
         passive = dict(character_passive)
@@ -374,7 +418,10 @@ def build_character_combatant(player_character, equipped_items: list,
         active_abilities.append(artifact_skill)
 
     ultimate_ability = None
-    if character_ultimate:
+    if card_ultimate is not None:
+        ultimate_ability = dict(card_ultimate)
+        ultimate_ability["is_ultimate"] = True
+    elif character_ultimate:
         ultimate_ability = dict(character_ultimate)
         ultimate_ability["source"] = "character"
         ultimate_ability["is_ultimate"] = True

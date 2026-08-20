@@ -394,6 +394,21 @@ def advance(db, player, choice_id: str | None = None) -> dict:
         # reaching here means the fight is already resolved.
         result["text"] = beat.get("on_win")
 
+    elif kind == "puzzle":
+        # Same contract as `battle`: the puzzle UI resolves it and then
+        # calls advance() to step past it. `choice_id` carries the
+        # outcome, because a puzzle the player skipped and a puzzle they
+        # solved pay differently and must not be told apart by re-running
+        # the solver here -- that would be two code paths deciding one
+        # thing, and the second one would not have the submission.
+        if choice_id == "solved":
+            result["rewards"] = _grant(db, player, beat.get("grant") or {})
+            result["text"] = beat.get("on_solve")
+            if beat.get("sets"):
+                set_flags(db, story, beat["sets"])
+        else:
+            result["text"] = beat.get("on_skip") or beat.get("text")
+
     story.beat_index += 1
     db.commit()
 
@@ -461,6 +476,26 @@ def _seat_in_free_slot(db, player, template) -> None:
 
 
 def _grant(db, player, grant: dict) -> list[str]:
+    # IMPORTED ONCE, AT THE TOP OF THE FUNCTION, AND THIS IS LOAD-BEARING.
+    #
+    # `character_service` used to be imported inside the `if key ==
+    # "character"` branch. Python decides a name is local for the ENTIRE
+    # function body if it is bound anywhere in it, so the later `xp`
+    # branch -- which also uses character_service -- raised
+    # UnboundLocalError on every reward that granted XP without also
+    # granting a character.
+    #
+    # That is almost every reward beat in the story. The third prologue
+    # mission crashed mid-payout, left itself as the active mission, and
+    # every subsequent mission refused to start with "you're already
+    # partway through a mission". The story was unplayable past mission
+    # three and no feature ever unlocked.
+    #
+    # Nothing caught it: check_story validates the story's DATA and the
+    # difficulty tuner simulates BATTLES, and neither one ever calls this
+    # function. It took playing the game to find it.
+    from bot.services import character_service
+
     """Apply a reward block. Deliberately narrow: currencies and a single
     item. Anything more elaborate belongs in an `encounter` beat, which
     gets the full encounter interpreter for free."""
@@ -482,7 +517,6 @@ def _grant(db, player, grant: dict) -> list[str]:
             # behaves exactly like a pulled one, including raising
             # Resonance and paying Echoes if it's a duplicate.
             from bot.database.models.character_model import CharacterTemplate
-            from bot.services import character_service
 
             template = db.query(CharacterTemplate).filter_by(name=amount).first()
             if template is None:
@@ -542,6 +576,25 @@ def _grant(db, player, grant: dict) -> list[str]:
                            else (amount, 1))
             lootbox_service.grant_lootbox(db, player, str(tier), int(count))
             lines.append(f"🎁 **{int(count)}× {str(tier).title()} Lootbox**")
+        elif key == "xp":
+            # STORY XP, added so the story can carry a player to the
+            # level its own finale is tuned for.
+            #
+            # It could not, before. Missions granted gold, gear, pulls and
+            # materials -- everything except the one resource that decides
+            # whether a fight is survivable. A player who did only the
+            # story arrived at the last boss several levels short and had
+            # no way to know it, because nothing in the story had ever
+            # mentioned levelling.
+            #
+            # Split across the whole squad, exactly like an expedition's
+            # XP, so it rewards keeping a team rather than one carry.
+            from bot.services import combat_service
+            squad = character_service.get_squad(db, player)
+            if squad and int(amount) > 0:
+                level_ups = combat_service.apply_character_xp(db, squad, int(amount))
+                suffix = f" — **{len(level_ups)} level up!**" if level_ups else ""
+                lines.append(f"✨ **{int(amount):,} XP** to the squad{suffix}")
         elif key in VALID_CURRENCIES:
             add_currency(db, player, key, int(amount))
             emoji = CURRENCY_EMOJI.get(key, "")

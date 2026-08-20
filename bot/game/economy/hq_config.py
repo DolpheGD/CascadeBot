@@ -525,4 +525,101 @@ SHOP_LISTINGS: list[dict] = _material_market_listings() + [
         "reward_amount": 10,
         "daily_limit": 3,
     },
+    # ------------------------------------------------------------------
+    # EVOLUTION FRAGMENTS -- the floor under the breakthrough system.
+    #
+    # Fragments gate levelling gear and Cards past every 5th and 10th
+    # level (bot/game/economy/evolution_config.py). A gate whose only
+    # keys are a harvester at HQ 3 and a domain has a bad failure mode:
+    # a player who is 12 fragments short of finishing an item they are
+    # standing in front of has nothing to DO about it except wait, and
+    # waiting is not gameplay.
+    #
+    # So the Salvage Contract opens at HQ 1, costs plain gold, and is
+    # daily-limited. The limit is what keeps it a floor rather than the
+    # whole economy: 4 a day is 20 fragments, which comfortably covers
+    # an Uncommon or Rare item and comes nowhere near a Divine one, let
+    # alone a Card. Gold is also the currency a stalled player is most
+    # likely to have spare.
+    # ------------------------------------------------------------------
+    {
+        "name": "Salvage Contract",
+        "description": "The quartermaster strips something broken for parts. What's left still changes things.",
+        "kind": "exchange",
+        "unlock_hq_level": 1,
+        "cost_currency": "gold",
+        "cost_amount": 700,
+        "reward_currency": "evolution_fragments",
+        "reward_amount": 5,
+        "daily_limit": 4,
+    },
+    {
+        # The bulk version, priced in crystal rather than gold. A player
+        # deep enough to have crystal spare is the one levelling Mythic
+        # and Divine gear, where a single breakthrough runs to 144.
+        "name": "Fragment Foundry",
+        "description": "Crystal, fed in whole and drawn out as something that can still become other things.",
+        "kind": "exchange",
+        "unlock_hq_level": 4,
+        "cost_currency": "crystal",
+        "cost_amount": 50,
+        "reward_currency": "evolution_fragments",
+        "reward_amount": 40,
+        "daily_limit": 3,
+    },
+    # ------------------------------------------------------------------
+    # ...and three more doors into the same currency, each priced in
+    # something DIFFERENT.
+    #
+    # One shop listing per resource is a bottleneck wearing a shop's
+    # clothes: a player short of fragments but flush with metal, or
+    # sitting on reroll tokens they will never spend, had exactly one
+    # conversion available and it wanted gold. Spreading the entrances
+    # across the resources players actually accumulate is what makes the
+    # shop a market rather than a single vending machine.
+    #
+    # Every one is daily-limited, and the limits are what keep the
+    # harvester and the Evolution Domain the primary sources. Added
+    # together the shop caps out around 155 fragments a day, against a
+    # maxed Cradle's ~186 and a nightmare Domain's 260 -- convenience,
+    # not a replacement.
+    # ------------------------------------------------------------------
+    {
+        "name": "Scrap Line",
+        "description": "Broken metal, sorted by hand. Most of it is nothing. Some of it still wants to change.",
+        "kind": "exchange",
+        "unlock_hq_level": 2,
+        "cost_currency": "metal",
+        "cost_amount": 45,
+        "reward_currency": "evolution_fragments",
+        "reward_amount": 16,
+        "daily_limit": 4,
+    },
+    {
+        # Reroll tokens are the one currency with a single sink (substat
+        # rerolls), so a player who has stopped rerolling accumulates
+        # them forever. This gives that pile somewhere to go.
+        "name": "Attunement Salvage",
+        "description": "Spent attunements, wrung out for whatever is left in them.",
+        "kind": "exchange",
+        "unlock_hq_level": 3,
+        "cost_currency": "reroll_tokens",
+        "cost_amount": 30,
+        "reward_currency": "evolution_fragments",
+        "reward_amount": 22,
+        "daily_limit": 3,
+    },
+    {
+        # The endgame door: deep materials, which only the late regions
+        # drop, for the breakthroughs only late gear reaches.
+        "name": "Entropy Loom",
+        "description": "Entropy, spun back into the shape of a thing that has not happened yet.",
+        "kind": "exchange",
+        "unlock_hq_level": 5,
+        "cost_currency": "entropy",
+        "cost_amount": 25,
+        "reward_currency": "evolution_fragments",
+        "reward_amount": 60,
+        "daily_limit": 2,
+    },
 ]

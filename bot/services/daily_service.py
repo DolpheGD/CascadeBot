@@ -10,6 +10,7 @@ from __future__ import annotations
 import datetime as dt
 
 from bot.game.economy.daily_config import (
+    compute_daily_fragments,
     DAILY_COOLDOWN_HOURS,
     DAILY_STREAK_GRACE_HOURS,
     compute_daily_lootboxes,
@@ -51,6 +52,7 @@ def claim_daily(db, player) -> dict:
 
     gold, shards, reroll_tokens = compute_daily_reward(player.daily_streak)
     cores = compute_daily_cores(player.daily_streak)
+    fragments = compute_daily_fragments(player.daily_streak)
     lootbox_tiers = compute_daily_lootboxes(player.daily_streak)
     materials = compute_daily_materials(player.daily_streak)
     player.last_daily_claimed_at = now
@@ -62,6 +64,8 @@ def claim_daily(db, player) -> dict:
         add_currency(db, player, "shards", shards)
     if cores:
         add_currency(db, player, "cores", cores)
+    if fragments:
+        add_currency(db, player, "evolution_fragments", fragments)
     if reroll_tokens:
         add_currency(db, player, "reroll_tokens", reroll_tokens)
     for material, amount in materials.items():
@@ -72,6 +76,7 @@ def claim_daily(db, player) -> dict:
 
     return {
         "gold": gold, "shards": shards, "cores": cores,
+        "evolution_fragments": fragments,
         "reroll_tokens": reroll_tokens, "streak": player.daily_streak,
         "lootbox_tiers": lootbox_tiers, "materials": materials,
     }

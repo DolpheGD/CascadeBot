@@ -97,6 +97,28 @@ TEAM_SIZE = 4
 # `level` is per floor, applied to every enemy in it.
 # `rewards` are ONE-TIME for static floors, once-per-rotation for
 # rotating ones.
+#
+# CORES, ADDED LATE. Every floor paid Shards and no Cores, so the
+# hardest content in the game advanced one gacha and was invisible to
+# the other -- and a player deep enough to be clearing the Abyss is
+# exactly the player with characters worth putting Cards on.
+#
+# Worse, card_config's CORE_SOURCES survey listed the Void Abyss as a
+# core source when it was not one. A comment describing intent rather
+# than behaviour is the most expensive kind to leave lying around,
+# because the next person reads it as a survey of what happens -- and
+# the next person was me, twice.
+#
+# Each floor pays HALF its shard figure. Cores accrue at half the rate
+# of shards game-wide by design, and both banners cost 120 a pull, so
+# half the shards is exactly half the pulls.
+#
+# EVOLUTION FRAGMENTS, at roughly 15% of the shard figure. Much smaller
+# than the other two because a floor pays ONCE (or once per rotation),
+# and fragments are the one currency where a single lump can unstick a
+# specific item the player is standing in front of. A full 12-floor
+# clear is 539 -- one Divine weapon taken from 1 to 35, which is a
+# proportionate trophy for finishing the hardest content in the game.
 # ----------------------------------------------------------------------
 
 FLOORS: list[dict] = [
@@ -110,7 +132,7 @@ FLOORS: list[dict] = [
             ["Xender Henchmen", "Xender Recon Scout", "Concussion Drone"],
             ["Rogue Security Drone", "Ad-Drone Swarm Unit"],
         ],
-        "rewards": {"gold": 1_200, "shards": 80, "reroll_tokens": 6},
+        "rewards": {"gold": 1_200, "shards": 80, "evolution_fragments": 12, "cores": 40, "reroll_tokens": 6},
     },
     {
         "floor": 2,
@@ -122,7 +144,7 @@ FLOORS: list[dict] = [
             ["Frostblock", "Xender Enforcer"],
             ["Glacial Exterminator", "Xender Loyalist", "Xender Loyalist"],
         ],
-        "rewards": {"gold": 1_800, "shards": 110, "permafrost_ore": 60, "reroll_tokens": 8},
+        "rewards": {"gold": 1_800, "shards": 110, "evolution_fragments": 16, "cores": 55, "permafrost_ore": 60, "reroll_tokens": 8},
     },
     {
         "floor": 3,
@@ -134,7 +156,7 @@ FLOORS: list[dict] = [
             ["Rohan's Warden", "Xender Convoy"],
             ["Voidwarp Construct", "Ocellios Test Subject", "Xendium Overcharge Drone"],
         ],
-        "rewards": {"gold": 2_400, "shards": 140, "crystal": 50, "reroll_tokens": 10},
+        "rewards": {"gold": 2_400, "shards": 140, "evolution_fragments": 20, "cores": 70, "crystal": 50, "reroll_tokens": 10},
     },
     {
         "floor": 4,
@@ -146,7 +168,7 @@ FLOORS: list[dict] = [
             ["Propaganda Broadcast Unit", "Hater Ringleader"],
             ["Sir Vengeance", "Refense Hater", "Jynxzi"],
         ],
-        "rewards": {"gold": 3_200, "shards": 180, "crystal": 70, "reroll_tokens": 12,
+        "rewards": {"gold": 3_200, "shards": 180, "evolution_fragments": 26, "cores": 90, "crystal": 70, "reroll_tokens": 12,
                     "item": "epic"},
     },
     {
@@ -159,7 +181,7 @@ FLOORS: list[dict] = [
             ["Rohan's Herald"],
             ["Blightspire Adept", "Shatterjaw Reaver", "Ashplate Warden"],
         ],
-        "rewards": {"gold": 4_200, "shards": 220, "xendium": 60, "reroll_tokens": 15},
+        "rewards": {"gold": 4_200, "shards": 220, "evolution_fragments": 32, "cores": 110, "xendium": 60, "reroll_tokens": 15},
     },
     {
         "floor": 6,
@@ -171,7 +193,7 @@ FLOORS: list[dict] = [
             ["Permafrost Guardian", "Frostblock"],
             ["Void Hydra"],
         ],
-        "rewards": {"gold": 5_200, "shards": 260, "crystal": 110, "reroll_tokens": 18,
+        "rewards": {"gold": 5_200, "shards": 260, "evolution_fragments": 40, "cores": 130, "crystal": 110, "reroll_tokens": 18,
                     "item": "epic"},
     },
     {
@@ -184,7 +206,7 @@ FLOORS: list[dict] = [
             ["Rohan's Assessor", "Acatrya Elite Guard"],
             ["The Censor", "Abyssal Custodian"],
         ],
-        "rewards": {"gold": 6_500, "shards": 300, "xendium": 100, "reroll_tokens": 22},
+        "rewards": {"gold": 6_500, "shards": 300, "evolution_fragments": 48, "cores": 150, "xendium": 100, "reroll_tokens": 22},
     },
     {
         "floor": 8,
@@ -196,7 +218,7 @@ FLOORS: list[dict] = [
             ["Boss John's Driller Prototype"],
             ["Ocellios Train", "Mech Gunpod", "Mech Gunpod"],
         ],
-        "rewards": {"gold": 8_000, "shards": 360, "crystal": 160, "reroll_tokens": 26,
+        "rewards": {"gold": 8_000, "shards": 360, "evolution_fragments": 58, "cores": 180, "crystal": 160, "reroll_tokens": 26,
                     "item": "legendary"},
     },
 
@@ -225,7 +247,7 @@ FLOORS: list[dict] = [
              ["Corrupted Bli", "Xendium Overcharge Drone"],
              ["Dorve", "Mech Gunpod", "Mech Gunpod"]],
         ],
-        "rewards": {"gold": 11_000, "shards": 450, "crystal": 220, "xendium": 140,
+        "rewards": {"gold": 11_000, "shards": 450, "evolution_fragments": 72, "cores": 225, "crystal": 220, "xendium": 140,
                     "reroll_tokens": 30, "item": "legendary"},
     },
     {
@@ -245,7 +267,7 @@ FLOORS: list[dict] = [
              ["Stubby's Failsafe"],
              ["Rupture", "Corrupted Eris Sentry"]],
         ],
-        "rewards": {"gold": 14_000, "shards": 550, "crystal": 300, "xendium": 200,
+        "rewards": {"gold": 14_000, "shards": 550, "evolution_fragments": 88, "cores": 275, "crystal": 300, "xendium": 200,
                     "reroll_tokens": 36, "item": "legendary"},
     },
     {
@@ -265,7 +287,7 @@ FLOORS: list[dict] = [
              ["Dorve", "Corrupted Bli"],
              ["Boss John's Driller Prototype", "Skybridge Sentinel"]],
         ],
-        "rewards": {"gold": 18_000, "shards": 700, "crystal": 400, "xendium": 280,
+        "rewards": {"gold": 18_000, "shards": 700, "evolution_fragments": 110, "cores": 350, "crystal": 400, "xendium": 280,
                     "void": 60, "reroll_tokens": 44, "item": "mythic"},
     },
     {
@@ -288,7 +310,7 @@ FLOORS: list[dict] = [
         # Rohan is in EVERY floor-12 rotation on purpose. The bottom of
         # the Abyss is not a random boss slot -- it is the same man, every
         # time, and the rest of the floor changes around him.
-        "rewards": {"gold": 25_000, "shards": 900, "crystal": 550, "xendium": 400,
+        "rewards": {"gold": 25_000, "shards": 900, "evolution_fragments": 135, "cores": 450, "crystal": 550, "xendium": 400,
                     "void": 120, "entropy": 60, "reroll_tokens": 60, "item": "mythic"},
     },
 ]

@@ -158,6 +158,11 @@ def buff_stack_weight(rank: int) -> float:
 # is what turned doubling up on Support DPS into the best squad.
 DEBUFF_STACK_FALLOFF = 0.5
 
+# How much of a granted shield is also restored as real HP. See
+# add_shield -- this is what stops a shield-only squad from bleeding
+# health it can never get back.
+SHIELD_HEAL_FRACTION = 0.15
+
 # The stats that compete for the shared budget above: everything a buff
 # can touch that makes the squad hit HARDER. Kept as an explicit set
 # rather than "not NO_FALLOFF_STATS" so that adding a new stat to the
@@ -301,6 +306,7 @@ class Combatant:
     dots: list = field(default_factory=list)        # list[DamageOverTime]
     heals: list = field(default_factory=list)       # list[HealOverTime]
     vulnerabilities: list = field(default_factory=list)  # list[Vulnerability]
+    last_shield_heal: int = 0  # HP restored by the most recent add_shield
     incoming_strikes: list = field(default_factory=list)  # list[DelayedStrike]
     # QUEUE of this combatant's decided-but-not-yet-executed actions for
     # the current cycle, in order -- each {"ability": dict|None,
@@ -731,6 +737,25 @@ class Combatant:
         amount = self._enemy_sustain_falloff(max(0.0, amount), "shield")
         amount = max(0, int(round(amount)))
         self.shield += amount
+
+        # EVERY SHIELD ALSO TRICKLES A LITTLE HEALTH BACK.
+        #
+        # A shield only ever prevents the NEXT damage; it cannot undo
+        # damage already taken. So a squad built around shielders had no
+        # way to recover at all -- HP lost early was lost for the rest of
+        # the run, and the only fix was to bring a healer instead, which
+        # made the shielders' whole class a trap.
+        #
+        # Deliberately tiny, and deliberately a fraction of the SHIELD
+        # rather than of max HP: a bigger shield means a bigger trickle,
+        # so it scales with investment without ever competing with an
+        # actual heal.
+        #
+        # Done at this choke point rather than in the six shield effect
+        # kinds because it is a property of shielding, not of any one
+        # ability -- and a seventh shield kind added later gets it for
+        # free instead of being quietly forgotten.
+        self.last_shield_heal = self.heal(amount * SHIELD_HEAL_FRACTION)
         return amount
 
     def gain_energy(self, amount: float) -> int:

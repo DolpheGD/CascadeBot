@@ -64,6 +64,17 @@ class PlayerQuest(Base):
     )
     completed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # COMMISSIONS ONLY (kind="commission"). Beginner and basic quests pay
+    # out the instant they complete, so for them completion and payment
+    # are the same event and `is_completed` says everything. A commission
+    # is taken from the board in the yard and collected there, so it has
+    # two distinct states after the goal is met -- finished, and paid --
+    # and collapsing them into one flag would make "walk back and claim"
+    # unrepresentable. Rows of the other two kinds simply leave these
+    # False/NULL forever.
+    is_claimed: Mapped[bool] = mapped_column(Boolean, default=False)
+    claimed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     player: Mapped["Player"] = relationship(back_populates="quests")
 
     def __repr__(self) -> str:  # pragma: no cover

@@ -88,9 +88,18 @@ def level_up(item: InventoryItem, levels: int = 1) -> InventoryItem:
     new_level = item.item_level + levels
     multiplier = RARITY_STAT_MULTIPLIER[item.rarity]
 
+    # THE SAME FUNCTION THE GENERATOR USES.
+    #
+    # This used to be its own arithmetic -- a hardcoded +1.0 a level and
+    # no level curve -- which meant a freshly dropped item and the same
+    # item after one upgrade were priced by two different formulas. The
+    # first upgrade jumped the stat 2.44x and every one after it added
+    # almost nothing.
+    from bot.game.loot.stat_pools import main_stat_for
+
     template = item.template
-    item.main_stat_value = round(
-        (template.base_main_stat_value + (new_level - 1) * 1.0) * multiplier, 1
+    item.main_stat_value = main_stat_for(
+        template.base_main_stat_value, template.main_stat, new_level, multiplier
     )
 
     rescaled = []

@@ -101,6 +101,7 @@ def _new_ledger() -> dict:
         "gold_gained": 0,
         "gold_spent": 0,
         "shards_gained": 0,
+        "evolution_fragments_gained": 0,
         "reroll_tokens_gained": 0,
         "reroll_tokens_spent": 0,
         "xp_gained": 0,
@@ -135,6 +136,14 @@ def _ledger_add_shards(expedition: Expedition, amount: int) -> None:
         return
     ledger = _ledger(expedition)
     ledger["shards_gained"] = ledger["shards_gained"] + amount
+    expedition.loot_ledger = ledger
+
+
+def _ledger_add_fragments(expedition: Expedition, amount: int) -> None:
+    if not amount:
+        return
+    ledger = _ledger(expedition)
+    ledger["evolution_fragments_gained"] = ledger["evolution_fragments_gained"] + amount
     expedition.loot_ledger = ledger
 
 
@@ -250,6 +259,10 @@ ROOM_ENCOUNTER_CHANCE: dict[RoomType, float] = {
     RoomType.TREASURE: 1.0,
     RoomType.TRAP: 1.0,
     RoomType.SHRINE: 1.0,
+    # A relic event room IS its encounter -- there is no other content in
+    # it, so a roll that came up empty would leave a dead room. Same
+    # reasoning as MERCHANT above.
+    RoomType.RELIC_EVENT: 1.0,
     RoomType.PUZZLE: 1.0,
     RoomType.SECRET: 1.0,
     RoomType.MERCHANT: 1.0,
@@ -355,6 +368,23 @@ def start_expedition(db, player, region: str, num_floors: int | None = None) -> 
     return expedition
 
 
+def _record_with_region(db, player, goal_type: str, region: str, amount: int = 1) -> None:
+    """Report quest progress both plainly and qualified by region.
+
+    Commissions (quest_config.COMMISSIONS) may scope a goal to one
+    region, written "<goal_type>@<region>". quest_service.record_progress
+    matches goal_type as an exact string, so the region-qualified form has
+    to be emitted as its own key -- there is no parsing anywhere, which
+    means a typo in a commission's region produces a quest that never
+    advances rather than one that advances wrongly. tools/check_commissions.py
+    exists to catch exactly that, by checking every scoped goal against
+    quest_config.REGION_SCOPED_GOALS and the real region list.
+    """
+    quest_service.record_progress(db, player, goal_type, amount=amount)
+    if region:
+        quest_service.record_progress(db, player, f"{goal_type}@{region}", amount=amount)
+
+
 def enter_node(db, expedition: Expedition, player, rng: random.Random | None = None) -> dict:
     """Resolves whatever's at the expedition's current node. Returns a
     dict describing what happened; `kind` tells the cog which view to
@@ -429,6 +459,41 @@ def enter_node(db, expedition: Expedition, player, rng: random.Random | None = N
         # Decide which overall level to pass into start_battle for any
         # enemies that don't provide an explicit per-template level.
         level = elite_level if room_type in (RoomType.ELITE, RoomType.BOSS) else combat_level
+
+        # THE FINAL BOSS FIGHTS AT THE SQUAD'S LEVEL, NOT THE FLOOR'S.
+        #
+        # Enemy level is floor // 10 + 1 + offset, which tops out around
+        # 5 + offset -- so a region's final boss arrived at level
+        # 6/20/25/29/45 while the squad that reaches it is level
+        # 8/22/38/52/70. The gap widens with depth, and measured
+        # (tools/check_final_bosses) four of five region finales were won
+        # 100% of the time from full health. The run was hard; the fight
+        # that ends it was a formality.
+        #
+        # Applied ONLY to the last boss node, and only as a LEVEL bump --
+        # not a stat multiplier. Levels run through the same
+        # level_scale_percent curve every other enemy uses, so a boss
+        # stays recognisably itself instead of becoming a bespoke
+        # stat-block that has to be retuned separately forever. Checkpoint
+        # bosses and ordinary rooms are untouched, which is what keeps the
+        # run's attrition exactly where bench_roles measured it.
+        if room_type == RoomType.BOSS and is_final:
+            # LEVELLED AGAINST THE SQUAD, NOT THE FLOOR.
+            #
+            # floor // 10 + 1 + level_offset tops out near 5 + offset,
+            # and drifts further under the party the deeper the region
+            # goes -- final bosses measured at 12/23/33/32/45/51 against
+            # squads of 8/22/38/52/70/85. Voidcrest's was twenty levels
+            # below the party that reaches it, which is why it was won
+            # 100% of the time.
+            #
+            # `expected_squad_level` is the region's own statement of who
+            # plays it (see region_config), so anchoring here keeps the
+            # finale in the same relationship to the player in every
+            # region, instead of one that decays with depth. The delta is
+            # solved once, globally, rather than per region.
+            level = max(level, difficulty["expected_squad_level"]
+                        + difficulty.get("final_boss_level_delta", 0))
         combat_service.start_battle(db, expedition, player, chosen, level=level)
         # Awaiting an explicit "Start Battle" press before any turns are
         # fast-forwarded (see _combat_entry_view_and_embed in
@@ -690,11 +755,21 @@ def resolve_battle_end(db, expedition: Expedition, player, battle) -> dict:
     if battle.result == "won":
         room_type = expedition.graph["nodes"][expedition.current_node_id]["room_type"]
         rewards = combat_service.apply_victory_rewards(db, player, expedition, room_type=room_type)
-        quest_service.record_progress(db, player, "win_battles")
+        # Reported TWICE: once plainly, once qualified by region.
+        #
+        # Commissions can ask for work in one specific place ("four
+        # elites, in the Wastelands"), and record_progress matches
+        # goal_type by exact string. Rather than teach it about regions --
+        # which would mean every call site everywhere growing a region
+        # argument it mostly cannot supply -- the two call sites that DO
+        # know the region emit both forms. A plain "defeat_elite" quest
+        # and a "defeat_elite@The Wastelands" commission then both
+        # advance off the same kill, with no special cases in the matcher.
+        _record_with_region(db, player, "win_battles", expedition.region)
         if room_type == RoomType.BOSS:
-            quest_service.record_progress(db, player, "defeat_boss")
+            _record_with_region(db, player, "defeat_boss", expedition.region)
         elif room_type == RoomType.ELITE:
-            quest_service.record_progress(db, player, "defeat_elite")
+            _record_with_region(db, player, "defeat_elite", expedition.region)
         _ledger_add_gold(expedition, rewards["gold"])
         _ledger_add_xp(expedition, rewards["xp"])
         for item in rewards["items"]:
@@ -705,6 +780,8 @@ def resolve_battle_end(db, expedition: Expedition, player, battle) -> dict:
             _ledger_add_lootbox(expedition, rewards["lootbox"]["tier"], rewards["lootbox"]["quantity"])
         if rewards.get("reroll_tokens"):
             _ledger_add_reroll_tokens(expedition, rewards["reroll_tokens"])
+        if rewards.get("evolution_fragments"):
+            _ledger_add_fragments(expedition, rewards["evolution_fragments"])
         _ledger_record_level_ups(expedition, rewards["level_ups"])
 
         # Relic drops. Elites and (non-final) bosses are the two room types
@@ -733,7 +810,7 @@ def resolve_battle_end(db, expedition: Expedition, player, battle) -> dict:
         if is_final_boss:
             expedition.status = ExpeditionStatus.COMPLETED
             db.commit()
-            quest_service.record_progress(db, player, "complete_adventures")
+            _record_with_region(db, player, "complete_adventures", expedition.region)
             return {"kind": "expedition_complete", "rewards": rewards, "ledger": _ledger(expedition)}
 
         db.commit()
@@ -745,7 +822,13 @@ def resolve_battle_end(db, expedition: Expedition, player, battle) -> dict:
         combat_service.clear_battle(db, expedition)
         ledger = _ledger(expedition)
         db.commit()
-        quest_service.record_progress(db, player, "complete_adventures")
+        # NOTE: a failed run still counts as a completed adventure. That
+        # is the pre-existing behaviour and it is kept deliberately --
+        # "complete 3 adventures" should not be a quest you can fail into
+        # an unwinnable state on -- but it means a commission asking for
+        # runs is asking for ATTEMPTS, and the wording of every such
+        # commission says "runs" rather than "clears" for that reason.
+        _record_with_region(db, player, "complete_adventures", expedition.region)
         return {"kind": "defeat", "ledger": ledger}
 
     return {"kind": "ongoing"}
@@ -987,6 +1070,26 @@ def _apply_gain(
         _ledger_add_lootbox(expedition, lootbox_tier, quantity=1)
         lines.append(f"a {lootbox_tier.title()} Lootbox")
 
+    # RELICS AS AN ENCOUNTER REWARD.
+    #
+    # This is the whole of what "relic event rooms" needed. The first
+    # design for them was a separate config, a separate room handler and
+    # a separate view -- a parallel system reimplementing choices, costs,
+    # affordability checks, HP damage and the ledger, all of which
+    # encounters already do and are already tested.
+    #
+    # `"relic": "rare"` rolls one of that rarity; `"relic": True` rolls
+    # the normal weighted spread. Either way it goes through
+    # relic_service.grant_relic, so duplicate protection and the ledger
+    # behave exactly as they do for a campfire or elite drop.
+    relic_spec = gain.pop("relic", None)
+    if relic_spec:
+        rarity = None if relic_spec is True else str(relic_spec)
+        granted = relic_service.grant_random_relic(db, expedition, rng=rng,
+                                                   rarity=rarity)
+        if granted:
+            lines.append(f"{granted['emoji']} **{granted['name']}**")
+
     xp_spec = gain.pop("xp", None)
     if xp_spec:
         xp_amount = _roll_amount(rng, xp_spec)
@@ -1011,6 +1114,8 @@ def _apply_gain(
             _ledger_add_shards(expedition, amount)
         elif currency == "reroll_tokens":
             _ledger_add_reroll_tokens(expedition, amount)
+        elif currency == "evolution_fragments":
+            _ledger_add_fragments(expedition, amount)
         elif currency in {m.value for m in MaterialType}:
             _ledger_add_material(expedition, currency, amount)
         lines.append(f"+{format_currency(currency, amount)}")

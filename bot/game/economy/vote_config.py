@@ -110,6 +110,22 @@ VOTE_BASE_CORES = 120
 VOTE_CORES_PER_STREAK = 4
 VOTE_STREAK_CAP = 20  # streak stops scaling any reward past this
 
+# ----------------------------------------------------------------------
+# EVOLUTION FRAGMENTS FROM VOTING -- the third leg.
+#
+# Same argument as the Cores block above, one system later. Voting fed
+# both gacha banners and nothing at all toward the breakthrough material,
+# so the most repeatable action in the game advanced the two things you
+# ROLL for and none of the things you already own.
+#
+# 25 a vote (twice daily at a capped streak is ~100/day) sits alongside
+# the Cradle harvester rather than replacing it: it is roughly half an
+# Epic item's lifetime cost per day, so a committed voter keeps pace with
+# mid-rarity gear without ever approaching a Divine item's 504 from
+# voting alone.
+VOTE_BASE_FRAGMENTS = 25
+VOTE_FRAGMENTS_PER_STREAK = 2
+
 # Bonus shards every N consecutive votes, on top of the scaled amount.
 VOTE_SHARD_MILESTONE_INTERVAL = 5
 VOTE_SHARD_MILESTONE_AMOUNT = 150
@@ -152,6 +168,18 @@ def _capped(streak: int) -> int:
     """Streak clamped to VOTE_STREAK_CAP, floored at 1 -- every reward
     curve below scales off this rather than the raw streak."""
     return max(1, min(streak, VOTE_STREAK_CAP))
+
+
+def compute_vote_fragments(streak: int, is_weekend: bool = False) -> int:
+    """Evolution Fragments for one claimed vote. Deliberately the same
+    streak/weekend shape as the Shard and Core halves -- a player who has
+    learned how one part of a vote scales should not have to learn the
+    others separately."""
+    capped = _capped(streak)
+    fragments = VOTE_BASE_FRAGMENTS + VOTE_FRAGMENTS_PER_STREAK * (capped - 1)
+    if is_weekend:
+        fragments *= WEEKEND_MULTIPLIER
+    return int(fragments)
 
 
 def compute_vote_cores(streak: int, is_weekend: bool = False) -> int:

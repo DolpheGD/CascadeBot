@@ -41,7 +41,7 @@ from bot.game.loot.rarity_config import (
 )
 from bot.game.loot.stat_pools import (
     MAIN_STAT_GROWTH_PER_LEVEL,
-    main_stat_level_multiplier,
+    main_stat_for,
     STAT_KEYS,
     roll_substat_value,
     roll_substat_value_type,
@@ -103,14 +103,8 @@ class LootGenerator:
     def roll_main_stat(
         self, template: ItemTemplate, item_level: int, rarity: Rarity
     ) -> float:
-        multiplier = RARITY_STAT_MULTIPLIER[rarity]
-        growth = MAIN_STAT_GROWTH_PER_LEVEL.get(template.main_stat, 1.0)
-        # The additive growth term keeps per-stat character (recharge
-        # crawls, max_hp climbs); the level multiplier is what makes
-        # upgrading matter at all. See stat_pools.main_stat_level_multiplier.
-        value = (template.base_main_stat_value + (item_level - 1) * growth) \
-            * main_stat_level_multiplier(item_level) * multiplier
-        return round(value, 2)
+        return main_stat_for(template.base_main_stat_value, template.main_stat,
+                             item_level, RARITY_STAT_MULTIPLIER[rarity])
 
     # ------------------------------------------------------------------
     # Substats
@@ -153,13 +147,38 @@ class LootGenerator:
             return None, None
 
         if linked_ability_id:
-            for pool, is_passive in ((WEAPON_SKILLS, False), (ARTIFACT_SKILLS, False),
-                                      (ULTIMATE_ABILITIES, False), (ARMOR_PASSIVES, True)):
-                for ability in pool:
-                    if ability["id"] == linked_ability_id:
-                        return (None, ability) if is_passive else (ability, None)
-            # Unknown id -- fall through to the normal random roll rather
-            # than silently giving nothing.
+            # CARD-ONLY ABILITIES ARE REFUSED HERE, not just excluded
+            # from the random pools.
+            #
+            # `abilities_for_rarity` filters the RANDOM rolls below, and
+            # everyone (me included) assumed that was the whole gate. It
+            # was not: a linked ability names its id directly and walks
+            # straight past that filter. Fourteen seeded item templates
+            # were handing out eleven distinct card-only abilities --
+            # including Starfall on the Billian Gem -- so the Card
+            # system's central promise ("these abilities exist only on
+            # Cards, and gear abilities were nerfed to match") was
+            # quietly false for most of them.
+            #
+            # The player-visible symptom was worse than the balance one:
+            # equip the Starfall card onto a character already wearing
+            # the Gem and the card REPLACES an identical ability, so the
+            # thing you spent 250 Echoes on appears to do nothing at all.
+            #
+            # The seed data is fixed, but a filter that only exists in
+            # the data is one typo from being wrong again, so the rule
+            # lives in the code path too.
+            from bot.game.economy.card_config import CARD_ONLY_ABILITY_IDS
+            if linked_ability_id in CARD_ONLY_ABILITY_IDS:
+                linked_ability_id = ""
+            else:
+                for pool, is_passive in ((WEAPON_SKILLS, False), (ARTIFACT_SKILLS, False),
+                                          (ULTIMATE_ABILITIES, False), (ARMOR_PASSIVES, True)):
+                    for ability in pool:
+                        if ability["id"] == linked_ability_id:
+                            return (None, ability) if is_passive else (ability, None)
+            # Unknown (or refused) id -- fall through to the normal
+            # random roll rather than silently giving nothing.
 
         if item_type == ItemType.WEAPON:
             pool = abilities_for_rarity(WEAPON_SKILLS, rarity)

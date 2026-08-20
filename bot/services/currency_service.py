@@ -8,7 +8,7 @@ from __future__ import annotations
 from bot.database.models.enums import MATERIAL_EMOJI as _MATERIAL_EMOJI
 
 VALID_CURRENCIES = {
-    "gold", "shards", "cores", "reroll_tokens", "echoes",
+    "gold", "shards", "cores", "reroll_tokens", "echoes", "evolution_fragments",
     "wood", "stone", "metal", "crystal",
     "xendium", "permafrost_ore", "void", "entropy",
 }
@@ -42,14 +42,43 @@ SHARD_EMOJI = "<:shard:1535799545886146630>"
 # different-shaped stashes rather than the same stash at different sizes.
 CORE_EMOJI = "<:core:1535799281460445258>"
 
+# EVOLUTION FRAGMENTS -- the breakthrough material, and a THIRD kind of
+# currency rather than a third premium one.
+#
+# Shards and Cores buy attempts at things you don't have. Fragments buy
+# nothing at all: they are a gate on the things you already own, spent to
+# push gear past every 5th level and a Card past every 10th.
+#
+# That distinction is the point. Gear and Card levelling ran purely on
+# gold and materials, which every system in the game already pays out, so
+# levelling was gated by nothing but time spent doing anything. A
+# breakthrough is a checkpoint the player has to go and earn on purpose,
+# and it is what makes "level 25" a different sentence from "level 24".
+EVO_EMOJI = "<:evo:1536114553518170173>"
+
 CURRENCY_EMOJI: dict[str, str] = {
     "gold": "🪙",
     "shards": SHARD_EMOJI,
     "cores": CORE_EMOJI,
     "reroll_tokens": "🎲",
     "echoes": "✴️",
+    "evolution_fragments": EVO_EMOJI,
     **{material.value: emoji for material, emoji in _MATERIAL_EMOJI.items()},
 }
+
+# Currencies whose attribute name reads badly in a sentence. Everything
+# else falls back to the key with underscores swapped for spaces, which
+# is right for "reroll tokens" and wrong for "evolution fragments" only
+# in that the latter deserves a capital.
+CURRENCY_LABEL: dict[str, str] = {
+    "evolution_fragments": "Evolution Fragments",
+    "reroll_tokens": "Reroll Tokens",
+    "permafrost_ore": "Permafrost Ore",
+}
+
+
+def currency_label(currency: str) -> str:
+    return CURRENCY_LABEL.get(currency, currency.replace("_", " ").title())
 
 
 def currency_emoji(currency: str) -> str:

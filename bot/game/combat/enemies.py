@@ -1130,9 +1130,36 @@ ENEMY_TEMPLATES: list[dict] = [
         "name": "Void Hydra",
         "role": "boss",
         "region_roles": {'Glacier 15': 'final'},
+        # BUFFED AS A TEMPLATE, NOT LEVELLED UP -- AND ONLY MODESTLY.
+        #
+        # 510 -> 520 HP, +2 attack, defence 8 -> 12. That looks timid
+        # next to the numbers elsewhere in this file, and it is not:
+        # Glacier's whole run clear rate is dominated by this one fight.
+        # Measured, holding everything else fixed:
+        #
+        #     Hydra max_hp   510    520    560    620    700    850   1150
+        #     run cleared     71%     ~68%   54%    48%    47%    38%    15%
+        #
+        # A level-8 squad has almost no sustain, so it arrives at the
+        # finale badly hurt and small changes here swing the whole
+        # region. This is also why the level lever was wrong for Glacier
+        # (see region_config): a flat level bump lands on every fight in
+        # the segment, not just this one.
+        #
+        # Glacier's finale measured 100% won from full health at EVERY
+        # final_boss_level_delta from -16 to +8, and only dropped to 70%
+        # at +12 -- at which point the run clear rate collapsed from 71%
+        # to 24%, because a flat level bump is worth far more at level 8
+        # than anywhere else and it lands on every fight in the segment.
+        #
+        # The diagnosis that matters: Glacier's boss was never under-
+        # levelled, it was UNDER-STATTED. 510 HP and 8 defence against a
+        # level-8 squad in rare gear is a fight that ends before the
+        # party's ultimates come up. Fixing the template fixes the finale
+        # without touching the run.
         "base_stats": {
-            "attack": 34, "defense": 8, "elemental": 22, "speed": 11,
-            "max_hp": 510, "max_mana": 999, "crit_rate": 16, "crit_damage": 185, "recharge": 25,
+            "attack": 36, "defense": 12, "elemental": 24, "speed": 11,
+            "max_hp": 520, "max_mana": 999, "crit_rate": 16, "crit_damage": 185, "recharge": 25,
         },
         "level_scale_percent": 4,
         "active_abilities": [
@@ -1528,8 +1555,13 @@ ENEMY_TEMPLATES: list[dict] = [
         "role": "boss",
         "region_roles": {'Abyssnia': 'final'},
         "base_stats": {
-            "attack": 67, "defense": 20, "elemental": 44, "speed": 18,
-            "max_hp": 2530, "max_mana": 999, "crit_rate": 18, "crit_damage": 210, "recharge": 28,
+        # Rescaled alongside Rohan, same reason: Abyssnia's other
+        # designated final boss measured 13,841 HP and 1,300 attack at
+        # level 70 against a squad with 5,515 total HP, and was equally
+        # 0% winnable. He keeps the higher offence of the two -- one
+        # action per cycle where Rohan has four.
+            "attack": 16, "defense": 20, "elemental": 10, "speed": 18,
+            "max_hp": 2100, "max_mana": 999, "crit_rate": 18, "crit_damage": 210, "recharge": 28,
         },
         "level_scale_percent": 4,
         "active_abilities": [
@@ -2225,8 +2257,31 @@ ENEMY_TEMPLATES: list[dict] = [
         "region_roles": {"Abyssnia": "final"},
         "actions_per_cycle": 4,
         "base_stats": {
-            "attack": 44, "defense": 32, "elemental": 34, "speed": 26,
-            "max_hp": 9999, "max_mana": 999, "crit_rate": 24, "crit_damage": 220, "recharge": 24,
+        # RESCALED TO THE PARTY THAT ACTUALLY FIGHTS HIM.
+        #
+        # Measured, at the level and gear Abyssnia is played at (70,
+        # Divine @34, talents): the reference squad has 5,515 total HP,
+        # ~230 attack each and ~100 defence. This template produced, at
+        # level 70: 64,742 HP, 1,011 attack, 4 actions per cycle.
+        #
+        # Twelve times the squad's entire health pool, out-damaging all
+        # of it in roughly two cycles. He was not hard, he was
+        # arithmetically impossible -- a full-HP endgame squad measured
+        # 0% across every configuration swept.
+        #
+        # Nothing caught it because no tool had ever fought him.
+        # bench_roles picked bosses with get_templates_by_role(), which
+        # returns the CHECKPOINT bosses; the game uses
+        # get_boss_encounter(final=True). The benchmark reported Abyssnia
+        # at a healthy 23-28% while its actual final boss was unbeatable.
+        # bench_roles now uses the real selector.
+        #
+        # These numbers come from the envelope, not from taste: ~13k HP
+        # is 10-15 cycles of the squad's real output, and holding World
+        # Ender (300% AoE off elemental) under ~35% of a member's max HP
+        # is what stops two ultimates from being an automatic wipe.
+            "attack": 8, "defense": 32, "elemental": 7, "speed": 26,
+            "max_hp": 2000, "max_mana": 999, "crit_rate": 24, "crit_damage": 220, "recharge": 24,
         },
         "level_scale_percent": 5,
         "max_poise": 34,
@@ -2239,6 +2294,128 @@ ENEMY_TEMPLATES: list[dict] = [
         "passive_abilities": [
             get_ability_by_id(ARMOR_PASSIVES, "undying_will"),
             get_ability_by_id(ARMOR_PASSIVES, "momentum_core"),
+        ],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "world_ender"),
+    },
+    {
+        # ------------------------------------------------------------------
+        # ROHAN, AS THE STORY FIGHTS HIM -- a SEPARATE template from the
+        # Abyssnia superboss above, and the separation is the whole point.
+        #
+        # THE PROBLEM THIS SOLVES. The story spent five chapters building to
+        # a confrontation it could not stage, because the boss template is
+        # unwinnable by construction rather than by difficulty. Measured with
+        # a properly-kitted, fully-geared level-45 party:
+        #
+        #     Rohan at level 45     46,556 HP
+        #     that party's damage   ~92 a basic hit, four members
+        #     time to kill him      ~126 cycles
+        #     time for him to kill  ~2 cycles
+        #
+        # He is not sixty percent too strong. He is sixty TIMES too strong,
+        # and no amount of levelling the player fixes a factor of sixty. The
+        # Abyssnia version is correct for what it is -- a post-story
+        # superboss for a maxed account using everything it owns -- and it
+        # stays exactly as it was.
+        #
+        # WHAT THIS ONE IS. The same man, at a desk, at the bottom of a
+        # shaft, fighting personally for the first and only time. So the kit
+        # is his -- Cataclysm's Edge, Apex Predator, World Ender, Undying
+        # Will -- and the numbers are a boss rather than a wall:
+        #
+        #   * 1,850 base HP instead of 9,999. A story climax should take a
+        #     long fight, not an afternoon.
+        #   * TWO actions a cycle instead of four. Four is what makes the
+        #     Abyssnia fight a wall; two makes him formidably fast without
+        #     removing the party's turn economy entirely.
+        #   * NO Momentum Core. Extra-turn-on-kill is the death spiral: one
+        #     casualty becomes a free turn becomes a heal becomes another
+        #     casualty. Against four characters that is not difficulty, it is
+        #     a losing streak you cannot interrupt.
+        #   * Undying Will KEPT, because "he does not go down the first time"
+        #     is the single most characterful thing the fight can do.
+        #
+        # Tuned by measurement to cost a story-appropriate party most of its
+        # health and not all of it -- see tools/check_story.py, which now
+        # simulates a party that actually uses its kit.
+        # ------------------------------------------------------------------
+        "name": "Rohan, At The Desk",
+        "role": "boss",
+        "regions": [],
+        "actions_per_cycle": 3,
+        # MEASURED, and the first sweep measured the wrong stat.
+        #
+        # The original numbers here were found by sweeping ATTACK, which
+        # barely moved the fight: dropping attack from 30 to 16 left the
+        # win rate stuck around 50% however far it went. Attack is not
+        # what kills the party. Two of his four abilities scale off
+        # ELEMENTAL --
+        #
+        #     World Ender     300% AoE, damage_stat elemental
+        #     Astral Cascade   95% AoE + DoT, damage_stat elemental
+        #
+        # -- and an AoE that hits four people is worth roughly four times
+        # a single-target hit of the same size. Sweeping the stat that
+        # only feeds his two single-target abilities and concluding "he
+        # can't be tuned" was measuring the wrong dial and believing it.
+        #
+        # Sweeping elemental instead, at boss level 31 against a squad
+        # with the story's own gear (win rate, by squad level):
+        #
+        #     ele  atk    hp |  lv34   lv40   lv45
+        #      24   30   900 |   29%    38%    48%    <- old, and flat
+        #      20   30   900 |   35%    46%    52%
+        #      17   30   900 |   44%    54%    62%
+        #      14   30   900 |   52%    56%    73%
+        #      12   26   900 |   56%    65%    90%
+        #      12   26  1600 |   50%    58%    67%    <- shipped
+        #
+        # Note the slope, not just the level. At elemental 24 being seven
+        # levels over-levelled bought 10 points of win rate; at 12 it buys
+        # 30+. That difference IS the thing the brief asked for -- a
+        # finale where preparing for it pays off -- and no amount of
+        # attack tuning produced it.
+        #
+        # HP is 1,600 rather than 900 because HP and lethality are
+        # separable here and blending them is what made the first sweep
+        # look like a dead end. More HP makes the fight LONGER (it is the
+        # longest in the story, ~40 rounds) without making it deadlier;
+        # past about 1,600 the party's healer stabilises and neither the
+        # cost nor the win rate moves, so this is the point of diminishing
+        # returns rather than an arbitrary big number.
+        # THREE ACTIONS, SMALLER ONES. The two-action version could not
+        # be made to cost a party more than about 46% of its health
+        # without dropping under the fairness floor, because its damage
+        # arrived in spikes: a spike either gets healed through (cheap) or
+        # kills somebody (a loss). Three smaller actions per cycle apply
+        # the same pressure as sustained chip damage, which the healer has
+        # to keep answering and cannot fully out-pace.
+        #
+        # There is still a ceiling. Across every configuration swept --
+        # 2-4 actions, elemental 7-24, HP 900-3400 -- no fight that stayed
+        # above a 65% win rate cost more than ~52% of the squad's health.
+        # That is a property of the combat system (a party with a working
+        # healer stabilises), not of this boss, and the story's whole
+        # difficulty ladder is scaled to sit under it rather than pretend
+        # otherwise.
+        "base_stats": {
+            "attack": 20, "defense": 30, "elemental": 10, "speed": 26,
+            "max_hp": 2000, "max_mana": 999, "crit_rate": 20, "crit_damage": 190,
+            "recharge": 24,
+        },
+        "level_scale_percent": 4,
+        "max_poise": 30,
+        "flavor_text": (
+            "He puts the pen down, squares it to the edge of the desk, and stands up. "
+            "It is the first time in five chapters that he has done anything himself."
+        ),
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "cataclysms_edge"),
+            get_ability_by_id(WEAPON_SKILLS, "apex_predator"),
+            get_ability_by_id(ARTIFACT_SKILLS, "astral_cascade"),
+        ],
+        "passive_abilities": [
+            get_ability_by_id(ARMOR_PASSIVES, "undying_will"),
         ],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "world_ender"),
     },
@@ -2709,6 +2886,246 @@ ENEMY_TEMPLATES: list[dict] = [
         "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "undying_will")],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "cataclysm"),
     },
+    # ==================================================================
+    # ENTROSPIRE DEEPWORKS -- region six.
+    #
+    # The company the story keeps mentioning and never shows. Entrospire
+    # hired two of Josh's people nine years ago (see the photograph in
+    # the Cascade bunks), and the Deepworks is where that work was
+    # actually done: an automated facility that kept running its own
+    # process long after anybody was left to stop it.
+    #
+    # The roster is deliberately MACHINERY rather than soldiers. Every
+    # earlier region fields people or creatures; this one fields a
+    # factory that has decided the player is an input. That is the whole
+    # identity, and it is why the elites lean on sustained pressure and
+    # the bosses on inevitability rather than burst.
+    #
+    # STATS ARE ANCHORED TO ABYSSNIA'S, NOT INVENTED. Abyssnia's combat
+    # enemies sit around 50-90 base HP and 13-20 attack at
+    # level_scale_percent 4-5; these run roughly 15-25% above that at the
+    # same scaling, which is what a region-six step should be given the
+    # squad gains no new gear rarity here (divine is already the cap).
+    # tools/check_progression asserts the ladder holds.
+    # ==================================================================
+    {
+        "name": "Deepworks Intake Arm",
+        "role": "combat",
+        "regions": ["Entrospire Deepworks"],
+        "base_stats": {"attack": 22, "defense": 14, "elemental": 6, "speed": 9,
+                       "max_hp": 105, "max_mana": 999, "crit_rate": 6,
+                       "crit_damage": 150, "recharge": 15},
+        "level_scale_percent": 4,
+        "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "sunder_strike")],
+    },
+    {
+        "name": "Sorting Frame",
+        "role": "combat",
+        "regions": ["Entrospire Deepworks"],
+        "base_stats": {"attack": 19, "defense": 18, "elemental": 8, "speed": 8,
+                       "max_hp": 120, "max_mana": 999, "crit_rate": 5,
+                       "crit_damage": 150, "recharge": 14},
+        "level_scale_percent": 4,
+        "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "shield_bash")],
+    },
+    {
+        "name": "Deepworks Welder",
+        "role": "combat",
+        "regions": ["Entrospire Deepworks"],
+        "base_stats": {"attack": 24, "defense": 11, "elemental": 14, "speed": 11,
+                       "max_hp": 92, "max_mana": 999, "crit_rate": 9,
+                       "crit_damage": 160, "recharge": 18},
+        "level_scale_percent": 4,
+        "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "flame_strike")],
+    },
+    {
+        "name": "Line Supervisor Unit",
+        "role": "combat",
+        "regions": ["Entrospire Deepworks"],
+        "base_stats": {"attack": 20, "defense": 13, "elemental": 16, "speed": 12,
+                       "max_hp": 98, "max_mana": 999, "crit_rate": 8,
+                       "crit_damage": 155, "recharge": 20},
+        "level_scale_percent": 4,
+        "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "rally_standard")],
+    },
+    {
+        "name": "Reclaimed Surveyor",
+        "role": "combat",
+        "regions": ["Entrospire Deepworks"],
+        "base_stats": {"attack": 21, "defense": 12, "elemental": 12, "speed": 15,
+                       "max_hp": 88, "max_mana": 999, "crit_rate": 12,
+                       "crit_damage": 165, "recharge": 19},
+        "level_scale_percent": 4,
+        "active_abilities": [get_ability_by_id(ARTIFACT_SKILLS, "hunters_mark")],
+    },
+    {
+        "name": "Coolant Wraith",
+        "role": "combat",
+        "regions": ["Entrospire Deepworks"],
+        "base_stats": {"attack": 17, "defense": 10, "elemental": 22, "speed": 14,
+                       "max_hp": 84, "max_mana": 999, "crit_rate": 10,
+                       "crit_damage": 160, "recharge": 22},
+        "level_scale_percent": 4,
+        "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "frost_lance")],
+    },
+    {
+        "name": "Deepworks Hauler",
+        "role": "combat",
+        "regions": ["Entrospire Deepworks"],
+        "base_stats": {"attack": 26, "defense": 20, "elemental": 5, "speed": 6,
+                       "max_hp": 145, "max_mana": 999, "crit_rate": 5,
+                       "crit_damage": 150, "recharge": 12},
+        "level_scale_percent": 4,
+        "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "hammerfall")],
+    },
+    {
+        "name": "Quality Assurance Drone",
+        "role": "combat",
+        "regions": ["Entrospire Deepworks"],
+        "base_stats": {"attack": 23, "defense": 11, "elemental": 10, "speed": 16,
+                       "max_hp": 80, "max_mana": 999, "crit_rate": 16,
+                       "crit_damage": 175, "recharge": 20},
+        "level_scale_percent": 4,
+        "active_abilities": [get_ability_by_id(WEAPON_SKILLS, "gutting_thrust")],
+    },
+
+    # ---- elites: the shift supervisors ----
+    {
+        "name": "Shift Foreman ANNEAL",
+        "role": "elite",
+        "regions": ["Entrospire Deepworks"],
+        "base_stats": {"attack": 34, "defense": 22, "elemental": 18, "speed": 13,
+                       "max_hp": 340, "max_mana": 999, "crit_rate": 14,
+                       "crit_damage": 180, "recharge": 20},
+        "level_scale_percent": 4,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "rending_cleave"),
+            get_ability_by_id(ARTIFACT_SKILLS, "creeping_rot"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "iron_skin")],
+    },
+    {
+        "name": "Shift Foreman QUENCH",
+        "role": "elite",
+        "regions": ["Entrospire Deepworks"],
+        "base_stats": {"attack": 30, "defense": 26, "elemental": 24, "speed": 12,
+                       "max_hp": 375, "max_mana": 999, "crit_rate": 11,
+                       "crit_damage": 175, "recharge": 22},
+        "level_scale_percent": 4,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "frost_lance"),
+            get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "thornmail")],
+    },
+    {
+        "name": "The Night Shift",
+        "role": "elite",
+        "regions": ["Entrospire Deepworks"],
+        "base_stats": {"attack": 36, "defense": 19, "elemental": 20, "speed": 17,
+                       "max_hp": 310, "max_mana": 999, "crit_rate": 18,
+                       "crit_damage": 195, "recharge": 24},
+        "level_scale_percent": 4,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "seven_cuts"),
+            get_ability_by_id(WEAPON_SKILLS, "mercy_stroke"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "momentum")],
+    },
+    {
+        "name": "Retooling Gantry",
+        "role": "elite",
+        "regions": ["Entrospire Deepworks"],
+        "base_stats": {"attack": 28, "defense": 30, "elemental": 16, "speed": 10,
+                       "max_hp": 430, "max_mana": 999, "crit_rate": 9,
+                       "crit_damage": 170, "recharge": 18},
+        "level_scale_percent": 4,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "bulwark_slam"),
+            get_ability_by_id(ARTIFACT_SKILLS, "guardian_ward"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "second_wind")],
+    },
+    {
+        "name": "Inventory Reconciler",
+        "role": "elite",
+        "regions": ["Entrospire Deepworks"],
+        "base_stats": {"attack": 32, "defense": 21, "elemental": 26, "speed": 15,
+                       "max_hp": 330, "max_mana": 999, "crit_rate": 13,
+                       "crit_damage": 185, "recharge": 26},
+        "level_scale_percent": 4,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "arcane_burst"),
+            get_ability_by_id(ARTIFACT_SKILLS, "weakpoint_marker"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "arcane_battery")],
+    },
+    {
+        "name": "Dolpo's Old Rig",
+        "role": "elite",
+        "regions": ["Entrospire Deepworks"],
+        "base_stats": {"attack": 35, "defense": 24, "elemental": 21, "speed": 14,
+                       "max_hp": 360, "max_mana": 999, "crit_rate": 15,
+                       "crit_damage": 190, "recharge": 21},
+        "level_scale_percent": 4,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "sunder_the_weak"),
+            get_ability_by_id(ARTIFACT_SKILLS, "soul_siphon"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "vampiric_edge")],
+    },
+
+    # ---- bosses ----
+    {
+        # CHECKPOINT boss. Sits at the top of Abyssnia's regular-boss band
+        # (2,100-2,600 base HP) plus the region step.
+        "name": "Floor Manager PRIME",
+        "role": "boss",
+        "region_roles": {"Entrospire Deepworks": "regular"},
+        "base_stats": {"attack": 40, "defense": 34, "elemental": 28, "speed": 16,
+                       "max_hp": 640, "max_mana": 999, "crit_rate": 18,
+                       "crit_damage": 195, "recharge": 22},
+        "level_scale_percent": 5,
+        "actions_per_cycle": 2,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "rending_cleave"),
+            get_ability_by_id(ARTIFACT_SKILLS, "void_grasp"),
+            get_ability_by_id(ARTIFACT_SKILLS, "weakpoint_marker"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "iron_skin")],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "cataclysm"),
+    },
+    {
+        # FINAL boss. Stats derived the same way Rohan's were after the
+        # rescale -- from the squad's measured envelope rather than from
+        # taste -- and then solved against tools/check_final_bosses.
+        # See region_config for the final_boss_level_bonus that sits on
+        # top of this.
+        "name": "The Process",
+        "role": "boss",
+        "region_roles": {"Entrospire Deepworks": "final"},
+        # SCALE 4, NOT 5, and lighter base HP. At scale 5 it grew so fast
+        # with level that no final_boss_level_delta in the swept range
+        # (-16 to +12) produced a winnable fight -- it was 0% at every
+        # single one. A boss that only works at one exact level is a boss
+        # that will break the next time anything moves.
+        "base_stats": {"attack": 24, "defense": 36, "elemental": 11, "speed": 22,
+                       "max_hp": 1750, "max_mana": 999, "crit_rate": 20,
+                       "crit_damage": 205, "recharge": 24},
+        "level_scale_percent": 4,
+        "actions_per_cycle": 3,
+        "max_poise": 36,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "sunder_the_weak"),
+            get_ability_by_id(ARTIFACT_SKILLS, "creeping_rot"),
+            get_ability_by_id(ARTIFACT_SKILLS, "arcane_burst"),
+        ],
+        "passive_abilities": [
+            get_ability_by_id(ARMOR_PASSIVES, "undying_will"),
+            get_ability_by_id(ARMOR_PASSIVES, "iron_skin"),
+        ],
+        "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "voidstorm"),
+    },
 ]
 
 # Named multi-enemy boss encounters. Each entry is a list of template names
@@ -2916,6 +3333,23 @@ ENEMY_SHORT_NAMES: dict[str, str] = {
     "Josh Hater Ringleader": "Hater Ringldr",
     "Negadom Destroyer": "Negadom Destr.",
     "Rohan's Catastrophe Soldier": "Catastrophe Sol.",
+    # The story finale's Rohan. Can't shorten to plain "Rohan" -- the
+    # Abyssnia template is already named exactly that, and
+    # check_ui_labels rejects two enemies resolving to one short name.
+    # "Rohan at Desk" keeps him identifiable in a turn order that may
+    # also hold his Herald, Warden and Assessor.
+    "Rohan, At The Desk": "Rohan at Desk",
+    # Entrospire Deepworks. The roster is machinery with job titles, and
+    # job titles are long -- six of the eight new names blew the
+    # 16-character turn-order budget the moment they were added.
+    "Line Supervisor Unit": "Line Super.",
+    "Reclaimed Surveyor": "Recl. Surveyor",
+    "Quality Assurance Drone": "QA Drone",
+    "Shift Foreman ANNEAL": "F/ANNEAL",
+    "Shift Foreman QUENCH": "F/QUENCH",
+    "Inventory Reconciler": "Reconciler",
+    "Deepworks Intake Arm": "Intake Arm",
+    "Floor Manager PRIME": "Mgr. PRIME",
 }
 
 

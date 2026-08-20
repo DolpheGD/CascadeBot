@@ -807,6 +807,7 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         # investment that pays more the longer a fight runs, which is the
         # opposite tempo and a genuinely different reason to bring him.
         {"kind": "apply_vulnerability_stack", "damage_percent": 105,
+         "splash_percent": 30,
          "damage_stat": "attack", "vulnerable_damage_stat": "all",
          # 28% over 3 marks, not 16% over 5.
          #
@@ -1068,12 +1069,18 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     # --- Polo (4-star Support DPS) -------------------------------------
     "polo_skill": _skill(
         "polo_skill", "Pressure Point", 20, 2,
-        "The whole squad chips +2 Poise per hit for 3 turns.",
+        "Deal 55% ATK damage to every enemy. The whole squad chips +2 Poise per hit "
+     "for 3 turns.",
         # 3 turns, not the requested 2. A 2-turn window on a 2-turn
         # cooldown is a buff that is up exactly as often as it is down,
         # which reads as unreliable rather than as a decision; at 3 the
         # squad can actually plan a break around it.
-        {"kind": "team_poise_damage_buff", "amount": 2, "duration": 3},
+        # SPLASH, because he is a Support DPS.
+        # A pure team buff with no damage attached is an Amplifier's
+        # kit wearing the wrong label -- the class is called Support
+        # DPS and half of that was missing.
+        {"kind": "team_poise_damage_buff", "amount": 2, "duration": 3,
+         "splash_percent": 55, "damage_stat": "attack"},
     ),
     "polo_ultimate": _ultimate(
         "polo_ultimate", "Full Commitment",
@@ -1151,7 +1158,7 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         # scaling the burn off what she ACTUALLY spent makes being
         # already hurt a real cost rather than a flat tax.
         {"kind": "sacrifice_hp_damage_and_dot", "self_cost_percent": 12,
-         "damage_percent": 80, "damage_stat": "elemental",
+         "damage_percent": 80, "damage_stat": "elemental", "splash_percent": 25,
          "dot_stat": "elemental", "dot_percent": 55, "hp_scaling": 3.0,
          "duration": 4},
     ),
@@ -1169,7 +1176,8 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         "asc_skill", "Opening", 20, 1,
         "Deal 90% ATK damage -- or 260% if the target is BROKEN.",
         {"kind": "damage_bonus_if_target_broken", "damage_percent": 90,
-         "bonus_damage_percent": 170, "damage_stat": "attack"},
+         "bonus_damage_percent": 170, "damage_stat": "attack",
+         "splash_percent": 30},
     ),
     "asc_ultimate": _ultimate(
         "asc_ultimate", "Closing",

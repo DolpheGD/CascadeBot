@@ -84,23 +84,79 @@ PERCENT_ELIGIBLE_STATS = {"attack", "defense", "elemental", "max_hp", "max_mana"
 # upgrades until I'm done". Anchoring absolutely means a Common tops out
 # early on the curve and a Divine keeps climbing -- rarity buys you
 # ACCESS to the steep part.
-MAIN_STAT_LEVEL_1_MULTIPLIER = 0.45   # a level-1 item is worth 45% of its old value
-MAIN_STAT_TOP_MULTIPLIER = 2.3        # ...and 2.3x at the anchor level
+# ----------------------------------------------------------------------
+# THE ONE FORMULA. Both the generator and the upgrade path call
+# main_stat_for() below -- see the block above for why the curve exists,
+# and this block for why it is a single function.
+#
+# It was not. `LootGenerator.roll_main_stat` applied the curve; the
+# level-up path in loot/upgrades.py used its OWN arithmetic with a
+# hardcoded growth of 1.0 and no curve at all. Two formulas for one
+# number, and they disagreed enormously:
+#
+#     base-10 RARE attack item      generator   level_up()
+#         level 1                       5.31       11.80
+#         level 5                       6.69       16.52
+#
+# So an item was created weak, and the instant you upgraded it once it
+# was recomputed on the other formula and JUMPED 2.44x -- then crawled,
+# because level_up's growth was a flat +1.0 a level. That is exactly the
+# reported "level 1 low, level 2 high, marginal after", and it survived
+# the previous attempt at this because that pass only touched the
+# generator, which is not the path an upgraded item goes through.
+#
+# LINEAR, as asked. The curve exponent is 1.0, so a level is worth the
+# same amount of stat wherever you are on the climb: start very low, end
+# high, no step anywhere.
+# ----------------------------------------------------------------------
+MAIN_STAT_LEVEL_1_MULTIPLIER = 0.35   # a level-1 item carries 35% of its base
+MAIN_STAT_TOP_MULTIPLIER = 3.0        # ...and 3.0x at the anchor level
 MAIN_STAT_ANCHOR_LEVEL = 30           # where TOP is reached (mythic's cap)
-MAIN_STAT_CURVE_EXPONENT = 1.5        # >1 back-loads the gains
+MAIN_STAT_CURVE_EXPONENT = 1.0        # 1.0 = strictly linear
+
 
 def main_stat_level_multiplier(item_level: int) -> float:
-    """How much of a main stat an item of this level actually carries.
-
-    Below 1 early, above 1 late -- see the block above. Deliberately a
-    pure function of level so it can be reasoned about (and asserted)
-    without building an item.
-    """
+    """How much of a main stat an item of this level carries."""
     span = max(1, MAIN_STAT_ANCHOR_LEVEL - 1)
     progress = max(0.0, (item_level - 1) / span) ** MAIN_STAT_CURVE_EXPONENT
     return MAIN_STAT_LEVEL_1_MULTIPLIER + (
         MAIN_STAT_TOP_MULTIPLIER - MAIN_STAT_LEVEL_1_MULTIPLIER
     ) * progress
+
+
+# Per-stat ceilings. A stat's character now lives HERE rather than in a
+# second additive growth term, because base * (linear curve) is a
+# straight line and base * (linear curve) + (linear growth) is not -- the
+# product of two level-dependent terms is quadratic, which put a visible
+# bend in what was supposed to be a flat climb.
+#
+# recharge stays deliberately shallow: it is a %-of-max-pool refund per
+# basic attack, so a fast-scaling recharge main stat lets high-level gear
+# reach its ultimate in one or two turns.
+MAIN_STAT_TOP_BY_STAT: dict[str, float] = {
+    "attack": 3.0, "defense": 3.0, "elemental": 3.0,
+    "max_hp": 3.4, "max_mana": 2.6,
+    "speed": 2.2, "crit_rate": 2.2, "crit_damage": 2.6,
+    "recharge": 1.8,
+}
+
+
+def main_stat_for(base_value: float, main_stat: str, item_level: int,
+                  rarity_multiplier: float) -> float:
+    """The main stat an item has. THE only definition -- both the loot
+    generator and the upgrade path call this, so they cannot drift.
+
+    Strictly linear in item_level: every level is worth the same amount
+    of stat, from MAIN_STAT_LEVEL_1_MULTIPLIER at level 1 up to this
+    stat's own ceiling at MAIN_STAT_ANCHOR_LEVEL.
+    """
+    top = MAIN_STAT_TOP_BY_STAT.get(main_stat, MAIN_STAT_TOP_MULTIPLIER)
+    span = max(1, MAIN_STAT_ANCHOR_LEVEL - 1)
+    progress = max(0.0, (item_level - 1) / span)
+    multiplier = MAIN_STAT_LEVEL_1_MULTIPLIER + (
+        top - MAIN_STAT_LEVEL_1_MULTIPLIER
+    ) * progress
+    return round(base_value * multiplier * rarity_multiplier, 2)
 
 
 MAIN_STAT_GROWTH_PER_LEVEL: dict[str, float] = {

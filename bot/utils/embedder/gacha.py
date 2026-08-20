@@ -1,7 +1,7 @@
 """
 Character gacha embeds.
 
-/pull results and the /pull_rates odds table.
+/pull results, and the Echo Exchange storefronts.
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ def gacha_pull_embed(results: list[dict], player=None) -> discord.Embed:
 
     `player` is optional and only used to append the post-pull pity
     status -- passing it lets the player see how close the next
-    guarantee is without opening /pull_rates separately, which is the
+    guarantee is without leaving the banner, which is the
     single most-wanted piece of information right after a pull."""
     multi = len(results) > 1
     embed = discord.Embed(
@@ -119,18 +119,45 @@ def gacha_pull_embed(results: list[dict], player=None) -> discord.Embed:
     return embed
 
 
-def echo_exchange_embed(player, offers: list[dict]) -> discord.Embed:
-    """The `/exchange` storefront: every character, what it costs in
-    Echoes, and whether you can afford it.
+# ----------------------------------------------------------------------
+# THE ECHO EXCHANGE
+#
+# THE EMBED SHOWS ONE PAGE, NOT THE WHOLE CATALOG.
+#
+# It used to list all 29 characters at once while the select underneath
+# was paged 25 at a time -- so the screen was already an enormous wall of
+# text, and the wall didn't even agree with the menu below it about what
+# was on offer. Adding the 26-card catalog to the same screen would have
+# made it 55 rows: past the 6,000-character embed budget, and long before
+# that, past the point anyone reads it.
+#
+# So the embed renders exactly the window the select is showing. The page
+# controls now move BOTH, which also means the two can no longer disagree
+# about what page you are on.
+# ----------------------------------------------------------------------
 
-    Owned characters are still listed rather than hidden, because buying
-    a duplicate of someone you already have is a legitimate (and for a
+def _exchange_header(player) -> str:
+    return (
+        f"**{player.echoes:,} ✴️ Echoes** · **{player.cores:,} "
+        f"{currency_emoji('cores')} Cores**"
+    )
+
+
+def echo_exchange_embed(player, offers: list[dict], page: int = 0,
+                        per_page: int = 25, total: int | None = None) -> discord.Embed:
+    """The Characters counter: what a character costs in Echoes and
+    whether you can afford it.
+
+    `offers` is the WINDOW being shown, already sorted and sliced by the
+    view; `total` is how many exist overall, for the page footer. Owned
+    characters are still listed rather than hidden, because buying a
+    duplicate of someone you already have is a legitimate (and for a
     favourite character, the ONLY deterministic) way to push their
     Resonance -- see resonance_config."""
     embed = discord.Embed(
-        title="✴️ Echo Exchange",
+        title="✴️ Echo Exchange — Characters",
         description=(
-            f"**{player.echoes:,} ✴️ Echoes**\n"
+            f"{_exchange_header(player)}\n"
             "Every duplicate you pull pays Echoes. Spend them here on exactly the "
             "character you want -- no rates, no pity, no luck.\n"
             "Buying someone you already own raises their **Resonance** instead."
@@ -154,8 +181,102 @@ def echo_exchange_embed(player, offers: list[dict]) -> discord.Embed:
             value=fit_field(by_star[star]),
             inline=False,
         )
-    embed.set_footer(text="Duplicates past Resonance 5 pay more than double the Echoes.")
+    embed.set_footer(text=_page_footer(
+        page, per_page, total if total is not None else len(offers),
+        "Duplicates past Resonance 5 pay more than double the Echoes."))
     return embed
+
+
+def echo_card_exchange_embed(player, offers: list[dict], page: int = 0,
+                             per_page: int = 25,
+                             total: int | None = None) -> discord.Embed:
+    """The Cards counter.
+
+    Each row carries the card's ABILITY rather than just its name. Card
+    names are deliberately lore phrases -- "The Comma After Good Luck"
+    tells a player nothing about whether it is the one they are saving
+    for, and a shop you cannot shop in is a list.
+    """
+    embed = discord.Embed(
+        title="✴️ Echo Exchange — Character Cards",
+        description=(
+            f"{_exchange_header(player)}\n"
+            "The card banner's deterministic half. Buy the exact Card you want "
+            "instead of rolling for it.\n"
+            "A second copy of a card you own is **not** wasted — one card sits on "
+            "one character, so two copies run the same ability on two of them."
+        ),
+        color=discord.Color.purple(),
+    )
+    by_star: dict[int, list[str]] = {}
+    for offer in offers:
+        mark = "✅" if offer["affordable"] else "🔒"
+        owned = f" · owned ×{offer['owned']}" if offer["owned"] else ""
+        by_star.setdefault(offer["star_rating"], []).append(
+            f"{mark} **{offer['name']}** — {offer['cost']:,} ✴️{owned}\n"
+            f"　*{offer['ability_name']}*"
+        )
+    for star in sorted(by_star, reverse=True):
+        embed.add_field(
+            name=f"{STAR_EMOJI.get(star, '⭐' * star)}",
+            value=fit_field(by_star[star]),
+            inline=False,
+        )
+    embed.set_footer(text=_page_footer(
+        page, per_page, total if total is not None else len(offers),
+        "Cards cost the same as characters of the same rating."))
+    return embed
+
+
+def echo_convert_embed(player, batches: list[int]) -> discord.Embed:
+    """The Sell Cores counter."""
+    rate = resonance_config.CORES_PER_ECHO
+    embed = discord.Embed(
+        title="✴️ Echo Exchange — Sell Cores",
+        description=(
+            f"{_exchange_header(player)}\n"
+            f"**{rate} {currency_emoji('cores')} → 1 ✴️**\n"
+            "Cores buy card pulls and nothing else, so a player who is done with "
+            "the card banner is holding a currency that does nothing. Trade the "
+            "spares for Echoes and buy the Card — or the character — you actually "
+            "want."
+        ),
+        color=discord.Color.purple(),
+    )
+    if batches:
+        embed.add_field(
+            name="Available trades",
+            value="\n".join(
+                f"{amount:,} {currency_emoji('cores')} → "
+                f"**{resonance_config.echoes_for_cores(amount):,} ✴️**"
+                for amount in batches
+            ),
+            inline=False,
+        )
+    else:
+        embed.add_field(
+            name="Nothing to sell",
+            value=f"You need at least {rate} cores to make a single Echo.",
+            inline=False,
+        )
+    # THE RATE IS UNFAVOURABLE AND SAYS SO. A conversion that quietly
+    # pays less than pulling would is the kind of thing a player works
+    # out three weeks later and feels cheated by.
+    embed.set_footer(
+        text="One-way, and deliberately not generous: converting everything and "
+             "buying the card you want costs about what pulling to the guarantee does."
+    )
+    return embed
+
+
+def _page_footer(page: int, per_page: int, total: int, note: str) -> str:
+    """`note`, with the page position appended only when there is more
+    than one page -- so a shop that fits on one screen reads exactly as
+    it did before paging existed."""
+    pages = max(1, -(-total // per_page)) if total else 1
+    if pages <= 1:
+        return note
+    return f"Page {min(page, pages - 1) + 1}/{pages} · {total} in stock · {note}"
 
 
 def resonance_embed(character) -> discord.Embed:
@@ -214,54 +335,3 @@ def _pity_status_lines(player) -> str:
     return "\n".join(lines)
 
 
-def gacha_rates_embed(player=None) -> discord.Embed:
-    """The /pull_rates odds table. `player` is optional -- when given,
-    the player's own live pity progress is shown alongside the static
-    rates, since "what are the odds" and "where am I in the cycle" are
-    really one question once pity exists."""
-    from bot.game.economy.character_gacha_config import (
-        FIVE_STAR_HARD_PITY,
-        FIVE_STAR_SOFT_PITY_START,
-        FIVE_STAR_SOFT_PITY_STEP,
-        FOUR_STAR_PITY,
-        MULTI_PULL_COST_SHARDS,
-        SINGLE_PULL_COST_SHARDS,
-        STAR_WEIGHTS,
-    )
-
-    total = sum(STAR_WEIGHTS.values())
-    embed = discord.Embed(title="🎰 Gacha Rates", color=discord.Color.gold())
-    lines = [
-        f"**{star_label(star)}** — {weight / total * 100:.0f}%"
-        for star, weight in sorted(STAR_WEIGHTS.items(), reverse=True)
-    ]
-    embed.add_field(name="Base Odds by Star Rating", value="\n".join(lines), inline=False)
-
-    embed.add_field(
-        name="🎟️ Pity (guarantees)",
-        value=(
-            f"• **Hard pity:** a 5★ is guaranteed on pull **{FIVE_STAR_HARD_PITY}** of a cycle.\n"
-            f"• **Soft pity:** from pull **{FIVE_STAR_SOFT_PITY_START}** onward, the 5★ rate climbs "
-            f"+{FIVE_STAR_SOFT_PITY_STEP:g}% per pull -- most 5★s land before the hard cap.\n"
-            f"• **4★ guarantee:** a 4★ or better every **{FOUR_STAR_PITY}** pulls.\n"
-            "• Pulling a 5★ resets both counters. A 10x pull counts as ten separate pulls."
-        ),
-        inline=False,
-    )
-
-    if player is not None:
-        embed.add_field(name="Your progress", value=_pity_status_lines(player), inline=False)
-
-    embed.add_field(
-        name="Cost",
-        value=f"Single pull: {SINGLE_PULL_COST_SHARDS} {currency_emoji('shards')} Shards\n"
-              f"10x pull: {MULTI_PULL_COST_SHARDS} {currency_emoji('shards')} Shards (same price per pull)",
-        inline=False,
-    )
-    embed.add_field(
-        name="Duplicates",
-        value="Pulling a character you already own converts to gold + reroll tokens instead of a second copy.",
-        inline=False,
-    )
-    embed.set_footer(text="Only characters drop from the gacha -- gear comes from dungeon runs and lootboxes.")
-    return embed

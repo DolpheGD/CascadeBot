@@ -211,7 +211,6 @@ def main() -> int:
         quest_service.get_active_basic_quests(db, player), None, player))
     check("general_inventory_embed", embedder.general_inventory_embed(
         player, lootbox_service.list_player_lootboxes(db, player.id)))
-    check("gacha_rates_embed", embedder.gacha_rates_embed())
     check("encyclopedia_categories_embed", embedder.encyclopedia_categories_embed())
 
     db.close()

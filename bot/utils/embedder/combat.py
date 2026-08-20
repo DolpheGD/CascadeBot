@@ -170,49 +170,126 @@ def _recent_log_lines(battle, count: int = 5, char_limit: int = 900) -> str:
 
 
 def dungeon_map_graph_embed(expedition) -> discord.Embed:
-    """The 🗺️ Map button's view: a floor-by-floor breakdown of every room
-    between here and the NEXT boss (not the whole multi-boss run --
-    anything past that boss hasn't been reached yet and would just be
-    noise). Marks the current room and anything already cleared."""
+    """The 🗺️ Map button: every room between here and the next boss, laid
+    out in COLUMNS, with everything your current lane can no longer reach
+    marked as locked.
+
+    ----------------------------------------------------------------------
+    WHY THIS SHOWS REACHABILITY AND NOT JUST ROOMS
+    ----------------------------------------------------------------------
+    The previous version listed each floor's rooms as a flat row of
+    emoji. That tells you a treasure exists two floors up. It does not
+    tell you whether you can get to it -- and after the generator rewrite
+    that is the only question worth asking, because a segment now locks
+    out about 74% of its own nodes depending on which way you go.
+
+    A map that hides the consequence of a choice makes the choice feel
+    arbitrary, which is exactly the "your choices don't really matter"
+    this is fixing. Rooms are drawn in their real columns so lanes are
+    visible as lanes, and anything unreachable from where you stand is
+    drawn dimmed -- so the cost of the fork you already took is on screen,
+    and the cost of the next one can be read before you commit.
+    """
     graph = expedition.graph
+    nodes = graph["nodes"]
     current_node_id = expedition.current_node_id
-    current_floor = graph["nodes"][current_node_id]["floor"]
+    current_floor = nodes[current_node_id]["floor"]
 
     boss_nodes = graph.get("boss_nodes", [graph.get("boss_node")])
-    boss_floors = sorted(graph["nodes"][b]["floor"] for b in boss_nodes if b in graph["nodes"])
+    boss_floors = sorted(nodes[b]["floor"] for b in boss_nodes if b in nodes)
     next_boss_floor = next((f for f in boss_floors if f >= current_floor), None)
     if next_boss_floor is None:
-        next_boss_floor = max(n["floor"] for n in graph["nodes"].values())
+        next_boss_floor = max(n["floor"] for n in nodes.values())
     is_final_stretch = not boss_floors or next_boss_floor == boss_floors[-1]
 
+    # Everything still reachable from where the player is standing.
+    reachable = {current_node_id}
+    frontier = [current_node_id]
+    while frontier:
+        node_id = frontier.pop()
+        for target in nodes.get(node_id, {}).get("edges", []):
+            if target not in reachable:
+                reachable.add(target)
+                frontier.append(target)
+
     by_floor: dict[int, list[tuple[str, dict]]] = {}
-    for node_id, node in graph["nodes"].items():
+    for node_id, node in nodes.items():
         if current_floor <= node["floor"] <= next_boss_floor:
             by_floor.setdefault(node["floor"], []).append((node_id, node))
 
+    width = max((n["index"] for _floor, row in by_floor.items()
+                 for _nid, n in row), default=0) + 1
+
     lines = []
+    locked_count = 0
     for floor in sorted(by_floor):
-        room_strs = []
-        for node_id, node in sorted(by_floor[floor]):
+        # Column-aligned: a node sits in its own index, and an empty
+        # column is drawn as a gap. Without this every floor looked
+        # left-packed and two lanes appeared adjacent when they were not.
+        slots = ["\u3000"] * width
+        for node_id, node in by_floor[floor]:
             emoji = ROOM_TYPE_EMOJI.get(node["room_type"], "❔")
             if node_id == current_node_id:
-                room_strs.append(f"[{emoji}]")
+                slots[node["index"]] = f"[{emoji}]"
             elif node.get("completed"):
-                room_strs.append(f"~~{emoji}~~")
+                slots[node["index"]] = "▪"
+            elif node_id not in reachable:
+                slots[node["index"]] = "✖"
+                locked_count += 1
             else:
-                room_strs.append(emoji)
+                slots[node["index"]] = emoji
         if floor == next_boss_floor:
-            floor_label = "🐲 FINAL BOSS" if is_final_stretch else "🐲 Boss"
+            floor_label = "🐲 **FINAL BOSS**" if is_final_stretch else "🐲 **Boss**"
+        elif floor == current_floor:
+            floor_label = f"**F{floor}** ◀"
         else:
-            floor_label = f"Floor {floor}"
-        lines.append(f"**{floor_label}**  " + "  ".join(room_strs))
+            floor_label = f"F{floor}"
+        lines.append(f"`{floor_label:<14}` " + " ".join(slots))
+
+    description = "\n".join(lines) if lines else "*Nothing charted yet.*"
+    if locked_count:
+        description += (f"\n\n✖ **{locked_count} room"
+                        f"{'s' if locked_count != 1 else ''} your route has "
+                        f"already ruled out.**")
 
     embed = discord.Embed(
         title="🗺️ Map to the Next Boss",
-        description="\n".join(lines) if lines else "*Nothing charted yet.*",
+        description=description,
         color=discord.Color.blurple(),
     )
-    embed.set_footer(text="[bracketed] = you are here. ~~struck-through~~ = already cleared.")
+
+    # The immediate fork, spelled out -- what each option opens up. This
+    # is the actual planning aid: it answers "what does going left cost
+    # me" without the player having to trace edges by eye.
+    choices = [t for t in nodes[current_node_id].get("edges", [])
+               if t in nodes and not nodes[t].get("completed")]
+    if choices:
+        parts = []
+        for target in sorted(choices):
+            onward = {target}
+            frontier = [target]
+            while frontier:
+                node_id = frontier.pop()
+                for nxt in nodes.get(node_id, {}).get("edges", []):
+                    if nxt not in onward:
+                        onward.add(nxt)
+                        frontier.append(nxt)
+            ahead: dict[str, int] = {}
+            for node_id in onward:
+                room = nodes[node_id]["room_type"]
+                if room in ("boss", "start"):
+                    continue
+                ahead[room] = ahead.get(room, 0) + 1
+            summary = " ".join(
+                f"{ROOM_TYPE_EMOJI.get(room, '❔')}{count}"
+                for room, count in sorted(ahead.items(), key=lambda kv: -kv[1])[:5])
+            emoji = ROOM_TYPE_EMOJI.get(nodes[target]["room_type"], "❔")
+            parts.append(f"{emoji} **{nodes[target]['room_type'].title()}** "
+                         f"→ opens {summary or 'the boss'}")
+        embed.add_field(name="Where each way leads", value="\n".join(parts),
+                        inline=False)
+
+    embed.set_footer(text="[you] · ▪ cleared · ✖ locked out by the route you took")
     return embed
 
 
@@ -781,9 +858,18 @@ def expedition_summary_embed(ledger: dict, won: bool, forfeited: bool = False) -
 
         relics = [r for r in (get_relic(rid) for rid in relic_ids) if r]
         if relics:
+            # fit_field, NOT a raw join.
+            #
+            # A run is now ~45 rooms with far more relic sources than the
+            # 9-floor runs this was written for, and a full relic list
+            # blew past Discord's 1024-character field limit -- which does
+            # not raise, it silently truncates, so the summary would have
+            # quietly dropped relics off the end of a winning run.
+            # tools/check_embed_limits.py caught it the moment runs got
+            # longer.
             embed.add_field(
                 name=f"✨ Relics carried ({len(relics)})",
-                value="\n".join(f"{r['emoji']} **{r['name']}**" for r in relics),
+                value=fit_field([f"{r['emoji']} **{r['name']}**" for r in relics]),
                 inline=False,
             )
 
@@ -792,6 +878,12 @@ def expedition_summary_embed(ledger: dict, won: bool, forfeited: bool = False) -
         gained_lines.append(f"{format_currency('gold', ledger['gold_gained'])}")
     if ledger["shards_gained"]:
         gained_lines.append(f"{format_currency('shards', ledger['shards_gained'])}")
+    # .get, not [] -- a run STARTED before this key existed still has a
+    # ledger without it, and an expedition summary is the last thing that
+    # should crash on a completed run.
+    if ledger.get("evolution_fragments_gained"):
+        gained_lines.append(
+            format_currency('evolution_fragments', ledger['evolution_fragments_gained']))
     if ledger["reroll_tokens_gained"]:
         gained_lines.append(f"{format_currency('reroll_tokens', ledger['reroll_tokens_gained'])}")
     if ledger["xp_gained"]:

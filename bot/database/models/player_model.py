@@ -62,6 +62,12 @@ class Player(Base):
     # same as the pity counters below.
     echoes: Mapped[int] = mapped_column(Integer, default=0)
 
+    # Evolution Fragments: the BREAKTHROUGH material
+    # (bot/game/economy/evolution_config.py). Not a currency you buy
+    # things with -- it is the gate on levelling something you already
+    # own past every 5th level of gear and every 10th of a Card.
+    evolution_fragments: Mapped[int] = mapped_column(Integer, default=0)
+
     # Gear-upgrade materials, tiered common -> rare -> rarest. Spent
     # alongside gold to level up equipment (bot/game/loot/rarity_config.py).
     wood: Mapped[int] = mapped_column(Integer, default=0)
@@ -86,6 +92,15 @@ class Player(Base):
     # counters would mean pulling on one banner advanced your guarantee
     # on the other, which is either an exploit or a theft depending on
     # which way round you look at it.
+    # TARGETED 5-STARS. Each banner keeps its own nomination and its own
+    # guarantee flag -- see pull_service.resolve_five_star for the rule.
+    # The guarantee is a BOOLEAN, not a counter: it is armed by one miss
+    # and spent by one hit, and there is deliberately no way to stack it.
+    target_character: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    target_character_guaranteed: Mapped[bool] = mapped_column(Boolean, default=False)
+    target_card: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    target_card_guaranteed: Mapped[bool] = mapped_column(Boolean, default=False)
+
     card_pity_since_five_star: Mapped[int] = mapped_column(Integer, default=0)
     card_pity_since_four_star: Mapped[int] = mapped_column(Integer, default=0)
 

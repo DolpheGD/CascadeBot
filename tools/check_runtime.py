@@ -78,6 +78,12 @@ def _undefined_names() -> list[str]:
 # Commands that are DELIBERATELY reachable before the story introduces
 # anything. Each one needs a reason, because "it was easier" is how the
 # gate leaks -- which is exactly how it leaked the first time.
+# Commands that may legitimately be absent from /help. Owner-only tooling
+# only -- everything a player can run has to be discoverable, or it may as
+# well not exist.
+HELP_EXEMPT: set[str] = {"admin_boosterkit"}
+
+
 UNGATED_COMMANDS: dict[str, str] = {
     "start": "creates the player; gating it would gate the game",
     "story": "the thing every gate points at",

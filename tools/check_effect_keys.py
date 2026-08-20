@@ -57,6 +57,32 @@ should stay short, and every entry should name who does the reading.
 
 from __future__ import annotations
 
+# ----------------------------------------------------------------------
+# TRIGGER STRINGS THE ENGINE ACTUALLY DISPATCHES ON.
+#
+# A passive's `trigger` is compared as a literal in effects.py. Three of
+# those comparisons GATE the passive entirely -- get the string wrong and
+# the ability loads, validates, prints its description on the info page
+# and never fires. Everything else is documentation: the retaliation and
+# damage-reduction kinds are found by find_passive(kind) inside the hit
+# resolver and never look at `trigger` at all.
+#
+# Two abilities shipped in one sitting with near-miss triggers:
+# "turn_start" for "on_turn_start", and "on_hit_taken" for a kind that
+# is not trigger-dispatched at all. Both were single occurrences of a
+# string used nowhere else in the file, which is exactly the shape this
+# checks for -- a typo is, almost by definition, a value with a
+# population of one.
+DISPATCHED_TRIGGERS = {"on_kill", "on_low_hp", "on_turn_start"}
+
+# Values that are legal but purely descriptive. Anything outside both
+# sets is either a typo or a trigger someone expected the engine to
+# honour and it does not.
+DOCUMENTARY_TRIGGERS = {
+    "always", "on_crit", "on_heal", "on_shield", "on_buff", "on_break",
+    "on_dot", "on_hit_debuffed", "on_sacrifice", "on_cleanse", "on_ultimate",
+}
+
 import ast
 import pathlib
 import sys
@@ -243,9 +269,35 @@ def main() -> int:
                     f"Keys it does read: {', '.join(sorted(by_kind[kind])) or '(none)'}"
                 )
 
+    # ---- trigger strings ---------------------------------------------
+    #
+    # Same failure as an unread key, one field over: a passive whose
+    # trigger the dispatcher never matches is silently inert.
+    from bot.game.loot.abilities import ARMOR_PASSIVES
+
+    known = DISPATCHED_TRIGGERS | DOCUMENTARY_TRIGGERS
+    triggers_checked = 0
+    for passive in ARMOR_PASSIVES:
+        trigger = passive.get("trigger")
+        if trigger is None:
+            continue
+        triggers_checked += 1
+        if trigger not in known:
+            close = [k for k in sorted(known)
+                     if k.endswith(trigger) or trigger.endswith(k) or k in trigger]
+            hint = f" Did you mean {close[0]!r}?" if close else ""
+            failures.append(
+                f"armor passive '{passive['id']}' has trigger {trigger!r}, which "
+                f"appears nowhere in the engine.{hint} A trigger the dispatcher "
+                f"never matches means the passive loads, validates, prints its "
+                f"description and never once fires"
+            )
+
     print(f"kinds    : {len(by_kind)} effect kinds resolved from effects.py")
     print(f"universal: {len(universal)} keys read for every kind")
     print(f"keys     : {checked} declared across every kit, passive and gear pool")
+    print(f"triggers : {triggers_checked} passive triggers, "
+          f"{len(DISPATCHED_TRIGGERS)} of which the engine dispatches on")
     print()
     if failures:
         for line in dict.fromkeys(failures):

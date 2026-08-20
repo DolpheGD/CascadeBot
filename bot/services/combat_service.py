@@ -22,6 +22,7 @@ from bot.game.combat.serialization import battle_from_dict, battle_to_dict
 from bot.game.economy.lootbox_config import tier_for_floor_and_region
 from bot.game.loot.generator import LootGenerator
 from bot.services import (
+    card_service,
     base_service,
     character_service,
     item_template_service,
@@ -42,6 +43,32 @@ ITEM_DROP_CHANCE = {"combat": 0.5, "elite": 0.75, "boss": 1.0}
 # regular fight for a similar payout.
 MATERIAL_DROP_CHANCE = {"combat": 0.55, "elite": 1.0, "boss": 1.0}
 LOOTBOX_DROP_CHANCE = {"combat": 0.35, "elite": 1.0, "boss": 1.0}
+
+# ----------------------------------------------------------------------
+# EVOLUTION FRAGMENTS FROM EVERY FIGHT.
+#
+# Fragments launched with their sources concentrated in the base and the
+# calendar -- a harvester, a domain, the daily, the shop -- and almost
+# nothing in the main loop. That is backwards for what they gate.
+# Fragments unlock the NEXT level of the gear you are wearing, and the
+# gear you are wearing is what you got from adventuring, so the loop that
+# produces the item should be the loop that produces the means to
+# improve it. As it stood, the best way to progress your gear was to
+# stop playing and wait for a harvester to tick.
+#
+# So: every combat victory pays, guaranteed for elites and bosses, with
+# the amount scaling by room type AND by region difficulty -- deep
+# regions are where the Mythic and Divine gear drops, and that gear needs
+# the expensive breakthroughs.
+#
+# Measured over a full run (see tools/check_evolution.py's budget line):
+# a Glacier run pays roughly 30-45, an Abyssnia run several times that.
+# A Rare item's entire lifetime cost is 12, an Epic's 36 -- so a player
+# adventuring at the level those drop keeps pace from the loop alone,
+# which is the point.
+# ----------------------------------------------------------------------
+FRAGMENT_DROP_CHANCE = {"combat": 0.6, "elite": 1.0, "boss": 1.0}
+FRAGMENT_DROP_RANGE = {"combat": (1, 3), "elite": (4, 7), "boss": (8, 14)}
 
 # Gold/XP multiplier by room type on top of the base per-floor formula --
 # "Defeating the boss should grant great rewards"
@@ -155,9 +182,16 @@ def build_player_party(db, player, *, full_hp: bool = False, squad: list | None 
     equipped = character_service.get_equipped_items_by_character(
         db, [pc.id for pc in squad]
     )
+    # CHARACTER CARDS. This is the path every real battle goes through,
+    # and it was the one place that did not pass them -- so a card's
+    # stats and its ability applied on the profile preview and in a
+    # couple of dungeon helpers, and then silently vanished the moment a
+    # fight actually started. The most expensive item in the game did
+    # nothing in combat.
     party = build_party_combatants(
         squad, equipped,
         starting_energy=research_service.perk_value(db, player.id, "starting_energy"),
+        cards_by_character=card_service.cards_by_character(db, player.id),
     )
     base_service.apply_shrine_bonuses(db, player, party)
     return party
@@ -428,7 +462,20 @@ def apply_victory_rewards(
         lootbox_service.grant_lootbox(db, player, tier, quantity=1)
         lootbox = {"tier": tier, "quantity": 1}
 
+    # Evolution Fragments -- see the FRAGMENT_DROP_CHANCE block above.
+    # Scaled by reward_multiplier (the XP/material curve) rather than
+    # gold_multiplier: fragments are a progression resource like
+    # materials, not a currency like gold, and gold's curve reaches 45x
+    # at Abyssnia -- which would pay a Divine item's entire breakthrough
+    # cost from a single boss.
+    fragments = 0
+    if rng.random() < FRAGMENT_DROP_CHANCE.get(room_type, 0.5):
+        low, high = FRAGMENT_DROP_RANGE.get(room_type, (1, 3))
+        fragments = max(1, round(rng.randint(low, high) * difficulty["reward_multiplier"]))
+        add_currency(db, player, "evolution_fragments", fragments)
+
     return {
         "gold": gold_reward, "xp": xp_reward, "items": items, "level_ups": level_ups,
         "material": material, "lootbox": lootbox,
+        "evolution_fragments": fragments,
     }

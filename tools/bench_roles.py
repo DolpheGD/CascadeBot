@@ -85,21 +85,57 @@ COMPS: dict[str, dict[str, int]] = {
 # Region -> (squad level, gear rarity name, gear item level). Roughly
 # what a player actually arrives with, matching sim_expedition's model
 # and region_config's own notes.
-REGION_PROFILE = {
-    "Glacier 15":       (8, "RARE", 12),
-    "The Wastelands":   (22, "EPIC", 18),
-    "The Hotlands":     (38, "LEGENDARY", 22),
-    "Voidcrest Desert": (52, "MYTHIC", 28),
-    "Abyssnia":         (70, "DIVINE", 34),
-}
+def _region_profile():
+    """(level, rarity name, gear level) per region, READ FROM THE GAME.
 
-NUM_FLOORS = 9
+    Was a hardcoded table here and a second one in check_final_bosses.
+    The game itself now states who is expected to play each region (see
+    region_config.expected_squad_level), so both tools read that instead
+    of each maintaining an opinion about it.
+    """
+    from bot.game.dungeon.region_config import REGION_DIFFICULTY
+    return {r: (d["expected_squad_level"], d["expected_gear_rarity"].name,
+                d["expected_gear_level"])
+            for r, d in REGION_DIFFICULTY.items()}
+
+# The floors a real run actually walks between rests, derived from the
+# generator's own config rather than pinned at 9.
+#
+# It was 9, which matched SEGMENT_FLOOR_RANGE when that was (8, 11). The
+# range then grew to (12, 16) -- fewer bosses, longer roads -- and this
+# constant would have quietly kept measuring the old, shorter run. A
+# benchmark that measures a length the game no longer generates reports
+# attrition that no player experiences, and it would have said the
+# rebalance was fine when it had not been tested.
+def _mean_segment_floors() -> int:
+    from bot.game.dungeon.room_config import SEGMENT_FLOOR_RANGE
+    return sum(SEGMENT_FLOOR_RANGE) // 2
+
+
+NUM_FLOORS = _mean_segment_floors()
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--runs", type=int, default=30,
-                        help="expedition runs per comp per region")
+    # 150, NOT 30.
+    #
+    # 30 runs per cell gives a standard error of about 9 points on a
+    # mid-range clear rate, so the smallest gap the sweep could tell from
+    # noise was roughly 0.45 score -- against regional scores of 0.3 to
+    # 2.0. In other words the default resolution was coarser than most of
+    # the effects anyone runs this to find, and it reported them anyway.
+    #
+    # It cost real work. A 30-run pass showed Abyssnia's 1-of-each rate
+    # falling 23% -> 10-12% with three regions "OFF-TARGET"; I believed
+    # it, attributed the drop to a healer rework and bisected for it. At
+    # 150 runs the same build reads 23%, best-in-region, and every
+    # region inside noise. The regression was mostly the sample size.
+    #
+    # 150 costs a few more minutes and is resumable (--cache/--budget
+    # below). A fast wrong answer about balance is worse than a slow one.
+    parser.add_argument("--runs", type=int, default=150,
+                        help="expedition runs per comp per region "
+                             "(under ~100 is too noisy to act on)")
     parser.add_argument("--region", default=None, help="only this region")
     # A full sweep takes many minutes, which is longer than some shells
     # will hold a foreground process. --cache/--budget make the sweep
@@ -143,6 +179,7 @@ def main() -> int:
     from bot.game.combat import enemies as catalog
     from bot.game.combat.battle import Battle
     from bot.game.combat.factory import build_enemy_combatant, build_party_combatants
+    from bot.game.dungeon.generator import DungeonGenerator
     from bot.game.dungeon.region_config import REGION_DIFFICULTY, ordered_regions
     from bot.game.dungeon.relic_config import CAMPFIRE_REST_PERCENT
     from bot.game.dungeon.room_config import ROOM_WEIGHTS_BY_STAGE
@@ -196,11 +233,30 @@ def main() -> int:
             gear_cache[key] = items
         return list(gear_cache[key])
 
+    # TALENTS, for the same reason check_story buys them: points come
+    # free with character level, so a benchmark squad without them is a
+    # squad no player has. The primary branch, bought in order until the
+    # points run out -- a realistic build rather than the best case.
+    from bot.game.characters import talent_config as _tc
+
+    def _talents(template, level):
+        nodes = _tc.tree_for(template.name, template.character_class)
+        points = _tc.points_for_level(level)
+        chosen = []
+        for node in sorted((n for n in nodes if n["branch"] == "a"),
+                           key=lambda n: n["tier"]):
+            if node["cost"] > points:
+                break
+            points -= node["cost"]
+            chosen.append(node["id"])
+        return chosen
+
     def pc(template, level):
         row = PlayerCharacter(player_id=1, template_id=template.id,
                               level=level, dupe_count=0)
         row.template = template
         row.current_hp = None
+        row.talents = _talents(template, level)
         return row
 
     def build_squad(comp, level, rotation):
@@ -304,10 +360,31 @@ def main() -> int:
                 else "mid" if floor < 2 * NUM_FLOORS / 3 else "late")
 
     def run(region, comp, seed):
-        """One full expedition. Returns (cleared, hp_fraction_at_end)."""
+        """One full expedition, walking a REAL generated map.
+
+        ----------------------------------------------------------------------
+        WHY THIS GENERATES THE MAP INSTEAD OF IMITATING ONE
+        ----------------------------------------------------------------------
+        This used to walk `range(NUM_FLOORS)`, rolling a room type per
+        floor from ROOM_WEIGHTS_BY_STAGE and hard-coding a campfire at
+        floor N-2. That is a second, independent model of what a run is --
+        and the moment the generator changed, the two stopped agreeing.
+
+        Concretely: the generator was given a second mid-segment campfire
+        specifically to fix the attrition that longer segments introduced,
+        this benchmark was re-run to confirm the fix, and it printed
+        byte-identical numbers. Not "a small change" -- identical, because
+        the benchmark had never seen a generated map in its life and
+        could not observe the rest floor that had just been added.
+
+        So it now generates the real graph, picks a real route through it,
+        and fights the rooms actually on that route. Rests, room mix,
+        segment length, boss count and the shape of the map are all read
+        from the thing players get.
+        """
         rng = random.Random(seed)
         difficulty = REGION_DIFFICULTY[region]
-        level, rarity_name, gear_level = REGION_PROFILE[region]
+        level, rarity_name, gear_level = _region_profile()[region]
         rarity = getattr(Rarity, rarity_name)
 
         members = build_squad(comp, level, seed)
@@ -315,33 +392,93 @@ def main() -> int:
         equipped = {m.id: kit(rarity, item_level) for m in members}
         party = build_party_combatants(members, equipped)
 
-        for floor in range(NUM_FLOORS):
-            if floor == NUM_FLOORS - 2:
+        graph = DungeonGenerator(rng=rng).generate(region)
+        nodes = graph["nodes"]
+        final_boss = (graph.get("boss_nodes") or [graph["boss_node"]])[-1]
+
+        # A route, chosen the way a player picks one: at each fork, take
+        # an edge. Random rather than optimal -- an optimal router would
+        # measure the router, and the question here is what the average
+        # run does to a comp.
+        node_id = graph["start_node"]
+        route = [node_id]
+        while node_id != final_boss:
+            options = [t for t in nodes[node_id]["edges"] if t in nodes]
+            if not options:
+                break
+            node_id = rng.choice(options)
+            route.append(node_id)
+
+        for node_id in route:
+            room_value = nodes[node_id]["room_type"]
+            floor = nodes[node_id]["floor"]
+
+            if room_value == RoomType.CAMPFIRE.value:
                 for m in party:
-                    m.current_hp = min(m.max_hp, m.current_hp
-                                       + max(1, round(m.max_hp * CAMPFIRE_REST_PERCENT / 100)))
+                    m.current_hp = min(
+                        m.max_hp,
+                        m.current_hp + max(1, round(m.max_hp * CAMPFIRE_REST_PERCENT / 100)))
                 continue
-            if floor == NUM_FLOORS - 1:
-                room = RoomType.BOSS
+            if room_value not in (RoomType.COMBAT.value, RoomType.ELITE.value,
+                                  RoomType.BOSS.value):
+                continue
+
+            role = {RoomType.COMBAT.value: "combat",
+                    RoomType.ELITE.value: "elite",
+                    RoomType.BOSS.value: "boss"}[room_value]
+
+            # BOSS ROOMS USE THE REAL BOSS SELECTOR.
+            #
+            # This used to call get_templates_by_role("boss", region=...)
+            # and pick uniformly, which is NOT what the game does:
+            # dungeon_service calls get_boss_encounter(final=...), and
+            # `final` narrows to the region's designated end boss.
+            #
+            # The consequence was that this benchmark had never once
+            # fought the enemy that ends a run. It reported Abyssnia at a
+            # healthy 23-28% clear rate for a long time; measured against
+            # the actual final bosses, Xender and Rohan are BOTH 0%
+            # winnable by a full-HP endgame squad. The region has never
+            # been completable and no tool in the repo could see it,
+            # because they were all fighting the checkpoint bosses.
+            if role == "boss":
+                is_final = node_id == final_boss
+                templates = catalog.get_boss_encounter(rng, region=region,
+                                                       final=is_final) or []
             else:
-                weights = ROOM_WEIGHTS_BY_STAGE[stage_of(floor)]
-                room = rng.choices(list(weights.keys()),
-                                   weights=list(weights.values()), k=1)[0]
-            if room not in (RoomType.COMBAT, RoomType.ELITE, RoomType.BOSS):
-                continue
-            role = {RoomType.COMBAT: "combat", RoomType.ELITE: "elite",
-                    RoomType.BOSS: "boss"}[room]
-            templates = catalog.get_templates_by_role(role, region=region) or []
+                templates = catalog.get_templates_by_role(role, region=region) or []
             if not templates:
                 continue
-            offset = (difficulty["combat_level_offset"] if room == RoomType.COMBAT
+            is_combat = room_value == RoomType.COMBAT.value
+            offset = (difficulty["combat_level_offset"] if is_combat
                       else difficulty["level_offset"])
-            squad_weights = (difficulty["combat_squad_weights"] if room == RoomType.COMBAT
-                             else difficulty["elite_squad_weights"])
-            count = rng.choices(list(squad_weights.keys()),
-                                weights=list(squad_weights.values()), k=1)[0]
-            enemy_list = [build_enemy_combatant(rng.choice(templates), floor // 10 + 1 + offset)
-                          for _ in range(count)]
+            if role == "boss":
+                # get_boss_encounter already returns the full party for
+                # this fight (a solo boss, or a named boss group), so it
+                # is used as-is rather than sampled from.
+                #
+                # THE FINAL-BOSS LEVEL BONUS IS APPLIED HERE TOO. It was
+                # added to dungeon_service and not to this file, and the
+                # benchmark duly reported byte-identical numbers after a
+                # change that made every region finale 40 points harder --
+                # the third time in this codebase that a tuning change
+                # landed in one of two code paths computing the same
+                # value. Read from REGION_DIFFICULTY so there is one
+                # source for it.
+                boss_level = floor // 10 + 1 + offset
+                if is_final:
+                    boss_level = max(boss_level,
+                                     difficulty["expected_squad_level"]
+                                     + difficulty.get("final_boss_level_delta", 0))
+                enemy_list = [build_enemy_combatant(t, boss_level) for t in templates]
+            else:
+                squad_weights = (difficulty["combat_squad_weights"] if is_combat
+                                 else difficulty["elite_squad_weights"])
+                count = rng.choices(list(squad_weights.keys()),
+                                    weights=list(squad_weights.values()), k=1)[0]
+                enemy_list = [build_enemy_combatant(rng.choice(templates),
+                                                    floor // 10 + 1 + offset)
+                              for _ in range(count)]
             if not fight(party, enemy_list, rng):
                 return False, 0.0
             for m in party:
@@ -351,7 +488,7 @@ def main() -> int:
         total = sum(m.max_hp for m in party) or 1
         return True, sum(max(0, m.current_hp) for m in party) / total
 
-    regions = [args.region] if args.region else list(REGION_PROFILE)
+    regions = [args.region] if args.region else list(_region_profile())
     regions = [r for r in ordered_regions() if r in regions]
 
     # ---- resumable cache -------------------------------------------
@@ -364,13 +501,21 @@ def main() -> int:
     # left the early game alone (or didn't).
     results: dict[str, dict[str, float]] = {}
     health: dict[str, dict[str, float]] = {}
+    # Standard error of the SCORE for each cell -- see the verdict block.
+    # Cached alongside the two figures because it is measured from the
+    # same runs and cannot be recovered from their averages.
+    stderr: dict[str, dict[str, float]] = {}
     if args.cache and os.path.exists(args.cache):
         for line in open(args.cache):
             parts = line.rstrip("\n").split("\t")
-            if len(parts) != 5 or int(parts[2]) != args.runs:
+            # Six fields now. A five-field line is from before the error
+            # column existed; skipping it re-runs that cell rather than
+            # reading a stale number into a new column.
+            if len(parts) != 6 or int(parts[2]) != args.runs:
                 continue
             results.setdefault(parts[0], {})[parts[1]] = float(parts[3])
             health.setdefault(parts[0], {})[parts[1]] = float(parts[4])
+            stderr.setdefault(parts[0], {})[parts[1]] = float(parts[5])
 
     started = time.time()
     ran_out = False
@@ -389,11 +534,28 @@ def main() -> int:
             # clears twice in twenty runs, barely, reads as "97% HP
             # left" and outranks a comp that clears every time at 80%.
             hp_left = sum(hp for _, hp in outcomes) / args.runs
+
+            # THE SCORE'S OWN SPREAD, measured rather than assumed.
+            #
+            # The verdict compares scores (clear + HP-left), so the noise
+            # that matters is the noise on THAT, and a binomial estimate
+            # from the clear rate alone misses half of it -- badly at
+            # saturation, where every run clears, the rate's variance is
+            # exactly zero and the entire remaining difference is HP.
+            # Taking the sample standard deviation of the per-run score
+            # needs no assumption about either component's distribution.
+            scores = [(1.0 if ok else 0.0) + hp for ok, hp in outcomes]
+            mean = sum(scores) / len(scores)
+            variance = sum((s - mean) ** 2 for s in scores) / max(len(scores) - 1, 1)
+            cell_error = (variance / len(scores)) ** 0.5
+
             results.setdefault(label, {})[region] = rate
             health.setdefault(label, {})[region] = hp_left
+            stderr.setdefault(label, {})[region] = cell_error
             if args.cache:
                 with open(args.cache, "a") as handle:
-                    handle.write(f"{label}\t{region}\t{args.runs}\t{rate}\t{hp_left}\n")
+                    handle.write(f"{label}\t{region}\t{args.runs}\t{rate}\t"
+                                 f"{hp_left}\t{cell_error}\n")
         if ran_out:
             break
 
@@ -419,7 +581,50 @@ def main() -> int:
     # on a saturated metric will happily wreck the early game while the
     # number sits still. Adding HP-left breaks the tie in the direction
     # that matches how the region actually feels to play.
+    # ------------------------------------------------------------------
+    # THE VERDICT IS NOISE-AWARE. It was not, and that cost real work.
+    #
+    # The tolerance used to be a flat `gap <= 0.05`, compared against a
+    # gap measured from --runs samples with no reference to how many
+    # that was. A clear rate near 50% has a standard error of
+    # sqrt(0.25/n): 7.9 points at 40 runs, 4.1 at 150. So at the default
+    # run count the verdict was firing on differences roughly half the
+    # size of its own measurement error -- it could not have done
+    # anything else.
+    #
+    # What that produced, concretely: a 40-run pass reported Abyssnia's
+    # 1-of-each clear rate falling from 23% to 10-12% and three regions
+    # OFF-TARGET. I believed it, attributed eleven points to the healer
+    # rework, and bisected for it. Re-run at 150 runs, the same build
+    # reads 23% with 1-of-each the best comp, and the two "off-target"
+    # regions are inside one standard error. Most of the regression was
+    # the tool.
+    #
+    # So the gap now has to clear NOISE_SIGMAS standard errors before it
+    # is called anything, and the interval is printed next to the number
+    # so the figure reads as an estimate rather than a fact. A bench
+    # that cries wolf gets muted, which is worse than not having one.
+    # ------------------------------------------------------------------
+    NOISE_SIGMAS = 2.0
+
+    # A gap must be BOTH statistically real AND big enough to care about.
+    #
+    # The noise test alone has a mirror-image failure to the fixed 0.05
+    # tolerance it replaced. In a saturated region every comp clears 100%
+    # of the time, so the score's spread collapses to almost nothing and
+    # the test becomes exquisitely sensitive -- Glacier flagged
+    # OFF-TARGET on 3-amp scoring 1.97 against 1-of-each's 1.94, a
+    # three-point difference in leftover HP in the tutorial region, where
+    # every comp already clears every run.
+    #
+    # That is a true measurement and a useless finding, and a bench that
+    # reports useless findings gets ignored exactly as fast as one that
+    # reports noise. So a gap also has to clear this floor: a tenth of a
+    # run's score, i.e. about the value of clearing one run in ten.
+    MIN_MEANINGFUL_GAP = 0.10
+
     print()
+    flagged = 0
     for region in regions:
         have = {label: byregion[region] for label, byregion in results.items()
                 if byregion.get(region) is not None}
@@ -429,9 +634,32 @@ def main() -> int:
         score = {label: have[label] + health[label][region] for label in have}
         best_label = max(score, key=lambda k: score[k])
         gap = score[best_label] - score["1 of each"]
-        verdict = "OK" if gap <= 0.05 else "OFF-TARGET"
+
+        # Difference of two independent means, from their MEASURED
+        # spreads. Falls back to 0 for a cell restored from a cache that
+        # predates the error column, which reads as "no noise" and so
+        # errs toward flagging rather than toward silence.
+        best_error = stderr.get(best_label, {}).get(region, 0.0)
+        base_error = stderr.get("1 of each", {}).get(region, 0.0)
+        noise = NOISE_SIGMAS * (best_error ** 2 + base_error ** 2) ** 0.5
+
+        threshold = max(noise, MIN_MEANINGFUL_GAP)
+        verdict = "OK" if gap <= threshold else "OFF-TARGET"
+        flagged += verdict == "OFF-TARGET"
         print(f"{region:<18} best={best_label:<18} score {score[best_label]:>4.2f}   "
-              f"1-of-each {score['1 of each']:>4.2f}   [{verdict}]")
+              f"1-of-each {score['1 of each']:>4.2f}   "
+              f"gap {gap:>5.2f} vs {threshold:>4.2f} "
+              f"({'noise' if noise >= MIN_MEANINGFUL_GAP else 'floor'})   [{verdict}]")
+
+    # A rough sense of how much resolution this run bought, expressed as
+    # the smallest gap it could have detected on the base comp.
+    base_errors = [stderr.get("1 of each", {}).get(r, 0.0) for r in regions]
+    typical = max(base_errors) if base_errors else 0.0
+    print(f"\n  resolution: at {args.runs} runs/comp the smallest gap this pass can "
+          f"distinguish from noise is about {NOISE_SIGMAS * typical * 1.41:.2f} score.")
+    if args.runs < 100:
+        print("  NOTE: under 100 runs/comp, expect gaps of that size to appear and "
+              "vanish between passes. Re-run at --runs 150 before acting on one.")
 
     if ran_out:
         print("\n(time budget hit -- re-run with the same --cache to continue)")

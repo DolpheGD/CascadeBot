@@ -139,7 +139,7 @@ BEGINNER_QUESTS: list[dict] = [
         "description": "Reach floor 20 of an expedition.",
         "goal_type": "reach_floor",
         "goal_count": 20,
-        "reward": {"gold": 600, "cores": 240},
+        "reward": {"gold": 600, "cores": 240, "evolution_fragments": 40},
     },
 ]
 
@@ -178,7 +178,8 @@ BEGINNER_QUESTS: list[dict] = [
 # rewards rather than added to this bonus for the opposite reason: the
 # card banner should be something a new player touches DURING the
 # beginner set, not a second lump at the end of it.
-BEGINNER_BONUS_REWARD: dict[str, int] = {"shards": 1200, "cores": 600}
+BEGINNER_BONUS_REWARD: dict[str, int] = {"shards": 1200, "cores": 600,
+                                         "evolution_fragments": 120}
 
 
 # ----------------------------------------------------------------------
@@ -406,3 +407,239 @@ BASIC_QUEST_POOL: list[dict] = [
         "weight": 7,
     },
 ]
+
+
+# ======================================================================
+# COMMISSIONS
+# ======================================================================
+#
+# A third quest kind, sharing the PlayerQuest table with beginner and
+# basic quests and riding the SAME record_progress() plumbing -- which is
+# the entire reason they are cheap to add. A commission is a named,
+# written contract taken from the board in Team Cascade's yard, and it is
+# deliberately the one quest type that sends the player OUT of the story
+# and into adventure mode.
+#
+# Three things make them different from basic quests:
+#
+#   * They are TAKEN, not assigned. The player walks to the board tile
+#     and chooses one, so a commission is always something they opted
+#     into rather than something the cooldown handed them.
+#   * They are CLAIMED. Finishing the goal does not pay out; returning to
+#     the board does. That is what makes the board worth walking back to,
+#     and it is why record_progress skips the auto-grant for this kind
+#     (see quest_service._grant_reward's caller).
+#   * They can be REGION-SCOPED. "Defeat three elites" is a basic quest.
+#     "Defeat three elites in the Hotlands" is a commission, and it works
+#     because dungeon_service reports progress against both the plain
+#     goal type and a region-qualified one -- see REGION_SCOPED_GOALS.
+#
+# Fields:
+#   id              stable key, stored on PlayerQuest.quest_id
+#   name            the contract's title, shown on the board
+#   giver           who posted it, for flavour and for the claim line
+#   description     the ask, in the giver's voice
+#   goal_type       plain key, or "<key>@<region>" for a region-scoped one
+#   goal_count      how much
+#   reward          {currency: amount}
+#   requires_mission  story mission id that must be COMPLETE before this
+#                     contract appears on the board. Keeps early players
+#                     from taking Abyssnia work they cannot survive.
+#   repeatable      may be taken again after claiming (default False)
+#
+# Rewards are deliberately fatter than basic quests and lean on
+# evolution fragments and cores, because the point of a commission is to
+# convert adventure-mode effort into story-mode power.
+
+# Goal types that dungeon_service also reports in a region-qualified
+# form, as "<goal_type>@<region name>". Anything NOT in this set cannot
+# be region-scoped in a commission, and tools/check_commissions.py
+# enforces that -- a commission scoped to a goal nobody reports that way
+# would sit at 0 progress forever and look exactly like a working one.
+REGION_SCOPED_GOALS = {"win_battles", "defeat_boss", "defeat_elite",
+                       "complete_adventures"}
+
+COMMISSIONS: list[dict] = [
+    # ---- early: Glacier 15, available as soon as the Aligners are in play ----
+    {
+        "id": "com_ice_survey",
+        "name": "Ice Survey, Paid",
+        "giver": "Josh",
+        "description": (
+            "Glacier 15. Two full runs, start to finish. I don't care what "
+            "you bring back, I care that the route still works -- we've been "
+            "sending people up there on the assumption that it does."
+        ),
+        "goal_type": "complete_adventures@Glacier 15",
+        "goal_count": 2,
+        "reward": {"gold": 3200, "evolution_fragments": 180, "cores": 220},
+        "requires_mission": "c1m2_the_pitch",
+    },
+    {
+        "id": "com_thin_the_drones",
+        "name": "Thin Them Out",
+        "giver": "Blueflame",
+        "description": (
+            "Drones on the glacier have started travelling in threes. That's "
+            "new. Win twelve fights up there and I'll know whether it's a "
+            "pattern or whether I'm being paranoid again."
+        ),
+        "goal_type": "win_battles@Glacier 15",
+        "goal_count": 12,
+        "reward": {"gold": 4100, "evolution_fragments": 220, "shards": 140},
+        "requires_mission": "c1m3_ashfield",
+        "repeatable": True,
+    },
+
+    # ---- mid: the Wastelands, once the North is open ----
+    {
+        "id": "com_wasteland_elites",
+        "name": "The Ones Giving Orders",
+        "giver": "Jofrog",
+        "description": (
+            "Wastelands. Four elites, and I want them specifically -- not the "
+            "rank and file. Somebody out there is organising, and organisers "
+            "keep notes."
+        ),
+        "goal_type": "defeat_elite@The Wastelands",
+        "goal_count": 4,
+        "reward": {"gold": 8600, "evolution_fragments": 420, "cores": 560},
+        "requires_mission": "c2m2_the_border",
+        "repeatable": True,
+    },
+    {
+        "id": "com_dolpo_shipping",
+        "name": "A Favour, Not A Job",
+        "giver": "Dolpo",
+        "description": (
+            "My brother says you're reliable. I'd like to find out cheaply. "
+            "Three complete runs through the Wastelands -- and if anything "
+            "down there has HHyper's mark on it, remember where."
+        ),
+        "goal_type": "complete_adventures@The Wastelands",
+        "goal_count": 3,
+        "reward": {"gold": 11000, "evolution_fragments": 500, "echoes": 40},
+        "requires_mission": "c2m3_dolpo",
+    },
+
+    # ---- late-mid: the Hotlands, from Chapter Three ----
+    {
+        "id": "com_hotlands_bosses",
+        "name": "Three Doors Down",
+        "giver": "Rex",
+        "description": (
+            "Hotlands. Three bosses. I am not sending you for the loot, I am "
+            "sending you because I want to know if they're still the same "
+            "three, or if something has been rebuilding them."
+        ),
+        "goal_type": "defeat_boss@The Hotlands",
+        "goal_count": 3,
+        "reward": {"gold": 22000, "evolution_fragments": 900, "cores": 1400},
+        "requires_mission": "c3m4_what_he_was_building",
+        "repeatable": True,
+    },
+    {
+        "id": "com_forge_backlog",
+        "name": "The Backlog",
+        "giver": "Chary",
+        "description": (
+            "Everyone wants their gear upgraded and nobody wants to bring me "
+            "materials. Upgrade fifteen pieces yourself and you'll understand "
+            "why I've started charging."
+        ),
+        "goal_type": "upgrade_gear",
+        "goal_count": 15,
+        "reward": {"gold": 18000, "evolution_fragments": 760, "metal": 120,
+                   "crystal": 80},
+        "requires_mission": "c3m2_level_a",
+        "repeatable": True,
+    },
+
+    # ---- late: Voidcrest, from Chapter Four ----
+    {
+        "id": "com_voidcrest_sweep",
+        "name": "Nothing To Report",
+        "giver": "Refender",
+        "description": (
+            "Voidcrest. Four full runs. Every audit team Rohan sent there "
+            "filed the same clean report, which is the least believable thing "
+            "I have ever read. Go and file a different one."
+        ),
+        "goal_type": "complete_adventures@Voidcrest Desert",
+        "goal_count": 4,
+        "reward": {"gold": 46000, "evolution_fragments": 1600, "cores": 2400,
+                   "void": 90},
+        "requires_mission": "c4m3_what_his_hands_remember",
+    },
+    {
+        "id": "com_dolphin_wants_to_help",
+        "name": "Let Me Come",
+        "giver": "Dolphin",
+        "description": (
+            "I know I'm not on the roster. I know. But I've been reading the "
+            "run logs and I think I could be useful, and I'd like one chance "
+            "to prove it before somebody decides for me. Twenty wins. Any "
+            "region. I'll keep count."
+        ),
+        "goal_type": "win_battles",
+        "goal_count": 20,
+        "reward": {"gold": 38000, "evolution_fragments": 1400, "echoes": 120},
+        "requires_mission": "c4m5_the_open_entry",
+    },
+
+    # ---- endgame: Abyssnia, after the story ----
+    {
+        "id": "com_abyssnia_standing",
+        "name": "Standing Order",
+        "giver": "Josh",
+        "description": (
+            "The desk is empty and the work isn't finished. Abyssnia, two "
+            "complete runs, and this one renews -- I'd rather it stayed a "
+            "standing order than became somebody's last request."
+        ),
+        "goal_type": "complete_adventures@Abyssnia",
+        "goal_count": 2,
+        "reward": {"gold": 120000, "evolution_fragments": 3600, "cores": 5200,
+                   "entropy": 140},
+        "requires_mission": "c5m6_nothing_to_file",
+        "repeatable": True,
+    },
+    # ---- region six ----
+    {
+        "id": "com_deepworks_survey",
+        "name": "Nobody Filed A Closure",
+        "giver": "Jofrog",
+        "description": (
+            "Entrospire never filed a closure notice for the Deepworks. Not "
+            "a bankruptcy, not a sale, not a decommission — the paperwork "
+            "just stops. Three complete runs down there. I want to know what "
+            "it's still making."
+        ),
+        "goal_type": "complete_adventures@Entrospire Deepworks",
+        "goal_count": 3,
+        "reward": {"gold": 180000, "evolution_fragments": 5200, "cores": 7400,
+                   "entropy": 220},
+        "requires_mission": "c5m6_nothing_to_file",
+        "repeatable": True,
+    },
+    {
+        "id": "com_the_night_shift",
+        "name": "Whatever's Running The Night Shift",
+        "giver": "Dolpo",
+        "description": (
+            "My brother worked a floor like that one. He came home wrong and "
+            "he came home lucky, and I've spent nine years not asking which "
+            "of those did more. Six elites. I'll pay for every one."
+        ),
+        "goal_type": "defeat_elite@Entrospire Deepworks",
+        "goal_count": 6,
+        "reward": {"gold": 96000, "evolution_fragments": 3100, "echoes": 260},
+        "requires_mission": "c5m6_nothing_to_file",
+        "repeatable": True,
+    },
+]
+
+# At most this many commissions may be held at once. Low on purpose: a
+# commission is meant to shape what the player does next, and holding six
+# of them at once means it shapes nothing.
+MAX_ACTIVE_COMMISSIONS = 2

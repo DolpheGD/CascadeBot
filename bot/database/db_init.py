@@ -46,6 +46,12 @@ def _ensure_columns(conn):
     # character_service.rename_avatar / the /rename command.
     add_column("player_characters", "custom_name", "VARCHAR(32)")
 
+    # Talent nodes bought, as a JSON list of ids. NULL/absent reads as
+    # "nothing bought", which is correct for every existing character --
+    # their points are all unspent and waiting, rather than auto-assigned
+    # to a build nobody chose.
+    add_column("player_characters", "talents", "JSON")
+
     # Top.gg vote tracking -- see bot/services/vote_service.py. Defaults
     # are spelled out in the DDL as well as on the model so existing rows
     # come back as 0/NULL rather than NULL-where-an-int-is-expected.
@@ -58,6 +64,12 @@ def _ensure_columns(conn):
     # at 0, i.e. a fresh pity cycle, which is the generous read of an
     # ambiguous situation (we have no pull history to reconstruct from).
     add_column("players", "pity_since_five_star", "INTEGER DEFAULT 0")
+
+    # Commission claim state -- see quest_model.PlayerQuest. Existing
+    # rows are all beginner/basic quests, which never claim, so 0/NULL is
+    # the correct backfill for every one of them.
+    add_column("player_quests", "is_claimed", "BOOLEAN DEFAULT 0")
+    add_column("player_quests", "claimed_at", "DATETIME")
     add_column("players", "pity_since_four_star", "INTEGER DEFAULT 0")
 
     # Echoes -- the duplicate currency (bot/game/economy/resonance_config.py).
@@ -83,6 +95,12 @@ def _ensure_columns(conn):
     add_column("player_stories", "visited", "JSON")
     add_column("player_stories", "read_tiles", "JSON")
     add_column("player_stories", "pending_hunt", "JSON")
+    # An open puzzle, stored as a REFERENCE (area+char, or the active
+    # mission's beat). NULL for everyone who has not opened one, which is
+    # every existing row. Table is "player_stories" -- the first version
+    # of this line said "player_story", which silently did nothing at all
+    # because add_column returns early for a table it cannot find.
+    add_column("player_stories", "pending_puzzle", "JSON")
     add_column("player_stories", "grandfathered", "BOOLEAN DEFAULT 0")
 
     # Void Abyss. The table is created fresh by create_all for anyone who
@@ -112,8 +130,26 @@ def _ensure_columns(conn):
     add_column("players", "cores", "INTEGER DEFAULT 0")
 
     # Character Card pity, mirroring the character gacha's counters.
+    # Targeted 5-star nominations. NULL means "no target", which is the
+    # correct state for every existing player -- backfilling a target
+    # would start silently steering pulls somebody never asked to steer.
+    add_column("players", "target_character", "VARCHAR(64)")
+    add_column("players", "target_character_guaranteed", "BOOLEAN DEFAULT 0")
+    add_column("players", "target_card", "VARCHAR(64)")
+    add_column("players", "target_card_guaranteed", "BOOLEAN DEFAULT 0")
+
     add_column("players", "card_pity_since_five_star", "INTEGER DEFAULT 0")
     add_column("players", "card_pity_since_four_star", "INTEGER DEFAULT 0")
+
+    # Evolution Fragments -- the breakthrough material
+    # (bot/game/economy/evolution_config.py). Existing players start at 0,
+    # which is deliberately NOT a free pass: gear they have already
+    # levelled past a breakthrough keeps that level (nothing is taken
+    # away, and no item is rolled back), but the NEXT breakthrough is
+    # gated like everyone else's. Backfilling instead would hand a
+    # long-standing account a stack of the one resource the system exists
+    # to make them go and earn.
+    add_column("players", "evolution_fragments", "INTEGER DEFAULT 0")
 
 
 def init_db():

@@ -409,7 +409,212 @@ RELICS: list[dict] = [
             {"kind": "stat", "stat": "max_hp", "percent": -30},
         ]},
     },
+    # ==================================================================
+    # EXPANSION -- 24 more relics.
+    #
+    # Every one uses an effect kind relic_service.apply_relic_effects
+    # actually reads (stat / stat_flat / passive / poise_damage /
+    # gold_multiplier). A relic with an invented kind loads fine, offers
+    # fine, is taken with excitement and does nothing whatsoever -- so
+    # tools/check_relics.py resolves every effect through the real
+    # applier and fails on any that changes no combatant.
+    #
+    # The passives referenced here were all sitting unused in
+    # ARMOR_PASSIVES: 46 of them existed and 10 were reachable through
+    # relics. Wiring the good ones up is most of what makes this pool
+    # feel different rather than just bigger.
+    # ==================================================================
+
+    # ---- common: small, clean, always fine to take ----
+    {
+        "id": "ranging_shim", "name": "Ranging Shim", "emoji": "📐",
+        "rarity": "common",
+        "description": "+10% Speed for the whole squad, for this run.",
+        "effect": {"kind": "stat", "stat": "speed", "percent": 10},
+    },
+    {
+        "id": "reserve_cells", "name": "Reserve Cells", "emoji": "🔋",
+        "rarity": "common",
+        "description": "+18% max Mana for the whole squad.",
+        "effect": {"kind": "stat", "stat": "max_mana", "percent": 18},
+    },
+    {
+        "id": "sighting_notch", "name": "Sighting Notch", "emoji": "🎯",
+        "rarity": "common",
+        "description": "+6 Crit Rate for the whole squad.",
+        "effect": {"kind": "stat_flat", "stat": "crit_rate", "amount": 6},
+    },
+    {
+        "id": "counterweight", "name": "Counterweight", "emoji": "⚖️",
+        "rarity": "common",
+        "description": "+20 Crit Damage for the whole squad.",
+        "effect": {"kind": "stat_flat", "stat": "crit_damage", "amount": 20},
+    },
+    {
+        "id": "cold_start_kit", "name": "Cold Start Kit", "emoji": "🧊",
+        "rarity": "common",
+        "description": "+8 Recharge — ultimates come round sooner.",
+        "effect": {"kind": "stat_flat", "stat": "recharge", "amount": 8},
+    },
+    {
+        "id": "padded_webbing", "name": "Padded Webbing", "emoji": "🧵",
+        "rarity": "common",
+        "description": "The squad takes less from every hit (Padded Lining).",
+        "effect": {"kind": "passive", "passive_id": "padded_lining"},
+    },
+
+    # ---- rare: a real shape change ----
+    {
+        "id": "conductors_baton", "name": "The Conductor's Baton", "emoji": "🪄",
+        "rarity": "rare",
+        "description": "The whole squad keeps time — team buffs land harder.",
+        "effect": {"kind": "passive", "passive_id": "conductors_baton"},
+    },
+    {
+        "id": "kinetic_converter", "name": "Kinetic Converter", "emoji": "⚙️",
+        "rarity": "rare",
+        "description": "Damage taken feeds your resource pool.",
+        "effect": {"kind": "passive", "passive_id": "kinetic_converter"},
+    },
+    {
+        "id": "medics_covenant", "name": "The Medic's Covenant", "emoji": "⚕️",
+        "rarity": "rare",
+        "description": "Healing done to the squad is amplified.",
+        "effect": {"kind": "passive", "passive_id": "medics_covenant"},
+    },
+    {
+        "id": "guard_breaker", "name": "Guard Breaker", "emoji": "🔨",
+        "rarity": "rare",
+        "description": "+14 poise damage, and armour matters less.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "poise_damage", "bonus": 14},
+            {"kind": "passive", "passive_id": "guard_breaker"},
+        ]},
+    },
+    {
+        "id": "battle_rhythm_drum", "name": "Marching Drum", "emoji": "🥁",
+        "rarity": "rare",
+        "description": "The longer a fight runs, the harder you hit.",
+        "effect": {"kind": "passive", "passive_id": "battle_rhythm"},
+    },
+    {
+        "id": "vultures_instinct", "name": "Vulture's Instinct", "emoji": "🦅",
+        "rarity": "rare",
+        "description": "You hit hurt enemies far harder.",
+        "effect": {"kind": "passive", "passive_id": "vultures_instinct"},
+    },
+    {
+        "id": "quartermasters_seal", "name": "Quartermaster's Seal", "emoji": "📜",
+        "rarity": "rare",
+        "description": "+45% gold from everything this run.",
+        "effect": {"kind": "gold_multiplier", "percent": 45},
+    },
+    {
+        "id": "reinforced_barrier", "name": "Reinforced Barrier", "emoji": "🧱",
+        "rarity": "rare",
+        "description": "+20% Defense, and shields on the squad hold longer.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "stat", "stat": "defense", "percent": 20},
+            {"kind": "passive", "passive_id": "reinforced_barrier"},
+        ]},
+    },
+    {
+        "id": "steady_cadence_metronome", "name": "Metronome", "emoji": "⏱️",
+        "rarity": "rare",
+        "description": "+12 Recharge and a steadier turn order.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "stat_flat", "stat": "recharge", "amount": 12},
+            {"kind": "passive", "passive_id": "steady_cadence"},
+        ]},
+    },
+
+    # ---- legendary: run-defining ----
+    {
+        "id": "grand_maestro_score", "name": "The Grand Maestro's Score",
+        "emoji": "🎼", "rarity": "legendary",
+        "description": "Every buff the squad casts is dramatically stronger.",
+        "effect": {"kind": "passive", "passive_id": "grand_maestro_score"},
+    },
+    {
+        "id": "aegis_core", "name": "Aegis Core", "emoji": "🔰",
+        "rarity": "legendary",
+        "description": "+25% Defense, +20% max HP, and a standing ward.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "stat", "stat": "defense", "percent": 25},
+            {"kind": "stat", "stat": "max_hp", "percent": 20},
+            {"kind": "passive", "passive_id": "aegis_core"},
+        ]},
+    },
+    {
+        "id": "finishers_creed", "name": "The Finisher's Creed", "emoji": "🗿",
+        "rarity": "legendary",
+        "description": "Kills refund resource and push the squad forward.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "passive", "passive_id": "finishers_creed"},
+            {"kind": "stat_flat", "stat": "crit_damage", "amount": 30},
+        ]},
+    },
+    {
+        "id": "unbroken_line", "name": "The Unbroken Line", "emoji": "🕯️",
+        "rarity": "legendary",
+        "description": "The squad holds together where it otherwise wouldn't.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "passive", "passive_id": "unbroken_line"},
+            {"kind": "stat", "stat": "max_hp", "percent": 18},
+        ]},
+    },
+    {
+        "id": "resonance_prism", "name": "Resonance Prism", "emoji": "💠",
+        "rarity": "legendary",
+        "description": "+22% Elemental, and elemental effects chain further.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "stat", "stat": "elemental", "percent": 22},
+            {"kind": "passive", "passive_id": "resonance_prism"},
+        ]},
+    },
+
+    # ---- cursed: strong, with a real bill attached ----
+    {
+        "id": "hollow_reprisal", "name": "Hollow Reprisal", "emoji": "🕳️",
+        "rarity": "cursed",
+        "description": "+30% Attack. −20% max HP. It hits back through you.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "stat", "stat": "attack", "percent": 30},
+            {"kind": "stat", "stat": "max_hp", "percent": -20},
+            {"kind": "passive", "passive_id": "hollow_reprisal"},
+        ]},
+    },
+    {
+        "id": "martyrs_brand", "name": "The Martyr's Brand", "emoji": "🩸",
+        "rarity": "cursed",
+        "description": "+35% Elemental. −25% Defense. Somebody pays for this.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "stat", "stat": "elemental", "percent": 35},
+            {"kind": "stat", "stat": "defense", "percent": -25},
+            {"kind": "passive", "passive_id": "martyrs_brand"},
+        ]},
+    },
+    {
+        "id": "shatterglass_charm", "name": "Shatterglass Charm", "emoji": "🔮",
+        "rarity": "cursed",
+        "description": "+18 Crit Rate and +40 Crit Damage. −30% max HP.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "stat_flat", "stat": "crit_rate", "amount": 18},
+            {"kind": "stat_flat", "stat": "crit_damage", "amount": 40},
+            {"kind": "stat", "stat": "max_hp", "percent": -30},
+        ]},
+    },
+    {
+        "id": "plaguebearers_totem", "name": "Plaguebearer's Totem", "emoji": "☠️",
+        "rarity": "cursed",
+        "description": "Damage over time is devastating. Your healing is halved.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "passive", "passive_id": "plaguebearers_totem"},
+            {"kind": "stat", "stat": "max_hp", "percent": -12},
+        ]},
+    },
 ]
+
 
 RELICS_BY_ID: dict[str, dict] = {relic["id"]: relic for relic in RELICS}
 

@@ -30,11 +30,25 @@ HARVESTER_TEMPLATES: list[dict] = [
         "upgrade_cost_growth": 1.13,
     },
     {
+        # HQ 2, MOVED UP FROM HQ 1.
+        #
+        # Level-1 HQ offered six harvesters at once -- Gold Mine,
+        # Woodcutter's Camp, Stone Quarry, Experience Well, Shard Well
+        # and Core Reactor -- which is a shop, not a decision. A new
+        # player was reading six listings before they had the gold for
+        # two, and the two PREMIUM ones sat at the bottom looking like
+        # the obvious goal while being the worst early purchase (both are
+        # sublinear, so both pay off slowest).
+        #
+        # The two premium wells now open at HQ 2, which leaves four
+        # basics at HQ 1 -- one free, three cheap, all linear -- and
+        # gives the first HQ upgrade something concrete to unlock.
         "name": "Shard Well",
         "description": "A well that slowly draws Cascade Shards up from the depths.",
         "currency": "shards",
         "unlock_cost": 500,
         "unlock_currency": "gold",
+        "unlock_hq_level": 2,
         "base_rate_per_hour": 0.5,
         "level_scaling_exponent": 0.75,
         "max_level": 20,
@@ -57,6 +71,7 @@ HARVESTER_TEMPLATES: list[dict] = [
         "currency": "cores",
         "unlock_cost": 900,
         "unlock_currency": "gold",
+        "unlock_hq_level": 2,   # see the Shard Well above
         # SUBLINEAR, like the Shard Well and for the same reason: a
         # premium currency on a linear harvester curve outruns every
         # other source in the game. A first pass used exponent 1.0 and
@@ -109,6 +124,43 @@ HARVESTER_TEMPLATES: list[dict] = [
         "max_accumulation_hours": 12.0,
         "base_upgrade_cost": 200,
         "upgrade_cost_growth": 1.15,
+    },
+    {
+        # HQ 1, MOVED DOWN FROM HQ 3.
+        #
+        # Putting it at 3 was the wrong read of what fragments are. The
+        # other two gated harvesters produce PREMIUM currencies -- pull
+        # fodder, which a new player has no use for and no way to spend
+        # well. Fragments are the opposite: they gate levelling gear the
+        # player is already wearing, and the very first breakthrough
+        # arrives at item level 5, which is reached in the first session.
+        #
+        # So gating the fragment harvester behind two HQ upgrades meant
+        # the earliest wall in the game was backed by the latest source.
+        # It unlocks from the start now, alongside the four basics, and
+        # the two premium wells at HQ 2 remain what the first HQ upgrade
+        # buys.
+        #
+        # Priced above the other HQ 1 harvesters (1,500 gold against
+        # 0-200) so it is a deliberate first goal rather than something
+        # bought by accident on day one.
+        #
+        # Sublinear, like both premium wells, and for the same reason a
+        # linear curve was wrong for the Core Reactor: at exponent 1.0
+        # and this base rate a maxed Cradle produced ~460/day, which is
+        # a Divine item every day and a half from the base alone.
+        "name": "Evolution Cradle",
+        "description": "A slow bath of raw Cascade. What comes out of it is what lets things change.",
+        "currency": "evolution_fragments",
+        "unlock_cost": 1500,
+        "unlock_currency": "gold",
+        "unlock_hq_level": 1,
+        "base_rate_per_hour": 0.75,
+        "level_scaling_exponent": 0.78,
+        "max_level": 20,
+        "max_accumulation_hours": 16.0,
+        "base_upgrade_cost": 400,
+        "upgrade_cost_growth": 1.05,
     },
     {
         "name": "Experience Well",

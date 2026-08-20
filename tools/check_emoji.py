@@ -36,23 +36,42 @@ SOURCE = pathlib.Path("bot/services/currency_service.py")
 # (path, constant name, the currency_service attribute it must equal).
 MIRRORS = [
     ("bot/game/economy/domain_config.py", "SHARD_ICON", "SHARD_EMOJI"),
+    ("bot/game/economy/domain_config.py", "CORE_ICON", "CORE_EMOJI"),
+    ("bot/game/economy/domain_config.py", "EVO_ICON", "EVO_EMOJI"),
 ]
 
 
 def main() -> int:
     failures: list[str] = []
-    mirror_paths = {path for path, _, _ in MIRRORS}
     checked = 0
+
+    # PER-CONSTANT, NOT PER-FILE.
+    #
+    # This used to skip a mirror FILE entirely, which quietly exempted
+    # every emoji in it rather than the one declared line. domain_config
+    # declared SHARD_ICON, CORE_ICON and (later) EVO_ICON; only SHARD_ICON
+    # was in MIRRORS, so the other two were checked by nothing at all --
+    # a blanket exemption earned by one honest entry. That is the same
+    # bug this checker exists to catch, one level up: a rule with a hole
+    # in it that nothing reports.
+    #
+    # Now only the exact `NAME = "<:...>"` lines are exempt, and any
+    # OTHER literal in a mirror file fails like it would anywhere else.
+    allowed_lines: dict[str, set[str]] = {}
+    for path, constant, _ in MIRRORS:
+        allowed_lines.setdefault(path, set()).add(constant)
 
     for path in sorted(pathlib.Path("bot").rglob("*.py")):
         as_posix = path.as_posix()
         if as_posix == SOURCE.as_posix():
             continue
         text = path.read_text(encoding="utf-8")
+        declared = allowed_lines.get(as_posix, set())
         for number, line in enumerate(text.splitlines(), start=1):
             for match in EMOJI.findall(line):
                 checked += 1
-                if as_posix in mirror_paths:
+                assignment = re.match(r'\s*(\w+)\s*=\s*"', line)
+                if assignment and assignment.group(1) in declared:
                     continue  # verified against the source below
                 failures.append(
                     f"{as_posix}:{number} hardcodes {match} -- use "

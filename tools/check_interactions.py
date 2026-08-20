@@ -341,18 +341,53 @@ def check_helpers_survive_a_dead_token(failures: list[str]) -> None:
             await responses.send(_Interaction(done))
             await responses.edit(_Interaction(done))
 
-        # Anything that is NOT an expiry has to keep raising -- a
-        # malformed embed is a bug, and swallowing it hides the bug.
+        # Anything that is NOT an expiry has to keep raising FROM A
+        # COMMAND -- a malformed embed is a bug, and swallowing it hides
+        # the bug. A command's exception reaches the tree's error handler.
         for helper in (responses.defer, responses.send, responses.edit):
+            interaction = _Interaction(code=50035)
+            interaction.command = object()          # i.e. a slash command
             try:
-                await helper(_Interaction(code=50035))
+                await helper(interaction)
             except discord.HTTPException:
                 pass
             else:
                 failures.append(
-                    f"responses.{helper.__name__} swallowed a 50035 -- only 10062 "
-                    f"(expired) should ever be absorbed"
+                    f"responses.{helper.__name__} swallowed a 50035 from a COMMAND "
+                    f"-- only 10062 (expired) should ever be absorbed there, because "
+                    f"the tree's error handler is what turns it into a message"
                 )
+
+        # ...but a COMPONENT has no handler to raise into. discord.py's
+        # schedule_dynamic_item_call catches everything and only logs, so
+        # a re-raise there answers nobody and leaves a dead button --
+        # which is how a select over the 25-option limit produced three
+        # tracebacks and nothing on screen. responses.edit must REPORT
+        # instead, so the player gets a sentence.
+        reported: list[str] = []
+        original_report = responses.report_failure
+
+        async def _capture(interaction, error, where=""):
+            reported.append(type(error).__name__)
+
+        responses.report_failure = _capture
+        try:
+            component = _Interaction(code=50035)
+            component.command = None                # i.e. a button or select
+            await responses.edit(component)
+        except discord.HTTPException:
+            failures.append(
+                "responses.edit re-raised a 50035 from a COMPONENT -- nothing "
+                "catches that (discord.py logs and returns), so the player is left "
+                "with a control that silently did nothing"
+            )
+        finally:
+            responses.report_failure = original_report
+        if not reported:
+            failures.append(
+                "responses.edit neither raised nor reported a 50035 from a "
+                "component -- the failure vanished entirely"
+            )
 
         # send() has to pick the right transport: response before a
         # defer, followup after one.

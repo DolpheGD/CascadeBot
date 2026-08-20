@@ -142,6 +142,46 @@ def main() -> int:
             f"carries it -- it is now unobtainable by any means"
         )
 
+    # --- AND NOTHING LEAKED BACK ONTO GEAR ------------------------------
+    #
+    # "Card-only" was enforced in exactly one place: abilities_for_rarity,
+    # which filters the RANDOM ability roll. An item template can also
+    # name an ability outright via `linked_ability_id`, and that path
+    # walked straight past the filter. Fourteen seeded templates were
+    # handing out eleven distinct card-only abilities -- Starfall on the
+    # Billian Gem, Cataclysm's Edge on the Erisblade, and so on.
+    #
+    # The balance problem is the smaller half. The player-visible half is
+    # worse: equipping the Starfall CARD onto a character already wearing
+    # the Gem replaces an identical ability, so a card bought for 250
+    # Echoes appears to do nothing whatsoever. That is what "some card
+    # abilities don't work" looked like from the outside.
+    from bot.game.loot.item_seed_data import ITEM_TEMPLATES
+
+    for template in ITEM_TEMPLATES:
+        linked = template.get("linked_ability_id")
+        if linked and linked in cc.CARD_ONLY_ABILITY_IDS:
+            failures.append(
+                f"item template {template['name']!r} links ability {linked!r}, which "
+                f"is card-only -- linked_ability_id bypasses abilities_for_rarity, so "
+                f"gear would hand out an ability the Card system charges for"
+            )
+
+    # ...and the generator itself refuses one, so fixing the data isn't
+    # the only thing standing between here and the bug coming back.
+    from bot.database.models.enums import ItemType, Rarity
+    from bot.game.loot.generator import LootGenerator
+
+    sample = sorted(cc.CARD_ONLY_ABILITY_IDS)[0]
+    active, passive = LootGenerator().roll_ability(
+        ItemType.WEAPON, Rarity.DIVINE, force=True, linked_ability_id=sample)
+    granted = (active or passive or {}).get("id")
+    if granted == sample:
+        failures.append(
+            f"LootGenerator.roll_ability still honours a card-only linked ability "
+            f"({sample!r}) -- the seed data is clean, but one typo would reopen this"
+        )
+
     # --- every rollable star has something to roll
     for star in (3, 4, 5):
         if not cc.cards_of_star(star):

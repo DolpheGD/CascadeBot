@@ -74,6 +74,7 @@ from __future__ import annotations
 # tools/check_emoji.py asserts the two stay identical.
 SHARD_ICON = "<:shard:1535799545886146630>"
 CORE_ICON = "<:core:1535799281460445258>"
+EVO_ICON = "<:evo:1536114553518170173>"
 
 # ----------------------------------------------------------------------
 # Energy CAPACITY is an HQ upgrade.
@@ -282,6 +283,30 @@ DOMAIN_TYPES: list[dict] = [
             "hard": {"cores": 340},
             "extreme": {"cores": 560},
             "nightmare": {"cores": 900},
+        },
+    },
+    {
+        # The place to go specifically FOR breakthroughs.
+        #
+        # Every other fragment source is a trickle attached to something
+        # else -- a harvester ticking, a daily claim, a treasure roll. A
+        # domain is the only one a player can point at and farm on
+        # purpose, which matters more for fragments than for any other
+        # currency: a breakthrough is a hard stop on a specific item, so
+        # "I am 30 short and cannot continue" needs an answer that isn't
+        # "wait until tomorrow".
+        "id": "evolution",
+        "name": "Evolution Domain",
+        "icon": EVO_ICON,
+        "description": "Evolution Fragments -- the breakthrough material for gear and Cards.",
+        "reward_kind": "currency",
+        "rewards": {
+            "trivial": {"evolution_fragments": 14},
+            "easy": {"evolution_fragments": 26},
+            "moderate": {"evolution_fragments": 48},
+            "hard": {"evolution_fragments": 85},
+            "extreme": {"evolution_fragments": 150},
+            "nightmare": {"evolution_fragments": 260},
         },
     },
     {

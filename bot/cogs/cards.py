@@ -150,12 +150,21 @@ def card_detail_embed(card: PlayerCard, index: int, total: int,
     embed.add_field(name="Equipped to", value=f"**{worn}**" if worn else "*Nobody*",
                     inline=True)
     if card.level < cc.CARD_MAX_LEVEL:
+        from bot.game.economy import evolution_config
         cost = card_service.level_up_cost(card)
-        embed.add_field(
-            name="Next level",
-            value=" / ".join(format_currency(c, a) for c, a in cost.items()),
-            inline=True,
-        )
+        value = " / ".join(format_currency(c, a) for c, a in cost.items())
+        # Same treatment as gear's breakthrough line: a cost that grows a
+        # new entry every 10th level needs to announce itself as a rule
+        # rather than look like a glitch.
+        if cost.get("evolution_fragments"):
+            name = f"⭐ Breakthrough → {card.level + 1}"
+            value += (
+                f"\n*Every {evolution_config.CARD_BREAKTHROUGH_EVERY} levels a Card "
+                f"needs Evolution Fragments. Higher stars need more.*"
+            )
+        else:
+            name = "Next level"
+        embed.add_field(name=name, value=value[:1024], inline=True)
     else:
         embed.add_field(name="Next level", value="**Maxed**", inline=True)
     embed.set_footer(text=f"Card {index}/{total}")
@@ -249,13 +258,20 @@ class CardCharacterSelect(discord.ui.Select):
     """Who the selected card goes on. Only rendered once a card is
     chosen, so the screen never asks 'equip what, to whom' at once."""
 
-    def __init__(self, card_id: int, characters: list):
+    def __init__(self, card_id: int, characters: list, page: int = 0):
+        # PAGE 0 ONLY was the old behaviour, and it is a quieter version
+        # of the crash the equip-target picker had: no error, but a
+        # player owning more than 25 characters simply could not put a
+        # card on any of the rest, and nothing said so. Windowing to a
+        # real page and labelling it is the same fix, minus the outage.
         options = [
             discord.SelectOption(label=pc.display_name[:100], value=f"{card_id}:{pc.id}")
-            for pc in paging.window(characters, 0)
+            for pc in paging.window(characters, page)
         ] or [discord.SelectOption(label="(no characters)", value="none")]
-        super().__init__(placeholder="Equip it to...", options=options,
-                         custom_id="cascade_card_equip", min_values=1, max_values=1)
+        super().__init__(
+            placeholder=paging.placeholder_for("Equip it to...", page, len(characters)),
+            options=options, custom_id="cascade_card_equip",
+            min_values=1, max_values=1)
 
     async def callback(self, interaction: discord.Interaction):
         if self.values[0] == "none":
@@ -497,7 +513,7 @@ class Cards(commands.Cog):
                 return
             banner = banner_ui.BANNERS["card"]
             embed = banner_ui.banner_embed(banner, player)
-            view = banner_ui.BannerView("card", owner_id=player.id)
+            view = banner_ui.BannerView("card", owner_id=player.id, db=db, player=player)
         finally:
             db.close()
         await responses.send(ctx, embed=embed, view=view)

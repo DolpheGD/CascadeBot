@@ -98,6 +98,13 @@ class PlayerStory(Base):
     # one costs nothing and must not touch mission progress.
     pending_hunt: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
+    # An OPEN PUZZLE, stored as a REFERENCE and never as the puzzle
+    # itself: {"area": ..., "char": ...} for a map tile, or {} for the
+    # active mission's current beat. The answer key stays in
+    # bot/game/story/puzzles.py and map_config, where it cannot be read
+    # out of a database dump and cannot go stale against a config edit.
+    pending_puzzle: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
     # {area_id: [tile_char, ...]} -- one-shot tiles already consumed, so
     # a note that has been read stops advertising itself.
     read_tiles: Mapped[dict] = mapped_column(JSON, default=dict)

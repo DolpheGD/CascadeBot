@@ -113,6 +113,12 @@ class RoomType(str, enum.Enum):
     SHRINE = "shrine"
     PUZZLE = "puzzle"
     SECRET = "secret"
+    # A RELIC EVENT: a relic offered in exchange for something real --
+    # HP, gold, a fight you did not have to take, or a relic you already
+    # hold. Distinct from TREASURE (free) and MERCHANT (gold only)
+    # because the interesting decisions are the ones priced in something
+    # other than money.
+    RELIC_EVENT = "relic_event"
     BOSS = "boss"
 
 

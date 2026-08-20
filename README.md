@@ -119,7 +119,7 @@ do it by hand or something goes wrong.
 - `/daily` -- claim daily reward (gold, streak bonus, materials, lootboxes)
 - `/quests` -- one-time beginner quests plus a rerollable repeating quest
 - `/harvesters`, `/hq`, `/shrines`, `/shop`, `/mailbox` -- the base-building layer
-- `/pull` -- gacha pull for characters (costs Shards); `/pull_rates` for the odds
+- `/pull` -- gacha pull for characters (costs Shards); odds and pity are on the banner itself
 - `/open <tier>` -- open all lootboxes of a tier (also reachable from `/stash`)
 - `/encyclopedia` -- reference for characters, classes, enemies, abilities,
   equipment, and materials

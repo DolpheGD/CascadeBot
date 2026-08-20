@@ -38,6 +38,21 @@ DAILY_CORE_MILESTONE_AMOUNT = 300
 # still an event.
 DAILY_CORE_BASE = 40
 
+# EVOLUTION FRAGMENTS on every claim, plus a weekly lump.
+#
+# Small on purpose -- 6 a day is well under a Rare item's second
+# breakthrough. This is not meant to be how anyone funds a Divine weapon;
+# it exists so the very first breakthrough a new player hits (an Uncommon
+# item at level 5, costing 2) is never a wall in front of someone who has
+# no HQ 3 harvester and no gold for the shop contract.
+#
+# The 40 on the seventh day is the part that matters: a full week of
+# dailies is 82 fragments, which is most of an Epic item's entire
+# lifetime cost of 36 -- so a casual player does keep pace with the gear
+# they are realistically wearing.
+DAILY_EVOLUTION_FRAGMENT_BASE = 6
+DAILY_EVOLUTION_FRAGMENT_MILESTONE = 40
+
 # Reroll tokens on every claim -- a small, reliable source of the equipment
 # reroll/substat currency, separate from dungeon drops. Part of making
 # dailies feel more impactful now that dungeon gold was trimmed down.
@@ -85,6 +100,17 @@ def compute_daily_cores(streak: int) -> int:
     if streak and streak % DAILY_SHARD_MILESTONE_INTERVAL == 0:
         cores += DAILY_CORE_MILESTONE_AMOUNT
     return cores
+
+
+def compute_daily_fragments(streak: int) -> int:
+    """Evolution Fragments for this claim: a base every day, plus the
+    weekly lump. Same shape as compute_daily_cores above, deliberately --
+    a player who has learned how one of these behaves should not have to
+    learn the other."""
+    fragments = DAILY_EVOLUTION_FRAGMENT_BASE
+    if streak and streak % DAILY_SHARD_MILESTONE_INTERVAL == 0:
+        fragments += DAILY_EVOLUTION_FRAGMENT_MILESTONE
+    return fragments
 
 
 def compute_daily_reward(streak: int) -> tuple[int, int, int]:

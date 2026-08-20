@@ -291,7 +291,8 @@ def account_profile_embed(player, summary: dict, avatar_url: str | None = None) 
             f"{format_currency('shards', player.shards)} · "
             f"{format_currency('cores', player.cores)}\n"
             f"{format_currency('echoes', player.echoes)} · "
-            f"{format_currency('reroll_tokens', player.reroll_tokens)}"
+            f"{format_currency('reroll_tokens', player.reroll_tokens)} · "
+            f"{format_currency('evolution_fragments', player.evolution_fragments)}"
         ),
         inline=False,
     )

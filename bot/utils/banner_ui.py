@@ -23,6 +23,7 @@ import discord
 
 from bot.database.session import SessionLocal
 from bot.services import pull_service
+from bot.services.pull_service import TARGET_FIVE_STAR_RATE_PERCENT
 from bot.services.currency_service import currency_emoji, format_currency
 from bot.services.player_service import get_player
 from bot.utils import responses
@@ -54,6 +55,15 @@ class Banner:
     # (db, player, count) -> (ok, message, [result embeds])
     pull: Callable
     feature: str
+    # TARGETING. `target_attr`/`target_guarantee_attr` are Player column
+    # names; `five_stars` returns [(key, label)] for everything targetable
+    # on this banner. Held as data for the same reason everything else in
+    # this descriptor is: one screen serves both banners, and a per-banner
+    # branch inside the view is how the two pity implementations drifted
+    # apart in the first place.
+    target_attr: str = ""
+    target_guarantee_attr: str = ""
+    five_stars: Callable | None = None
 
 
 def _banner(key: str) -> "Banner":
@@ -103,6 +113,23 @@ def banner_embed(banner: Banner, player) -> discord.Embed:
                f"4★ or better by pull **{banner.four_star_pity}**."),
         inline=False,
     )
+    if banner.target_attr:
+        target = getattr(player, banner.target_attr, None)
+        guaranteed = getattr(player, banner.target_guarantee_attr, False)
+        embed.add_field(
+            name="🎯 Your pick",
+            value=(
+                (f"**{target}**\n"
+                 + ("**Next 5★ is guaranteed to be them.**" if guaranteed
+                    else f"{TARGET_FIVE_STAR_RATE_PERCENT:.0f}% of 5★ pulls — and if "
+                         f"the next 5★ isn't them, the one after is guaranteed."))
+                if target else
+                "*Nobody picked yet.* Choose a 5★ and they get a much better "
+                "share of your 5★ pulls, with a guarantee if you miss."
+            ),
+            inline=False,
+        )
+
     embed.set_footer(
         text=f"{banner.single_cost} {banner.currency} a pull · "
              f"same price per pull on the {banner.multi_count}x"
@@ -206,7 +233,7 @@ class BannerButton(discord.ui.DynamicItem[discord.ui.Button],
             # the pity counters and balance the player just changed are
             # correct without them re-running the command.
             refreshed = banner_embed(banner, player)
-            view = BannerView(banner.key, owner_id=player.id)
+            view = BannerView(banner.key, owner_id=player.id, db=db, player=player)
         finally:
             db.close()
         await responses.edit(interaction, embed=refreshed, view=view)
@@ -215,10 +242,74 @@ class BannerButton(discord.ui.DynamicItem[discord.ui.Button],
 
 
 class BannerView(OwnedView):
-    def __init__(self, banner_key: str, owner_id: int | None = None):
+    def __init__(self, banner_key: str, owner_id: int | None = None,
+                 db=None, player=None):
         super().__init__(timeout=None, owner_id=owner_id)
         for action in ("pull1", "pull10", "history"):
             self.add_item(BannerButton(banner_key, action))
+
+        # The target select is only added when we have a session to build
+        # its options from. Buttons survive a restart via DynamicItem;
+        # a select's options cannot, so the screen is simply re-opened.
+        banner = _banner(banner_key)
+        if db is not None and banner.five_stars:
+            self.add_item(TargetSelect(banner_key, db, player))
+
+
+class TargetSelect(discord.ui.Select):
+    """Pick the 5-star to aim at.
+
+    PAGING IS NOT OPTIONAL HERE. Discord rejects a select with more than
+    25 options with a 400, which does not surface as a validation error --
+    it surfaces as an interaction that never gets answered and a user
+    staring at "this interaction failed". That is exactly how the equip
+    button broke. There are fewer than 25 five-stars today; this slices
+    anyway, because "fewer than 25 today" is a fact with an expiry date.
+    """
+
+    LIMIT = 25
+
+    def __init__(self, banner_key: str, db, player):
+        banner = _banner(banner_key)
+        entries = list(banner.five_stars(db))
+        current = getattr(player, banner.target_attr, None) if player else None
+        options = [
+            discord.SelectOption(
+                label=label[:100], value=str(key)[:100],
+                description="Currently your pick" if str(key) == str(current) else None,
+            )
+            for key, label in entries[:self.LIMIT - 1]
+        ]
+        options.append(discord.SelectOption(
+            label="— Clear my pick —", value="__clear__"))
+        super().__init__(placeholder=("🎯 Pick a 5★ to aim for"
+                                      + (f" (now: {current})" if current else "")),
+                         options=options)
+        self.banner_key = banner_key
+
+    async def callback(self, interaction: discord.Interaction):
+        if not await check_message_owner(interaction):
+            return
+        banner = _banner(self.banner_key)
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            if player is None:
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
+                return
+            choice = self.values[0]
+            # CHANGING THE PICK DOES NOT CLEAR THE GUARANTEE. A player who
+            # has already lost a 50/50 keeps what they earned; letting a
+            # re-pick eat it would make switching targets silently
+            # expensive, and nothing on screen would say so.
+            setattr(player, banner.target_attr,
+                    None if choice == "__clear__" else choice)
+            db.commit()
+            embed = banner_embed(banner, player)
+            view = BannerView(banner.key, owner_id=player.id, db=db, player=player)
+        finally:
+            db.close()
+        await responses.edit(interaction, embed=embed, view=view)
 
 
 # ----------------------------------------------------------------------
@@ -266,6 +357,18 @@ def _register_all() -> None:
     from bot.game.economy import card_config as cc
     from bot.game.economy import character_gacha_config as gc
 
+    def _five_star_characters(db):
+        from bot.database.models.character_model import CharacterTemplate
+        rows = (db.query(CharacterTemplate)
+                .filter(CharacterTemplate.star_rating >= 5)
+                .order_by(CharacterTemplate.name).all())
+        return [(t.name, f"★★★★★ {t.name}") for t in rows]
+
+    def _five_star_cards(db):
+        return [(c["id"], f"★★★★★ {c['name']}")
+                for c in sorted(cc.cards_of_star(5) or [],
+                                key=lambda c: c["name"])]
+
     register(Banner(
         key="character", title="🎴 Character Banner", currency="shards",
         single_cost=gc.SINGLE_PULL_COST_SHARDS, multi_count=gc.MULTI_PULL_COUNT,
@@ -276,6 +379,9 @@ def _register_all() -> None:
         blurb="Pull for the people who fight alongside you.",
         pity_attr_five="pity_since_five_star", pity_attr_four="pity_since_four_star",
         pull=_pull_characters, feature="pull",
+        target_attr="target_character",
+        target_guarantee_attr="target_character_guaranteed",
+        five_stars=_five_star_characters,
     ))
     register(Banner(
         key="card", title="🃏 Character Card Banner", currency="cores",
@@ -289,6 +395,9 @@ def _register_all() -> None:
         pity_attr_five="card_pity_since_five_star",
         pity_attr_four="card_pity_since_four_star",
         pull=_pull_cards, feature="cards",
+        target_attr="target_card",
+        target_guarantee_attr="target_card_guaranteed",
+        five_stars=_five_star_cards,
     ))
 
 

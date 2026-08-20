@@ -33,7 +33,13 @@ import sys
 # Verified against dungeon_service._apply_gain rather than guessed --
 # the first version of this list omitted "xp" and flagged six
 # perfectly good encounters.
-KNOWN_GAIN_SHORTHANDS = {"material_tier", "amount", "lootbox", "item", "xp"}
+# "relic" grants a run relic -- see dungeon_service._apply_gain. Its value
+# is either True (ordinary weighted roll) or a rarity name, and the rarity
+# is validated below rather than waved through: a typo'd rarity does not
+# fail, it silently falls back to a random relic of any kind, so an event
+# advertising a legendary would quietly hand over a common.
+KNOWN_GAIN_SHORTHANDS = {"material_tier", "amount", "lootbox", "item", "xp",
+                         "relic"}
 VALID_ACTIONS = {"leave", "risk", "trade", "gamble"}
 
 
@@ -44,6 +50,8 @@ def main() -> int:
     from bot.services.currency_service import VALID_CURRENCIES
 
     lootbox_tiers = {t["tier"] for t in LOOTBOX_TEMPLATES}
+    from bot.game.dungeon.relic_config import RELICS
+    relic_rarities = {r["rarity"] for r in RELICS}
     room_values = {r.value for r in RoomType}
     failures: list[str] = []
 
@@ -57,6 +65,11 @@ def main() -> int:
                     if gain_key in KNOWN_GAIN_SHORTHANDS:
                         if gain_key == "lootbox" and gain_value not in lootbox_tiers:
                             failures.append(f"{where}: unknown lootbox tier {gain_value!r}")
+                        if gain_key == "relic" and gain_value is not True:
+                            if gain_value not in relic_rarities:
+                                failures.append(
+                                    f"{where}: relic rarity {gain_value!r} does not "
+                                    f"exist (have: {', '.join(sorted(relic_rarities))})")
                         continue
                     if gain_key not in VALID_CURRENCIES:
                         failures.append(f"{where}: '{gain_key}' is not a currency or shorthand")

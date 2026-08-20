@@ -58,7 +58,9 @@ from bot.game.economy.quest_config import (
     BASIC_QUEST_POOL,
     BEGINNER_BONUS_REWARD,
     BEGINNER_QUESTS,
+    COMMISSIONS,
     MAX_ACTIVE_BASIC_QUESTS,
+    MAX_ACTIVE_COMMISSIONS,
 )
 from bot.services.currency_service import add_currency
 from bot.utils.time_utils import as_utc
@@ -204,12 +206,20 @@ def reroll_basic_quest(db, player, quest_id: int, rng: random.Random | None = No
 
 
 def _quest_config_by_id(quest_id: str) -> dict | None:
-    for quest in BEGINNER_QUESTS:
-        if quest["id"] == quest_id:
-            return quest
-    for quest in BASIC_QUEST_POOL:
-        if quest["id"] == quest_id:
-            return quest
+    """Find a quest's config by id, across ALL THREE pools.
+
+    Commissions have to be in here. record_progress looks a completed
+    quest's reward up through this function, so a pool that is missing
+    from it produces a quest that completes correctly, shows as complete,
+    and pays nothing -- with no error anywhere. Adding a fourth pool later
+    and forgetting this line would do the same thing again, which is why
+    tools/check_commissions.py asserts that every id in every pool
+    resolves here.
+    """
+    for pool in (BEGINNER_QUESTS, BASIC_QUEST_POOL, COMMISSIONS):
+        for quest in pool:
+            if quest["id"] == quest_id:
+                return quest
     return None
 
 
@@ -256,6 +266,18 @@ def record_progress(db, player, goal_type: str, amount: int = 1) -> list[PlayerQ
     db.commit()
 
     for quest in newly_completed:
+        # COMMISSIONS ARE CLAIMED, NOT AUTO-PAID.
+        #
+        # Beginner and basic quests pay the moment they complete, because
+        # there is nowhere to go and collect them. A commission was taken
+        # from the board in the yard and is collected there, which is the
+        # only thing that makes the board worth walking back to. Skipping
+        # the grant here is what makes claim_commission the single place
+        # a commission ever pays -- if it were granted in both places it
+        # would pay twice, and the second payment would look like a
+        # duplicate-claim bug rather than a double-grant bug.
+        if quest.kind == "commission":
+            continue
         config = _quest_config_by_id(quest.quest_id)
         if config:
             _grant_reward(db, player, config["reward"])
@@ -278,3 +300,123 @@ def _maybe_grant_beginner_bonus(db, player) -> None:
     player.beginner_quest_bonus_claimed = True
     db.commit()
     _grant_reward(db, player, BEGINNER_BONUS_REWARD)
+
+
+# ----------------------------------------------------------------------
+# COMMISSIONS
+#
+# A third `kind` on the same PlayerQuest table. They ride record_progress
+# unchanged -- the only behavioural difference is the claim step above.
+#
+# Deliberately NOT given their own table. Everything a commission needs
+# (goal_type, goal_count, progress, is_completed) already exists on
+# PlayerQuest, and a second table would mean a second record_progress
+# with its own copy of the high-water logic, which is the bug class this
+# codebase keeps rediscovering: two code paths computing one value.
+# ----------------------------------------------------------------------
+
+class CommissionSlotsFull(Exception):
+    def __init__(self, max_slots: int):
+        self.max_slots = max_slots
+        super().__init__(f"Already holding {max_slots} commissions")
+
+
+class CommissionNotAvailable(Exception):
+    pass
+
+
+def _commission_config(commission_id: str) -> dict | None:
+    return next((c for c in COMMISSIONS if c["id"] == commission_id), None)
+
+
+def get_active_commissions(db, player) -> list[PlayerQuest]:
+    return (
+        db.query(PlayerQuest)
+        .filter_by(player_id=player.id, kind="commission", is_claimed=False)
+        .order_by(PlayerQuest.assigned_at)
+        .all()
+    )
+
+
+def _claimed_commission_ids(db, player) -> set[str]:
+    rows = (
+        db.query(PlayerQuest)
+        .filter_by(player_id=player.id, kind="commission", is_claimed=True)
+        .all()
+    )
+    return {row.quest_id for row in rows}
+
+
+def available_commissions(db, player, completed_missions: set[str]) -> list[dict]:
+    """Contracts the board will show right now.
+
+    Filtered by story progress (`requires_mission`), by whether the player
+    already holds it, and -- for non-repeatable contracts -- by whether
+    they have already claimed it.
+    """
+    held = {row.quest_id for row in get_active_commissions(db, player)}
+    claimed = _claimed_commission_ids(db, player)
+    out = []
+    for config in COMMISSIONS:
+        if config["id"] in held:
+            continue
+        if not config.get("repeatable") and config["id"] in claimed:
+            continue
+        required = config.get("requires_mission")
+        if required and required not in completed_missions:
+            continue
+        out.append(config)
+    return out
+
+
+def accept_commission(db, player, commission_id: str,
+                      completed_missions: set[str]) -> PlayerQuest:
+    config = _commission_config(commission_id)
+    if config is None:
+        raise CommissionNotAvailable(f"No such commission: {commission_id}")
+    if config not in available_commissions(db, player, completed_missions):
+        raise CommissionNotAvailable(config.get("name", commission_id))
+
+    active = get_active_commissions(db, player)
+    if len(active) >= MAX_ACTIVE_COMMISSIONS:
+        raise CommissionSlotsFull(MAX_ACTIVE_COMMISSIONS)
+
+    row = PlayerQuest(
+        player_id=player.id,
+        quest_id=config["id"],
+        kind="commission",
+        goal_type=config["goal_type"],
+        goal_count=config["goal_count"],
+        progress=0,
+        is_completed=False,
+        assigned_at=dt.datetime.now(dt.timezone.utc),
+    )
+    db.add(row)
+    db.commit()
+    return row
+
+
+def claim_commission(db, player, row_id: int) -> tuple[PlayerQuest, dict]:
+    """Pay out a finished commission. Returns (row, reward granted)."""
+    row = (
+        db.query(PlayerQuest)
+        .filter_by(id=row_id, player_id=player.id, kind="commission")
+        .one_or_none()
+    )
+    if row is None:
+        raise CommissionNotAvailable("That commission is not yours.")
+    if not row.is_completed:
+        raise CommissionNotAvailable("That commission is not finished yet.")
+    if row.is_claimed:
+        raise CommissionNotAvailable("That commission has already been paid.")
+
+    config = _commission_config(row.quest_id)
+    reward = dict((config or {}).get("reward") or {})
+    # is_claimed is flipped BEFORE the grant, and committed with it, so a
+    # failure part-way through cannot leave a row that is unclaimed and
+    # already paid.
+    row.is_claimed = True
+    row.claimed_at = dt.datetime.now(dt.timezone.utc)
+    _grant_reward(db, player, reward)
+    db.commit()
+    return row, reward

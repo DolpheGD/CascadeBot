@@ -128,7 +128,57 @@ def is_maxed(dupe_count: int) -> bool:
 ECHOES_BY_STAR: dict[int, int] = {3: 20, 4: 50, 5: 120}
 ECHOES_BY_STAR_MAXED: dict[int, int] = {3: 50, 4: 130, 5: 300}
 
-ECHO_CHARACTER_COST: dict[int, int] = {3: 250, 4: 600, 5: 1500}
+# ----------------------------------------------------------------------
+# ONE PRICE TABLE, BY STAR RATING -- for characters AND Character Cards.
+#
+# The exchange now sells both. It would have been easy to give Cards
+# their own dict, and the two would have started identical and drifted,
+# which is the single most common bug in this codebase (the gear main
+# stat, the gacha pity maths and the card ability lookup were all one
+# value computed in two places). One table cannot disagree with itself.
+#
+# The prices are also RIGHT for both, for the same reason -- calibrated
+# against each banner's own hard pity:
+#
+#   characters  50 pulls = 7,500 shards = a guaranteed RANDOM 5-star, and
+#               a player banks roughly 1,000-1,400 echoes from duplicates
+#               over that span. A CHOSEN 5-star costs 1,500.
+#   cards       50 pulls = 6,000 cores = a guaranteed RANDOM 5-star card.
+#               At CORES_PER_ECHO below, 6,000 cores converts to exactly
+#               1,500 echoes. A CHOSEN 5-star card costs 1,500.
+#
+# So on both banners the deterministic path costs about what the
+# guarantee costs, and the trade is the same one: slower in expectation,
+# but you pick. That the two land on the same number is what makes a
+# single table honest rather than a coincidence waiting to break.
+# ----------------------------------------------------------------------
+ECHO_COST_BY_STAR: dict[int, int] = {3: 250, 4: 600, 5: 1500}
+
+# Kept as the old name because a lot of call sites and the /help text
+# refer to it; it is the same table, not a copy of it.
+ECHO_CHARACTER_COST = ECHO_COST_BY_STAR
+
+# ----------------------------------------------------------------------
+# SELLING CORES FOR ECHOES
+#
+# A SALVAGE VALVE, not an income stream, and the rate says so. Cores buy
+# exactly one thing -- card pulls -- so a player who has finished with
+# the card banner (or who only ever wanted one specific card) is sitting
+# on a currency with no use, which is the same dead-end that duplicate
+# characters used to be before Echoes existed.
+#
+# 4:1 is not arbitrary. It is the rate at which "convert everything and
+# buy the card you want" costs the same as "pull to the guarantee and
+# take whichever card you get" -- see the calibration above. Any kinder
+# rate would make pulling the worse option outright and quietly turn the
+# card banner into a currency-conversion screen.
+#
+# Deliberately ONE-WAY. Echoes come from duplicates and buy specific
+# things; letting them flow back into cores would make every reward that
+# pays echoes also a card-pull reward, and the two currencies would
+# collapse into one with extra steps.
+# ----------------------------------------------------------------------
+CORES_PER_ECHO = 4
 
 
 def echoes_for_dupe(star_rating: int, dupe_count: int) -> int:
@@ -140,4 +190,32 @@ def echoes_for_dupe(star_rating: int, dupe_count: int) -> int:
 
 
 def character_cost(star_rating: int) -> int:
-    return ECHO_CHARACTER_COST.get(star_rating, ECHO_CHARACTER_COST[3])
+    return ECHO_COST_BY_STAR.get(star_rating, ECHO_COST_BY_STAR[3])
+
+
+def card_cost(star_rating: int) -> int:
+    """What a Character Card of this rating costs in Echoes.
+
+    Same table as characters -- see ECHO_COST_BY_STAR. A card is one slot
+    on one character and a character is a whole unit, but a card is also
+    permanent, unrollable and carries an ability strong enough to define
+    how that character plays, so the two land in the same place.
+    """
+    return ECHO_COST_BY_STAR.get(star_rating, ECHO_COST_BY_STAR[3])
+
+
+def echoes_for_cores(cores: int) -> int:
+    """Echoes paid for `cores`, rounded DOWN.
+
+    Rounding down matters: rounding up would make repeatedly selling the
+    remainder a free trickle of echoes, which is the shape of exploit
+    that only ever gets found by the player who does it ten thousand
+    times."""
+    return max(0, cores) // CORES_PER_ECHO
+
+
+def cores_for_echoes(echoes: int) -> int:
+    """The cores needed to produce `echoes` -- the inverse of the above,
+    used to charge an exact price rather than the player's whole balance
+    when the balance doesn't divide evenly."""
+    return max(0, echoes) * CORES_PER_ECHO

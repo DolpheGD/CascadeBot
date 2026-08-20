@@ -101,6 +101,17 @@ CARD_ONLY_ABILITY_IDS: frozenset[str] = frozenset({
     "starfall", "sanctuary_bell", "wellspring_surge", "twin_current",
     "bulwark_protocol", "guard_breaker", "resonance_prism",
     "executioners_ledger",
+
+    # --- CATALOG EXPANSION -------------------------------------------
+    # Authored FOR cards rather than lifted off gear, so nothing was
+    # taken away from equipment to pay for them. Built on effect kinds
+    # the engine already resolves -- see the banner in
+    # bot/game/loot/abilities.py for why that matters.
+    "tidebreaker_arc", "standing_order", "emberline",       # legendary -> 3★
+    "last_ward", "quartermasters_seal",
+    "riven_horizon", "chorus_of_thorns",                    # mythic    -> 4★
+    "deepwater_cadence", "hollow_reprisal",
+    "sovereign_gambit", "the_long_count", "unbroken_line",  # divine    -> 5★
 })
 
 
@@ -148,6 +159,12 @@ def card_level_multiplier(level: int) -> float:
 # The material BAND rises with card level, exactly like gear upgrades
 # (item_upgrade_service._MATERIAL_BANDS), so an early card is fed wood
 # and stone and a level-90 card is eating Void and Entropy.
+#
+# ...and EVOLUTION FRAGMENTS every 10th level, which is the actual gate.
+# Gold and materials are a rate limit -- they slow levelling down but any
+# amount of play eventually produces them. A breakthrough is a wall you
+# stop at, and the 90 levels of a Card are punctuated by nine of them.
+# See bot/game/economy/evolution_config.py.
 # ----------------------------------------------------------------------
 CARD_LEVEL_GOLD_BASE = 90
 CARD_LEVEL_GOLD_EXPONENT = 1.55
@@ -176,9 +193,18 @@ def card_materials_for_level(level: int) -> tuple[str, ...]:
     return CARD_MATERIAL_BANDS[-1][1]
 
 
-def card_level_cost(level: int) -> dict[str, int]:
-    """Cost to go from `level` to `level + 1`: gold plus materials from
-    this level's band, split as evenly as the total allows."""
+def card_level_cost(level: int, star_rating: int) -> dict[str, int]:
+    """Cost to go from `level` to `level + 1`: gold, materials from this
+    level's band, and -- every 10th level -- Evolution Fragments.
+
+    `star_rating` is REQUIRED, with no default, on purpose. The obvious
+    signature was `star_rating: int = 3`, and every caller that forgot to
+    pass it would have quietly priced a 5-star card's breakthroughs at
+    the 3-star rate: less than half, with nothing raising and nothing
+    looking wrong on screen. This codebase's most expensive recurring bug
+    is a value computed two ways; a default argument is the cheapest way
+    to write one.
+    """
     gold = int(round(CARD_LEVEL_GOLD_BASE * (level ** CARD_LEVEL_GOLD_EXPONENT) / 10))
     cost: dict[str, int] = {"gold": max(CARD_LEVEL_GOLD_BASE, gold)}
 
@@ -189,6 +215,14 @@ def card_level_cost(level: int) -> dict[str, int]:
         amount = per + (1 if index < extra else 0)
         if amount:
             cost[material] = amount
+
+    # Imported here rather than at module scope: evolution_config imports
+    # CARD_MAX_LEVEL from this module for its lifetime-cost helper, and a
+    # top-level import either way is a cycle.
+    from bot.game.economy.evolution_config import card_breakthrough_cost
+    fragments = card_breakthrough_cost(level, star_rating)
+    if fragments:
+        cost["evolution_fragments"] = fragments
     return cost
 
 
@@ -424,6 +458,109 @@ CARD_TEMPLATES: list[dict] = [
         {"max_hp": 90, "recharge": 9, "speed": 9},
         "temporal_capacitor", "armor",
     ),
+
+    # ==================================================================
+    # THE EXPANSION -- twelve more, five 3★, four 4★, three 5★.
+    #
+    # Sized against the RATES rather than against each other, same as
+    # the original catalog: at a 73% 3-star rate the low tier is what a
+    # player actually sees, so it gets the most new faces. Fifteen 3★
+    # against ten before means a ten-pull repeats itself noticeably less.
+    #
+    # Stat trios stay varied on purpose. Three cards sharing one trio is
+    # one card with three names, and the point of a bigger catalog is
+    # that a pull can surprise you.
+    # ==================================================================
+
+    # ---- 3-STAR ------------------------------------------------------
+    _card(
+        "Everything The Tide Gave Back", 3,
+        "An inventory of what washed up, in three different hands. The last "
+        "column is what nobody claimed.",
+        {"attack": 11, "speed": 5, "crit_rate": 4},
+        "tidebreaker_arc", "weapon",
+    ),
+    _card(
+        "Orders Nobody Countermanded", 3,
+        "Posted once and never taken down. People still form up under it out "
+        "of habit, which is most of what an order is.",
+        {"attack": 8, "speed": 6, "max_mana": 24},
+        "standing_order", "artifact",
+    ),
+    _card(
+        "The Long Dry Summer", 3,
+        "A rainfall log with eleven blank months and a single underlined "
+        "entry. Somebody circled the date twice.",
+        {"elemental": 11, "crit_damage": 9, "recharge": 4},
+        "emberline", "artifact",
+    ),
+    _card(
+        "Held At The Narrow Place", 3,
+        "A sketch of a corridor, with the width measured and written in. It "
+        "is not very wide. That was the whole plan.",
+        {"defense": 10, "max_hp": 55, "speed": 4},
+        "last_ward", "armor",
+    ),
+    _card(
+        "Signed For, In Triplicate", 3,
+        "Somebody accounted for every last round of it. The requisition is "
+        "dated after the battle it was for.",
+        {"max_mana": 34, "recharge": 6, "attack": 7},
+        "quartermasters_seal", "armor",
+    ),
+
+    # ---- 4-STAR ------------------------------------------------------
+    _card(
+        "The Gap In The Weather", 4,
+        "Four hours of clear sky, forecast a week out and hit exactly. "
+        "Everything afterward depended on it.",
+        {"attack": 15, "crit_damage": 14, "crit_rate": 6},
+        "riven_horizon", "weapon",
+    ),
+    _card(
+        "What Grew Over The Wire", 4,
+        "The fence is still there under it. You would have to know to look, "
+        "and by now almost nobody does.",
+        {"defense": 13, "max_hp": 75, "elemental": 9},
+        "chorus_of_thorns", "artifact",
+    ),
+    _card(
+        "The Well That Kept Its Level", 4,
+        "Measured every morning for nine years by a man who never explained "
+        "why. The number does not move.",
+        {"max_hp": 85, "recharge": 6, "defense": 10},
+        "deepwater_cadence", "artifact",
+    ),
+    _card(
+        "Whoever Swung Second", 4,
+        "Two dents in the same plate, and the second one is deeper. The "
+        "report records only the first.",
+        {"defense": 14, "max_hp": 70, "attack": 11},
+        "hollow_reprisal", "armor",
+    ),
+
+    # ---- 5-STAR ------------------------------------------------------
+    _card(
+        "Everything It Cost To Stand There", 5,
+        "A field dressing kit, used down to the last of it, and a position "
+        "that did not move on any map drawn afterward.",
+        {"attack": 19, "max_hp": 80, "crit_damage": 18},
+        "sovereign_gambit", "weapon",
+    ),
+    _card(
+        "The Tally Nobody Would Keep", 5,
+        "Started in pencil, continued in whatever came to hand. It runs to "
+        "four pages and it is still going.",
+        {"elemental": 21, "crit_rate": 9, "recharge": 8},
+        "the_long_count", "artifact",
+    ),
+    _card(
+        "Nobody Fell Out Of Step", 5,
+        "A column photographed at the ninth hour and again at the fourteenth. "
+        "The same number of people are in both.",
+        {"max_hp": 105, "defense": 17, "speed": 8},
+        "unbroken_line", "armor",
+    ),
 ]
 
 
@@ -500,12 +637,17 @@ CARD_FOUR_STAR_PITY = 10
 #                     a committed player's income
 #     Core Domain     60 (trivial) to 900 (nightmare) per run, the one
 #                     place you can go specifically FOR cores
+#     Core Reactor    the harvester, ~0.85 pulls a day at max level
 #     raids           elite 420, nightmare 1,080 -- endgame tiers only
+#     Void Abyss      40 (floor 1) to 450 (floor 12); floors 1-8 pay
+#                     once, 9-12 pay once per rotation
 #
 #   ONE-TIME
 #     prologue        600, exactly five pulls, matching the five
 #                     character pulls the prologue also pays
 #     beginner quests 360 across two quests plus a 600 completion bonus
+#     prestige        half the shard payout, so a reset seeds BOTH
+#                     banners rather than only the character one
 #
 # MEASURED against the shard economy at a capped streak:
 #
@@ -516,4 +658,19 @@ CARD_FOUR_STAR_PITY = 10
 # rolls, permanent, and carrying the strongest abilities in the game --
 # the same number of pulls on both banners would make Cards the faster
 # power curve as well as the higher one.
+#
+# ----------------------------------------------------------------------
+# WHERE CORES GO, besides pulls
+# ----------------------------------------------------------------------
+# The Echo Exchange buys them back at 4 cores to 1 Echo (see
+# resonance_config.CORES_PER_ECHO). That exists because cores bought
+# exactly one thing, so a player who had the cards they wanted was
+# holding a currency that did nothing -- the same dead end duplicate
+# characters were in before Echoes.
+#
+# The rate is calibrated so that converting everything and buying a
+# chosen card costs about what pulling to the 5-star guarantee costs.
+# Selling is therefore never the OBVIOUS play, which is the point: if it
+# were, the card banner would quietly become a currency-conversion
+# screen.
 # ----------------------------------------------------------------------

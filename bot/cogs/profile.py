@@ -9,6 +9,8 @@ from bot.utils import responses
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_or_create_player, get_player
 from bot.services.currency_service import add_currency
+from bot.game.characters import talent_config
+from bot.services import talent_service
 from bot.services import (account_service, character_service, dungeon_service,
                           gift_service, inventory_service, story_service)
 from bot.utils.ui_guard import OwnedView, require_feature, require_player
@@ -64,6 +66,144 @@ class CharacterProfileSelect(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         await _render_profile_page(interaction, self.page, character_id=int(self.values[0]))
+
+
+
+# ----------------------------------------------------------------------
+# TALENTS
+#
+# One screen per character. The rules (points, prerequisites, respec) all
+# live in talent_service; this only draws them, for the same reason
+# puzzles.solve lives outside the story cog -- a rule enforced in a view
+# is a rule nothing can test.
+# ----------------------------------------------------------------------
+
+def _owned_character(db, player, character_id: int):
+    """The player's character with this id, or None.
+
+    Goes through list_owned_characters rather than a bare primary-key
+    lookup: the id arrives from a component custom_id, which is client
+    supplied, so fetching by id alone would let anyone edit anyone's
+    talents by replaying a button. The ownership filter IS the check.
+    """
+    return next((c for c in character_service.list_owned_characters(db, player)
+                 if c.id == character_id), None)
+
+
+def talent_embed(character) -> discord.Embed:
+    state = talent_service.summary(character)
+    name = character.custom_name or character.template.name
+    embed = discord.Embed(
+        title=f"🌳 {name} — Talents",
+        description=(
+            f"**{state['available']}** point"
+            f"{'s' if state['available'] != 1 else ''} to spend"
+            f"  ·  {state['spent']}/{state['total']} used\n"
+            f"*One point every {talent_config.POINTS_PER_LEVEL} levels. "
+            f"Resetting is free.*"
+        ),
+        colour=discord.Colour.green(),
+    )
+    for branch_name, nodes in state["branches"].items():
+        lines = []
+        for node in nodes:
+            mark = "✅" if node["bought"] else ("🔹" if node["buyable"] else "🔒")
+            effect = node["effect"]
+            amount = (f"+{effect['percent']:g}% {effect['stat'].replace('_', ' ')}"
+                      if "percent" in effect
+                      else f"+{effect['flat']:g} {effect['stat'].replace('_', ' ')}")
+            star = " ★" if node.get("capstone") else ""
+            lines.append(f"{mark} **{node['name']}**{star} — {amount} "
+                         f"({node['cost']}pt)")
+        embed.add_field(name=branch_name, value="\n".join(lines), inline=False)
+
+    if state["percent"] or state["flat"]:
+        parts = [f"+{v:g}% {k.replace('_', ' ')}" for k, v in state["percent"].items()]
+        parts += [f"+{v:g} {k.replace('_', ' ')}" for k, v in state["flat"].items()]
+        embed.add_field(name="Currently worth", value=", ".join(parts), inline=False)
+    return embed
+
+
+class TalentView(OwnedView):
+    def __init__(self, character, owner_id: int | None = None):
+        super().__init__(timeout=600, owner_id=owner_id)
+        self.character_id = character.id
+        state = talent_service.summary(character)
+        buyable = [n for nodes in state["branches"].values() for n in nodes
+                   if n["buyable"]]
+        if buyable:
+            self.add_item(_TalentBuySelect(buyable))
+        self.add_item(_TalentResetButton())
+
+
+class _TalentBuySelect(discord.ui.Select):
+    def __init__(self, buyable: list[dict]):
+        # Sliced to Discord's hard cap. There are 13 nodes in a tree and
+        # at most a handful are ever buyable at once, so this will not
+        # trigger -- it is here because an unpaged select is what took
+        # the equip button down with a 400 that never surfaced as an
+        # error, only as a dead interaction.
+        super().__init__(
+            placeholder="Learn a talent…",
+            options=[
+                discord.SelectOption(
+                    label=f"{n['name']} ({n['cost']}pt)"[:100],
+                    value=n["id"],
+                    description=(f"{n['branch_name']} · "
+                                 + (f"+{n['effect']['percent']:g}% "
+                                    if 'percent' in n['effect']
+                                    else f"+{n['effect']['flat']:g} ")
+                                 + n['effect']['stat'].replace('_', ' '))[:100],
+                )
+                for n in buyable[:25]
+            ],
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            character = _owned_character(db, player, self.view.character_id)
+            if character is None:
+                await responses.send(interaction, "That isn't your character.",
+                                     ephemeral=True)
+                return
+            try:
+                node = talent_service.buy(db, character, self.values[0])
+            except talent_service.TalentError as exc:
+                await responses.send(interaction, str(exc), ephemeral=True)
+                return
+            embed = talent_embed(character)
+            embed.set_footer(text=f"Learned {node['name']}.")
+            view = TalentView(character, owner_id=player.id)
+        finally:
+            db.close()
+        await responses.edit(interaction, embed=embed, view=view)
+
+
+class _TalentResetButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="↺ Unlearn everything",
+                         style=discord.ButtonStyle.secondary)
+
+    async def callback(self, interaction: discord.Interaction):
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            character = _owned_character(db, player, self.view.character_id)
+            if character is None:
+                await responses.send(interaction, "That isn't your character.",
+                                     ephemeral=True)
+                return
+            refunded = talent_service.reset(db, character)
+            embed = talent_embed(character)
+            embed.set_footer(text=f"{refunded} point"
+                                  f"{'s' if refunded != 1 else ''} back. "
+                                  f"Respec is always free.")
+            view = TalentView(character, owner_id=player.id)
+        finally:
+            db.close()
+        await responses.edit(interaction, embed=embed, view=view)
 
 
 class ProfilePageView(OwnedView):
@@ -264,6 +404,32 @@ class Profile(commands.Cog):
         finally:
             db.close()
 
+        await responses.send(ctx, embed=embed, view=view)
+
+    # COMMAND: /talents
+    # The talent tree for one character. Defaults to the avatar; the
+    # select on /characters is the other way in.
+    @app_commands.command(
+        name="talents",
+        description="Spend talent points on a character. Respec is free."
+    )
+    async def talents(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
+        db = SessionLocal()
+        try:
+            player = get_player(db, ctx.user.id)
+            if not await require_player(ctx, player):
+                return
+            # Gated on `squad`, the feature that first asks the player to
+            # care about individual characters. Talents before that is a
+            # screen full of choices about a roster of one.
+            if not await require_feature(ctx, db, player, "squad"):
+                return
+            character = character_service.ensure_avatar_character(db, player)
+            embed = talent_embed(character)
+            view = TalentView(character, owner_id=player.id)
+        finally:
+            db.close()
         await responses.send(ctx, embed=embed, view=view)
 
     # COMMAND: /profile

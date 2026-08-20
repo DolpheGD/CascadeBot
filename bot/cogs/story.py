@@ -29,7 +29,8 @@ from bot.game.combat.battle import Battle
 from bot.game.combat.factory import build_enemy_combatant
 from bot.game.combat.enemies import get_template_by_name
 from bot.game.combat.serialization import battle_from_dict, battle_to_dict
-from bot.services import combat_service, map_service, story_service
+from bot.game.story import puzzles
+from bot.services import combat_service, map_service, quest_service, story_service
 from bot.services.player_service import get_player
 from bot.utils import combat_ui, embedder
 from bot.utils.guild_decorator import guild_decorator
@@ -179,6 +180,468 @@ class HuntOfferView(OwnedView):
         finally:
             db.close()
         await _render_map(interaction, edit=True)
+
+
+
+
+# ----------------------------------------------------------------------
+# PUZZLES
+#
+# Four kinds, one view each, all resolved through
+# bot.game.story.puzzles.solve -- this module never decides whether an
+# answer is right. That separation is the reason tools/check_puzzles.py
+# can verify every puzzle in the game without a Discord connection.
+#
+# Every puzzle here has a "Walk away" button. A puzzle you cannot leave
+# is a wall in the middle of a story somebody was enjoying.
+# ----------------------------------------------------------------------
+
+def _puzzle_embed(puzzle: dict, footer: str | None = None):
+    body = puzzles.describe(puzzle)
+    if footer:
+        body = f"{body}\n\n{footer}"
+    return embedder.story_note_embed(
+        puzzle.get("name", "Something to work out"),
+        puzzle.get("emoji", "🧩"), body)
+
+
+async def _resolve_puzzle(interaction, submission, on_map: bool):
+    """Grade a submission and render the outcome.
+
+    `on_map` distinguishes a map-tile puzzle (pays via
+    map_service.finish_puzzle, returns to the map) from a beat puzzle
+    (pays via story_service.advance, continues the mission). Both call
+    the same solver.
+    """
+    db = SessionLocal()
+    try:
+        player = get_player(db, interaction.user.id)
+        story = story_service.get_or_create(db, player)
+        pending = story.pending_puzzle or {}
+        area_id, char = pending.get("area"), pending.get("char")
+        puzzle = _puzzle_by_ref(story, pending)
+        if puzzle is None:
+            await responses.send(interaction, "That puzzle is no longer open.",
+                                 ephemeral=True)
+            return
+        solved, message = puzzles.solve(puzzle, submission)
+        if not solved:
+            embed = _puzzle_embed(puzzle, f"❌ {message}")
+            view = _puzzle_view(puzzle, player.id, on_map)
+            await responses.edit(interaction, embed=embed, view=view)
+            return
+
+        story.pending_puzzle = None
+        if on_map:
+            rewards = map_service.finish_puzzle(db, story, area_id, char)
+            note = {"name": puzzle.get("name", "Solved"),
+                    "emoji": puzzle.get("emoji", "🧩"),
+                    "text": message + _reward_block(rewards, None)}
+            embed, view = _map_screen(db, player, readout=note)
+        else:
+            db.commit()
+            result = story_service.advance(db, player, choice_id="solved")
+            note = {"name": puzzle.get("name", "Solved"),
+                    "emoji": puzzle.get("emoji", "🧩"),
+                    "text": (result.get("text") or message)
+                            + _reward_block(result.get("rewards"), None)}
+            embed, view = _map_screen(db, player, readout=note)
+        db.commit()
+    finally:
+        db.close()
+    await responses.edit(interaction, embed=embed, view=view)
+
+
+def _puzzle_by_ref(story, pending: dict) -> dict | None:
+    """Re-read the puzzle from CONFIG rather than trusting the copy in
+    the pending blob.
+
+    The pending row stores only a reference (area + char, or the active
+    mission's beat index). Storing the whole puzzle would mean a player
+    who opened a puzzle before a config change keeps solving the old one
+    forever, and -- worse -- that the answer key travels through the
+    database, where it is one logging mistake away from being visible.
+    """
+    from bot.game.story import map_config as mc
+    if pending.get("area"):
+        area = mc.get_area(pending["area"]) or {}
+        return (area.get("legend") or {}).get(pending.get("char"))
+    mission = sc_get_mission(story.active_mission)
+    if not mission:
+        return None
+    beats = story_service.visible_beats(story, mission)
+    index = story.beat_index
+    if 0 <= index < len(beats) and beats[index].get("kind") == "puzzle":
+        return beats[index]
+    return None
+
+
+def sc_get_mission(mission_id):
+    from bot.game.story import story_config as sc
+    return sc.get_mission(mission_id) if mission_id else None
+
+
+def _puzzle_view(puzzle: dict, owner_id: int, on_map: bool):
+    kind = puzzles.kind_of(puzzle)
+    if kind == "code":
+        return CodePuzzleView(puzzle, owner_id, on_map)
+    if kind == "sequence":
+        return SequencePuzzleView(puzzle, owner_id, on_map)
+    if kind == "logic":
+        return LogicPuzzleView(puzzle, owner_id, on_map)
+    if kind == "wiring":
+        return WiringPuzzleView(puzzle, owner_id, on_map)
+    return None
+
+
+class _WalkAwayButton(discord.ui.Button):
+    def __init__(self, row: int = 4):
+        super().__init__(label="◀ Walk away", style=discord.ButtonStyle.secondary,
+                         row=row)
+
+    async def callback(self, interaction: discord.Interaction):
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            story = story_service.get_or_create(db, player)
+            story.pending_puzzle = None
+            db.commit()
+        finally:
+            db.close()
+        await _render_map(interaction, edit=True)
+
+
+class CodePuzzleView(OwnedView):
+    def __init__(self, puzzle: dict, owner_id: int, on_map: bool):
+        super().__init__(timeout=900, owner_id=owner_id)
+        self.puzzle, self.on_map = puzzle, on_map
+        self.add_item(_WalkAwayButton())
+
+    @discord.ui.button(label="⌨ Enter the answer", style=discord.ButtonStyle.primary)
+    async def enter(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(_CodeModal(self.on_map))
+
+
+class _CodeModal(discord.ui.Modal, title="Enter the answer"):
+    answer = discord.ui.TextInput(label="Answer", max_length=64)
+
+    def __init__(self, on_map: bool):
+        super().__init__()
+        self.on_map = on_map
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await _resolve_puzzle(interaction, str(self.answer), self.on_map)
+
+
+class SequencePuzzleView(OwnedView):
+    """Press the steps in order. The presses so far are shown, and
+    'Clear' exists because a mis-tap on a phone should not cost a whole
+    attempt."""
+
+    def __init__(self, puzzle: dict, owner_id: int, on_map: bool,
+                 pressed: list[str] | None = None):
+        super().__init__(timeout=900, owner_id=owner_id)
+        self.puzzle, self.on_map = puzzle, on_map
+        self.pressed = list(pressed or [])
+        for index, step in enumerate(puzzle.get("steps") or []):
+            self.add_item(_SequenceButton(step, row=index // 5))
+        self.add_item(_SequenceClear(row=3))
+        self.add_item(_SequenceSubmit(row=3))
+        self.add_item(_WalkAwayButton())
+
+
+class _SequenceButton(discord.ui.Button):
+    def __init__(self, step: dict, row: int):
+        super().__init__(label=step["label"][:80],
+                         style=discord.ButtonStyle.secondary, row=row)
+        self.step_id = step["id"]
+
+    async def callback(self, interaction: discord.Interaction):
+        view: SequencePuzzleView = self.view
+        view.pressed.append(self.step_id)
+        order = " → ".join(view.pressed)
+        await responses.edit(
+            interaction,
+            embed=_puzzle_embed(view.puzzle, f"**So far:** {order}"),
+            view=SequencePuzzleView(view.puzzle, view.owner_id, view.on_map,
+                                    view.pressed))
+
+
+class _SequenceClear(discord.ui.Button):
+    def __init__(self, row: int):
+        super().__init__(label="↺ Clear", style=discord.ButtonStyle.secondary, row=row)
+
+    async def callback(self, interaction: discord.Interaction):
+        view: SequencePuzzleView = self.view
+        await responses.edit(
+            interaction, embed=_puzzle_embed(view.puzzle),
+            view=SequencePuzzleView(view.puzzle, view.owner_id, view.on_map, []))
+
+
+class _SequenceSubmit(discord.ui.Button):
+    def __init__(self, row: int):
+        super().__init__(label="✔ Throw them", style=discord.ButtonStyle.primary, row=row)
+
+    async def callback(self, interaction: discord.Interaction):
+        view: SequencePuzzleView = self.view
+        await _resolve_puzzle(interaction, view.pressed, view.on_map)
+
+
+class LogicPuzzleView(OwnedView):
+    """One select per subject. Discord allows five action rows, so this
+    supports up to four subjects plus the submit row -- asserted in
+    tools/check_puzzles.py rather than hoped for."""
+
+    def __init__(self, puzzle: dict, owner_id: int, on_map: bool,
+                 assignment: dict | None = None):
+        super().__init__(timeout=900, owner_id=owner_id)
+        self.puzzle, self.on_map = puzzle, on_map
+        self.assignment = dict(assignment or {})
+        for index, subject in enumerate((puzzle.get("subjects") or [])[:4]):
+            self.add_item(_LogicSelect(subject, puzzle.get("values") or [],
+                                       self.assignment.get(subject), row=index))
+        self.add_item(_LogicSubmit(row=4))
+        self.add_item(_WalkAwayButton(row=4))
+
+
+class _LogicSelect(discord.ui.Select):
+    def __init__(self, subject: str, values: list[str], current: str | None, row: int):
+        # NO `default=` ON THE OPTIONS. Discord treats an option already
+        # marked selected as needing no interaction, so re-picking it
+        # dispatches nothing and the control appears dead -- the exact
+        # bug that made raid "Standard" unfightable. Current state goes in
+        # the placeholder instead.
+        super().__init__(
+            placeholder=f"{subject}: {current or 'unassigned'}"[:150],
+            options=[discord.SelectOption(label=v[:100], value=v) for v in values[:25]],
+            row=row,
+        )
+        self.subject = subject
+
+    async def callback(self, interaction: discord.Interaction):
+        view: LogicPuzzleView = self.view
+        view.assignment[self.subject] = self.values[0]
+        await responses.edit(
+            interaction, embed=_puzzle_embed(view.puzzle),
+            view=LogicPuzzleView(view.puzzle, view.owner_id, view.on_map,
+                                 view.assignment))
+
+
+class _LogicSubmit(discord.ui.Button):
+    def __init__(self, row: int):
+        super().__init__(label="✔ That's the arrangement",
+                         style=discord.ButtonStyle.primary, row=row)
+
+    async def callback(self, interaction: discord.Interaction):
+        view: LogicPuzzleView = self.view
+        await _resolve_puzzle(interaction, view.assignment, view.on_map)
+
+
+class WiringPuzzleView(OwnedView):
+    """Pick two terminals to join them; pick a joined one again to undo.
+    One select and a running list, rather than a select per pair, because
+    pairs are unordered and a fixed set of slots would imply they are
+    not."""
+
+    def __init__(self, puzzle: dict, owner_id: int, on_map: bool,
+                 pairs: list | None = None, holding: str | None = None):
+        super().__init__(timeout=900, owner_id=owner_id)
+        self.puzzle, self.on_map = puzzle, on_map
+        self.pairs = [list(p) for p in (pairs or [])]
+        self.holding = holding
+        self.add_item(_WiringSelect(puzzle.get("terminals") or [], holding))
+        self.add_item(_WiringClear())
+        self.add_item(_WiringSubmit())
+        self.add_item(_WalkAwayButton())
+
+
+class _WiringSelect(discord.ui.Select):
+    def __init__(self, terminals: list[str], holding: str | None):
+        super().__init__(
+            placeholder=(f"Holding {holding} — pick its other end"
+                         if holding else "Pick a terminal…")[:150],
+            options=[discord.SelectOption(label=t[:100], value=t)
+                     for t in terminals[:25]],
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        view: WiringPuzzleView = self.view
+        picked = self.values[0]
+        if view.holding is None:
+            view.holding = picked
+        elif view.holding == picked:
+            view.holding = None
+        else:
+            view.pairs.append([view.holding, picked])
+            view.holding = None
+        wired = ", ".join(f"{a}↔{b}" for a, b in view.pairs) or "nothing yet"
+        await responses.edit(
+            interaction,
+            embed=_puzzle_embed(view.puzzle, f"**Patched:** {wired}"),
+            view=WiringPuzzleView(view.puzzle, view.owner_id, view.on_map,
+                                  view.pairs, view.holding))
+
+
+class _WiringClear(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="↺ Pull them out", style=discord.ButtonStyle.secondary)
+
+    async def callback(self, interaction: discord.Interaction):
+        view: WiringPuzzleView = self.view
+        await responses.edit(
+            interaction, embed=_puzzle_embed(view.puzzle),
+            view=WiringPuzzleView(view.puzzle, view.owner_id, view.on_map, [], None))
+
+
+class _WiringSubmit(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="✔ Power it up", style=discord.ButtonStyle.primary)
+
+    async def callback(self, interaction: discord.Interaction):
+        view: WiringPuzzleView = self.view
+        await _resolve_puzzle(interaction, view.pairs, view.on_map)
+
+
+# ----------------------------------------------------------------------
+# THE COMMISSION BOARD
+# ----------------------------------------------------------------------
+
+def _commission_lines(db, player, story) -> tuple[str, list, list]:
+    """Board text, the contracts on offer, and the ones ready to claim."""
+    completed = set(story.completed_missions or [])
+    offers = quest_service.available_commissions(db, player, completed)
+    active = quest_service.get_active_commissions(db, player)
+
+    parts: list[str] = []
+    if active:
+        parts.append("**Taken**")
+        for row in active:
+            config = next(
+                (c for c in quest_service.COMMISSIONS if c["id"] == row.quest_id), {})
+            state = ("✅ **done — collect it**" if row.is_completed
+                     else f"{row.progress}/{row.goal_count}")
+            parts.append(f"• *{config.get('name', row.quest_id)}* — {state}")
+        parts.append("")
+    if offers:
+        parts.append("**On the board**")
+        for config in offers:
+            parts.append(f"• **{config['name']}** — {config['giver']}\n"
+                         f"  {config['description']}")
+    elif not active:
+        parts.append("*Nothing pinned up that you can take right now.*")
+    return "\n".join(parts), offers, [r for r in active if r.is_completed]
+
+
+class CommissionBoardView(OwnedView):
+    """Take a contract, or collect one you have finished.
+
+    Both selects are rebuilt from live state on every render rather than
+    cached on the view -- a board that offers a contract the player took
+    thirty seconds ago in another window is the kind of stale-menu bug
+    that produces a Discord 400 and a dead interaction.
+    """
+
+    def __init__(self, db, player, story, owner_id: int | None = None):
+        super().__init__(timeout=600, owner_id=owner_id)
+        _text, offers, claimable = _commission_lines(db, player, story)
+
+        # SELECTS ARE CAPPED AT 25 OPTIONS BY DISCORD and there are far
+        # fewer contracts than that -- but the cap is asserted in
+        # tools/check_select_limits.py rather than assumed here, because
+        # the last time an unpaged select went out it took the equip
+        # button down with a 400.
+        if offers:
+            self.add_item(_TakeCommissionSelect(offers))
+        if claimable:
+            self.add_item(_ClaimCommissionSelect(claimable))
+        self.add_item(_BoardBackButton())
+
+
+class _TakeCommissionSelect(discord.ui.Select):
+    def __init__(self, offers: list[dict]):
+        super().__init__(
+            placeholder="Take a commission…",
+            options=[
+                discord.SelectOption(
+                    label=config["name"][:100],
+                    value=config["id"],
+                    description=f"{config['giver']} — {config['description']}"[:100],
+                )
+                for config in offers[:25]
+            ],
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            story = story_service.get_or_create(db, player)
+            try:
+                quest_service.accept_commission(
+                    db, player, self.values[0],
+                    set(story.completed_missions or []))
+            except quest_service.CommissionSlotsFull as exc:
+                await responses.send(
+                    interaction,
+                    f"You're already carrying {exc.max_slots}. Finish one first.",
+                    ephemeral=True)
+                return
+            except quest_service.CommissionNotAvailable as exc:
+                await responses.send(interaction, str(exc), ephemeral=True)
+                return
+            embed, view = _board_screen(db, player, story)
+        finally:
+            db.close()
+        await responses.edit(interaction, embed=embed, view=view)
+
+
+class _ClaimCommissionSelect(discord.ui.Select):
+    def __init__(self, claimable: list):
+        options = []
+        for row in claimable:
+            config = next(
+                (c for c in quest_service.COMMISSIONS if c["id"] == row.quest_id), {})
+            options.append(discord.SelectOption(
+                label=f"Collect: {config.get('name', row.quest_id)}"[:100],
+                value=str(row.id),
+            ))
+        super().__init__(placeholder="Collect payment…", options=options[:25])
+
+    async def callback(self, interaction: discord.Interaction):
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            story = story_service.get_or_create(db, player)
+            try:
+                _row, reward = quest_service.claim_commission(
+                    db, player, int(self.values[0]))
+            except quest_service.CommissionNotAvailable as exc:
+                await responses.send(interaction, str(exc), ephemeral=True)
+                return
+            paid = ", ".join(f"**{amount:,}** {name.replace('_', ' ')}"
+                             for name, amount in reward.items())
+            embed, view = _board_screen(db, player, story, footer=f"Paid: {paid}")
+        finally:
+            db.close()
+        await responses.edit(interaction, embed=embed, view=view)
+
+
+class _BoardBackButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="◀ Back to the map",
+                         style=discord.ButtonStyle.secondary)
+
+    async def callback(self, interaction: discord.Interaction):
+        await _render_map(interaction, edit=True)
+
+
+def _board_screen(db, player, story, footer: str | None = None):
+    text, _offers, _claimable = _commission_lines(db, player, story)
+    if footer:
+        text = f"{text}\n\n{footer}"
+    embed = embedder.story_note_embed(
+        "The commission board", "📋", text or "*Empty.*")
+    return embed, CommissionBoardView(db, player, story, owner_id=player.id)
 
 
 def _open_hunt(db, player):
@@ -634,6 +1097,25 @@ async def _interact(interaction: discord.Interaction):
                 return
             return
 
+        elif kind == "puzzle":
+            # Same shape as `hunt`: the tile is shown first and the
+            # player opts in. Only a REFERENCE is stored -- see
+            # _puzzle_by_ref for why the answer key never touches the DB.
+            story.pending_puzzle = {"area": result["area_id"], "char": result["char"]}
+            db.commit()
+            embed = _puzzle_embed(result["puzzle"])
+            view = _puzzle_view(result["puzzle"], player.id, on_map=True)
+            await responses.edit(interaction, embed=embed, view=view)
+            return
+
+        elif kind == "board":
+            # Returned early like `station`: the board is its own screen
+            # with its own selects, and folding it into the map readout
+            # would mean a select living on the movement view.
+            embed, view = _board_screen(db, player, story)
+            await responses.edit(interaction, embed=embed, view=view)
+            return
+
         elif kind == "hunt":
             # Accepting an optional fight is a deliberate press, so the
             # tile shows what it is FIRST and the player opts in. An
@@ -721,6 +1203,23 @@ async def _render_current(interaction: discord.Interaction, edit: bool,
             mission, beat = state
         if not need_map and beat.get("kind") == "battle":
             embed, view = _open_battle(db, player, mission, beat)
+        elif not need_map and beat.get("kind") == "puzzle":
+            # PUZZLE BEATS GET THE PUZZLE UI.
+            #
+            # Without this branch a puzzle beat fell through to the
+            # generic beat renderer below: it drew the puzzle's prompt
+            # with a "Continue" button, and pressing Continue called
+            # advance() with no choice_id, which story_service reads as
+            # "skipped". The puzzle was presented as a wall of text and
+            # then silently declined on the player's behalf, and every
+            # piece of machinery behind it -- the solver, the pending
+            # reference, the reward branch -- was unreachable code that
+            # looked live in three separate files.
+            story = story_service.get_or_create(db, player)
+            story.pending_puzzle = {}          # {} means "the active beat"
+            db.commit()
+            embed = _puzzle_embed(beat)
+            view = _puzzle_view(beat, player.id, on_map=False)
         elif not need_map:
             embed = embedder.story_beat_embed(mission, beat, text=extra_text,
                                               rewards=rewards)

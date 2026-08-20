@@ -61,11 +61,24 @@ def card_stats(card: PlayerCard) -> dict[str, float]:
     return {stat: round(value * star * level, 1) for stat, value in base.items()}
 
 
-def card_ability(card: PlayerCard) -> dict | None:
-    pool = _POOL_BY_NAME.get(card.template.ability_pool)
+def template_ability(template: CardTemplate) -> dict | None:
+    """The ability a card TEMPLATE carries.
+
+    Split out from card_ability because the Echo Exchange sells cards
+    nobody owns yet, so it has a template and no PlayerCard. Written as
+    the one definition with card_ability delegating to it rather than as
+    a second `next(...)` over the same pools -- the card ability lookup
+    has already been duplicated once in this codebase, and the failure
+    mode is a card that equips fine and silently has no ability.
+    """
+    pool = _POOL_BY_NAME.get(template.ability_pool)
     if not pool:
         return None
-    return next((a for a in pool if a["id"] == card.template.ability_id), None)
+    return next((a for a in pool if a["id"] == template.ability_id), None)
+
+
+def card_ability(card: PlayerCard) -> dict | None:
+    return template_ability(card.template)
 
 
 def list_cards(db, player_id: int) -> list[PlayerCard]:
@@ -138,9 +151,13 @@ def unequip_card(db, card: PlayerCard) -> tuple[bool, str]:
 # ----------------------------------------------------------------------
 
 def level_up_cost(card: PlayerCard, levels: int = 1) -> dict[str, int]:
+    """Summed per-level, so a multi-level upgrade charges exactly what
+    doing them one at a time would -- including every Evolution Fragment
+    breakthrough the run crosses, not just the first."""
+    star = card.template.star_rating
     total: dict[str, int] = {}
     for step in range(levels):
-        for currency, amount in cc.card_level_cost(card.level + step).items():
+        for currency, amount in cc.card_level_cost(card.level + step, star).items():
             total[currency] = total.get(currency, 0) + amount
     return total
 
@@ -155,8 +172,22 @@ def level_up_card(db, player, card: PlayerCard, levels: int = 1) -> tuple[bool, 
     cost = level_up_cost(card, levels)
 
     for currency, amount in cost.items():
-        if getattr(player, currency, 0) < amount:
-            return False, f"Not enough {format_currency(currency, amount)}."
+        if getattr(player, currency, 0) >= amount:
+            continue
+        if currency == "evolution_fragments":
+            # Worth its own sentence. This is the one cost a player is
+            # MEANT to be short of, and "Not enough <emoji> 264" about a
+            # resource that has never appeared on this screen before
+            # explains nothing about why levelling just stopped.
+            from bot.game.economy.evolution_config import CARD_BREAKTHROUGH_EVERY
+            return False, (
+                f"**{card.display_name}** is at a breakthrough. Every "
+                f"{CARD_BREAKTHROUGH_EVERY} levels a Card needs "
+                f"{format_currency('evolution_fragments', amount)} to go further, "
+                f"and you have {getattr(player, currency, 0)}. Cards cost more "
+                f"than gear at the same level, and higher stars cost more again."
+            )
+        return False, f"Not enough {format_currency(currency, amount)}."
     for currency, amount in cost.items():
         spend_currency(db, player, currency, amount)
 
@@ -230,7 +261,21 @@ def pull_cards(db, player, count: int = 1,
             player.card_pity_since_four_star += 1
 
         choices = cc.cards_of_star(star) or cc.CARD_TEMPLATES
-        chosen = rng.choice(choices)
+
+        # Targeting, via the SAME rule the character banner uses -- see
+        # pull_service.resolve_five_star. The two banners keep separate
+        # targets and separate guarantee flags, but sharing the rule is
+        # what stops "my guarantee works on characters but not cards"
+        # from ever being true, which is a bug nobody could distinguish
+        # from bad luck and therefore nobody would report.
+        if star >= 5:
+            chosen, _hit, player.target_card_guaranteed = (
+                pull_service.resolve_five_star(
+                    rng, choices, player.target_card,
+                    lambda c: c["id"], bool(player.target_card_guaranteed))
+            )
+        else:
+            chosen = rng.choice(choices)
         template = db.query(CardTemplate).filter_by(card_id=chosen["id"]).first()
         if template is None:
             continue

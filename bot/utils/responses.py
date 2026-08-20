@@ -160,6 +160,29 @@ async def edit(interaction: discord.Interaction, *args, **kwargs) -> None:
     Same defer-awareness as send(): once deferred, the original message
     is reached through edit_original_response rather than
     response.edit_message.
+
+    A REJECTED PAYLOAD IS RE-RAISED FROM A COMMAND AND REPORTED FROM A
+    COMPONENT, because only one of those has somewhere to be caught.
+
+    A slash command's exception reaches the command tree's error handler,
+    which logs it and tells the player. Re-raising is right there, and
+    swallowing would hide a real bug.
+
+    A COMPONENT callback has no such handler. discord.py's
+    `schedule_dynamic_item_call` wraps the callback in a bare
+    `except Exception: _log.exception('Ignoring exception in dynamic item
+    callback')` and returns -- the interaction is never answered, so the
+    player is left holding a control that did nothing, presses it again,
+    and the unanswered tokens pile up as "interaction expired" warnings
+    that look like a separate fault.
+
+    That is exactly how the equip button failed: a select over Discord's
+    25-option limit (see tools/check_select_limits.py) produced three
+    identical tracebacks in the log and nothing at all on screen.
+
+    So the split is by ORIGIN, not by error. `interaction.command` is set
+    for a command and None for a component. Either way the traceback is
+    logged; the difference is who catches it.
     """
     try:
         if interaction.response.is_done():
@@ -170,4 +193,6 @@ async def edit(interaction: discord.Interaction, *args, **kwargs) -> None:
         if _is_expired(error):
             log.warning("interaction expired before %s could edit", _describe(interaction))
             return
-        raise
+        if getattr(interaction, "command", None) is not None:
+            raise
+        await report_failure(interaction, error, _describe(interaction))

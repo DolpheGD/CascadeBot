@@ -10,7 +10,7 @@ from bot.database.session import SessionLocal
 from bot.game.economy import resonance_config
 from bot.services import character_service, dungeon_service, echo_exchange_service, lootbox_service
 from bot.services.character_gacha_service import pull_multi, pull_single
-from bot.services.currency_service import format_currency
+from bot.services.currency_service import currency_emoji, format_currency
 from bot.services.daily_service import DailyOnCooldown, claim_daily
 from bot.services.player_service import get_player
 from bot.utils import embedder
@@ -115,39 +115,24 @@ class Economy(commands.Cog):
 
             banner = banner_ui.BANNERS["character"]
             embed = banner_ui.banner_embed(banner, player)
-            view = banner_ui.BannerView("character", owner_id=player.id)
+            view = banner_ui.BannerView("character", owner_id=player.id, db=db, player=player)
         finally:
             db.close()
         await responses.send(ctx, embed=embed, view=view)
 
-    @app_commands.command(name="pull_rates", description="View gacha odds, pity progress, and pull costs.")
-    async def pull_rates(self, ctx: discord.Interaction):
-        await responses.defer(ctx)
-        db = SessionLocal()
-        try:
-            # Player is optional here on purpose -- someone who hasn't run
-            # /start yet should still be able to read the odds table, they
-            # just don't get a personal pity readout with it.
-            player = get_player(db, ctx.user.id)
-            # Gated only for players who EXIST. Someone who hasn't run
-            # /start has nothing to be gated against and still gets the
-            # plain odds table; someone mid-prologue is reading the rates
-            # for a system the story hasn't introduced, which is the
-            # thing the gate is for.
-            if player is not None and not await require_feature(ctx, db, player, "pull"):
-                return
-            embed = embedder.gacha_rates_embed(player=player)
-        except Exception:
-            logger.exception("`/pull_rates` failed to build its embed")
-            await responses.send(ctx,
-                "Something went wrong loading gacha rates. This has been logged -- "
-                "please report it if it keeps happening.",
-                ephemeral=True,
-            )
-            return
-        finally:
-            db.close()
-        await responses.send(ctx, embed=embed, ephemeral=True)
+    # `/pull_rates` USED TO LIVE HERE, AND IS GONE.
+    #
+    # It opened a page restating numbers the banner screen already shows.
+    # When /pull and /cardpull were merged into one screen (see
+    # bot/utils/banner_ui.py) the odds, both pity counters and the
+    # guarantee thresholds moved onto the front of the banner itself --
+    # where they are useful, rather than one command away where they are
+    # a footnote nobody types. The command survived that merge as a
+    # duplicate of a screen the player was already looking at.
+    #
+    # Its embed (gacha_rates_embed) went with it: a rates table with no
+    # caller is a second definition of the odds waiting to disagree with
+    # banner_ui's.
 
     # COMMAND: /open
     # Opens every lootbox of the chosen tier at once, rolling gold/shards
@@ -225,9 +210,7 @@ class Economy(commands.Cog):
                 return
             if not await require_feature(ctx, db, player, "exchange"):
                 return
-            offers = echo_exchange_service.offers(db, player)
-            embed = embedder.echo_exchange_embed(player, offers)
-            view = EchoExchangeView(offers, owner_id=player.id)
+            embed, view = _render_exchange(db, player, "characters", 0)
         finally:
             db.close()
 
@@ -263,19 +246,35 @@ class Economy(commands.Cog):
 
 
 # ----------------------------------------------------------------------
-# Echo exchange views
+# THE ECHO EXCHANGE
 #
-# Both are short-lived and owner-locked rather than persistent: they're
-# menus a player opens, acts on, and closes, and neither holds state
-# worth surviving a restart -- every callback re-reads the player and
-# their echo balance from the database, so a stale message can't spend
-# money that isn't there.
+# Short-lived and owner-locked rather than persistent: a menu a player
+# opens, acts on and closes, holding no state worth surviving a restart.
+# EVERY callback re-reads the player and their balances from the
+# database, so a stale message can't spend money that isn't there.
+#
+# ----------------------------------------------------------------------
+# THREE COUNTERS ON ONE SCREEN, RATHER THAN ONE ENORMOUS LIST
+# ----------------------------------------------------------------------
+# The shop now sells 29 characters and 26 cards, and converts cores. As
+# one page that is 55 rows of storefront -- past Discord's 6,000-char
+# embed budget, and long past the point anyone reads it.
+#
+# So it is TABBED. One counter is visible at a time, each counter is
+# paged, and the tab row is always on the last row where it stays put
+# while the contents above it change. The alternative -- three separate
+# commands -- was rejected for the reason the two pull banners were
+# merged into one screen (see bot/utils/banner_ui.py): learning one
+# would teach you nothing about the others, and the differences between
+# them would be accidents of when each was written.
+#
+# ONE RENDER FUNCTION builds all three. The old exchange had the shop
+# embed constructed in three separate places (the command, the purchase
+# callback and the page button), which is how the embed and its select
+# ended up disagreeing about which page was showing.
 # ----------------------------------------------------------------------
 
-# Discord's hard ceiling on options in one select. The exchange lists
-# every character in the game, so this is a limit the roster WILL grow
-# past -- and did.
-SELECT_OPTION_LIMIT = 25
+TAB_ROW = 3  # tabs always last, so they don't move when a counter does
 
 
 def _sorted_offers(offers: list[dict]) -> list[dict]:
@@ -285,12 +284,91 @@ def _sorted_offers(offers: list[dict]) -> list[dict]:
     return sorted(offers, key=lambda o: (not o["affordable"], o["cost"]))
 
 
-def exchange_page_count(offers: list[dict]) -> int:
-    return max(1, -(-len(offers) // SELECT_OPTION_LIMIT))
+def _render_exchange(db, player, counter: str, page: int):
+    """(embed, view) for one counter at one page. THE single place the
+    exchange screen is built."""
+    view = ExchangeView(owner_id=player.id, counter=counter, page=page)
+
+    if counter == "cards":
+        offers = _sorted_offers(echo_exchange_service.card_offers(db, player))
+        shown = paging.window(offers, page)
+        view.add_item(ExchangeCardSelect(shown, page, len(offers)))
+        paging.add_page_buttons(view, page, len(offers), row=1)
+        embed = embedder.echo_card_exchange_embed(
+            player, shown, page=page, total=len(offers))
+    elif counter == "convert":
+        batches = echo_exchange_service.sellable_batches(player)
+        for amount in batches:
+            view.add_item(SellCoresButton(amount))
+        embed = embedder.echo_convert_embed(player, batches)
+    else:
+        offers = _sorted_offers(echo_exchange_service.offers(db, player))
+        shown = paging.window(offers, page)
+        view.add_item(ExchangeCharacterSelect(shown, page, len(offers)))
+        paging.add_page_buttons(view, page, len(offers), row=1)
+        embed = embedder.echo_exchange_embed(
+            player, shown, page=page, total=len(offers))
+
+    return embed, view
 
 
-class EchoExchangeSelect(discord.ui.Select):
-    """One page of the exchange.
+async def _refresh_exchange(interaction, counter: str, page: int,
+                            result_embed: discord.Embed | None = None):
+    """Re-render the shop in place, optionally following up with what the
+    player just bought. Re-reads everything -- the balances a purchase
+    just changed are the whole point of the refresh."""
+    db = SessionLocal()
+    try:
+        player = get_player(db, interaction.user.id)
+        if player is None:
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
+            return
+        embed, view = _render_exchange(db, player, counter, page)
+    finally:
+        db.close()
+    await responses.edit(interaction, embed=embed, view=view)
+    if result_embed is not None:
+        await interaction.followup.send(embed=result_embed, ephemeral=True)
+
+
+class ExchangeView(OwnedView):
+    def __init__(self, owner_id: int | None = None,
+                 counter: str = "characters", page: int = 0):
+        super().__init__(timeout=300, owner_id=owner_id)
+        self.counter = counter
+        self.page = max(0, page)
+        for key, label, emoji in echo_exchange_service.COUNTERS:
+            self.add_item(ExchangeTabButton(key, label, emoji, active=key == counter))
+
+    async def rerender(self, interaction, page: int):
+        """The contract bot/utils/paging.PageButton calls back into."""
+        if not await check_message_owner(interaction):
+            return
+        await _refresh_exchange(interaction, self.counter, page)
+
+
+class ExchangeTabButton(discord.ui.Button):
+    def __init__(self, key: str, label: str, emoji: str, active: bool):
+        super().__init__(
+            label=label, emoji=emoji, row=TAB_ROW,
+            # The active tab is highlighted AND disabled: a button that
+            # re-renders the page you are already on is an interaction
+            # that looks like it did nothing.
+            style=discord.ButtonStyle.primary if active else discord.ButtonStyle.secondary,
+            disabled=active,
+        )
+        self.key = key
+
+    async def callback(self, interaction: discord.Interaction):
+        if not await check_message_owner(interaction):
+            return
+        # Switching counters resets to page 0 -- carrying page 3 from a
+        # 29-entry counter into a 5-entry one lands on an empty screen.
+        await _refresh_exchange(interaction, self.key, 0)
+
+
+class ExchangeCharacterSelect(discord.ui.Select):
+    """One page of the character counter.
 
     THIS USED TO SILENTLY TRUNCATE. The options list was built for every
     character and then cut with `options[:25]`, with a comment noting the
@@ -305,11 +383,7 @@ class EchoExchangeSelect(discord.ui.Select):
     be saving for. Paging can't lose anything.
     """
 
-    def __init__(self, offers: list[dict], page: int = 0):
-        pages = exchange_page_count(offers)
-        page = max(0, min(page, pages - 1))
-        window = _sorted_offers(offers)[page * SELECT_OPTION_LIMIT:(page + 1) * SELECT_OPTION_LIMIT]
-
+    def __init__(self, window: list[dict], page: int, total: int):
         options = []
         for offer in window:
             mark = "✅" if offer["affordable"] else "🔒"
@@ -321,10 +395,9 @@ class EchoExchangeSelect(discord.ui.Select):
                 description=("Raises their Resonance" if offer["owned"]
                              else "You don't own this character yet")[:100],
             ))
-        placeholder = ("Buy a character..." if pages == 1
-                       else f"Buy a character... (page {page + 1}/{pages})")
-        super().__init__(placeholder=placeholder, options=options,
-                         min_values=1, max_values=1)
+        super().__init__(
+            placeholder=paging.placeholder_for("Buy a character...", page, total),
+            options=options, min_values=1, max_values=1, row=0)
 
     async def callback(self, interaction: discord.Interaction):
         if not await check_message_owner(interaction):
@@ -340,46 +413,43 @@ class EchoExchangeSelect(discord.ui.Select):
             except echo_exchange_service.ExchangeError as exc:
                 await responses.send(interaction, str(exc), ephemeral=True)
                 return
-
             # The purchase renders through the ordinary pull embed, so a
             # bought character and a pulled one report themselves the same
             # way -- including a duplicate purchase announcing the
             # resonance level it just unlocked.
             result_embed = embedder.gacha_pull_embed([result], player=player)
             result_embed.title = f"✴️ Echo Exchange — {result['cost']:,} spent"
-
-            offers = echo_exchange_service.offers(db, player)
-            shop_embed = embedder.echo_exchange_embed(player, offers)
-            view = EchoExchangeView(offers, owner_id=player.id)
         finally:
             db.close()
-
-        await responses.edit(interaction, embed=shop_embed, view=view)
-        await interaction.followup.send(embed=result_embed, ephemeral=True)
+        await _refresh_exchange(interaction, "characters", self.view.page, result_embed)
 
 
-class EchoExchangeView(OwnedView):
-    def __init__(self, offers: list[dict], owner_id: int | None = None, page: int = 0):
-        super().__init__(timeout=300, owner_id=owner_id)
-        self.offers = offers
-        self.pages = exchange_page_count(offers)
-        self.page = max(0, min(page, self.pages - 1))
-        self.add_item(EchoExchangeSelect(offers, self.page))
-        # Paging controls only exist when there is more than one page, so
-        # a roster that fits in one select looks exactly as it did before.
-        if self.pages > 1:
-            self.add_item(_ExchangePageButton(-1, disabled=self.page == 0))
-            self.add_item(_ExchangePageButton(+1, disabled=self.page >= self.pages - 1))
+class ExchangeCardSelect(discord.ui.Select):
+    """One page of the Card counter.
 
+    The option's DESCRIPTION carries the ability, not flavour text. A
+    card is bought for what it does, and the catalog is named in lore
+    phrases -- so the name alone can't tell you whether this is the card
+    you have been saving for.
+    """
 
-class _ExchangePageButton(discord.ui.Button):
-    def __init__(self, step: int, disabled: bool):
+    def __init__(self, window: list[dict], page: int, total: int):
+        options = []
+        for offer in window:
+            mark = "✅" if offer["affordable"] else "🔒"
+            owned = f" · ×{offer['owned']}" if offer["owned"] else ""
+            options.append(discord.SelectOption(
+                label=names.fit_suffix(
+                    f"{mark} {offer['name']}", f"— {offer['cost']:,} ✴️{owned}", 100),
+                # The CATALOG id, not the row id: a card template's row id
+                # depends on seed order and would point at a different
+                # card on a rebuilt database.
+                value=offer["card_id"],
+                description=f"{offer['star_rating']}★ · {offer['ability_name']}"[:100],
+            ))
         super().__init__(
-            label="◀ Cheaper" if step < 0 else "Pricier ▶",
-            style=discord.ButtonStyle.secondary,
-            disabled=disabled,
-        )
-        self.step = step
+            placeholder=paging.placeholder_for("Buy a Character Card...", page, total),
+            options=options, min_values=1, max_values=1, row=0)
 
     async def callback(self, interaction: discord.Interaction):
         if not await check_message_owner(interaction):
@@ -390,17 +460,66 @@ class _ExchangePageButton(discord.ui.Button):
             if player is None:
                 await responses.send(interaction, "Use `/start` first.", ephemeral=True)
                 return
-            # Re-read rather than reusing the view's captured offers: the
-            # player may have bought something (or pulled a duplicate) in
-            # another message since this one was rendered, and the
-            # affordable marks would be lies.
-            offers = echo_exchange_service.offers(db, player)
-            view = EchoExchangeView(offers, owner_id=player.id,
-                                    page=self.view.page + self.step)
-            embed = embedder.echo_exchange_embed(player, offers)
+            try:
+                result = echo_exchange_service.purchase_card(
+                    db, player, self.values[0])
+            except echo_exchange_service.ExchangeError as exc:
+                await responses.send(interaction, str(exc), ephemeral=True)
+                return
+            # Rendered through the CARD BANNER's own result embed, so a
+            # bought card and a pulled one report themselves identically
+            # -- the same reason the character counter reuses the pull
+            # embed rather than inventing a purchase embed.
+            from bot.cogs.cards import pull_result_embed
+            result_embed = pull_result_embed(
+                [result["card"]],
+                f"Bought from the Echo Exchange for {result['cost']:,} ✴️.")
+            result_embed.title = "✴️ Echo Exchange"
         finally:
             db.close()
-        await responses.edit(interaction, embed=embed, view=view)
+        await _refresh_exchange(interaction, "cards", self.view.page, result_embed)
+
+
+class SellCoresButton(discord.ui.Button):
+    def __init__(self, amount: int):
+        echoes = resonance_config.echoes_for_cores(amount)
+        super().__init__(
+            label=f"{amount:,} → {echoes:,} ✴️",
+            emoji=currency_emoji("cores"),
+            style=discord.ButtonStyle.success,
+            row=0,
+        )
+        self.amount = amount
+
+    async def callback(self, interaction: discord.Interaction):
+        if not await check_message_owner(interaction):
+            return
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            if player is None:
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
+                return
+            try:
+                result = echo_exchange_service.sell_cores(db, player, self.amount)
+            except echo_exchange_service.ExchangeError as exc:
+                await responses.send(interaction, str(exc), ephemeral=True)
+                return
+            note = (f"\nKept **{result['change']:,}** cores as change."
+                    if result["change"] else "")
+            result_embed = discord.Embed(
+                title="✴️ Sold",
+                description=(
+                    f"**{result['cores']:,}** {currency_emoji('cores')} → "
+                    f"**{result['echoes']:,} ✴️**{note}\n"
+                    f"Balance: **{player.echoes:,} ✴️** · "
+                    f"**{player.cores:,}** {currency_emoji('cores')}"
+                ),
+                color=discord.Color.purple(),
+            )
+        finally:
+            db.close()
+        await _refresh_exchange(interaction, "convert", 0, result_embed)
 
 
 def _resonance_order(owned: list, current_id: int) -> list:

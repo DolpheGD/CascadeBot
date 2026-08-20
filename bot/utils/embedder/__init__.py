@@ -12,7 +12,7 @@ scrolling past the encyclopedia renderers to find it:
     dungeon.py       expedition floor map / room choices
     combat.py        battle message, log, info, end-of-run summary
     inventory.py     /inventory (detail + list) and /stash
-    gacha.py         /pull results and /pull_rates
+    gacha.py         /pull results and the Echo Exchange
     encounters.py    interactive dungeon NPC encounters
     quests.py        /quests board
     domains.py       /domains
@@ -94,10 +94,11 @@ from bot.utils.embedder.inventory import (
 )
 from bot.utils.embedder.gacha import (
     echo_exchange_embed,
+    echo_card_exchange_embed,
+    echo_convert_embed,
     STAR_EMOJI,
     star_label,
     gacha_pull_embed,
-    gacha_rates_embed,
     resonance_embed,
 )
 from bot.utils.embedder.encounters import (
@@ -181,8 +182,9 @@ __all__ = [
     "entry_detail_embed",
     "expedition_summary_embed",
     "echo_exchange_embed",
+    "echo_card_exchange_embed",
+    "echo_convert_embed",
     "gacha_pull_embed",
-    "gacha_rates_embed",
     "resonance_embed",
     "general_inventory_embed",
     "info_page_count",

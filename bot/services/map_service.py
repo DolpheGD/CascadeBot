@@ -448,6 +448,38 @@ def interact(db, story) -> dict:
             "feature": content.get("feature"),
         }
 
+    if kind == "puzzle":
+        # Solved puzzles are marked read like notes and caches, so a
+        # solved puzzle stays solved and does not re-offer its reward.
+        if has_read(story, state["area_id"], state["char"]):
+            return {"kind": "spent",
+                    "name": content.get("name", "Solved"),
+                    "text": content.get("on_solve")
+                            or "You already worked this one out."}
+        return {
+            "kind": "puzzle",
+            "name": content.get("name", "Something to work out"),
+            "emoji": content.get("emoji", ""),
+            "puzzle": content,
+            "char": state["char"],
+            "area_id": state["area_id"],
+        }
+
+    if kind == "board":
+        # THE COMMISSION BOARD. Deliberately its own kind rather than a
+        # "station" with a panel, because unlike every station it needs
+        # the player's STORY progress to decide what to show -- a
+        # contract gated behind Chapter Four should not be on the board
+        # in Chapter One. Stations carry a feature flag and nothing else,
+        # so expressing that through one would have meant a station that
+        # secretly reads story state, which is worse than a second kind.
+        return {
+            "kind": "board",
+            "name": content.get("name", "The commission board"),
+            "emoji": content.get("emoji", ""),
+            "text": content.get("text", ""),
+        }
+
     if kind == "npc":
         line, index, exhausted = npc_line(db, story, state["area_id"], state["char"], content)
         if index is not None:
@@ -569,7 +601,7 @@ def interactive_chars(area: dict) -> set[str]:
     is about the tiles you can exhaust; people aren't tiles you exhaust."""
     return {
         char for char, content in (area.get("legend") or {}).items()
-        if content.get("kind") in ("note", "cache", "hunt")
+        if content.get("kind") in ("note", "cache", "hunt", "puzzle")
     }
 
 
@@ -600,11 +632,39 @@ def _completion_bonus_if_due(db, story, area_id: str) -> list[str]:
     return _grant(db, story, bonus)
 
 
+def finish_puzzle(db, story, area_id: str, char: str) -> list[str]:
+    """Mark a map puzzle solved and pay it. Mirrors finish_hunt: the
+    marking and the grant happen in ONE place so a puzzle cannot be
+    solved twice for two payouts."""
+    area = mc.get_area(area_id) or {}
+    content = (area.get("legend") or {}).get(char) or {}
+    if has_read(story, area_id, char):
+        return []
+    mark_read(db, story, area_id, char)
+    rewards = _grant(db, story, content.get("grant") or {})
+    return rewards + _completion_bonus_if_due(db, story, area_id)
+
+
 def finish_hunt(db, story, area_id: str, char: str, won: bool) -> list[str]:
     """Resolve an optional fight. Losing costs nothing at all."""
     story.pending_hunt = None
     db.commit()
     if not won:
+        return []
+    # ALREADY-CLAIMED GUARD, and it was missing.
+    #
+    # This function marked the tile read and then granted, without ever
+    # checking whether it was already read -- so resolving the same hunt
+    # twice paid twice. `interact` refuses a spent tile, which is why it
+    # never showed up in normal play, but the refusal is on the way IN
+    # and this is the way OUT: pressing "Take it on" again from a stale
+    # message re-arms pending_hunt, and a second win pays a second time.
+    #
+    # A view older than the state it acts on is not an exotic case in
+    # Discord -- every message stays live and clickable forever. Found by
+    # calling finish_hunt twice in a bug-hunt; finish_puzzle was written
+    # with this guard, and the two are now consistent.
+    if has_read(story, area_id, char):
         return []
     area = mc.get_area(area_id) or {}
     content = (area.get("legend") or {}).get(char) or {}

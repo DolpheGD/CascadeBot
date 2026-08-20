@@ -4,6 +4,7 @@ from discord.ext import commands
 from discord import app_commands
 
 from bot.utils import names
+from bot.utils import paging
 from bot.utils import responses
 from bot.database.session import SessionLocal
 from bot.services.player_service import get_player
@@ -141,10 +142,48 @@ class ToListButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade
 class EquipTargetSelect(discord.ui.Select):
     """Short-lived (not a DynamicItem -- doesn't need to survive a bot
     restart) picker shown when the player has more than just their avatar
-    in their squad, so equipping doesn't silently always target the avatar."""
-    def __init__(self, item_id: int, options: list[discord.SelectOption]):
+    in their squad, so equipping doesn't silently always target the avatar.
+
+    PAGED, because it lists EVERY character the player owns.
+
+    This crashed in production once the roster passed 25: Discord rejects
+    a select with more than 25 options outright (`Invalid Form Body ...
+    options: Must be between 1 and 25 in length`), so the edit raised, the
+    interaction was never answered, and equipping was impossible for
+    exactly the players with the most characters to equip onto. The
+    follow-on "interaction expired" warnings were the same click being
+    retried against a token nothing had replied to.
+
+    The squad picker, the profile switcher, the resonance picker and the
+    Abyss team picker were all paged when this bug was first found (see
+    bot/utils/paging.py). This one was missed -- it builds its options in
+    a handler rather than in a view class, so it didn't look like the
+    others.
+    """
+
+    # One short of the limit: the Cancel option shares the menu.
+    PER_PAGE = paging.SELECT_OPTION_LIMIT - 1
+
+    def __init__(self, item_id: int, owned: list, squad_ids: set[int], page: int = 0):
+        shown = paging.window(owned, page, self.PER_PAGE)
+        options = [
+            discord.SelectOption(
+                # effective_class(), not template.character_class -- see
+                # the same fix in bot/cogs/squad.py::_character_label.
+                label=names.fit_suffix(
+                    pc.display_name,
+                    f"(Lv{pc.level}, {CLASS_DISPLAY_NAME[pc.effective_class()]})", 100),
+                description=("In your active squad" if pc.id in squad_ids
+                             else "Not in your squad"),
+                value=str(pc.id),
+            )
+            for pc in shown
+        ]
+        options.append(discord.SelectOption(label="Cancel", value="cancel", emoji="✖️"))
         super().__init__(
-            placeholder="Choose which character to equip onto...",
+            placeholder=paging.placeholder_for(
+                "Choose which character to equip onto...", page, len(owned),
+                self.PER_PAGE),
             options=options, min_values=1, max_values=1,
         )
         self.item_id = item_id
@@ -189,9 +228,25 @@ class EquipTargetSelect(discord.ui.Select):
 
 
 class EquipTargetView(OwnedView):
-    def __init__(self, item_id: int, options: list[discord.SelectOption], owner_id: int | None = None):
+    def __init__(self, item_id: int, owned: list, squad_ids: set[int],
+                 owner_id: int | None = None, page: int = 0):
         super().__init__(timeout=120, owner_id=owner_id)
-        self.add_item(EquipTargetSelect(item_id, options))
+        self.item_id = item_id
+        self.owned = owned
+        self.squad_ids = squad_ids
+        self.page = max(0, min(page, paging.page_count(
+            len(owned), EquipTargetSelect.PER_PAGE) - 1))
+        self.add_item(EquipTargetSelect(item_id, owned, squad_ids, self.page))
+        paging.add_page_buttons(self, self.page, len(owned),
+                                EquipTargetSelect.PER_PAGE, row=1)
+
+    async def rerender(self, interaction, page: int):
+        """The contract bot/utils/paging.PageButton calls back into."""
+        if not await check_message_owner(interaction):
+            return
+        view = EquipTargetView(self.item_id, self.owned, self.squad_ids,
+                               owner_id=self.owner_id, page=page)
+        await responses.edit(interaction, view=view)
 
 
 class SellByRarityConfirmView(OwnedView):
@@ -624,20 +679,10 @@ async def _handle_equip_toggle(interaction: discord.Interaction, item_id: int):
             return
 
         squad_ids = {pc.id for pc in character_service.get_squad(db, player)}
-        options = [
-            discord.SelectOption(
-                # effective_class(), not template.character_class -- see
-                # the same fix in bot/cogs/squad.py::_character_label.
-                label=names.fit_suffix(
-                    pc.display_name,
-                    f"(Lv{pc.level}, {CLASS_DISPLAY_NAME[pc.effective_class()]})", 100),
-                description="In your active squad" if pc.id in squad_ids else "Not in your squad",
-                value=str(pc.id),
-            )
-            for pc in owned
-        ]
-        options.append(discord.SelectOption(label="Cancel", value="cancel", emoji="✖️"))
-        view = EquipTargetView(item.id, options, owner_id=player.id)
+        # The option list is built INSIDE the view now, so it cannot be
+        # assembled unpaged by a caller -- which is how this shipped
+        # over Discord's 25-option limit. See EquipTargetSelect.
+        view = EquipTargetView(item.id, owned, squad_ids, owner_id=player.id)
         embed = embedder.item_detail_embed(item)
         await responses.edit(interaction,
             content=f"Which squad member should equip {item.display_name}?",

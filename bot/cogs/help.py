@@ -54,6 +54,7 @@ _PAGES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
                 "`/story` — **the main mode.** Start here.\n"
                 "`/squad` — set your 4-character team (slot 1 is always your avatar)\n"
 
+                "`/talents` — spend talent points on a character (one per 5 levels, free respec)\n"
                 "`/class` — switch your avatar between DPS / Support DPS / Amplifier / Sustain\n"
                 "`/rename` — name your avatar\n"
                 "`/profile` — your account: level, roster, power and currencies\n"
@@ -165,9 +166,19 @@ _PAGES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
             (
                 "Pulling",
                 "`/pull` — spend Shards on characters (single or 10x)\n"
-                "`/pull_rates` — odds, costs, and your live pity progress\n"
+                "`/cardpull` — spend Cores on Character Cards\n"
+                "`/cards` — browse, level and equip the Cards you own\n"
                 "**Pity:** a 4★ or better is guaranteed every 10 pulls, and a 5★ is guaranteed "
-                "by pull 50 — with the odds climbing steadily from pull 30, so most land sooner.",
+                "by pull 50 — with the odds climbing steadily from pull 30, so most land sooner.\n"
+                "**Pick a 5★ to aim for** on either banner: they get a much better share of "
+                "your 5★ pulls, and if a 5★ turns up that *isn't* your pick, the next one is "
+                "guaranteed to be. Worst case is two 5★s, always.",
+            ),
+            (
+                "Endgame",
+                "`/abyss` — the Void Abyss: fixed floors, one clear each, star rewards\n"
+                "`/raid` — server-wide boss fights; `/raid_claim` collects your share\n"
+                "`/reset` — prestige: trade your progress for permanent bonuses",
             ),
             (
                 "✴️ Duplicates, Resonance & Echoes",
@@ -177,7 +188,8 @@ _PAGES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
                 "kit, and finally a shorter ultimate cooldown.\n"
                 "`/exchange` — every duplicate also pays **Echoes**, and copies past Resonance 5 "
                 "pay more than double. Save enough and you buy *exactly* the character you want — "
-                "no rates, no pity, no luck.",
+                "no rates, no pity, no luck. The same shop sells **Character Cards**, and trades "
+                "spare **Cores** for Echoes at its third counter.",
             ),
             (
                 "✨ Relics (run-only)",

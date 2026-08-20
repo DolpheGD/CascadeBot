@@ -84,6 +84,25 @@ REPEAT_PAYOUT_FALLOFF = 0.7
 GOLD_PER_SCORE = 1.4
 SHARDS_PER_SCORE = 0.05
 
+# CORES, at half the shard rate.
+#
+# The bundle paid Shards and nothing toward the card banner, which meant
+# a prestige handed back a head start on exactly one of the two gachas.
+# A returning player's Cards were wiped along with everything else and
+# there was no seed to regrow them from -- and Cards are the slower of
+# the two curves to rebuild, being one slot per character with no rolls.
+#
+# Half the shard rate matches how cores accrue everywhere else in the
+# game (see card_config's CORE_SOURCES), so prestige doesn't quietly
+# become the best core source in the game the way a matched rate would.
+CORES_PER_SCORE = 0.025
+
+# ...and Evolution Fragments, at the same rate as Cores. A prestige wipes
+# every item the player had levelled, so it wipes every breakthrough they
+# had paid for -- handing back gold and shards but no fragments would
+# rebuild the gear and leave it stuck at level 5.
+FRAGMENTS_PER_SCORE = 0.025
+
 # Materials are priced against what they're FOR, which is gear upgrades:
 # one level-up costs 2 units rising to about 9 at level 30, split across
 # three types (see item_upgrade_service). A first pass at this paid out
@@ -135,11 +154,15 @@ class PrestigeReward:
     score: int = 0
     gold: int = 0
     shards: int = 0
+    cores: int = 0
+    evolution_fragments: int = 0
     materials: dict[str, int] = field(default_factory=dict)
     lootboxes: dict[str, int] = field(default_factory=dict)
 
     def is_empty(self) -> bool:
-        return not (self.gold or self.shards or self.materials or self.lootboxes)
+        return not (self.gold or self.shards or self.cores
+                    or self.evolution_fragments
+                    or self.materials or self.lootboxes)
 
 
 def progress_score(db, player: Player) -> int:
@@ -210,6 +233,8 @@ def preview_rewards(db, player: Player) -> PrestigeReward:
 
     reward.gold = int(paid * GOLD_PER_SCORE)
     reward.shards = int(paid * SHARDS_PER_SCORE)
+    reward.cores = int(paid * CORES_PER_SCORE)
+    reward.evolution_fragments = int(paid * FRAGMENTS_PER_SCORE)
 
     material_budget = paid * MATERIAL_PER_SCORE
     for needed, material in MATERIAL_LADDER:
@@ -271,6 +296,11 @@ def perform(db, player_id: int, prestige: bool) -> tuple[dict[str, int], Prestig
             currency_service.add_currency(db, fresh, "gold", reward.gold)
         if reward.shards:
             currency_service.add_currency(db, fresh, "shards", reward.shards)
+        if reward.cores:
+            currency_service.add_currency(db, fresh, "cores", reward.cores)
+        if reward.evolution_fragments:
+            currency_service.add_currency(db, fresh, "evolution_fragments",
+                                          reward.evolution_fragments)
         for material, amount in reward.materials.items():
             currency_service.add_currency(db, fresh, material, amount)
         for tier, count in reward.lootboxes.items():

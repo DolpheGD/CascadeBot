@@ -35,9 +35,9 @@ TREASURE_ENCOUNTERS: list[dict] = [
                 "cost": {"wood": 6, "stone": 3},
                 "tiers": [
                     {"chance": 0.01, "text": "LEGENDARY -- the rock splits open to reveal something incredible.", "outcome": {"gain": {"lootbox": "epic"}}},
-                    {"chance": 0.09, "text": "A genuinely good haul.", "outcome": {"gain": {"material_tier": 1, "amount": [6, 20]}, "bonus": {"chance": 0.08, "gain": {"lootbox": "rare"}}}},
+                    {"chance": 0.09, "text": "A genuinely good haul.", "outcome": {"gain": {"evolution_fragments": [2, 4], "material_tier": 1, "amount": [6, 20]}, "bonus": {"chance": 0.08, "gain": {"lootbox": "rare"}}}},
                     {"chance": 0.40, "text": "A modest find.", "outcome": {"gain": {"gold": [12, 31]}, "bonus": {"chance": 0.08, "gain": {"lootbox": "uncommon"}}}},
-                    {"chance": 0.50, "text": "Just a rock. It was, in fact, just a rock.", "outcome": {"gain": {"material_tier": 0, "amount": [5, 14]}, "bonus": {"chance": 0.08, "gain": {"lootbox": "common"}}}},
+                    {"chance": 0.50, "text": "Just a rock. It was, in fact, just a rock.", "outcome": {"gain": {"evolution_fragments": [1, 2], "material_tier": 0, "amount": [5, 14]}, "bonus": {"chance": 0.08, "gain": {"lootbox": "common"}}}},
                 ],
             },
             {
@@ -49,8 +49,8 @@ TREASURE_ENCOUNTERS: list[dict] = [
                 "cost": {"wood": 30, "stone": 15},
                 "tiers": [
                     {"chance": 0.04, "text": "Multiple legendary cracks in one go -- Duko looks personally wounded.", "outcome": {"gain": {"lootbox": "epic", "reroll_tokens": [2,5], "shards": [1,3]}}},
-                    {"chance": 0.30, "text": "A solid batch, all around.", "outcome": {"gain": {"material_tier": 1, "amount": [10, 47]}, "bonus": {"chance": 0.08, "gain": {"shards": 1}}}},
-                    {"chance": 0.66, "text": "Mostly rocks, some gold dust mixed in.", "outcome": {"gain": {"gold": [31, 56], "material_tier": 0, "amount": [14, 27]}, "bonus": {"chance": 0.08, "gain": {"lootbox": "common"}}}},
+                    {"chance": 0.30, "text": "A solid batch, all around.", "outcome": {"gain": {"material_tier": 1, "amount": [10, 47]}, "bonus": {"chance": 0.08, "gain": {"evolution_fragments": [1, 3], "shards": 1}}}},
+                    {"chance": 0.66, "text": "Mostly rocks, some gold dust mixed in.", "outcome": {"gain": {"gold": [31, 56], "evolution_fragments": [1, 2], "material_tier": 0, "amount": [14, 27]}, "bonus": {"chance": 0.08, "gain": {"lootbox": "common"}}}},
                 ],
             },
             {
@@ -62,8 +62,8 @@ TREASURE_ENCOUNTERS: list[dict] = [
                 "cost": {"wood": 60, "stone": 30},
                 "tiers": [
                     {"chance": 0.08, "text": "An entire crate's worth of the good stuff -- Duko mutters something about early retirement.", "outcome": {"gain": {"lootbox": "epic", "reroll_tokens": [5,10], "shards": 5}}},
-                    {"chance": 0.50, "text": "A genuinely excellent haul.", "outcome": {"gain": {"material_tier": 1, "amount": [15, 40], "gold": [12, 25], "reroll_tokens": [2,5]}, "bonus": {"chance": 0.096, "gain": {"shards": 1}}}},
-                    {"chance": 0.42, "text": "A decent pile of common goods, at least.", "outcome": {"gain": {"material_tier": 0, "amount": [20, 40], "gold": [19, 38]}, "bonus": {"chance": 0.08, "gain": {"lootbox": "common"}}}},
+                    {"chance": 0.50, "text": "A genuinely excellent haul.", "outcome": {"gain": {"material_tier": 1, "amount": [15, 40], "gold": [12, 25], "reroll_tokens": [2,5]}, "bonus": {"chance": 0.096, "gain": {"evolution_fragments": [1, 3], "shards": 1}}}},
+                    {"chance": 0.42, "text": "A decent pile of common goods, at least.", "outcome": {"gain": {"evolution_fragments": [1, 2], "material_tier": 0, "amount": [20, 40], "gold": [19, 38]}, "bonus": {"chance": 0.08, "gain": {"lootbox": "common"}}}},
                 ],
             },
             {
@@ -101,9 +101,9 @@ TREASURE_ENCOUNTERS: list[dict] = [
                 "style": "success",
                 "cost": {},
                 "tiers": [
-                    {"chance": 0.5, "text": "You explore together and gather a solid haul.", "outcome": {"gain": {"material_tier": 0, "amount": [20, 38]}, "bonus": {"chance": 0.08, "gain": {"lootbox": "common"}}}},
-                    {"chance": 0.35, "text": "A good haul, and Daffysamlake insists on splitting evenly.", "outcome": {"gain": {"material_tier": 0, "amount": [27, 47], "gold": [12, 25]}, "bonus": {"chance": 0.08, "gain": {"lootbox": "common"}}}},
-                    {"chance": 0.15, "text": "An excellent day -- Daffysamlake finds something shiny and hands it right over.", "outcome": {"gain": {"material_tier": 1, "amount": [6, 22]}, "bonus": {"chance": 0.08, "gain": {"shards": 1}}}},
+                    {"chance": 0.5, "text": "You explore together and gather a solid haul.", "outcome": {"gain": {"evolution_fragments": [1, 2], "material_tier": 0, "amount": [20, 38]}, "bonus": {"chance": 0.08, "gain": {"lootbox": "common"}}}},
+                    {"chance": 0.35, "text": "A good haul, and Daffysamlake insists on splitting evenly.", "outcome": {"gain": {"evolution_fragments": [1, 2], "material_tier": 0, "amount": [27, 47], "gold": [12, 25]}, "bonus": {"chance": 0.08, "gain": {"lootbox": "common"}}}},
+                    {"chance": 0.15, "text": "An excellent day -- Daffysamlake finds something shiny and hands it right over.", "outcome": {"gain": {"material_tier": 1, "amount": [6, 22]}, "bonus": {"chance": 0.08, "gain": {"evolution_fragments": [1, 3], "shards": 1}}}},
                 ],
             },
             {
@@ -114,9 +114,9 @@ TREASURE_ENCOUNTERS: list[dict] = [
                 "style": "primary",
                 "cost": {},
                 "tiers": [
-                    {"chance": 0.08, "text": "Jackpot -- a vein nobody's touched in decades.", "outcome": {"gain": {"material_tier": 1, "amount": [10, 30], "gold": [31, 56]}, "bonus": {"chance": 0.12, "gain": {"lootbox": "uncommon"}}}},
-                    {"chance": 0.77, "text": "A solid, multi-resource haul, all to yourself.", "outcome": {"gain": {"material_tier": 0, "amount": [10, 54], "gold": [12, 25]}, "bonus": {"chance": 0.08, "gain": {"lootbox": "common"}}}},
-                    {"chance": 0.15, "text": "Daffysamlake beat you to the good stuff. You scrounge up scraps.", "outcome": {"gain": {"material_tier": 0, "amount": [7, 16]}, "bonus": {"chance": 0.08, "gain": {"lootbox": "common"}}}},
+                    {"chance": 0.08, "text": "Jackpot -- a vein nobody's touched in decades.", "outcome": {"gain": {"evolution_fragments": [2, 4], "material_tier": 1, "amount": [10, 30], "gold": [31, 56]}, "bonus": {"chance": 0.12, "gain": {"lootbox": "uncommon"}}}},
+                    {"chance": 0.77, "text": "A solid, multi-resource haul, all to yourself.", "outcome": {"gain": {"evolution_fragments": [1, 2], "material_tier": 0, "amount": [10, 54], "gold": [12, 25]}, "bonus": {"chance": 0.08, "gain": {"lootbox": "common"}}}},
+                    {"chance": 0.15, "text": "Daffysamlake beat you to the good stuff. You scrounge up scraps.", "outcome": {"gain": {"evolution_fragments": [1, 2], "material_tier": 0, "amount": [7, 16]}, "bonus": {"chance": 0.08, "gain": {"lootbox": "common"}}}},
                 ],
             },
             {
@@ -152,9 +152,9 @@ TREASURE_ENCOUNTERS: list[dict] = [
                 "style": "primary",
                 "success_chance": 0.35,
                 "success_text": "It comes free intact -- a genuine, uncorrupted piece of Eris technology. This is worth a great deal to the right people.",
-                "on_success": {"gain": {"material_tier": 3, "amount": [5, 14], "gold": [88, 162]}, "bonus": {"chance": 0.1, "gain": {"lootbox": "epic"}}},
+                "on_success": {"gain": {"evolution_fragments": [5, 9], "material_tier": 3, "amount": [5, 14], "gold": [88, 162]}, "bonus": {"chance": 0.1, "gain": {"lootbox": "epic"}}},
                 "fail_text": "It shatters the moment you apply pressure. Whatever it was, it's scrap now.",
-                "on_fail": {"gain": {"material_tier": 1, "amount": [11, 20]}},
+                "on_fail": {"gain": {"evolution_fragments": [2, 4], "material_tier": 1, "amount": [11, 20]}},
             },
             {
                 "id": "offer_power",
@@ -165,7 +165,7 @@ TREASURE_ENCOUNTERS: list[dict] = [
                 "cost": {"xendium": 30},
                 "success_chance": 0.8,
                 "success_text": "The fragment resonates, then releases something in return -- like it was waiting to be asked properly.",
-                "on_success": {"gain": {"material_tier": 3, "amount": [4, 9], "gold": [50, 88], "reroll_tokens": [7, 15]}, "bonus": {"chance": 0.128, "gain": {"shards": [1, 3]}}},
+                "on_success": {"gain": {"material_tier": 3, "amount": [4, 9], "gold": [50, 88], "reroll_tokens": [7, 15]}, "bonus": {"chance": 0.128, "gain": {"evolution_fragments": [1, 3], "shards": [1, 3]}}},
                 "fail_text": "The fragment stays dark. Whatever it wanted, that wasn't it.",
                 "on_fail": {},
             },
@@ -215,7 +215,7 @@ TREASURE_ENCOUNTERS: list[dict] = [
                 "style": "danger",
                 "success_chance": 0.35,
                 "success_text": "He's too focused on his numbers to notice you taking half his stockpile.",
-                "on_success": {"gain": {"material_tier": 0, "amount": [20, 38], "gold": [19, 38]}, "bonus": {"chance": 0.08, "gain": {"lootbox": "common"}}},
+                "on_success": {"gain": {"evolution_fragments": [1, 2], "material_tier": 0, "amount": [20, 38], "gold": [19, 38]}, "bonus": {"chance": 0.08, "gain": {"lootbox": "common"}}},
                 "fail_text": "He notices immediately. Turns out obsessive grinding builds real reflexes, apparently.",
                 "on_fail": {"hp_damage_percent": 10, "loss": {"material_tier": 0, "amount": [5, 12]}},
             },
@@ -256,7 +256,7 @@ TREASURE_ENCOUNTERS: list[dict] = [
                 "style": "success",
                 "success_chance": 1.0,
                 "success_text": "The lid creaks open, revealing a straightforward but solid haul of common materials and a handful of gold.",
-                "on_success": {"gain": {"material_tier": 0, "amount": [20, 40], "gold": [12, 25]}, "bonus": {"chance": 0.08, "gain": {"lootbox": "common", "reroll_tokens": [1,2]}}},
+                "on_success": {"gain": {"evolution_fragments": [1, 2], "material_tier": 0, "amount": [20, 40], "gold": [12, 25]}, "bonus": {"chance": 0.08, "gain": {"lootbox": "common", "reroll_tokens": [1,2]}}},
                 "fail_text": "",
                 "on_fail": {},
             },
@@ -297,7 +297,7 @@ TREASURE_ENCOUNTERS: list[dict] = [
                 "style": "success",
                 "success_chance": 1.0,
                 "success_text": "The chest pops open to reveal a solid stash of uncommon materials, along with a decent amount of gold.",
-                "on_success": {"gain": {"material_tier": 1, "amount": [7, 15], "gold": [25, 50], "reroll_tokens": [1,2]}, "bonus": {"chance": 0.096, "gain": {"shards": [1,3]}}},
+                "on_success": {"gain": {"material_tier": 1, "amount": [7, 15], "gold": [25, 50], "reroll_tokens": [1,2]}, "bonus": {"chance": 0.096, "gain": {"evolution_fragments": [1, 3], "shards": [1,3]}}},
                 "fail_text": "",
                 "on_fail": {},
             },

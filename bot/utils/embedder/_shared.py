@@ -54,6 +54,7 @@ ROOM_TYPE_EMOJI = {
     "start": "🚪", "combat": "⚔️", "elite": "🔥", "treasure": "💰",
     "merchant": "🛒", "campfire": "🏕️", "story": "📜", "trap": "⚠️",
     "shrine": "⛩️", "puzzle": "🧩", "secret": "❓", "boss": "💀",
+    "relic_event": "🎴",
 }
 
 RARITY_COLORS = {

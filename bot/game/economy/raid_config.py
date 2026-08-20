@@ -366,6 +366,7 @@ RAID_TIERS: list[dict] = [
         "rewards": {
             "gold": 900,
             "shards": 12,
+            "evolution_fragments": 3,
             "wood": 150,
             "stone": 150,
             "metal": 40,
@@ -413,6 +414,7 @@ RAID_TIERS: list[dict] = [
         "rewards": {
             "gold": 1_700,
             "shards": 24,
+            "evolution_fragments": 5,
             "wood": 220,
             "stone": 220,
             "metal": 90,
@@ -441,6 +443,7 @@ RAID_TIERS: list[dict] = [
         "rewards": {
             "gold": 2_900,
             "shards": 42,
+            "evolution_fragments": 9,
             "crystal": 45,
             "metal": 140,
             "xendium": 18,
@@ -478,6 +481,7 @@ RAID_TIERS: list[dict] = [
             # Multiplied by the player's contribution tier below.
             "gold": 5_600,
             "shards": 83,
+            "evolution_fragments": 14,
             "crystal": 85,
             "xendium": 36,
             "reroll_tokens": 35,
@@ -506,7 +510,8 @@ RAID_TIERS: list[dict] = [
         "description": "A tougher boss and a much bigger pool. Bring the server -- nobody clears this on their own attacks.",
         "rewards": {
             "gold": 17_000,
-            "shards": 210, "cores": 420,
+            "shards": 210,
+            "evolution_fragments": 36, "cores": 420,
             "crystal": 220,
             "xendium": 110,
             "void": 50,
@@ -545,6 +550,7 @@ RAID_TIERS: list[dict] = [
         "rewards": {
             "gold": 44_000,
             "shards": 480,
+            "evolution_fragments": 80,
             # CORES on the two hardest tiers only. Cards should be
             # something the endgame pays for -- a starter raid handing
             # them out would make the banner a thing you drift into
@@ -601,6 +607,11 @@ CONTRIBUTION_TIERS: list[tuple[float, float, str]] = [
 # final payout, so choosing the hard version is worth something even if
 # the whole server chose it too.
 # ----------------------------------------------------------------------
+# EVOLUTION FRAGMENTS scale with the tier's shard payout, at roughly a
+# fifth of it. A raid is a whole server chipping at one boss for a day,
+# so its fragment payout should be a real lump -- but raids are also the
+# most schedulable content in the game, and a fragment source that can be
+# farmed on a timer would undercut the harvester and the domain both.
 DIFFICULTY_REWARD_BONUS: dict[str, float] = {
     "recon": 0.85,
     "skirmish": 0.95,

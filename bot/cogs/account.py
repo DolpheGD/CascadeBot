@@ -93,6 +93,11 @@ def _reward_lines(reward: prestige_service.PrestigeReward) -> str:
         parts.append(f"{currency_emoji('gold')} **{reward.gold:,}** gold")
     if reward.shards:
         parts.append(f"{currency_emoji('shards')} **{reward.shards:,}** shards")
+    if reward.cores:
+        parts.append(f"{currency_emoji('cores')} **{reward.cores:,}** cores")
+    if reward.evolution_fragments:
+        parts.append(f"{currency_emoji('evolution_fragments')} "
+                     f"**{reward.evolution_fragments:,}** evolution fragments")
     for material, amount in reward.materials.items():
         parts.append(f"{currency_emoji(material)} **{amount:,}** {material.replace('_', ' ')}")
     for tier, count in reward.lootboxes.items():
