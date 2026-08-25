@@ -11,8 +11,10 @@ from bot.services.player_service import get_or_create_player, get_player
 from bot.services.currency_service import add_currency
 from bot.game.characters import talent_config
 from bot.services import talent_service
-from bot.services import (account_service, character_service, dungeon_service,
-                          gift_service, inventory_service, story_service)
+from bot.services import (account_service, away_service, character_service, dungeon_service,
+                          evolution_service, gift_service, inventory_service,
+                          story_service)
+from bot.services.currency_service import format_currency
 from bot.utils.ui_guard import OwnedView, require_feature, require_player
 from bot.utils.guild_decorator import guild_decorator
 from bot.utils import embedder
@@ -47,12 +49,13 @@ class CharacterProfileSelect(discord.ui.Select):
         ordered = sorted(
             owned,
             key=lambda pc: (pc.id != current_character_id, -pc.level,
-                            -pc.template.star_rating, pc.display_name),
+                            -pc.effective_star, pc.display_name),
         )
         options = [
             discord.SelectOption(
                 label=names.fit_suffix(
-                    pc.display_name, f"(Lv{pc.level}, {pc.template.star_rating}★)", 100),
+                    pc.display_name,
+                    f"(Lv{pc.level}, {pc.star_label()})", 100),
                 value=str(pc.id),
                 default=(pc.id == current_character_id),
             )
@@ -122,6 +125,161 @@ def talent_embed(character) -> discord.Embed:
         parts += [f"+{v:g} {k.replace('_', ' ')}" for k, v in state["flat"].items()]
         embed.add_field(name="Currently worth", value=", ".join(parts), inline=False)
     return embed
+
+
+def evolve_embed(character) -> discord.Embed:
+    """One character's evolution state, and exactly what the next step costs."""
+    requirement = evolution_service.requirements(character)
+    native = evolution_service.native_star(character)
+
+    embed = discord.Embed(
+        title=f"✨ {character.display_name} — Evolution",
+        description=(
+            f"**{character.star_label()}**  ·  Lv.{character.level}\n"
+            f"*Originally {'★' * native}*"
+        ),
+        colour=discord.Colour.purple(),
+    )
+
+    if requirement is None:
+        embed.add_field(
+            name="Fully evolved",
+            value=("This character has gone as far as evolution goes.\n"
+                   "*A native 5★ is still stronger — evolution closes about "
+                   "a third of that gap, not all of it.*"),
+            inline=False)
+        return embed
+
+    allowed, reason = evolution_service.can_evolve(character)
+    cost_lines = []
+    for currency, amount in requirement["cost"].items():
+        have = requirement["have"][currency]
+        tick = "✅" if have >= amount else "❌"
+        cost_lines.append(
+            f"{tick} {format_currency(currency, amount)}  *(you have {have:,})*")
+
+    level_tick = "✅" if requirement["level_met"] else "❌"
+    embed.add_field(
+        name=f"To reach {'★' * requirement['target_star']}",
+        value=(f"{level_tick} Level {requirement['level_required']}"
+               f"  *(currently {character.level})*\n" + "\n".join(cost_lines)),
+        inline=False)
+
+    if not allowed:
+        embed.add_field(name="Not yet", value=reason, inline=False)
+
+    # The honest pitch. Saying "+6% to every growing stat" is a smaller
+    # number than a player expects from the word EVOLUTION, and telling
+    # them up front is better than letting them spend 500 echoes and work
+    # it out afterwards.
+    embed.set_footer(
+        text="Each evolution adds +6% to stats that grow with level. "
+             "A native 5★ stays stronger.")
+    return embed
+
+
+class EvolveView(OwnedView):
+    def __init__(self, character, owner_id: int | None = None,
+                 roster: list | None = None):
+        super().__init__(timeout=600, owner_id=owner_id)
+        if roster:
+            self.add_item(_EvolveCharacterSelect(roster, character.id))
+        allowed, _ = evolution_service.can_evolve(character)
+        if allowed:
+            self.add_item(_EvolveButton(character.id))
+
+
+class _EvolveCharacterSelect(discord.ui.Select):
+    def __init__(self, roster: list, current_id: int):
+        super().__init__(
+            placeholder="Pick a character…",
+            options=[
+                discord.SelectOption(
+                    label=names.fit_suffix(
+                        pc.display_name, f"(Lv{pc.level}, {pc.star_label()})", 100),
+                    value=str(pc.id),
+                    default=(pc.id == current_id),
+                )
+                # Sliced to Discord's 25-option cap. A roster can exceed
+                # it, and an over-long select fails with a 400 that shows
+                # up only as a dead interaction.
+                for pc in roster[:25]
+            ],
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            if player is None:
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
+                return
+            roster = evolution_service.evolvable_characters(db, player)
+            character = next((c for c in roster if c.id == int(self.values[0])), None)
+            if character is None:
+                await responses.send(interaction, "You don't own that character.",
+                                     ephemeral=True)
+                return
+            await responses.edit(
+                interaction,
+                embed=evolve_embed(character),
+                view=EvolveView(character, owner_id=player.id, roster=roster))
+        finally:
+            db.close()
+
+
+class _EvolveButton(discord.ui.Button):
+    def __init__(self, character_id: int):
+        super().__init__(label="Evolve", emoji="✨",
+                         style=discord.ButtonStyle.success)
+        self.character_id = character_id
+
+    async def callback(self, interaction: discord.Interaction):
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            if player is None:
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
+                return
+            character = next(
+                (c for c in character_service.list_owned_characters(db, player)
+                 if c.id == self.character_id), None)
+            if character is None:
+                await responses.send(interaction, "You don't own that character.",
+                                     ephemeral=True)
+                return
+            try:
+                result = evolution_service.evolve(db, player, character)
+            except evolution_service.EvolutionError as exc:
+                # Reached by pressing a button rendered before the player
+                # spent the materials somewhere else. The service is the
+                # real guard; this only says so out loud.
+                await responses.send(interaction, str(exc), ephemeral=True)
+                return
+
+            done = discord.Embed(
+                title="✨ Evolved",
+                description=(
+                    f"**{character.display_name}** is now "
+                    f"**{character.star_label()}**\n"
+                    f"{'★' * result['from_star']} → {'★' * result['to_star']}  ·  "
+                    f"+{result['percent']:.1f}% to stats that grow with level"),
+                colour=discord.Colour.gold(),
+            )
+            done.add_field(
+                name="Spent",
+                value=", ".join(format_currency(c, a)
+                                for c, a in result["spent"].items()),
+                inline=False)
+
+            roster = evolution_service.evolvable_characters(db, player)
+            await responses.edit(
+                interaction,
+                embed=evolve_embed(character),
+                view=EvolveView(character, owner_id=player.id, roster=roster))
+            await interaction.followup.send(embed=done)
+        finally:
+            db.close()
 
 
 class TalentView(OwnedView):
@@ -432,6 +590,83 @@ class Profile(commands.Cog):
             db.close()
         await responses.send(ctx, embed=embed, view=view)
 
+    # COMMAND: /notifications
+    # Opt in or out of reminder DMs. Off by default -- see
+    # bot/services/reminder_service.py for why that is not negotiable.
+    @app_commands.command(
+        name="notifications",
+        description="Turn reminder DMs on or off. Off by default."
+    )
+    @app_commands.describe(enabled="On sends at most one DM a day. Off sends nothing.")
+    async def notifications(self, ctx: discord.Interaction, enabled: bool):
+        await responses.defer(ctx, ephemeral=True)
+        db = SessionLocal()
+        try:
+            player = get_player(db, ctx.user.id)
+            if not await require_player(ctx, player):
+                return
+            player.reminders_enabled = bool(enabled)
+            # Turning them back on clears the failure counter -- the
+            # player is explicitly telling us their DMs work now, and
+            # without this a single blocked spell would be permanent.
+            if enabled:
+                player.reminder_failures = 0
+            db.commit()
+
+            if enabled:
+                text = (
+                    "🔔 **Reminders on.**\n\n"
+                    "At most one DM a day, and only when something is actually "
+                    "going to waste — full harvesters, capped energy, or a "
+                    "challenge cycle about to expire. Nothing otherwise.\n\n"
+                    "If your DMs are closed I'll stop trying rather than "
+                    "retrying every night."
+                )
+            else:
+                text = ("🔕 **Reminders off.** You'll still see a summary of what "
+                        "you missed next time you play.")
+        finally:
+            db.close()
+        await responses.send(ctx, text, ephemeral=True)
+
+    # COMMAND: /evolve
+    # Raise a 3★ or 4★ up the star ladder. See
+    # bot/game/economy/character_evolution_config.py for why the bonuses
+    # are as small as they are.
+    @app_commands.command(
+        name="evolve",
+        description="Evolve a 3★ or 4★ character up the star ladder."
+    )
+    async def evolve(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
+        db = SessionLocal()
+        try:
+            player = get_player(db, ctx.user.id)
+            if not await require_player(ctx, player):
+                return
+            # Gated on `squad`, matching /talents: both are screens about
+            # investing in one character, and neither means anything to a
+            # player who still has a roster of one.
+            if not await require_feature(ctx, db, player, "squad"):
+                return
+            roster = evolution_service.evolvable_characters(db, player)
+            if not roster:
+                embed = discord.Embed(
+                    title="✨ Evolution",
+                    description=(
+                        "You don't have any characters that can evolve yet.\n\n"
+                        "Only pulled 3★ and 4★ characters can — your avatar is "
+                        "already 5★, and a native 5★ has nowhere to go."),
+                    colour=discord.Colour.purple(),
+                )
+                view = None
+            else:
+                embed = evolve_embed(roster[0])
+                view = EvolveView(roster[0], owner_id=player.id, roster=roster)
+        finally:
+            db.close()
+        await responses.send(ctx, embed=embed, view=view)
+
     # COMMAND: /profile
     # The ACCOUNT view -- account level, roster completion, power, and
     # currencies. Deliberately holds nothing that belongs to a single
@@ -451,6 +686,17 @@ class Profile(commands.Cog):
             embed = embedder.account_profile_embed(
                 player, summary, avatar_url=ctx.user.display_avatar.url
             )
+            # WHILE YOU WERE AWAY, on the screen a returning player opens
+            # first. Rendered as a field on the existing embed rather than
+            # a second message, so it cannot be missed and cannot be
+            # dismissed before it is read.
+            away = away_service.summarise(db, player)
+            if away:
+                embed.add_field(
+                    name=f"⏳ While you were away ({away['away_text']})",
+                    value="\n".join(away["lines"])[:1024],
+                    inline=False)
+                away_service.mark_shown(db, player)
         finally:
             db.close()
 

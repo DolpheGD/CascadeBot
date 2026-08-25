@@ -213,14 +213,14 @@ class _PickerView(OwnedView):
             discord.SelectOption(
                 label=f"{pc.display_name} (Lv{pc.level})"[:100],
                 value=str(pc.id),
-                description=f"{pc.template.star_rating}★ {pc.template.character_class.value}"[:100],
+                description=f"{pc.star_label()} {pc.template.character_class.value}"[:100],
             )
             # Windowed, and sorted strongest-first so the 25 shown are
             # the ones worth fielding. The Abyss picks a fresh team per
             # chamber, so a player with a big roster was previously
             # choosing from an arbitrary slice of it.
             for pc in paging.window(
-                sorted(owned, key=lambda c: (-c.level, -c.template.star_rating,
+                sorted(owned, key=lambda c: (-c.level, -c.effective_star,
                                              c.display_name)), 0)
         ]
         if options:

@@ -60,6 +60,34 @@ def _squad_hp_lines(db, player) -> list[str]:
 # like the button DynamicItems do.
 # ----------------------------------------------------------------------
 
+# ----------------------------------------------------------------------
+# THE REGION LIST COMES FROM THE REGION CONFIG.
+#
+# It used to be five hardcoded app_commands.Choice lines right here, and
+# region six shipped without appearing in them -- Entrospire Deepworks
+# existed in region_config, had a full enemy roster, its own boss pool,
+# commissions pointing at it and a passing check suite, and there was no
+# way to select it. The unlock chain worked perfectly and led to a
+# command that could not name the place.
+#
+# Discord caps a command at 25 choices, which is far more regions than
+# this game will ever have, and tools/check_regions.py asserts the two
+# lists agree so the next region cannot arrive invisible.
+# ----------------------------------------------------------------------
+def _build_region_choices() -> list[app_commands.Choice]:
+    from bot.game.dungeon.region_config import REGION_DIFFICULTY, ordered_regions
+
+    choices = []
+    for region in ordered_regions()[:25]:
+        label = REGION_DIFFICULTY[region].get("difficulty_label", "")
+        name = f"{region} ({label})" if label else region
+        choices.append(app_commands.Choice(name=name[:100], value=region))
+    return choices
+
+
+_REGION_CHOICES = _build_region_choices()
+
+
 class MoveSelect(discord.ui.Select):
     def __init__(self, options: list[discord.SelectOption] | None = None):
         options = options or [discord.SelectOption(label="...", value="none")]
@@ -870,13 +898,7 @@ class Dungeon(commands.Cog):
     # Starts a new expedition (if none active) or resumes the current one
     # exactly where it was left -- including mid-battle.
     @app_commands.command(name="adventure", description="Start or resume your dungeon expedition. Harder regions give bigger rewards.")
-    @app_commands.choices(region=[
-        app_commands.Choice(name="Glacier 15 (Easy)", value="Glacier 15"),
-        app_commands.Choice(name="The Wastelands (Normal)", value="The Wastelands"),
-        app_commands.Choice(name="The Hotlands (Hard)", value="The Hotlands"),
-        app_commands.Choice(name="Voidcrest Desert (Insane)", value="Voidcrest Desert"),
-        app_commands.Choice(name="Abyssnia (Nightmare)", value="Abyssnia"),
-    ])
+    @app_commands.choices(region=_REGION_CHOICES)
     async def adventure(self, ctx: discord.Interaction, region: str = "Glacier 15"):
         await responses.defer(ctx)
         db = SessionLocal()

@@ -23,9 +23,9 @@ from bot.database.models.equipment_model import InventoryItem, ItemTemplate
 from bot.game.economy.forge_config import (
     salvage_material_base,
     CRAFT_COST,
-    REFORGE_COST,
+    reforge_cost,
     SALVAGE_RETURN_PERCENT,
-    TRANSFER_COST,
+    transfer_cost,
     forge_upgrade_cost,
     is_max_forge_level,
     max_craft_rarity,
@@ -159,20 +159,26 @@ def craft_item(db, player, slot: EquipmentSlot, rarity: Rarity,
 # ----------------------------------------------------------------------
 
 def reforge_price(db, player, item: InventoryItem) -> tuple[int, dict]:
-    gold = _discounted(db, player, REFORGE_COST["gold"] * (item.rarity.sort_order + 1))
+    """THE price of a reforge. Both the preview and the charge call this.
+
+    They used to compute it separately, with the same expression written
+    out twice -- the shape that has caused more bugs in this codebase
+    than any other. The two agreed only because nobody had edited one of
+    them yet, and repricing the Forge meant editing exactly this line.
+    """
+    cost = reforge_cost(item.rarity)
+    gold = _discounted(db, player, cost["gold"])
     materials = split_materials(
-        _discounted(db, player, REFORGE_COST["materials"] * (item.rarity.sort_order + 1)),
-        item.rarity,
-    )
+        _discounted(db, player, cost["materials"]), item.rarity)
     return gold, materials
 
 
 def transfer_price(db, player, source: InventoryItem, target: InventoryItem) -> tuple[int, dict]:
+    """THE price of a transfer -- preview and charge both call this."""
     rarity = max(source.rarity, target.rarity, key=lambda r: r.sort_order)
-    gold = _discounted(db, player, TRANSFER_COST["gold"] * (rarity.sort_order + 1))
-    materials = split_materials(
-        _discounted(db, player, TRANSFER_COST["materials"] * (rarity.sort_order + 1)), rarity
-    )
+    cost = transfer_cost(rarity)
+    gold = _discounted(db, player, cost["gold"])
+    materials = split_materials(_discounted(db, player, cost["materials"]), rarity)
     return gold, materials
 
 
@@ -228,11 +234,7 @@ def reforge_item(db, player, item: InventoryItem, rng: random.Random | None = No
     if not (item.active_ability or item.passive_ability):
         raise ForgeError(f"{item.display_name} has no ability to reforge.")
 
-    gold = _discounted(db, player, REFORGE_COST["gold"] * (item.rarity.sort_order + 1))
-    materials = split_materials(
-        _discounted(db, player, REFORGE_COST["materials"] * (item.rarity.sort_order + 1)),
-        item.rarity,
-    )
+    gold, materials = reforge_price(db, player, item)
     _charge(db, player, gold, materials, "reforge that")
 
     from bot.game.loot.generator import LootGenerator
@@ -272,11 +274,7 @@ def transfer_ability(db, player, source: InventoryItem, target: InventoryItem) -
     if source.is_equipped or target.is_equipped:
         raise ForgeError("Unequip both items first.")
 
-    rarity = max(source.rarity, target.rarity, key=lambda r: r.sort_order)
-    gold = _discounted(db, player, TRANSFER_COST["gold"] * (rarity.sort_order + 1))
-    materials = split_materials(
-        _discounted(db, player, TRANSFER_COST["materials"] * (rarity.sort_order + 1)), rarity
-    )
+    gold, materials = transfer_price(db, player, source, target)
     _charge(db, player, gold, materials, "transfer that ability")
 
     target.active_ability = source.active_ability

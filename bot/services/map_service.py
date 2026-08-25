@@ -291,6 +291,79 @@ def move(db, story, direction: str) -> dict:
     return look(db, story)
 
 
+def destination_label(from_area: str, to_area: str) -> str:
+    """What to CALL the place an exit leads to, seen from `from_area`.
+
+    Resolved from the destination's own name every time. Authoring the
+    destination on the door instead would be a second copy of a fact the
+    map already holds, and this file has been bitten by that shape often
+    enough -- rename an area and every door that named it goes quietly
+    stale, pointing somewhere that no longer exists under that name.
+
+    Area names are written "Building — Room" ("Cascade Central — The Ops
+    Deck"). Printing that in full from inside the same building is noise
+    on the one screen with the least room for it, and noise is what the
+    player was already complaining about: repeating "Cascade Central"
+    four times in a four-exit room actively hides the part that differs.
+    So a shared prefix is dropped and only the room survives; a door that
+    leaves the building keeps its full name, which is exactly when the
+    player most needs to know they are going somewhere else.
+    """
+    area = mc.get_area(to_area)
+    if area is None:
+        # A door to nowhere. tools/check_map asserts this cannot happen,
+        # so this is belt-and-braces -- but it degrades to a vague label
+        # rather than raising, because a broken door should not take the
+        # whole map screen down with it.
+        return "somewhere else"
+
+    name = area.get("name") or to_area
+    here = (mc.get_area(from_area) or {}).get("name") or ""
+
+    separator = " — "
+    if separator in name and separator in here:
+        if name.split(separator)[0] == here.split(separator)[0]:
+            return name.split(separator, 1)[1]
+    return name
+
+
+def exit_lines(db, story, area_id: str) -> list[str]:
+    """Every way out of this room, and where each one goes.
+
+    THE MAP'S ONE JOB IT WAS NOT DOING. An exit was listed by its
+    authored name alone -- "Buckled door", "Out, into the cold" -- which
+    is good writing and useless navigation: it never said where the door
+    went, so the only way to find out was to walk through and see. In a
+    hub with four doors that is four round trips to build a mental model
+    the game already had.
+
+    Locked doors are listed rather than hidden, and one-way doors are
+    called out BEFORE the player commits, because walking through one is
+    irreversible and finding that out afterwards is how you lose a hub.
+    """
+    area = mc.get_area(area_id) or {}
+    lines: list[str] = []
+    for char, content in (area.get("legend") or {}).items():
+        if content.get("kind") != "exit":
+            continue
+        emoji = content.get("emoji", "🚪")
+        name = content.get("name", "A way out")
+        where = destination_label(area_id, content.get("to_area", ""))
+        if tile_locked(db, story, content):
+            # A locked door still names its destination, and that is a
+            # deliberate call rather than an oversight. Knowing that the
+            # door you cannot open leads to the Sub-Basement is what
+            # makes a hub plannable -- it turns "there is a lock here"
+            # into "that is where I go next", which is the entire
+            # difference the player asked for. The room's name is not the
+            # secret; whatever is inside it still is.
+            lines.append(f"{mc.EMOJI_LOCKED} {name} → **{where}** — locked")
+            continue
+        suffix = "  *(one way)*" if content.get("one_way") else ""
+        lines.append(f"{emoji} {name} → **{where}**{suffix}")
+    return lines
+
+
 def return_door(from_area: str, to_area: str) -> tuple[int, int] | None:
     """Where in `to_area` the door back to `from_area` is, if there is
     one. This is what makes a doorway a doorway from both sides."""
@@ -744,13 +817,26 @@ def legend_lines(db, story) -> list[str]:
     # trimmed from once already. Worse, it buries the two entries that
     # actually matter among scenery that doesn't.
     #
-    # So: missions and exits, which are how you make progress, plus
-    # hunts, which are an optional FIGHT and therefore a decision worth
-    # knowing about before you step on it. Notes, caches and decoration
-    # are discoverable, which is what the map is for.
-    LISTED_KINDS = {"mission", "exit", "hunt", "npc"}
+    # So: missions, plus hunts, which are an optional FIGHT and therefore
+    # a decision worth knowing about before you step on it. Notes, caches
+    # and decoration are discoverable, which is what the map is for.
+    #
+    # EXITS USED TO BE LISTED HERE AND ARE NOT ANY MORE. They have their
+    # own field now (exit_lines), because "what is in this room" and
+    # "how do I leave" are different questions and the doors were losing
+    # the first one -- scattered among NPCs and scenery, never naming
+    # where they went.
+    #
+    # Listing them in BOTH places was tried first and rendered: in the
+    # Atrium it printed the same four doors twice, back to back, on the
+    # screen with the least room to spare. The justification written at
+    # the time -- that a player scanning the legend shouldn't have to
+    # look at a second field -- did not survive seeing it, which is the
+    # argument for rendering a UI change before believing the reasoning
+    # behind it.
+    LISTED_KINDS = {"mission", "hunt", "npc"}
 
-    priority = {"mission": 0, "npc": 1, "exit": 2, "hunt": 3}
+    priority = {"mission": 0, "npc": 1, "hunt": 3}
     entries = sorted(
         ((char, content) for char, content in (area.get("legend") or {}).items()
          if content.get("kind") in LISTED_KINDS),
@@ -761,7 +847,12 @@ def legend_lines(db, story) -> list[str]:
     for char, content in entries:
         if content.get("kind") == "hunt" and has_read(story, area_id, char):
             continue  # already fought; stop advertising it
-        if len(lines) >= mc.MAX_LEGEND_LINES and content.get("kind") not in ("mission", "exit"):
+        # Missions are never trimmed; they are the reason the screen
+        # exists. ("exit" was in this exemption too and no longer needs
+        # to be -- exits do not come through here at all now, and they
+        # have no cap of their own because a room you cannot leave is
+        # worse than a long field.)
+        if len(lines) >= mc.MAX_LEGEND_LINES and content.get("kind") != "mission":
             continue
         emoji = content.get("emoji", "")
         name = content.get("name", char)

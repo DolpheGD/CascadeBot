@@ -96,6 +96,81 @@ class Player(Base):
     # guarantee flag -- see pull_service.resolve_five_star for the rule.
     # The guarantee is a BOOLEAN, not a counter: it is armed by one miss
     # and spent by one hit, and there is deliberately no way to stack it.
+    # /admin_boosterkit is ONCE PER PLAYER. See the command for why: the
+    # gate that guards it accepts any Discord Administrator in any server
+    # the bot has been added to, and an unlimited 1,000-shard faucet
+    # behind that gate is an open economy.
+    booster_kit_claimed: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # ASYNC SQUAD CHALLENGES (bot/services/challenge_service.py).
+    #
+    # `challenge_power` is a cached rating so matchmaking can pick
+    # opponents with a query instead of loading every player's squad and
+    # gear. It is refreshed whenever the owner fights a challenge, so it
+    # tracks a player who is actively playing and goes stale only for one
+    # who is not -- which is the right way round.
+    challenge_power: Mapped[int] = mapped_column(Integer, default=0)
+    challenge_wins: Mapped[int] = mapped_column(Integer, default=0)
+    challenge_losses: Mapped[int] = mapped_column(Integer, default=0)
+    last_challenge_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    challenges_today: Mapped[int] = mapped_column(Integer, default=0)
+
+    # PRESENCE AND REMINDERS.
+    #
+    # `last_seen_at` is written from the one on_interaction listener that
+    # every command, button and select passes through, so it stays
+    # current with no per-cog bookkeeping. It drives the "while you were
+    # away" summary, which is the whole reason it exists: this game has
+    # six systems that expire or cap while nobody is looking (harvesters
+    # fill in 12-16h, domain energy in 14h, the daily streak resets
+    # nightly, the challenge cycle banks only the last week) and until
+    # now none of them told the player they had lost anything.
+    #
+    # `reminders_enabled` DEFAULTS TO FALSE and that is not timidity. A
+    # bot that DMs people who did not ask for it is a bot that gets
+    # blocked and reported, and the report is against the bot, not the
+    # feature. Opt-in is the only version of this worth shipping.
+    #
+    # `reminder_failures` exists so a player who blocks the bot or closes
+    # their DMs stops being messaged. Discord raises Forbidden on the
+    # send; without a counter the sweep would retry that same user every
+    # single night forever, which is precisely the behaviour that gets a
+    # bot reported.
+    last_seen_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    reminders_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    last_reminder_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    reminder_failures: Mapped[int] = mapped_column(Integer, default=0)
+
+    # CHALLENGE CYCLES -- see challenge_config's cycle block.
+    #
+    # Four columns, and the split between them is the whole design:
+    #
+    #   challenge_cycle         which cycle `challenge_points` belongs to,
+    #                           as a global index (not a per-player
+    #                           timer). Everyone's week starts and ends
+    #                           at the same moment, so "the cycle ends
+    #                           Monday" is one true sentence rather than
+    #                           a different answer per player.
+    #   challenge_points        points banked SO FAR in that cycle.
+    #   challenge_banked_points points from a FINISHED cycle, waiting to
+    #                           be claimed.
+    #   challenge_claimed_cycle the last cycle actually paid out, which is
+    #                           what makes claiming idempotent.
+    #
+    # Points and banked points are separate on purpose. Rolling them into
+    # one counter would mean the act of claiming and the act of the week
+    # ending are the same event, and they are not: a player who does not
+    # log in on Monday must not lose the week they played. The rollover
+    # moves points across, the claim empties the bank, and a player who
+    # shows up on Thursday still gets paid for last week.
+    challenge_cycle: Mapped[int] = mapped_column(Integer, default=0)
+    challenge_points: Mapped[int] = mapped_column(Integer, default=0)
+    challenge_banked_points: Mapped[int] = mapped_column(Integer, default=0)
+    challenge_claimed_cycle: Mapped[int] = mapped_column(Integer, default=-1)
+
     target_character: Mapped[str | None] = mapped_column(String(64), nullable=True)
     target_character_guaranteed: Mapped[bool] = mapped_column(Boolean, default=False)
     target_card: Mapped[str | None] = mapped_column(String(64), nullable=True)

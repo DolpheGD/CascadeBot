@@ -55,6 +55,11 @@ if TYPE_CHECKING:  # pragma: no cover
 
 LEVEL_CAP = 100
 
+# Imported so effective_star can clamp without importing the whole
+# economy package into the model layer (which would cycle: config ->
+# models -> config).
+MAX_STAR = 5
+
 
 class CharacterTemplate(Base):
     __tablename__ = "character_templates"
@@ -147,6 +152,23 @@ class PlayerCharacter(Base):
     # instead of granting a second copy -- see character_gacha_service.py.
     dupe_count: Mapped[int] = mapped_column(Integer, default=1)
 
+    # EVOLUTION: how many times this copy has been evolved up the star
+    # ladder. See bot/game/economy/character_evolution_config.py.
+    #
+    # It lives HERE and not on the template, and that is not a style
+    # choice -- CharacterTemplate.star_rating is shared by every player
+    # who owns that character. Evolving by writing to the template would
+    # promote Andy to 5 stars for the entire server the moment one person
+    # paid for it, and would corrupt the gacha tables, the Echo prices
+    # and the card system on the way past, since all of them read that
+    # same field.
+    #
+    # Stored as a COUNT rather than the resulting star rating, so the
+    # native rating stays readable from the template and the two can
+    # never disagree about where a character started. effective_star
+    # below is the only place they are combined.
+    evolution_stage: Mapped[int] = mapped_column(Integer, default=0)
+
     # Only meaningful when template.is_player_avatar is True. NULL means
     # "use the template's own class" (always the case for pulled characters).
     current_class: Mapped[CharacterClass | None] = mapped_column(nullable=True)
@@ -214,6 +236,40 @@ class PlayerCharacter(Base):
         player has set a custom_name for this specific PlayerCharacter."""
         return self.custom_name or self.template.name
 
+    @property
+    def effective_star(self) -> int:
+        """The star rating to SHOW and to score this copy at.
+
+        Native rating plus evolutions. Every place that displays stars or
+        ranks by them should read this rather than template.star_rating,
+        so an evolved character is listed and sorted where the player
+        expects to find it.
+
+        The exceptions are deliberate and worth naming, because they look
+        like bugs otherwise: the gacha tables, the Echo exchange prices
+        and the duplicate payouts all keep reading the TEMPLATE. What a
+        character costs to buy and what its duplicates are worth are
+        facts about the character, not about one player's copy -- pricing
+        them off effective_star would make an evolved Andy cost more at
+        the shop than an un-evolved one, for everyone.
+        """
+        return min(MAX_STAR, self.template.star_rating + int(self.evolution_stage or 0))
+
+    @property
+    def is_evolved(self) -> bool:
+        return int(self.evolution_stage or 0) > 0
+
+    def star_label(self) -> str:
+        """Stars as text, with the Evolved tag when it applies.
+
+        One helper so the tag reads identically in every screen. It was
+        going to be spelled out at each call site, which is how the same
+        character ends up "5★ Evolved" on one screen and "Evolved 5★" on
+        the next.
+        """
+        stars = "★" * self.effective_star
+        return f"{stars} Evolved" if self.is_evolved else stars
+
     def __repr__(self) -> str:  # pragma: no cover
         return f"<PlayerCharacter id={self.id} template_id={self.template_id} lvl={self.level}>"
 
@@ -239,3 +295,42 @@ class SquadSlot(Base):
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<SquadSlot player_id={self.player_id} slot={self.slot_index} char={self.character_id}>"
+
+
+class SquadPreset(Base):
+    """A NAMED, SAVED COPY of a squad -- not a second live squad.
+
+    Deliberately stores character ids and nothing else, and loading one
+    writes those ids into the player's SquadSlot rows. SquadSlot stays the
+    single source of truth for "who is currently fighting", so every
+    caller in the game -- combat, story, adventure, raids, the benchmarks
+    -- keeps reading the squad exactly as it always did and needs no
+    changes at all.
+
+    The alternative (an `active_preset_id` on Player, with combat reading
+    through it) would have put a second way to answer "who is in the
+    squad" into a codebase whose recurring bug is precisely two code paths
+    computing one value.
+
+    A preset can go stale: it stores ids, and a character could in
+    principle stop being owned. squad_service.load_preset drops anything
+    the player no longer has rather than failing, so an old preset
+    degrades to a partial squad instead of an error.
+    """
+    __tablename__ = "squad_presets"
+    __table_args__ = (UniqueConstraint("player_id", "name", name="uq_squad_preset_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    player_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("players.id", ondelete="CASCADE")
+    )
+    name: Mapped[str] = mapped_column(String(32))
+    # [character_id | None] * 4, index = slot. JSON rather than four
+    # columns so the slot count can change without a migration.
+    character_ids: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<SquadPreset player_id={self.player_id} name={self.name!r}>"

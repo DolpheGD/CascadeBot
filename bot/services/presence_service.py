@@ -35,6 +35,36 @@ def record_seen(db, player_id: int, guild_id: int | None) -> None:
     db.commit()
 
 
+def touch_last_seen(db, player_id: int) -> None:
+    """Keep Player.last_seen_at current -- but never close a long gap.
+
+    A SHORT gap is advanced normally, so an active player's timestamp
+    tracks them. A gap long enough to be worth reporting is LEFT ALONE,
+    because this runs from on_interaction, which fires before the command
+    handler does: overwriting it here would destroy the reading the
+    welcome-back summary exists to take, and it would do so on every
+    single interaction, so the summary would never appear at all.
+
+    The stamp past a long gap is advanced by away_service.mark_shown(),
+    once the player has actually been told. That also means the summary
+    survives a player running a command that does not render it.
+    """
+    from bot.database.models.player_model import Player
+    from bot.services.away_service import MIN_AWAY
+
+    player = db.query(Player).filter_by(id=player_id).one_or_none()
+    if player is None:
+        return
+    now = utcnow()
+    previous = player.last_seen_at
+    if previous is not None:
+        from bot.utils.time_utils import as_utc
+        if (now - as_utc(previous)) >= MIN_AWAY:
+            return  # a summary is owed; leave the evidence in place
+    player.last_seen_at = now
+    db.commit()
+
+
 def player_ids_in_guild(db, guild_id: int, include: int | None = None) -> list[int]:
     """Everyone recorded as playing in this guild.
 

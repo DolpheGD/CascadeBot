@@ -56,6 +56,18 @@ do it by hand or something goes wrong.
      instead of waiting up to an hour for global propagation, which is
      strongly recommended while testing. The template ships with
      `DEV_MODE=False` so a fresh copy boots as-is.
+   - `BOT_OWNER_IDS` -- comma-separated Discord user IDs that may run
+     `/grant`, which hands any user any amount of any resource. **Leave it
+     empty unless you want that**, and understand what it is before you
+     fill it in: it is deliberately narrower than `ADMIN_USER_IDS`.
+
+     `ADMIN_USER_IDS`, and Discord's own "Administrator" permission,
+     admit anyone who is an admin *in whatever server the command was
+     typed in* -- and anyone can create a server, invite the bot, and be
+     its administrator inside a minute. That is fine for `/admin_boosterkit`,
+     which is capped and once-per-player. It is not fine for a command
+     that can mint unlimited currency. An empty `BOT_OWNER_IDS` refuses
+     everybody rather than falling back to something broader.
 
 4. **Enable top.gg voting** *(optional)*
 
@@ -96,35 +108,90 @@ do it by hand or something goes wrong.
 
 ## Playing
 
+`/help` is the in-game version of this list. It is authored rather than
+generated -- it says what is worth doing and in what order, which a
+generated list cannot -- so `tools/check_help_coverage.py` asserts that it
+and this README between them mention every real command, and mention no
+command that does not exist.
+
+**Getting started**
+
 - `/start` -- create your profile (grants starting gold/shards and your own
   class-switchable avatar character)
-- `/adventure` -- start or resume a dungeon expedition; every floor offers
-  several room choices, and combat/movement happen entirely through
-  buttons and dropdowns on the message
-- `/domains` -- energy-gated single-battle challenges for direct rewards,
-  without committing to a full expedition
-- `/profile` -- 3-page view: Overview (stats/currency), Equipment (every
-  slot, empty or filled), and Abilities (weapon/artifact skills, ultimate,
-  passives)
+- `/story` -- the main mode: an authored campaign across a walkable
+  overworld, with missions, NPCs, side quests, puzzles and commissions
+- `/help` -- a paged guide to everything below
+
+**Running content**
+
+- `/adventure` -- start or resume a dungeon expedition. The map is a
+  planned route, Slay-the-Spire style: paths fork, and taking one locks
+  you out of others, so the whole run is chosen before it is fought
+- `/domains` -- energy-gated single battles for direct rewards, without
+  committing to a full expedition
+- `/abyss` -- the hardest content in the game
+- `/raid`, `/raid_claim` -- this server's co-op boss, and your share of it
+- `/challenge` -- fight another player's squad offline. Wins bank points
+  toward weekly milestones you claim when the cycle resets
+
+**Your squad**
+
+- `/squad`, `/presets` -- manage your team of 4, and save named lineups to
+  swap between them
+- `/characters` -- everyone you own: stats, equipment and abilities
 - `/class`, `/rename` -- switch your avatar's role, or give it your own name
-- `/squad`, `/characters` -- manage your 4-character team and see everyone you own
-- `/inventory` -- browse a compact list of every item and lootbox you own,
-  or open one in Detail mode to Equip/Level Up/Reroll/Open it; jump to a
-  specific entry by number instead of paging through everything
+- `/talents` -- spend talent points on a character (one per 5 levels, free respec)
+- `/evolve` -- raise a 3★ or 4★ up the star ladder. A native 5★ stays stronger
+- `/cards`, `/cardpull` -- Character Cards, pulled with Cores
+- `/resonance` -- what duplicate copies have unlocked for a character
+
+**Gear and money**
+
+- `/inventory` -- every item and lootbox you own; open one in Detail mode
+  to Equip/Level Up/Reroll/Open it, or jump straight to an entry by number
+- `/base forge` -- craft gear in the slot and rarity you choose, salvage
+  what you won't use, re-roll an ability, or move one between items
 - `/sell_rarity` -- bulk-sell every unequipped item of a given rarity
 - `/stash` -- gold, shards, reroll tokens, materials, and lootboxes
+- `/open <tier>` -- open all lootboxes of a tier (also reachable from `/stash`)
+- `/pull` -- gacha pull for characters (costs Shards); odds and pity are on
+  the banner itself, and you can nominate a target 5★
+- `/exchange` -- spend Echoes from duplicate pulls on a character you choose
+
+**The base**
+
+- `/base hq`, `/base harvesters`, `/base shrines`, `/base shop`,
+  `/base lab` -- passive income, account-wide research, and the shop.
+  These live under the `/base` group, so Discord will show them as you
+  type `/base`
+
+**Every day**
+
+- `/daily` -- claim daily reward (gold, streak bonus, materials, lootboxes)
+- `/quests` -- one-time beginner quests plus a rerollable repeating quest
 - `/vote` -- vote on top.gg every 12h for the game's largest Shard payout,
   plus gold, materials and lootboxes scaling on your vote streak
   (requires `TOPGG_TOKEN`, see Setup step 4)
-- `/daily` -- claim daily reward (gold, streak bonus, materials, lootboxes)
-- `/quests` -- one-time beginner quests plus a rerollable repeating quest
-- `/harvesters`, `/hq`, `/shrines`, `/shop`, `/mailbox` -- the base-building layer
-- `/pull` -- gacha pull for characters (costs Shards); odds and pity are on the banner itself
-- `/open <tier>` -- open all lootboxes of a tier (also reachable from `/stash`)
+
+**Everything else**
+
+- `/profile` -- account level, roster completion, power and currencies
+- `/notifications` -- opt in to reminder DMs. **Off by default**; at most
+  one a day, only when something is actually going to waste, and it
+  stops trying if your DMs are closed
 - `/encyclopedia` -- reference for characters, classes, enemies, abilities,
   equipment, and materials
+- `/leaderboard` -- how you rank against everyone else in this server
+- `/gift`, `/gifts` -- send another player materials or gold, and collect
+  what you have been sent
+- `/reset` -- wipe your account and start over, cleanly or with prestige rewards
+
+**Admin**
+
 - `/admin_boosterkit` -- (Administrator only) grants a target user gold,
-  shards, and starter lootboxes
+  shards, and starter lootboxes. Once per player
+- `/grant` -- (bot owner only, see `BOT_OWNER_IDS`) give any user any
+  amount of any resource
 
 ### Combat at a glance
 
@@ -228,7 +295,7 @@ what a given material can actually produce.
   per-message. Callbacks always look up the interacting user's own
   expedition/battle by Discord ID rather than trusting anything embedded in
   the component itself.
-- **Mutating commands lock during combat.** `/pull`, `/harvesters`,
+- **Mutating commands lock during combat.** `/pull`, `/base harvesters`,
   `/open`, and equip/level-up/reroll/open-lootbox actions inside
   `/inventory` all check `dungeon_service.is_in_combat()` first.
 - **Rarity and templates are decoupled.** Loot generation rolls a rarity

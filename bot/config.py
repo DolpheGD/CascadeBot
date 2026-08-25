@@ -27,6 +27,32 @@ ADMIN_USER_IDS = {
 }
 
 # ----------------------------------------------------------------------
+# BOT OWNER(S) -- a STRICTLY narrower gate than ADMIN_USER_IDS.
+#
+# ADMIN_USER_IDS also lets through anyone holding Discord's
+# "Administrator" permission in the server they're typing in. That is
+# fine for /admin_boosterkit, which hands out a fixed, modest bundle.
+#
+# It is NOT fine for /grant, which mints an arbitrary amount of any
+# currency. With the admin gate, every administrator of every server the
+# bot is ever added to could print unlimited shards -- and the bot cannot
+# control who that is, because anyone can create a server, add the bot,
+# and be an administrator of it in about thirty seconds.
+#
+# So owner-only means owner-only: an explicit allowlist of Discord user
+# IDs, checked with no fallback. If this is empty the command refuses
+# EVERYONE, which is the correct failure direction for a money printer.
+#
+# Set it in .env:
+#     BOT_OWNER_IDS=123456789012345678
+# ----------------------------------------------------------------------
+BOT_OWNER_IDS = {
+    int(uid.strip())
+    for uid in os.getenv("BOT_OWNER_IDS", "").split(",")
+    if uid.strip()
+}
+
+# ----------------------------------------------------------------------
 # Top.gg voting (/vote -- see bot/services/topgg_client.py)
 #
 # Entirely optional: with TOPGG_TOKEN unset the /vote command still loads,

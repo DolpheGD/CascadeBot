@@ -137,6 +137,7 @@ def main() -> int:
     model = build_difficulty_model()
     simulate = model["simulate"]
     level_from_xp = model["level_from_story_xp"]
+    level_before = model["level_before_mission"]
     verify_seeds = model["default_seeds"]
 
     solved: list[tuple[str, str, int, int, float]] = []
@@ -147,15 +148,24 @@ def main() -> int:
             continue
         squad_level = level_from_xp(chapter["id"])
         fights = [
-            (mission["name"], beat)
+            (mission["name"], mission["id"], beat)
             for mission in chapter["missions"]
             for beat in mission.get("beats", [])
             if beat.get("kind") == "battle"
         ]
         print(f"\n{chapter['name']}  (squad level {squad_level})")
-        for index, (name, beat) in enumerate(fights):
+        for index, (name, mission_id, beat) in enumerate(fights):
             target = targets[min(index, len(targets) - 1)]
             enemies = beat["enemies"]
+            # SOLVED AT THE LEVEL THE FIGHT IS ACTUALLY FOUGHT AT.
+            #
+            # The chapter-END level was the old anchor, and it hid the
+            # game's worst difficulty spike: Chapter One's fights were
+            # solved against a level-16 squad and are met by a level-6
+            # one. Measured honestly they were a 38% / 39% / 10% / 39%
+            # win wall immediately after a prologue that never costs more
+            # than 8% of the squad's health.
+            squad_level = level_before(mission_id)
 
             # BISECTION, not hill-climbing from the current value.
             # Health cost rises monotonically with enemy level, so

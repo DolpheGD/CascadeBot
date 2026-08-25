@@ -489,6 +489,24 @@ def main() -> int:
         return True, sum(max(0, m.current_hp) for m in party) / total
 
     regions = [args.region] if args.region else list(_region_profile())
+    # --region takes an EXACT region name, and a name that matches nothing
+    # used to filter the list down to zero and then print a full table
+    # with every cell blank -- a result that looks like a finished run and
+    # says nothing. `--region Entrospire` did exactly that: the region is
+    # called "Entrospire Deepworks", the sweep reported an empty grid, and
+    # the honest reading of that output is "no data", not "no problem".
+    #
+    # A benchmark whose failure mode is a plausible-looking empty answer
+    # is worse than one that crashes. Substring-match so the short name
+    # works, and refuse outright if it still matches nothing.
+    if args.region:
+        matches = [r for r in ordered_regions()
+                   if args.region.lower() in r.lower()]
+        if not matches:
+            parser.error(
+                f"no region matches {args.region!r}. Known regions: "
+                + ", ".join(ordered_regions()))
+        regions = matches
     regions = [r for r in ordered_regions() if r in regions]
 
     # ---- resumable cache -------------------------------------------

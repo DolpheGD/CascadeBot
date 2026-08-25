@@ -526,7 +526,7 @@ def _resonance_order(owned: list, current_id: int) -> list:
     """Current character first, then closest to their next Resonance --
     which is what someone opening this menu is shopping for."""
     return sorted(owned, key=lambda pc: (pc.id != current_id, -pc.dupe_count,
-                                         -pc.template.star_rating, pc.display_name))
+                                         -pc.effective_star, pc.display_name))
 
 
 class ResonancePickerSelect(discord.ui.Select):

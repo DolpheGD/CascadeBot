@@ -35,11 +35,19 @@ from bot.database.models.enums import MaterialType, Rarity
 
 MAX_FORGE_LEVEL = 5
 
+# Upgrade costs come down at the top end with the craft ladder, for the
+# same reason. Level 4 -> 5 unlocks Divine crafting and used to cost
+# 120,000 gold plus 700 materials that have no passive source -- roughly
+# three Divine crafts, paid before making the first one. A gate priced
+# well above the thing it gates is a gate nobody opens.
+#
+# The early levels are unchanged: they were never the problem, and they
+# are paid in wood/stone/metal, which harvesters actually produce.
 FORGE_UPGRADE_COST: dict[int, dict[str, int]] = {
     1: {"gold": 4000, "stone": 220, "metal": 120},
     2: {"gold": 14000, "metal": 400, "crystal": 160},
-    3: {"gold": 42000, "crystal": 520, "xendium": 200},
-    4: {"gold": 120000, "xendium": 480, "permafrost_ore": 220},
+    3: {"gold": 30000, "crystal": 380, "xendium": 140},
+    4: {"gold": 70000, "xendium": 320, "permafrost_ore": 150},
 }
 
 # Forge level -> the highest rarity it can CRAFT. The main upgrade
@@ -79,12 +87,52 @@ FORGE_UNLOCKS: dict[str, int] = {
 # Common and Uncommon are absent deliberately -- they aren't craftable
 # (see FORGE_MAX_RARITY). They remain in MATERIALS_BY_RARITY below,
 # because SALVAGE still has to know what to break a Common down into.
+# REPRICED. The old ladder made the Forge pointless at exactly the
+# rarities it exists for, and the measurement that shows it is the ratio
+# of craft cost to the gold needed to take that same item to MAX LEVEL:
+#
+#     rarity      craft gold   gold to max   ratio      (old)
+#     rare             2,500         3,745   0.67x
+#     epic             7,000         7,410   0.94x
+#     legendary       18,000        12,700   1.42x
+#     mythic          45,000        19,865   2.27x
+#     divine         110,000        29,155   3.77x
+#
+# Crafting a Divine cost nearly FOUR TIMES what it costs to fully upgrade
+# one. Acquisition is supposed to be the cheap half of owning an item and
+# investment the expensive half; that ladder inverts the relationship,
+# and it inverts hardest at the top, where targeting a slot is the only
+# reason the Forge exists. A player who does the arithmetic once never
+# opens the Forge again, which is what "never worth it" means.
+#
+# The cause is the curve, not any single number: craft gold multiplied by
+# ~2.5x per tier while everything it competes with -- upgrade gold,
+# fragment costs, material income -- rises by about 1.5x. Two curves that
+# diverge like that are fine near the bottom and absurd at the top.
+#
+# The new ladder holds the ratio between 0.67x and 1.30x, so a craft
+# still costs MORE at higher rarity (rarity should cost more) without
+# ever costing multiples of the item's whole future.
+#
+#     rarity      craft gold   gold to max   ratio      (new)
+#     rare             2,500         3,745   0.67x   unchanged
+#     epic             6,000         7,410   0.81x
+#     legendary       12,000        12,700   0.94x
+#     mythic          22,000        19,865   1.11x
+#     divine          38,000        29,155   1.30x
+#
+# MATERIALS COME DOWN HARDER THAN GOLD at the top, because they are the
+# real gate. Harvesters produce wood, stone and metal and nothing else --
+# crystal, xendium, permafrost ore, void and entropy have NO passive
+# income at all and arrive only through deep runs and salvage. A
+# 260-material Divine craft priced in three resources a player cannot
+# farm passively is a wall wearing a price tag.
 CRAFT_COST: dict[Rarity, dict[str, int]] = {
     Rarity.RARE: {"gold": 2500, "materials": 40},
-    Rarity.EPIC: {"gold": 7000, "materials": 70},
-    Rarity.LEGENDARY: {"gold": 18000, "materials": 110},
-    Rarity.MYTHIC: {"gold": 45000, "materials": 170},
-    Rarity.DIVINE: {"gold": 110000, "materials": 260},
+    Rarity.EPIC: {"gold": 6000, "materials": 60},
+    Rarity.LEGENDARY: {"gold": 12000, "materials": 90},
+    Rarity.MYTHIC: {"gold": 22000, "materials": 130},
+    Rarity.DIVINE: {"gold": 38000, "materials": 190},
 }
 
 # Materials a craft/salvage at a given rarity deals in. Three per tier so
@@ -126,12 +174,83 @@ def salvage_material_base(rarity: Rarity) -> int:
 # own rarity. Well under 1.0 on purpose: salvaging is a way to convert
 # gear you'll never use into something you will, not a way to launder
 # materials in a circle.
-SALVAGE_RETURN_PERCENT = 35
+#
+# RAISED 35 -> 50 alongside the craft repricing, and it is the same fix
+# seen from the other side. High-tier materials have no passive source
+# (see the CRAFT_COST note), so the only way to accumulate them is to run
+# expeditions and break down what drops. At 35% a player had to salvage
+# roughly three unwanted Divines to afford one targeted craft; the pile
+# of junk gear that should have been feeding the Forge was instead just
+# sitting in the inventory.
+#
+# 50% still cannot be farmed in a circle -- crafting costs 190 and
+# salvaging the result returns 95, so the loop always runs at a loss, and
+# the loss is exactly what stops it being an exploit.
+SALVAGE_RETURN_PERCENT = 50
 
-# Flat costs for the non-craft operations, scaled by the item's rarity
-# tier so working on a Divine item is never cheap.
-REFORGE_COST: dict[str, int] = {"gold": 1500, "materials": 25}
-TRANSFER_COST: dict[str, int] = {"gold": 6000, "materials": 60}
+# Reforge and Transfer are priced as a FRACTION OF A CRAFT at the same
+# rarity, rather than from their own table.
+#
+# THE ORDERING THAT HAS TO HOLD, at every rarity:
+#
+#     reforge  <  transfer  <  craft
+#
+# It follows from what each one gives. Reforge re-rolls one ability on an
+# item you keep. Transfer puts a chosen ability on a chosen item but
+# DESTROYS the donor -- a real cost that appears in no table, which is
+# why it sits below craft rather than above it. Craft produces a whole
+# new item and is dearest.
+#
+# WHY DERIVED AND NOT TABULATED. These used to be flat bases multiplied
+# by (rarity.sort_order + 1), which is a LINEAR curve, while the craft
+# ladder rises about 1.7x per tier. Two curves with different shapes
+# cross, and these did: at the old numbers a Divine transfer cost 42,000
+# gold against 38,000 to craft an entire new Divine.
+#
+# Re-basing the flat numbers fixed Divine and left the ordering inverted
+# at rare, epic, legendary and mythic -- transfer cost more than a craft
+# at four rarities out of five, and the comment written at the time
+# claimed the ordering "now does" hold. It did not. Measuring it printed
+# INVERTED on four rows.
+#
+# A percentage of the craft cost cannot drift, because there is only one
+# curve. Change CRAFT_COST and these follow.
+REFORGE_PERCENT_OF_CRAFT = 22
+TRANSFER_PERCENT_OF_CRAFT = 55
+
+# For rarities the Forge cannot craft (Common, Uncommon) there is no
+# craft cost to take a percentage of. They still need a price, because a
+# player can reforge a Common. Priced off the salvage baseline instead,
+# which is the only other number that describes those rarities.
+UNCRAFTABLE_GOLD_PER_MATERIAL = 45
+
+
+def _craft_basis(rarity: Rarity) -> dict[str, int]:
+    """The craft cost Reforge and Transfer are priced against."""
+    entry = CRAFT_COST.get(rarity)
+    if entry is not None:
+        return entry
+    materials = SALVAGE_BASE_UNCRAFTABLE.get(rarity, 12)
+    return {"gold": materials * UNCRAFTABLE_GOLD_PER_MATERIAL,
+            "materials": materials}
+
+
+def _fraction_of_craft(rarity: Rarity, percent: int) -> dict[str, int]:
+    basis = _craft_basis(rarity)
+    return {
+        "gold": max(1, round(basis["gold"] * percent / 100)),
+        "materials": max(1, round(basis["materials"] * percent / 100)),
+    }
+
+
+def reforge_cost(rarity: Rarity) -> dict[str, int]:
+    """Gold and materials to re-roll one item's ability."""
+    return _fraction_of_craft(rarity, REFORGE_PERCENT_OF_CRAFT)
+
+
+def transfer_cost(rarity: Rarity) -> dict[str, int]:
+    """Gold and materials to move an ability, consuming the donor."""
+    return _fraction_of_craft(rarity, TRANSFER_PERCENT_OF_CRAFT)
 
 
 def forge_upgrade_cost(level: int) -> dict[str, int] | None:

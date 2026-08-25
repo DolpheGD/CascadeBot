@@ -994,10 +994,26 @@ def _map_screen(db, player, readout: dict | None = None):
         standing_on = f"{content.get('emoji', '')} **{content.get('name', '')}**".strip()
         if state["done"]:
             standing_on += " — already done"
+        elif content.get("kind") == "exit":
+            # SAY WHERE IT GOES BEFORE THEY PRESS THE BUTTON.
+            #
+            # Pressing ✋ on an exit travels immediately -- there is no
+            # confirmation step, by design, because a doorway asking "are
+            # you sure" every time would be worse. That makes this line
+            # the last thing the player sees before they commit, so it is
+            # the one place the destination genuinely has to appear.
+            # One-way doors say so here for the same reason: it is the
+            # final moment the warning can still change a decision.
+            where = map_service.destination_label(
+                state["area_id"], content.get("to_area", ""))
+            standing_on += f" → **{where}**"
+            if content.get("one_way"):
+                standing_on += "  *(one way — you can't come back)*"
     embed = embedder.story_map_embed(
         area=state["area"],
         grid=map_service.render(db, story),
         legend=map_service.legend_lines(db, story),
+        exits=map_service.exit_lines(db, story, state["area_id"]),
         standing_on=standing_on,
         locked=state["locked"],
         readout=readout,

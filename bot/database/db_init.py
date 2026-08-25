@@ -46,6 +46,12 @@ def _ensure_columns(conn):
     # character_service.rename_avatar / the /rename command.
     add_column("player_characters", "custom_name", "VARCHAR(32)")
 
+    # Character evolution stage. 0 for every existing character, which is
+    # the only honest backfill: nobody has paid for an evolution yet, and
+    # granting one retroactively would hand out stat bonuses that the
+    # difficulty ladder was not tuned against.
+    add_column("player_characters", "evolution_stage", "INTEGER DEFAULT 0")
+
     # Talent nodes bought, as a JSON list of ids. NULL/absent reads as
     # "nothing bought", which is correct for every existing character --
     # their points are all unspent and waiting, rather than auto-assigned
@@ -130,6 +136,9 @@ def _ensure_columns(conn):
     add_column("players", "cores", "INTEGER DEFAULT 0")
 
     # Character Card pity, mirroring the character gacha's counters.
+    add_column("players", "card_pity_since_five_star", "INTEGER DEFAULT 0")
+    add_column("players", "card_pity_since_four_star", "INTEGER DEFAULT 0")
+
     # Targeted 5-star nominations. NULL means "no target", which is the
     # correct state for every existing player -- backfilling a target
     # would start silently steering pulls somebody never asked to steer.
@@ -138,8 +147,49 @@ def _ensure_columns(conn):
     add_column("players", "target_card", "VARCHAR(64)")
     add_column("players", "target_card_guaranteed", "BOOLEAN DEFAULT 0")
 
-    add_column("players", "card_pity_since_five_star", "INTEGER DEFAULT 0")
-    add_column("players", "card_pity_since_four_star", "INTEGER DEFAULT 0")
+    # Async squad challenges. Everyone starts unrated with no history,
+    # which is exactly right -- a rating backfilled from gear would seed
+    # matchmaking with numbers nobody earned.
+    add_column("players", "challenge_power", "INTEGER DEFAULT 0")
+    add_column("players", "challenge_wins", "INTEGER DEFAULT 0")
+    add_column("players", "challenge_losses", "INTEGER DEFAULT 0")
+    add_column("players", "last_challenge_at", "DATETIME")
+    add_column("players", "challenges_today", "INTEGER DEFAULT 0")
+
+    # Presence and reminders. Existing players read as never-seen (NULL),
+    # which the away summary treats as "no absence to report" rather than
+    # "away forever" -- the first command after this deploys sets it, and
+    # nobody gets a spurious welcome-back for time that predates the
+    # feature.
+    #
+    # reminders_enabled defaults to 0: opt-in, for everyone, including
+    # players who already existed. Enabling it for the existing player
+    # base would be sending unsolicited DMs to every single one of them
+    # on the first night.
+    add_column("players", "last_seen_at", "DATETIME")
+    add_column("players", "reminders_enabled", "BOOLEAN DEFAULT 0")
+    add_column("players", "last_reminder_at", "DATETIME")
+    add_column("players", "reminder_failures", "INTEGER DEFAULT 0")
+
+    # Challenge cycles. Existing players start in the CURRENT cycle with
+    # zero points and nothing banked, which is the only defensible
+    # backfill: there is no record of which week their past challenge
+    # wins happened in, so any retroactive points would be invented.
+    #
+    # challenge_claimed_cycle defaults to -1 rather than 0 because 0 is a
+    # real cycle index. Defaulting to 0 would tell the game that every
+    # existing player had already claimed cycle 0 -- harmless today, and
+    # exactly the kind of off-by-one that only shows up when somebody
+    # resets the epoch and cycle 0 comes round again.
+    add_column("players", "challenge_cycle", "INTEGER DEFAULT 0")
+    add_column("players", "challenge_points", "INTEGER DEFAULT 0")
+    add_column("players", "challenge_banked_points", "INTEGER DEFAULT 0")
+    add_column("players", "challenge_claimed_cycle", "INTEGER DEFAULT -1")
+
+    # Booster kit claim flag. Existing players read as NOT claimed, which
+    # is the generous reading -- anybody who already received one keeps
+    # it and can receive one more, once.
+    add_column("players", "booster_kit_claimed", "BOOLEAN DEFAULT 0")
 
     # Evolution Fragments -- the breakthrough material
     # (bot/game/economy/evolution_config.py). Existing players start at 0,

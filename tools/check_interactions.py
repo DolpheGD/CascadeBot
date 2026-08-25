@@ -48,15 +48,30 @@ COGS = pathlib.Path("bot/cogs")
 # cogs: bot/utils/ui_guard.py replies too, and views live outside cogs.
 ROOT = pathlib.Path("bot")
 
-# Commands whose primary reply is private, and which must therefore
-# defer privately -- a public defer would leave a visible "thinking..."
-# placeholder attached to an answer nobody else should see.
-EPHEMERAL_PRIMARY = {"admin_boosterkit", "reset", "help", "sell_rarity",
-                     "gifts", "vote"}
+# Whether a command's defer is private is not declared anywhere -- it is
+# DERIVED from the replies the command actually makes, below.
+#
+# This used to be a hardcoded set of command names, and it went stale the
+# first time a command was added: /grant replies ephemerally in every one
+# of its five branches, was not on the list, and so the check reported a
+# mismatch that did not exist. A list of names that has to be edited in
+# lockstep with the code is the same failure that let /adventure ship
+# with a hardcoded five-region menu while a sixth region existed -- two
+# places holding one fact, drifting apart the moment anyone looks away.
+#
+# The rule the list was trying to express: a command whose every reply is
+# ephemeral must defer ephemerally, because a public defer leaves a
+# visible "thinking..." placeholder hanging off an answer nobody else can
+# read. Read straight off the replies, that rule needs no maintenance.
+#
+# responses.edit() is deliberately NOT counted. An edit replaces the
+# deferred message and inherits its visibility, so it says nothing about
+# what the author intended -- it is the defer's own consequence, and
+# treating it as evidence would make the check argue in a circle.
 
 
-def _commands_in(path: pathlib.Path):
-    tree = ast.parse(path.read_text())
+def _commands_in(path: pathlib.Path, tree=None):
+    tree = tree if tree is not None else ast.parse(path.read_text())
     for node in ast.walk(tree):
         if not isinstance(node, ast.AsyncFunctionDef):
             continue
@@ -68,7 +83,9 @@ def _commands_in(path: pathlib.Path):
 def check_every_command_defers(failures: list[str]) -> int:
     total = 0
     for path in sorted(COGS.glob("*.py")):
-        for node in _commands_in(path):
+        tree = ast.parse(path.read_text())
+        helpers = _replying_helpers(tree)
+        for node in _commands_in(path, tree):
             total += 1
             body = list(node.body)
             # Skip a docstring if the command has one.
@@ -83,14 +100,75 @@ def check_every_command_defers(failures: list[str]) -> int:
                     f"{first[:50]!r}) -- it will die on a slow query"
                 )
                 continue
-            wants_private = node.name in EPHEMERAL_PRIMARY
+            wants_private = _replies_are_all_private(node, helpers)
             is_private = "ephemeral=True" in first
-            if wants_private != is_private:
+            if wants_private is not None and wants_private != is_private:
                 failures.append(
                     f"{path.name} /{node.name} defers with ephemeral={is_private}, "
-                    f"but its primary reply is {'private' if wants_private else 'public'}"
+                    f"but every reply it makes is "
+                    f"{'private' if wants_private else 'not'} -- "
+                    f"defer {'ephemeral=True' if wants_private else 'publicly'} to match"
                 )
     return total
+
+
+# Calls that produce a NEW message the player sees. edit() is excluded on
+# purpose; see the note at the top of the file.
+_REPLY_CALLS = {"responses.send", "ctx.followup.send",
+                "interaction.followup.send"}
+
+
+def _replying_helpers(tree) -> set[str]:
+    """Module-level functions in this file that reply to the player.
+
+    A command that calls one of these has handed its primary reply
+    somewhere this check cannot follow.
+    """
+    helpers = set()
+    for node in tree.body:
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for inner in ast.walk(node):
+            if isinstance(inner, ast.Call) and ast.unparse(inner.func) in (
+                    _REPLY_CALLS | {"responses.edit"}):
+                helpers.add(node.name)
+                break
+    return helpers
+
+
+def _replies_are_all_private(node, helpers: set[str] = frozenset()) -> bool | None:
+    """True if every reply is ephemeral, False if any is public.
+
+    None means "cannot tell", and it is the answer far more often than it
+    looks. A command whose only visible reply is a guard clause --
+    `if player is None: send(..., ephemeral=True); return` -- and whose
+    real output goes through a render helper reads, to a naive AST walk,
+    as a command that only ever replies privately. /cards is exactly that
+    and was the first thing this rewrite wrongly flagged.
+
+    So: delegate to a helper that replies, and this returns None. Better
+    to check nothing than to check the wrong thing confidently -- an
+    over-reporting harness gets ignored, and then it is worth less than
+    no harness at all.
+    """
+    for inner in ast.walk(node):
+        if isinstance(inner, ast.Call) and ast.unparse(inner.func) in helpers:
+            return None
+
+    replies = []
+    for inner in ast.walk(node):
+        if not isinstance(inner, ast.Call):
+            continue
+        target = ast.unparse(inner.func)
+        if target in _REPLY_CALLS:
+            replies.append(
+                any(kw.arg == "ephemeral"
+                    and isinstance(kw.value, ast.Constant)
+                    and kw.value.value is True
+                    for kw in inner.keywords))
+    if not replies:
+        return None
+    return all(replies)
 
 
 def check_no_raw_responses(failures: list[str]) -> None:

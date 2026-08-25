@@ -148,6 +148,7 @@ from bot.game.dungeon.encounter_config.merchant import MERCHANT_ENCOUNTERS
 from bot.game.dungeon.encounter_config.expansion import EXPANSION_ENCOUNTERS
 from bot.game.dungeon.encounter_config.comedy import COMEDY_ENCOUNTERS
 from bot.game.dungeon.encounter_config.relic_event import RELIC_EVENT_ENCOUNTERS
+from bot.game.dungeon.encounter_config.variety import VARIETY_ENCOUNTERS
 
 # One flat list, in the order the modules are listed above. Nothing depends
 # on that order -- callers always filter by room type or look up by id.
@@ -169,6 +170,12 @@ ENCOUNTERS: list[dict] = [
     # relic_event.py for why these are encounters and not a system of
     # their own.
     *RELIC_EVENT_ENCOUNTERS,
+    # Three explicit bands of stakes -- see variety.py. The roster had
+    # drifted into one middle range of consequence, where every choice
+    # cost a little and paid a little; these are the deliberately
+    # dangerous end, the deliberately trivial end, and the conversions
+    # that let a run's surplus become what the run was short of.
+    *VARIETY_ENCOUNTERS,
 ]
 
 def get_encounter_by_id(encounter_id: str) -> dict | None:

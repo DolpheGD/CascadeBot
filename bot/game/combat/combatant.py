@@ -220,6 +220,17 @@ def amplified_percent(modifiers: list, stat: str) -> float:
     since the budget is shared across stats.
     """
     # Debuffs on this stat, biggest first, each subsequent one halved.
+    #
+    # PER-STAT, and ranking by SOURCE across all stats instead (mirroring
+    # the buff ladder above) was tried, measured and reverted: at
+    # Entrospire it moved "double support" from 27% to 30% against "1 of
+    # each" at 21%, the opposite of the intent. The ranking is why. One
+    # rank per source means a DPS landing an incidental deep debuff can
+    # take the untaxed slot and push a real Support DPS's shred down a
+    # rung -- which penalises the balanced squad that brings one of each
+    # and not the stacked squad it was aimed at. Buffs do not have that
+    # problem, because a squad stacking Amplifiers has no other source to
+    # displace.
     negatives = 0.0
     for index, modifier in enumerate(
         sorted((m for m in modifiers if m.stat == stat and m.percent < 0),

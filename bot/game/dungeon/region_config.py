@@ -283,15 +283,57 @@ REGION_DIFFICULTY: dict[str, dict] = {
         # The enemy roster is machinery rather than soldiers (see
         # enemies.py) -- sustained pressure and inevitability instead of
         # burst, which is also what makes it survivable at these offsets.
+        #
+        # OFFSETS CUT 46/57 -> 43/52, AND THIS IS THE FIX FOR THE REGION'S
+        # SQUAD-COMP PROBLEM. Nine attempts; this was the ninth.
+        #
+        # Entrospire preferred "1 DPS + 2 Support DPS + Sustain" over "one
+        # of each" by 27% to 20% over 600 runs, and eight fixes aimed at
+        # the boss, the enemies, the crowds and the debuff ladder either
+        # did nothing or made it worse (all eight are listed above The
+        # Process in enemies.py). The pattern across them was the answer:
+        # every change that ADDED pressure widened the gap, and the only
+        # one that ever narrowed it REMOVED pressure.
+        #
+        # Which means the cause was never the shape of any fight. A
+        # Support DPS's debuffs reduce incoming damage, so two of them are
+        # two layers of mitigation, and the harder the content the more
+        # that is worth. At a 20% clear rate for a balanced squad -- the
+        # lowest in the game, BELOW Abyssnia's 29% -- nothing survived
+        # except the most defensive comp available.
+        #
+        # Cutting the offsets took "one of each" from 20% to 29% while the
+        # stacked comp barely moved (27% -> 28%), closing the gap from
+        # 0.13 to 0.02 and putting all six regions on target for the first
+        # time.
+        #
+        # It also makes the code match the design stated three paragraphs
+        # up. This region is documented as "deliberately SHALLOW in
+        # difficulty and steep in VOLUME... not a fresh difficulty cliff",
+        # and at 46/57 it was measurably the hardest content in the game.
+        # The comment was right and the numbers were wrong.
         "expected_squad_level": 85, "expected_gear_rarity": Rarity.DIVINE, "expected_gear_level": 35,
         "tier": 6, "difficulty_label": "Terminal",
-        "final_boss_level_delta": -24, "level_offset": 46, "combat_level_offset": 57,
+        "final_boss_level_delta": -24, "level_offset": 43, "combat_level_offset": 52,
         "reward_multiplier": 8.5,
         "gold_multiplier": 70.0,
         "max_item_rarity": Rarity.DIVINE, "max_lootbox_tier": "mythic",
         "rarity_weight_bonus": 420,
-        "combat_squad_weights": {3: 8, 4: 32, 5: 60},
-        "elite_squad_weights": {1: 8, 2: 32, 3: 60},
+        # LESS CROWDED THAN ABYSSNIA, not more.
+        #
+        # These started at {3:8, 4:32, 5:60} / {1:8, 2:32, 3:60} -- more
+        # enemies per room than the region before it. Combined with a
+        # roster built around sustained chip damage, that made the whole
+        # region one long attrition check, and attrition rewards exactly
+        # one thing: measured over 200 runs, "double support" cleared 28%
+        # where "1 of each" cleared 14%. A region where the answer is
+        # always two healers is a region with one strategy.
+        #
+        # Region six's identity is meant to be relentlessness, not
+        # swarms, so the crowd sizes come DOWN and the pressure stays in
+        # the enemy kits where it belongs.
+        "combat_squad_weights": {3: 22, 4: 40, 5: 38},
+        "elite_squad_weights": {1: 22, 2: 40, 3: 38},
     },
 }
 

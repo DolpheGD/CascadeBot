@@ -1115,6 +1115,22 @@ AREAS: dict[str, dict] = {
                 "name": "The side door — the bunks",
                 "to_area": "hub_bunks",
                 "to": [1, 3],
+                # GATED, and it was not.
+                #
+                # The bunks hold s4_the_photograph, which is Chapter Four
+                # material and pays like it: 34,000 gold, 1,700 cores,
+                # 1,200 fragments, a mythic and two mythic lootboxes. The
+                # room sat two ungated doors from the Atrium, so a player
+                # who had just finished the PROLOGUE could walk in and
+                # take all of it. Measured, that one room was 34,000 of
+                # the 45,170 gold reachable at that point.
+                #
+                # Gating the DOOR rather than the tile keeps the room
+                # coherent -- the photograph, the go-bag and Jofrog's
+                # conversation are one scene and should arrive together.
+                "requires_mission": "c4m1_the_audit_begins",
+                "locked_text": ("Somebody is asleep in there. Whatever this is "
+                                "about, it can wait."),
             },
         },
     },
@@ -1514,6 +1530,13 @@ AREAS: dict[str, dict] = {
                 "puzzle_kind": "code",
                 "emoji": "🔐",
                 "name": "The cabinet nobody has a key for",
+                # Chapter One material in a room the prologue opens. The
+                # clue that solves it is something Refender says during
+                # the pitch, so this gate is also what makes the puzzle
+                # solvable rather than guessable.
+                "requires_mission": "c1m2_the_pitch",
+                "locked_text": ("A locked cabinet. You do not yet know how this "
+                                "place files things, let alone the combination."),
                 "text": ("Four-drawer steel cabinet, locked, with a four-letter "
                          "combination dial on the top drawer instead of a "
                          "keyhole.\n\n"
@@ -2047,8 +2070,13 @@ AREAS: dict[str, dict] = {
                 # Was level 20, which measured 12% -- barely a fight.
                 "enemies": ["Xender Spy Camera", "Corrupted Eris Sentry"],
                 "level": 30,
+                # EPIC, not legendary. This is gated behind c1m4 and
+                # Chapter One's own missions top out at epic -- an
+                # optional room handing out the next rarity band up is
+                # how a player skips a tier of gear progression by
+                # finding one room. Found by tools/check_reward_curve.
                 "grant": {"gold": 4800, "evolution_fragments": 230, "cores": 300,
-                          "item": "legendary"},
+                          "item": "epic"},
             },
         },
     },

@@ -144,26 +144,41 @@ def storage_capacity(db, harvester: PlayerHarvester) -> int:
     return round(rate * storage_hours(db, harvester))
 
 
-def collect_harvester(db, harvester: PlayerHarvester) -> int:
-    """Adds accrued production to the owner's balance (or grants XP), resets the clock.
-    Returns the amount collected (0 if nothing had accrued)."""
-    template = harvester.template
+def pending_production(db, harvester: PlayerHarvester) -> int:
+    """How much this harvester is holding right now, uncollected.
+
+    A READ -- it does not reset the clock or grant anything, so it is
+    safe to call anywhere for display.
+
+    Split out of collect_harvester so the number the player is SHOWN and
+    the number they are PAID come from one place. Computing it twice is
+    the failure this codebase hits most often, and it is especially nasty
+    here: the two would agree until somebody retuned the Logistics
+    research perk, and then the panel would quietly promise a figure the
+    collection did not deliver.
+    """
     now = dt.datetime.now(dt.timezone.utc)
-
-    last_collected = as_utc(harvester.last_collected_at)
-
-    elapsed_hours = (now - last_collected).total_seconds() / 3600
+    elapsed_hours = (now - as_utc(harvester.last_collected_at)).total_seconds() / 3600
     elapsed_hours = min(elapsed_hours, storage_hours(db, harvester))
     elapsed_hours = max(elapsed_hours, 0.0)
 
-    rate = get_production_rate(template, harvester.level)
-    amount = round(rate * elapsed_hours)
+    amount = round(get_production_rate(harvester.template, harvester.level) * elapsed_hours)
 
     # Research Lab's Logistics branch (harvester_percent).
     from bot.services import research_service
     yield_bonus = research_service.perk_value(db, harvester.player_id, "harvester_percent")
     if yield_bonus:
         amount = int(round(amount * (1 + yield_bonus / 100)))
+    return amount
+
+
+def collect_harvester(db, harvester: PlayerHarvester) -> int:
+    """Adds accrued production to the owner's balance (or grants XP), resets the clock.
+    Returns the amount collected (0 if nothing had accrued)."""
+    template = harvester.template
+    now = dt.datetime.now(dt.timezone.utc)
+
+    amount = pending_production(db, harvester)
 
     harvester.last_collected_at = now
     db.commit()

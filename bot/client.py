@@ -194,6 +194,29 @@ class CascadeBot(commands.Bot):
             db = SessionLocal()
             try:
                 presence_service.record_seen(db, interaction.user.id, interaction.guild_id)
+                # last_seen_at rides the SAME listener, deliberately.
+                #
+                # It drives the "while you were away" summary, and the
+                # one thing that summary must not do is misreport how
+                # long somebody was gone. Stamping it per-cog would mean
+                # every new command is a chance to forget, and the
+                # symptom -- a welcome-back screen that says "3 days"
+                # to someone who played yesterday -- looks like a bug in
+                # the summary rather than a missing line in a cog.
+                #
+                # ORDERING TRAP, and it is why touch_last_seen does not
+                # simply write the current time. on_interaction fires
+                # BEFORE the command handler runs, so stamping "now" here
+                # would overwrite the very gap the summary needs to
+                # measure -- every player would read as zero hours away
+                # and the welcome-back screen would never appear once.
+                #
+                # So touch_last_seen leaves a long gap ALONE. The stamp
+                # is advanced by away_service.mark_shown() after the
+                # summary has actually been displayed, which also means a
+                # player cannot miss it by happening to run a command
+                # that does not render it.
+                presence_service.touch_last_seen(db, interaction.user.id)
             finally:
                 db.close()
         except Exception:  # pragma: no cover - never break an interaction

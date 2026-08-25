@@ -3109,12 +3109,67 @@ ENEMY_TEMPLATES: list[dict] = [
         # (-16 to +12) produced a winnable fight -- it was 0% at every
         # single one. A boss that only works at one exact level is a boss
         # that will break the next time anything moves.
+        # HP RAISED 1,750 -> 2,350 SO THE LADDER DOES NOT GO DOWN.
+        #
+        # tools/check_progression measures each region's capstone by
+        # effective HP and asserts the sequence rises. The Process came
+        # out at 8,657 against Abyssnia's Rohan at 10,767 -- a region
+        # gated BEHIND Abyssnia whose finale was easier than the one
+        # before it, which makes the whole unlock chain read backwards.
+        #
+        # Sized from the measured ratio (8,657 effective per 1,750 base,
+        # i.e. 4.95x at this region's level and scaling) rather than
+        # guessed, then re-verified against check_final_bosses so the
+        # fight stays winnable.
         "base_stats": {"attack": 24, "defense": 36, "elemental": 11, "speed": 22,
-                       "max_hp": 1750, "max_mana": 999, "crit_rate": 20,
+                       "max_hp": 2350, "max_mana": 999, "crit_rate": 20,
                        "crit_damage": 205, "recharge": 24},
         "level_scale_percent": 4,
         "actions_per_cycle": 3,
         "max_poise": 36,
+        # THIS FIGHT WAS BLAMED FOR THE REGION'S SQUAD-COMP PROBLEM FOR A
+        # LONG TIME, AND IT WAS NOT THE CAUSE. Read this before "fixing"
+        # anything here on comp-balance grounds.
+        #
+        # Entrospire preferred "1 DPS + 2 Support DPS + Sustain" over "one
+        # of each", 27% to 20% over 600 runs (tools/bench_roles). It was
+        # FIXED in region_config by cutting the region's level offsets
+        # 46/57 -> 43/52, which took the balanced comp to 29% and closed
+        # the gap to 0.02. See that file for the reasoning.
+        #
+        # Eight attempts came first and every one of them failed. They are
+        # listed in full so nobody spends another day re-running them:
+        #
+        #   steeper enemy attack ramp   WORSE (gap 0.13 -> 0.17)
+        #   hard turn cap (90, 60)      NO EFFECT (both comps fell together)
+        #   enemy HP down, attack up    WORSE (0.19)
+        #   thinner enemy crowds        BETTER (0.11) -- but only by making
+        #                               the whole region easier
+        #   DEBUFF_STACK_FALLOFF 0.5->0.35   NO EFFECT AT ALL
+        #   debuff ladder ranked by source   WORSE (0.15)
+        #   self-cleanse on this boss   WORSE (0.20)
+        #   two escorts on this boss    WORST (0.27) -- see below
+        #
+        # THE PATTERN ACROSS THEM IS WHAT SOLVED IT. Every intervention
+        # that ADDED pressure widened the gap; the only ones that ever
+        # narrowed it REMOVED pressure. That ruled out the theory each
+        # attempt rested on -- that stacked single-target debuffs were
+        # exploiting the shape of this fight -- and left a simpler one:
+        #
+        #     a Support DPS's debuffs REDUCE INCOMING DAMAGE, so two of
+        #     them are two layers of mitigation. The harder the content,
+        #     the more that is worth -- and Entrospire was, measurably,
+        #     the hardest content in the game.
+        #
+        # The escort attempt is the clearest evidence and the reason this
+        # boss is still a single body. Splitting it into three was meant
+        # to dilute stacked debuffs; instead "one of each" fell from 20%
+        # to 12% while the stacked comp held at 27%, because three bodies
+        # is more incoming damage and the stacked comp mitigates better.
+        #
+        # So: the fix was in region_config, not here. Do not add escorts
+        # to this boss to fix comp balance -- it has been measured, and it
+        # does the opposite.
         "active_abilities": [
             get_ability_by_id(WEAPON_SKILLS, "sunder_the_weak"),
             get_ability_by_id(ARTIFACT_SKILLS, "creeping_rot"),

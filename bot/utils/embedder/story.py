@@ -103,7 +103,8 @@ def story_menu_embed(story, next_mission: dict | None, player) -> discord.Embed:
 
 
 def map_embed(area: dict, grid: str, legend: list[str], standing_on: str | None,
-              locked: bool = False, readout: dict | None = None) -> discord.Embed:
+              locked: bool = False, readout: dict | None = None,
+              exits: list[str] | None = None) -> discord.Embed:
     """The overworld screen: the grid, then what's on it, then what's
     under your feet.
 
@@ -132,6 +133,21 @@ def map_embed(area: dict, grid: str, legend: list[str], standing_on: str | None,
         # never been close, but a truncated legend would silently hide
         # the one tile the player is looking for.
         embed.add_field(name="Here", value="\n".join(legend)[:1024], inline=False)
+
+    # WAYS OUT -- its own field, below what's in the room.
+    #
+    # "Here" answers what is in this place; this answers how you leave it
+    # and where each door goes. They were one list, and the doors lost:
+    # in a room with a mission, two NPCs and four exits, the exits are
+    # the entries a player scans for when they are done and want to move
+    # on, and they were scattered through everything else without ever
+    # naming a destination.
+    #
+    # Placed AFTER "Here" deliberately -- you decide what to do in a room
+    # before you decide to leave it, and the field order should match
+    # that order.
+    if exits:
+        embed.add_field(name="Ways out", value="\n".join(exits)[:1024], inline=False)
 
     if standing_on:
         embed.add_field(

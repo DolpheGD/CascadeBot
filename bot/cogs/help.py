@@ -53,11 +53,15 @@ _PAGES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
                 "`/start` — create your profile and your own avatar character\n"
                 "`/story` — **the main mode.** Start here.\n"
                 "`/squad` — set your 4-character team (slot 1 is always your avatar)\n"
+                "`/presets` — save named lineups and swap between them\n"
 
                 "`/talents` — spend talent points on a character (one per 5 levels, free respec)\n"
+                "`/evolve` — raise a 3★ or 4★ up the star ladder with echoes, gold "
+                "and evolution fragments. A native 5★ stays stronger.\n"
                 "`/class` — switch your avatar between DPS / Support DPS / Amplifier / Sustain\n"
                 "`/rename` — name your avatar\n"
                 "`/profile` — your account: level, roster, power and currencies\n"
+                "`/notifications` — reminder DMs when things are going to waste. **Off by default**, at most one a day\n"
                 "`/characters` — any character's full stats, equipment and abilities\n"
                 "`/reset` — start over. **Clean** wipes everything; **Prestige** wipes it "
                 "too but hands back gold, shards, lootboxes and materials scaled to how "
@@ -69,7 +73,10 @@ _PAGES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
                 "`/adventure` — a full dungeon run. Regions unlock in order; harder ones pay more.\n"
                 "`/domains` — single fights for direct rewards, costs energy, no run commitment. "
                 "Tiers unlock by clearing regions and by your total character levels.\n"
-                "`/raid` — your server's co-op boss.",
+                "`/raid` — your server's co-op boss.\n"
+                "`/challenge` — fight another player's squad. They don't need to be "
+                "online; you face their team run by the AI. Wins bank points "
+                "toward weekly milestones you claim when the cycle resets.",
             ),
         ],
     ),
@@ -207,15 +214,15 @@ _PAGES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
         [
             (
                 "Cascade HQ",
-                "`/hq` — upgrade HQ; it gates everything else below\n"
-                "`/harvesters` — buy, upgrade and collect passive income\n"
-                "`/shrines` — permanent party-wide stat bonuses\n"
-                "`/lab` — research permanent, account-wide upgrades\n"
-                "`/forge` — craft gear in the slot and rarity you choose",
+                "`/base hq` — upgrade HQ; it gates everything else below\n"
+                "`/base harvesters` — buy, upgrade and collect passive income\n"
+                "`/base shrines` — permanent party-wide stat bonuses\n"
+                "`/base lab` — research permanent, account-wide upgrades\n"
+                "`/base forge` — craft gear in the slot and rarity you choose",
             ),
             (
                 "Shop",
-                "`/shop` — a **materials market**: buy or sell every material for gold, and "
+                "`/base shop` — a **materials market**: buy or sell every material for gold, and "
                 "refine materials into the tier above. Tabs split Sell / Buy / Refine / Special.\n"
                 "Buying costs more than selling pays, so harvesting is always cheaper than "
                 "shopping. It doesn't sell gear — that comes from adventuring.",

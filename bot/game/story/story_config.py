@@ -1634,7 +1634,7 @@ CHAPTERS: list[dict] = [
                         # chapter climbs by adding bodies one at a time.
                         "kind": "battle",
                         "enemies": ["Rohan's Warden"],
-                        "level": 28,
+                        "level": 12,
                         "intro": (
                             "Jofrog comes through the side door faster than a man that "
                             "size should move.\n\n"
@@ -1852,7 +1852,7 @@ CHAPTERS: list[dict] = [
                         # rather than by raising a level.
                         "kind": "battle",
                         "enemies": ["Rohan's Warden", "Xender Recon Scout"],
-                        "level": 28,
+                        "level": 17,
                         "intro": (
                             "The lights go out in the order they are wired, which is "
                             "north wall first.\n\n"
@@ -2016,7 +2016,7 @@ CHAPTERS: list[dict] = [
                         # and nothing but measurement would have shown it.
                         "kind": "battle",
                         "enemies": ["Rohan's Warden", "Xender Recon Scout", "Concussion Drone"],
-                        "level": 30,
+                        "level": 14,
                         "intro": (
                             "The mast stops transmitting.\n\n"
                             "Not breaks. *Stops* — cleanly, mid-packet, the way a thing "
@@ -2319,7 +2319,7 @@ CHAPTERS: list[dict] = [
                         # here is the payoff for having grown into it.
                         "kind": "battle",
                         "enemies": ["Rohan's Herald"],
-                        "level": 21,
+                        "level": 14,
                         "intro": (
                             "It comes up the last of the road at the same walking pace it "
                             "has held for a mile, and stops at the workshop door.\n\n"
@@ -2953,7 +2953,7 @@ CHAPTERS: list[dict] = [
                         # frightened of the same thing.
                         "kind": "battle",
                         "enemies": ["H-Nation Vanguard", "H-Nation Border Trooper"],
-                        "level": 23,
+                        "level": 20,
                         "intro": (
                             "It goes wrong in the ordinary way these things go wrong: "
                             "somebody moves toward a vehicle, somebody else reads it as "
@@ -3289,7 +3289,7 @@ CHAPTERS: list[dict] = [
                         # site is playing.
                         "kind": "battle",
                         "enemies": ["Rohan's Assessor"],
-                        "level": 24,
+                        "level": 21,
                         "intro": (
                             "It has been standing between two of the tents the entire "
                             "time you have been on the site.\n\n"
@@ -3445,7 +3445,7 @@ CHAPTERS: list[dict] = [
                         # fight was a single watcher.
                         "kind": "battle",
                         "enemies": ["Rohan's Assessor", "Rohan's Warden"],
-                        "level": 23,
+                        "level": 21,
                         "intro": (
                             "Two of them come up out of the cut, unhurried, in the "
                             "formation you last saw on a hill at Ashfield.\n\n"
@@ -3627,7 +3627,7 @@ CHAPTERS: list[dict] = [
                         # him is the scene rather than an excuse.
                         "kind": "battle",
                         "enemies": ["Rohan's Negadom"],
-                        "level": 26,
+                        "level": 24,
                         "intro": (
                             "Rohan puts the clipboard down on a crate, squares it to the "
                             "edge, and steps back out of the way.\n\n"
@@ -4353,7 +4353,7 @@ CHAPTERS: list[dict] = [
                         # 38%. The line's own product, in numbers.
                         "kind": "battle",
                         "enemies": ["Rohan's Negadom"],
-                        "level": 38,
+                        "level": 39,
                         "intro": (
                             "The line stops.\n\n"
                             "Not breaks — stops, cleanly, mid-cycle, the way things stop "
@@ -4650,7 +4650,7 @@ CHAPTERS: list[dict] = [
                         # engage.
                         "kind": "battle",
                         "enemies": ["Rohan's Negadom", "Rohan's Warden"],
-                        "level": 36,
+                        "level": 31,
                         "intro": (
                             "He opens the last door and goes through it, and does not "
                             "hurry, and does not look back.\n\n"
@@ -5134,7 +5134,7 @@ CHAPTERS: list[dict] = [
                         # the player is defending rather than arriving.
                         "kind": "battle",
                         "enemies": ["Rohan's Warden", "Rohan's Warden"],
-                        "level": 49,
+                        "level": 44,
                         "intro": (
                             "Whatever the sheet said, it is finished now.\n\n"
                             "They come through the wire together, and for the first time "
@@ -5366,7 +5366,7 @@ CHAPTERS: list[dict] = [
                         # 59%.
                         "kind": "battle",
                         "enemies": ["Rohan's Negadom"],
-                        "level": 44,
+                        "level": 41,
                         "intro": (
                             "The audit notices.\n\n"
                             "Not the machines in the yard — the thing at the other end of "
@@ -5511,7 +5511,7 @@ CHAPTERS: list[dict] = [
                         # left mid-assembly.
                         "kind": "battle",
                         "enemies": ["Rohan's Catastrophe Soldier", "Rohan's Warden"],
-                        "level": 44,
+                        "level": 43,
                         "intro": (
                             "The thing at the far end of Level C has been standing in a "
                             "half-built state on a cradle, and it comes off the cradle "
@@ -6092,7 +6092,7 @@ CHAPTERS: list[dict] = [
                         # 42% -- the chapter's floor, in a village square.
                         "kind": "battle",
                         "enemies": ["Rohan's Catastrophe Soldier"],
-                        "level": 56,
+                        "level": 54,
                         "intro": (
                             "The thing at the head of the queue stops what it is doing, "
                             "and turns, and — this is the part that stays with everyone — "
@@ -6317,7 +6317,7 @@ CHAPTERS: list[dict] = [
                         # 68%.
                         "kind": "battle",
                         "enemies": ["Rohan's Negadom"],
-                        "level": 49,
+                        "level": 46,
                         "intro": (
                             "The response takes four minutes, which is the fastest he has "
                             "ever done anything.\n\n"
@@ -6457,7 +6457,7 @@ CHAPTERS: list[dict] = [
                         # 73%.
                         "kind": "battle",
                         "enemies": ["Rohan's Herald"],
-                        "level": 49,
+                        "level": 46,
                         "intro": (
                             "He is not in the room. The Herald is.\n\n"
                             "It is standing beside the desk in the manner of a thing that "

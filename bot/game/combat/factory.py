@@ -252,6 +252,27 @@ def base_character_stats(player_character) -> dict:
     for stat, amount in flat.items():
         if stat in stats:
             stats[stat] += amount
+
+    # EVOLUTION, applied last and for the same reason talents are applied
+    # here at all: this block is what _resolve_gear_stats computes every
+    # percent substat against, so a bonus applied after gear would be
+    # invisible to those substats and to every simulation the difficulty
+    # ladder is tuned against.
+    #
+    # Applied AFTER talents, multiplicatively, which is the deliberate
+    # choice: a rarity upgrade should be worth proportionally the same to
+    # a character who has spent their talent points as to one who hasn't,
+    # rather than being diluted by them.
+    #
+    # Only the six stats that grow with level move -- see EVOLVED_STATS
+    # for why crit and recharge are excluded.
+    stage = int(getattr(player_character, "evolution_stage", 0) or 0)
+    if stage:
+        from bot.game.economy import character_evolution_config as evo
+        multiplier = 1 + evo.stage_percent(stage) / 100
+        for stat in evo.EVOLVED_STATS:
+            if stat in stats:
+                stats[stat] *= multiplier
     return stats
 
 

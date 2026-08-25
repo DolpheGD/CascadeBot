@@ -94,7 +94,12 @@ UNGATED_COMMANDS: dict[str, str] = {
     "rename": "cosmetic, and offered during onboarding",
     "encyclopedia": "pure reference, like /help -- reads nothing you own",
     "vote": "top.gg voting is external to progression",
+    "notifications": ("a privacy preference, not content. Gating the OFF switch "
+                      "behind story progress would mean a player who wants the "
+                      "bot to stop DMing them has to play the game first"),
     "sync": "owner-only admin command",
+    "grant": ("owner-only; gated on BOT_OWNER_IDS, which is a far harder gate "
+              "than any story feature flag"),
     "admin_boosterkit": "admin-only, and enforces its own permission check",
     "reset": ("self-only and irreversible, but story-gating the command that EXISTS "
               "to replay the story would be circular. It gates itself far harder "

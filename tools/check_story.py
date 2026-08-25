@@ -511,6 +511,12 @@ def _level_from_story_xp(through_chapter_id: str) -> int:
         if chapter["id"] == through_chapter_id:
             break
 
+    return _level_for_xp(earned)
+
+
+def _level_for_xp(earned: int) -> int:
+    """The level the game's own curve produces for a total XP figure."""
+    XP_BASE, XP_GROWTH = 90, 1.055
     level, spent = 1, 0
     while True:
         needed = round(XP_BASE * (XP_GROWTH ** (level - 1)))
@@ -533,6 +539,42 @@ def build_difficulty_model(failures: list[str] | None = None) -> dict:
     """
     failures = [] if failures is None else failures
     return _build_difficulty_model(failures)
+
+
+def _mission_id_of(sc, chapter: dict, mission_name: str) -> str:
+    """The mission id behind a display name, within one chapter."""
+    for mission in chapter["missions"]:
+        if mission["name"] == mission_name:
+            return mission["id"]
+    return ""
+
+
+def _level_before_mission(mission_id: str) -> int:
+    """The level a story-only player has when they START a given mission.
+
+    THE CHAPTER-END LEVEL IS THE WRONG ANCHOR FOR THE FIRST FIGHT OF A
+    CHAPTER, and using it hid a real difficulty cliff.
+
+    _level_from_story_xp answers "what level are you when this chapter is
+    OVER", so every fight in Chapter One was measured against a level-16
+    squad. A player arriving from the prologue is level 6, and the first
+    thing Chapter One puts in front of them is a 974 HP Warden -- roughly
+    three times the health of anything in the prologue. The model said
+    100% win, 14% health; the player said the game just spiked.
+
+    Counting XP up to the mission that is actually being fought is what
+    makes the opening of a chapter measurable at all.
+    """
+    from bot.game.story import story_config as sc
+
+    earned = 0
+    for chapter in sc.CHAPTERS:
+        for mission in chapter["missions"]:
+            if mission["id"] == mission_id:
+                return _level_for_xp(earned)
+            for beat in mission["beats"]:
+                earned += int((beat.get("grant") or {}).get("xp", 0) or 0)
+    return _level_for_xp(earned)
 
 
 def _check_chapter_climaxes(failures: list[str]) -> list[tuple[str, str, float, float]]:
@@ -946,6 +988,9 @@ def _build_difficulty_model(failures: list[str]) -> dict:
         "cost": cost,
         "simulate": simulate,
         "level_from_story_xp": _level_from_story_xp,
+        # The honest anchor: the level a player has when they START a
+        # given mission, rather than when they finish its chapter.
+        "level_before_mission": _level_before_mission,
         "default_seeds": DEFAULT_SEEDS,
         "min_meaningful_gap": MIN_MEANINGFUL_GAP,
     })
@@ -1042,8 +1087,14 @@ def _report_climaxes(failures: list[str], model: dict) -> list[tuple[str, str, f
         squad_level = _level_from_story_xp(chapter["id"])
         scored = []
         for name, beat in fights:
+            # PER-MISSION LEVEL, not the chapter-end level. See
+            # _level_before_mission -- measuring Chapter One's opening
+            # fight against the level you finish Chapter One at reported
+            # 100% win on a fight that is, in fact, the first real
+            # difficulty spike in the game.
+            at_level = _level_before_mission(_mission_id_of(sc, chapter, name))
             fight_cost, win = simulate(beat["enemies"], beat.get("level", 1),
-                                       squad_level, chapter_id=chapter["id"])
+                                       at_level, chapter_id=chapter["id"])
             scored.append((name, beat, win * 100, fight_cost))
         for name, _b, win, fight_cost in scored:
             measured.append((chapter["name"], name, win, fight_cost))
