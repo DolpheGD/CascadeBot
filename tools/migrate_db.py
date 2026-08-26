@@ -211,6 +211,41 @@ def grandfather_story(db, dry_run: bool) -> int:
     # out. Reading one column makes it immune to schema drift elsewhere.
     player_ids = [row[0] for row in db.query(Player.id).all()]
 
+    # NEVER RE-GRANDFATHER AN ACCOUNT THE RESET WIPED.
+    #
+    # This function's rule -- "no story row means you predate story mode"
+    # -- was sound when the only way to lack a story row was to have
+    # existed before story mode. tools/reset_and_compensate.py added a
+    # second way, and the two meanings collided: a wiped account looked
+    # exactly like a veteran, so running this after a reset returned all
+    # 15 features to players who were supposed to start from the
+    # prologue. Measured, not theorised: 0/15 unlocked after the reset,
+    # 15/15 after this ran.
+    #
+    # The reset now writes an explicit row, which is the real fix and
+    # makes the loop below skip these accounts on the "already has a row"
+    # branch. This is the second line of defence, for the case where that
+    # row is missing anyway -- an older reset, a partial run, a restore
+    # from a backup taken mid-migration. The username marker is durable
+    # and survives everything the story tables do.
+    #
+    # Deliberately reads the marker from the reset tool rather than
+    # repeating the string, so the two cannot drift apart.
+    try:
+        from tools.reset_and_compensate import _MARKER
+        reset_ids = {
+            row[0] for row in
+            db.query(Player.id).filter(Player.username.like(f"%{_MARKER}%")).all()
+        }
+    except Exception:
+        # The reset tool is a one-time script and may be absent from a
+        # future deployment. Failing to import it must not stop the step
+        # that keeps veterans out of a lockout.
+        reset_ids = set()
+    if reset_ids:
+        print(f"     skipping {len(reset_ids)} account(s) wiped by the reset")
+        player_ids = [pid for pid in player_ids if pid not in reset_ids]
+
     # THE TABLE MAY NOT EXIST YET.
     #
     # --dry-run deliberately skips init_db(), which is the step that
@@ -262,6 +297,13 @@ def grandfather_story(db, dry_run: bool) -> int:
             # Anyone who has actually PLAYED the story is not a pre-story
             # player, and must not be handed the whole game.
             if row.completed_missions or row.active_mission:
+                continue
+            # Nor is anyone the reset wiped. They match the filter above
+            # only if something else set prologue_complete back to True,
+            # which would be a bug -- but this loop is where that bug
+            # would turn into "all 15 features returned", so it is worth
+            # one line to make it impossible.
+            if row.player_id in reset_ids:
                 continue
             row.grandfathered = True
             marked += 1

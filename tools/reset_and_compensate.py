@@ -315,9 +315,28 @@ def main() -> int:
                         help="copy the SQLite file here before writing")
     parser.add_argument("--limit", type=int, default=0,
                         help="only process N players (for a trial run)")
+    parser.add_argument("--relock", action="store_true",
+                        help="repair story gating for already-reset accounts "
+                             "(no wipe, no compensation) -- use if features "
+                             "came back after a migration")
     args = parser.parse_args()
 
     sys.path.insert(0, ".")
+
+    # ---- repair mode -------------------------------------------------
+    #
+    # For databases that were reset BEFORE the gating fix landed. Those
+    # accounts were wiped correctly and then had all 15 features handed
+    # back by migrate_db's grandfather_story, because a deleted story row
+    # reads as "predates story mode".
+    #
+    # Re-running the reset would be wrong twice over: it is idempotent
+    # and would skip these accounts anyway, and if it did not it would
+    # wipe and pay them a second time. This touches gating only -- no
+    # deletion, no currency -- so it is safe to run repeatedly and safe
+    # to run on a database that never had the problem.
+    if args.relock:
+        return _relock(args.apply)
 
     from sqlalchemy.orm import sessionmaker
 
@@ -546,6 +565,74 @@ def _rarity_name(item) -> str:
 # them unable to re-earn that bonus. Clearing it as part of the reset and
 # using a dedicated marker keeps both meanings honest.
 # ----------------------------------------------------------------------
+def _relock(apply: bool) -> int:
+    """Put already-reset accounts back behind the story gate.
+
+    Only touches accounts carrying the reset marker, and only touches
+    story gating. Anyone who legitimately predates story mode and was
+    never reset is left exactly as they are -- they still need
+    grandfathering, and this must not be the thing that takes it away.
+
+    Progress is preserved where it exists: an account that has since
+    started the prologue keeps its completed missions and its place in
+    the story. The only fields written are the two that decide whether
+    the gate is open, so running this on somebody mid-prologue costs
+    them nothing.
+    """
+    sys.path.insert(0, ".")
+    from sqlalchemy.orm import sessionmaker
+
+    from bot.database.db import engine
+    from bot.database.db_init import init_db
+    from bot.database.models.player_model import Player
+    from bot.database.models.story_model import PlayerStory
+
+    init_db()
+    session = sessionmaker(bind=engine)()
+
+    players = [p for p in session.query(Player).all() if _already_done(p)]
+    if not players:
+        print("no reset-marked accounts found -- nothing to repair")
+        return 0
+
+    changed = []
+    for player in players:
+        story = session.get(PlayerStory, player.id)
+        if story is None:
+            story = PlayerStory(
+                player_id=player.id, completed_missions=[], flags={},
+                active_mission=None, beat_index=0,
+                prologue_complete=False, grandfathered=False)
+            session.add(story)
+            changed.append((player.username, "no story row -> created, locked"))
+            continue
+        was = (bool(story.prologue_complete), bool(story.grandfathered))
+        if not any(was):
+            continue                      # already correct, leave it alone
+        story.prologue_complete = False
+        story.grandfathered = False
+        changed.append((player.username,
+                        f"prologue_complete={was[0]} grandfathered={was[1]} -> both False"))
+
+    print(f"{'account':<34}repair")
+    print("-" * 78)
+    for name, note in changed:
+        print(f"{(name or '')[:33]:<34}{note}")
+    if not changed:
+        print("(every reset account is already correctly locked)")
+
+    if apply:
+        session.commit()
+        print(f"\nDONE -- {len(changed)} account(s) relocked. "
+              f"They now start from the prologue.")
+    else:
+        session.rollback()
+        print(f"\nDRY RUN -- {len(changed)} account(s) would be relocked. "
+              f"Re-run with --apply.")
+    session.close()
+    return 0
+
+
 _MARKER = "[reset-v1]"
 
 
@@ -611,6 +698,37 @@ def _wipe_progress(db, player) -> None:
             # progress, and anything that cannot be keyed to a player is
             # not this player's progress.
             db.rollback()
+
+    # SAY "RESET" OUT LOUD, rather than by absence.
+    #
+    # THE BUG THIS FIXES, reproduced end to end: the reset deleted the
+    # PlayerStory row, and migrate_db.grandfather_story treats "no story
+    # row" as "this account predates story mode" and writes back
+    # grandfathered=True, prologue_complete=True. A redeploy or an
+    # operator re-running the migration after the reset therefore handed
+    # every wiped account all 15 features back. Confirmed: 0/15 unlocked
+    # after the reset, 15/15 after migrate_db ran.
+    #
+    # Neither side was wrong on its own. Both used the SAME
+    # representation -- a missing story row -- for two opposite meanings:
+    # "brand new veteran to protect" and "just wiped, must start over".
+    # Whichever ran last won, and the migration runs last.
+    #
+    # An explicit row with both flags off cannot be misread. It is a
+    # positive statement that this account has no story progress and is
+    # not grandfathered, so grandfather_story's "already has a row" skip
+    # applies and its prologue_complete backfill does not match either.
+    #
+    # This is also why the row is written HERE rather than left for
+    # story_service.get_or_create to make on first command: the gap
+    # between the reset finishing and the player's next command is
+    # exactly the window a redeploy lands in.
+    story = PlayerStory(
+        player_id=player.id, completed_missions=[], flags={},
+        active_mission=None, beat_index=0,
+        prologue_complete=False, grandfathered=False,
+    )
+    db.add(story)
 
     player.level = 1
     player.xp = 0
