@@ -46,8 +46,10 @@ import sys
 
 # Commands deliberately absent from /help, and why.
 EXEMPT = {
-    "admin_boosterkit": "admin tooling; not player-facing",
     "grant": "owner-only; listing it invites requests nobody can grant",
+    "takedown": ("owner-only moderation. Listing it would invite players to "
+                 "request removals through a command they cannot run, and "
+                 "advertise the removal process to anyone testing its limits"),
     "sync": "owner-only command sync",
 }
 

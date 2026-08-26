@@ -96,12 +96,6 @@ class Player(Base):
     # guarantee flag -- see pull_service.resolve_five_star for the rule.
     # The guarantee is a BOOLEAN, not a counter: it is armed by one miss
     # and spent by one hit, and there is deliberately no way to stack it.
-    # /admin_boosterkit is ONCE PER PLAYER. See the command for why: the
-    # gate that guards it accepts any Discord Administrator in any server
-    # the bot has been added to, and an unlimited 1,000-shard faucet
-    # behind that gate is an open economy.
-    booster_kit_claimed: Mapped[bool] = mapped_column(Boolean, default=False)
-
     # ASYNC SQUAD CHALLENGES (bot/services/challenge_service.py).
     #
     # `challenge_power` is a cached rating so matchmaking can pick
@@ -115,6 +109,27 @@ class Player(Base):
     last_challenge_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True)
     challenges_today: Mapped[int] = mapped_column(Integer, default=0)
+
+    # The title shown beside this player's name on their profile and on
+    # the leaderboard. Earned through achievements
+    # (bot/game/achievements/achievement_config.py) and chosen by the
+    # player; NULL means they have not picked one.
+    #
+    # Stored as the title TEXT rather than an achievement id. The id
+    # would be more normalised and would also mean that renaming a title
+    # in config silently changes what every player is currently wearing
+    # -- and a cosmetic somebody chose should not move under them.
+    active_title: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    # DOJO -- player-authored challenges (bot/services/dojo_service.py).
+    #
+    # The daily counter is the anti-farm limit. It lives on the PLAYER
+    # rather than per challenge on purpose: a per-challenge cap would be
+    # trivially defeated by publishing ten challenges and clearing each
+    # of them once.
+    dojo_clears_today: Mapped[int] = mapped_column(Integer, default=0)
+    last_dojo_clear_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
 
     # PRESENCE AND REMINDERS.
     #

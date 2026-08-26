@@ -1438,6 +1438,80 @@ def _build_forge_view(db, player, slot: str = "weapon", mode: str = "craft",
     return ForgeView(buttons, selects, owner_id=player.id)
 
 
+# ----------------------------------------------------------------------
+# Dojo panel wrappers.
+#
+# Thin subclasses so the Build button (which opens a modal, and therefore
+# must NOT be preceded by a defer) can sit alongside the selects that
+# _dojo_ui builds. Everything with real behaviour lives in _dojo_ui.
+# ----------------------------------------------------------------------
+
+class _DojoPanelView(discord.ui.View):
+    def __init__(self, db, player):
+        super().__init__(timeout=300)
+        from bot.cogs import _dojo_ui
+        inner = _dojo_ui.DojoView(db, player)
+        for item in list(inner.children):
+            inner.remove_item(item)
+            self.add_item(item)
+        self.owner_id = player.id
+        self.add_item(_BuildButton())
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await responses.send(
+                interaction,
+                "That's someone else's dojo panel — run `/base dojo` yourself.",
+                ephemeral=True)
+            return False
+        return True
+
+
+class _BuildButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Build a challenge", emoji="🛠️",
+                         style=discord.ButtonStyle.success)
+
+    async def callback(self, interaction: discord.Interaction):
+        from bot.cogs import _dojo_ui
+        # NOT deferred, and it must stay that way: the select this opens
+        # leads to a MODAL, and a modal has to be the first response to
+        # its own interaction. Deferring anywhere on that path spends the
+        # response slot and send_modal then raises.
+        await responses.send(
+            interaction, "Pick the enemies for your challenge:",
+            view=_dojo_ui.EnemyPickView(interaction.user.id), ephemeral=True)
+
+
+class _CodeView(discord.ui.View):
+    """A single Play button, for the share-code screen."""
+
+    def __init__(self, challenge_id: int, owner_id: int):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.add_item(_PlayCodeButton(challenge_id))
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await responses.send(
+                interaction,
+                "Run `/base dojo` with the code yourself to play it.", ephemeral=True)
+            return False
+        return True
+
+
+class _PlayCodeButton(discord.ui.Button):
+    def __init__(self, challenge_id: int):
+        super().__init__(label="Take it on", emoji="🥋",
+                         style=discord.ButtonStyle.danger)
+        self.challenge_id = challenge_id
+
+    async def callback(self, interaction: discord.Interaction):
+        from bot.cogs import _dojo_ui
+        await responses.defer(interaction)
+        await _dojo_ui._start_challenge(interaction, self.challenge_id)
+
+
 @guild_decorator
 class Base(commands.GroupCog, name="base", description="Cascade HQ base-building commands."):
     def __init__(self, bot):
@@ -1527,6 +1601,61 @@ class Base(commands.GroupCog, name="base", description="Cascade HQ base-building
                 return
             embed = _build_lab_embed(db, player)
             view = _build_lab_view(db, player)
+        finally:
+            db.close()
+        await responses.send(ctx, embed=embed, view=view)
+
+    # COMMAND: /base dojo
+    # Player-authored challenges. Screens live in bot/cogs/_dojo_ui.py
+    # (underscore-prefixed so the cog loader skips it); rules and limits
+    # live in dojo_service and dojo_config.
+    @app_commands.command(
+        name="dojo",
+        description="Build your own fights, publish them, and try other players'.")
+    @app_commands.describe(
+        code="Optional: a share code to jump straight to somebody's challenge.")
+    async def dojo_cmd(self, ctx: discord.Interaction, code: str | None = None):
+        await responses.defer(ctx)
+        from bot.cogs import _dojo_ui
+        from bot.services import dojo_service
+
+        db = SessionLocal()
+        try:
+            player = get_player(db, ctx.user.id)
+            if not await require_player(ctx, player):
+                return
+            # Gated on `squad` rather than `base`: the dojo is a fight,
+            # and a fight needs a team. Gating it on the base building
+            # would open it before the player has anyone to bring.
+            if not await require_feature(ctx, db, player, 'squad'):
+                return
+
+            if code:
+                challenge = dojo_service.by_code(db, code)
+                if challenge is None:
+                    await responses.send(
+                        ctx, f"No challenge with the code `{code.strip().upper()}`.",
+                        ephemeral=True)
+                    return
+                if not challenge.published and challenge.author_id != player.id:
+                    await responses.send(
+                        ctx, "That challenge isn't published.", ephemeral=True)
+                    return
+                embed = discord.Embed(
+                    title=f"🥋 {challenge.name}",
+                    description=(challenge.description or "*No description.*")
+                    + f"\n\n**Lv.{challenge.level}** · "
+                    + _dojo_ui.describe_enemies(challenge),
+                    colour=_dojo_ui.DOJO_COLOUR)
+                rate = dojo_service.clear_rate(challenge)
+                embed.set_footer(
+                    text=(f"`{challenge.share_code}` · "
+                          + (f"cleared {rate:.0%} of {challenge.attempts} attempts"
+                             if rate is not None else "nobody has tried this yet")))
+                view = _CodeView(challenge.id, player.id)
+            else:
+                embed = _dojo_ui.dojo_embed(db, player)
+                view = _DojoPanelView(db, player)
         finally:
             db.close()
         await responses.send(ctx, embed=embed, view=view)

@@ -61,6 +61,7 @@ _PAGES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
                 "`/class` — switch your avatar between DPS / Support DPS / Amplifier / Sustain\n"
                 "`/rename` — name your avatar\n"
                 "`/profile` — your account: level, roster, power and currencies\n"
+                "`/achievements` — what you've earned, your collection, and the titles you can wear\n"
                 "`/notifications` — reminder DMs when things are going to waste. **Off by default**, at most one a day\n"
                 "`/characters` — any character's full stats, equipment and abilities\n"
                 "`/reset` — start over. **Clean** wipes everything; **Prestige** wipes it "
@@ -218,6 +219,7 @@ _PAGES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
                 "`/base harvesters` — buy, upgrade and collect passive income\n"
                 "`/base shrines` — permanent party-wide stat bonuses\n"
                 "`/base lab` — research permanent, account-wide upgrades\n"
+                "`/base dojo` — build your own fights, publish them, and try what other players have made\n"
                 "`/base forge` — craft gear in the slot and rarity you choose",
             ),
             (

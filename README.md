@@ -58,16 +58,13 @@ do it by hand or something goes wrong.
      `DEV_MODE=False` so a fresh copy boots as-is.
    - `BOT_OWNER_IDS` -- comma-separated Discord user IDs that may run
      `/grant`, which hands any user any amount of any resource. **Leave it
-     empty unless you want that**, and understand what it is before you
-     fill it in: it is deliberately narrower than `ADMIN_USER_IDS`.
+     empty unless you want that.** An empty list refuses everybody.
 
-     `ADMIN_USER_IDS`, and Discord's own "Administrator" permission,
-     admit anyone who is an admin *in whatever server the command was
-     typed in* -- and anyone can create a server, invite the bot, and be
-     its administrator inside a minute. That is fine for `/admin_boosterkit`,
-     which is capped and once-per-player. It is not fine for a command
-     that can mint unlimited currency. An empty `BOT_OWNER_IDS` refuses
-     everybody rather than falling back to something broader.
+     This is the bot's only permission gate, and it is deliberately a
+     list of user IDs rather than a Discord permission. "Administrator in
+     the server the command was typed in" is not a gate: anyone can
+     create a server, invite the bot, and be its administrator inside a
+     minute.
 
 4. **Enable top.gg voting** *(optional)*
 
@@ -160,6 +157,11 @@ command that does not exist.
 
 **The base**
 
+- `/base dojo` -- the Dojo: build your own fights from the enemy roster,
+  publish them, and play what other people have built. Share codes work
+  across servers. Clearing someone's challenge pays a little XP, capped
+  daily and scaled to what the fight actually fields -- it is not a
+  place to grind
 - `/base hq`, `/base harvesters`, `/base shrines`, `/base shop`,
   `/base lab` -- passive income, account-wide research, and the shop.
   These live under the `/base` group, so Discord will show them as you
@@ -176,6 +178,9 @@ command that does not exist.
 **Everything else**
 
 - `/profile` -- account level, roster completion, power and currencies
+- `/achievements` -- 29 achievements across 7 categories, a collection
+  screen, and 14 earnable titles you can wear beside your name on your
+  profile and the leaderboard
 - `/notifications` -- opt in to reminder DMs. **Off by default**; at most
   one a day, only when something is actually going to waste, and it
   stops trying if your DMs are closed
@@ -188,10 +193,11 @@ command that does not exist.
 
 **Admin**
 
-- `/admin_boosterkit` -- (Administrator only) grants a target user gold,
-  shards, and starter lootboxes. Once per player
 - `/grant` -- (bot owner only, see `BOT_OWNER_IDS`) give any user any
   amount of any resource
+- `/takedown` -- (bot owner only) unpublish a dojo challenge by its share
+  code. The character allowlist blocks formatting and mention abuse in
+  player-written names; this is for anything a filter can't judge
 
 ### Combat at a glance
 

@@ -105,6 +105,19 @@ KEYS_READ_ELSEWHERE = {
     # attack, before the dispatch -- see the _ability_poise binding at
     # the top of resolve_active_ability.
     "poise_damage",
+    # _trigger_on_low_hp reads this, NOT the heal_percent_max_hp branch.
+    # The passive fires from the on_low_hp TRIGGER dispatcher, which
+    # enforces the charge limit itself before ever reaching a kind
+    # handler. Flagged as dead the first time the gear pools were
+    # actually inspected, and it is not -- second_wind and unbroken_line
+    # both honour it.
+    "charges_per_combat",
+    # Same reader, same reason: _trigger_on_low_hp decides whether a
+    # heal_percent_max_hp passive fires at all, so the threshold is read
+    # there rather than in the kind branch. It was a hardcoded 0.25 in
+    # that function until the gear pools were first inspected and the
+    # two passives using it turned out to describe a threshold of 1%.
+    "hp_threshold_percent",
 }
 
 
@@ -226,8 +239,29 @@ def build_key_map() -> tuple[dict[str, set[str]], set[str]]:
 
 
 def abilities_to_check() -> list[tuple[str, str, dict]]:
-    """(where, name, effect) for every authored ability in the game."""
+    """(where, name, effect) for every authored ability in the game.
+
+    THE GEAR POOLS WERE MISSING FROM THIS, and had been from the start.
+
+    This function only ever walked bot/game/combat/skills.py -- the
+    CHARACTER kits -- while the file's own docstring claimed it checked
+    "every ability in every kit and gear pool" and its output line said
+    "declared across every kit, passive and gear pool". Neither was true.
+    bot/game/loot/abilities.py holds WEAPON_SKILLS, ARTIFACT_SKILLS,
+    ARMOR_PASSIVES and ULTIMATE_ABILITIES -- more authored abilities than
+    the character kits -- and not one of their keys was ever validated.
+
+    It was found by deliberately corrupting a key in a newly added weapon
+    and watching the check pass. Worth remembering: the output number
+    ("keys: 322") did not move when seven abilities were added, and that
+    was the visible symptom nobody had a reason to look at.
+
+    A check that reports on a scope wider than it inspects is worse than
+    one with an honest narrow scope, because the gap is invisible from
+    the passing output.
+    """
     from bot.game.combat import skills
+    from bot.game.loot import abilities as gear
 
     found: list[tuple[str, str, dict]] = []
     for label, source in (
@@ -245,6 +279,15 @@ def abilities_to_check() -> list[tuple[str, str, dict]]:
         for key, ability in value.items():
             if isinstance(ability, dict) and isinstance(ability.get("effect"), dict):
                 found.append((f"{name}", str(key), ability["effect"]))
+
+    # The gear pools -- lists of ability dicts keyed by "id".
+    for name in dir(gear):
+        value = getattr(gear, name)
+        if not isinstance(value, list) or not name.isupper():
+            continue
+        for ability in value:
+            if isinstance(ability, dict) and isinstance(ability.get("effect"), dict):
+                found.append((name, str(ability.get("id", "?")), ability["effect"]))
     return found
 
 

@@ -53,10 +53,22 @@ TOP_N = 10
 
 
 def _name_map(db, player_ids: list[int]) -> dict[int, str]:
+    """Display names for a board, TITLES INCLUDED.
+
+    Hooked here rather than at each board's render because this is the
+    one place every board resolves a name -- there are several boards and
+    a title that appeared on some of them would read as a bug.
+
+    A title is the only cosmetic in the game and the leaderboard is the
+    only place strangers see each other, so this is most of the point of
+    having earned one.
+    """
     if not player_ids:
         return {}
-    rows = db.query(Player.id, Player.username).filter(Player.id.in_(player_ids)).all()
-    return {pid: name for pid, name in rows}
+    rows = (db.query(Player.id, Player.username, Player.active_title)
+            .filter(Player.id.in_(player_ids)).all())
+    return {pid: (f"{name} — {title}" if title else name)
+            for pid, name, title in rows}
 
 
 def _squad_power(db, member_ids: list[int]) -> list[tuple[int, int]]:

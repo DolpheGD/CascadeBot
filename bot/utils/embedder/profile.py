@@ -244,8 +244,11 @@ def account_profile_embed(player, summary: dict, avatar_url: str | None = None) 
     from bot.services.currency_service import format_currency
 
     level = summary["level"]
+    # Title shown beside the name, matching the leaderboard. A cosmetic
+    # that appears on one screen and not the other reads as a bug.
+    _title = (getattr(player, "active_title", None) or "").strip()
     embed = discord.Embed(
-        title=f"{player.username}",
+        title=f"{player.username}" + (f" — {_title}" if _title else ""),
         color=discord.Color.blurple(),
     )
     if avatar_url:

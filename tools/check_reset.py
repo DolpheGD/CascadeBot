@@ -331,14 +331,22 @@ def _populate(db, engine, Base, player_ids: list[int]) -> list[str]:
                     continue
                 has_default = column.default is not None or column.server_default is not None
                 if not column.nullable and not has_default:
-                    values[column.name] = _stub(column)
+                    values[column.name] = _stub(column, pid)
             db.add(model(**values))
         touched.append(name)
     db.flush()
     return touched
 
 
-def _stub(column):
+def _stub(column, pid: int = 0):
+    """A value that satisfies one NOT NULL column.
+
+    `pid` is threaded in so UNIQUE columns get DIFFERENT values per
+    player. Without it every string stub was the literal "x", and the
+    first table to carry a unique string -- dojo_challenges.share_code --
+    made this whole check die on an IntegrityError while populating,
+    long before it could assert anything about resets.
+    """
     import datetime as dt
 
     import sqlalchemy
@@ -354,6 +362,12 @@ def _stub(column):
         return 1.0
     if isinstance(kind, sqlalchemy.JSON):
         return "{}"
+    if column.unique:
+        # Truncated to the column's own limit -- a stub that overflows
+        # VARCHAR(n) would trade one confusing failure for another.
+        stub = f"u{pid}{column.name}"
+        length = getattr(kind, "length", None)
+        return stub[:length] if length else stub
     return "x"
 
 

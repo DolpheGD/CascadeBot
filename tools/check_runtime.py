@@ -81,7 +81,7 @@ def _undefined_names() -> list[str]:
 # Commands that may legitimately be absent from /help. Owner-only tooling
 # only -- everything a player can run has to be discoverable, or it may as
 # well not exist.
-HELP_EXEMPT: set[str] = {"admin_boosterkit"}
+HELP_EXEMPT: set[str] = set()
 
 
 UNGATED_COMMANDS: dict[str, str] = {
@@ -89,6 +89,10 @@ UNGATED_COMMANDS: dict[str, str] = {
     "story": "the thing every gate points at",
     "help": "how you find out what's going on",
     "profile": "your own account, always yours to look at",
+    "achievements": ("a record of what you have already done, plus the titles "
+                     "it unlocked. Gating a history screen behind progress is "
+                     "circular: it has nothing to show until you have played, "
+                     "and showing exactly that is its whole job"),
     "characters": "stats for characters you already own",
     "class": "your avatar's role; needed before the first fight",
     "rename": "cosmetic, and offered during onboarding",
@@ -100,7 +104,9 @@ UNGATED_COMMANDS: dict[str, str] = {
     "sync": "owner-only admin command",
     "grant": ("owner-only; gated on BOT_OWNER_IDS, which is a far harder gate "
               "than any story feature flag"),
-    "admin_boosterkit": "admin-only, and enforces its own permission check",
+    "takedown": ("owner-only, same BOT_OWNER_IDS gate as /grant. Moderation "
+                 "cannot be gated on story progress -- the thing needing "
+                 "removal does not wait for the owner to finish chapter one"),
     "reset": ("self-only and irreversible, but story-gating the command that EXISTS "
               "to replay the story would be circular. It gates itself far harder "
               "than a feature flag could: it refuses without an account, takes a "

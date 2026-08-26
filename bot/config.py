@@ -15,29 +15,21 @@ DEBUG = os.getenv("DEBUG") == "1"
 DEV_MODE = os.getenv("DEV_MODE") == "True"
 SERVER_ID = int(os.getenv("SERVER_ID")) if os.getenv("SERVER_ID") else None
 
-# Discord user IDs (comma-separated) allowed to use /admin_boosterkit
-# regardless of server permissions -- e.g. "111111111111111111,222222222222222222".
-# A user with the "Administrator" permission in the server they're using the
-# command in is always allowed too, so this is mainly for bot owners/devs
-# testing in a server they don't otherwise admin.
-ADMIN_USER_IDS = {
-    int(uid.strip())
-    for uid in os.getenv("ADMIN_USER_IDS", "").split(",")
-    if uid.strip()
-}
-
 # ----------------------------------------------------------------------
-# BOT OWNER(S) -- a STRICTLY narrower gate than ADMIN_USER_IDS.
+# BOT OWNER(S) -- the bot's only permission gate.
 #
-# ADMIN_USER_IDS also lets through anyone holding Discord's
-# "Administrator" permission in the server they're typing in. That is
-# fine for /admin_boosterkit, which hands out a fixed, modest bundle.
+# There used to be a second, broader one: ADMIN_USER_IDS, which also let
+# through anyone holding Discord's "Administrator" permission in the
+# server they were typing in. It was removed with /admin_boosterkit, the
+# only command that used it, and it is worth recording why rather than
+# just deleting it.
 #
-# It is NOT fine for /grant, which mints an arbitrary amount of any
-# currency. With the admin gate, every administrator of every server the
-# bot is ever added to could print unlimited shards -- and the bot cannot
-# control who that is, because anyone can create a server, add the bot,
-# and be an administrator of it in about thirty seconds.
+# It admitted the entire internet. Anyone can create a server, add the
+# bot, and be an administrator of it in about thirty seconds, so
+# "Administrator here" is a permission that grants itself. That was a
+# tolerable trade for a fixed, once-per-player bundle. It is not a gate,
+# and a config knob that reads like one is worse than none at all --
+# somebody will eventually put a dangerous command behind it.
 #
 # So owner-only means owner-only: an explicit allowlist of Discord user
 # IDs, checked with no fallback. If this is empty the command refuses

@@ -149,6 +149,7 @@ from bot.game.dungeon.encounter_config.expansion import EXPANSION_ENCOUNTERS
 from bot.game.dungeon.encounter_config.comedy import COMEDY_ENCOUNTERS
 from bot.game.dungeon.encounter_config.relic_event import RELIC_EVENT_ENCOUNTERS
 from bot.game.dungeon.encounter_config.variety import VARIETY_ENCOUNTERS
+from bot.game.dungeon.encounter_config.variety2 import VARIETY2_ENCOUNTERS
 
 # One flat list, in the order the modules are listed above. Nothing depends
 # on that order -- callers always filter by room type or look up by id.
@@ -176,6 +177,11 @@ ENCOUNTERS: list[dict] = [
     # dangerous end, the deliberately trivial end, and the conversions
     # that let a run's surplus become what the run was short of.
     *VARIETY_ENCOUNTERS,
+    # Second variety pass, aimed at the THIN POOLS rather than at
+    # variety in general -- campfire had three encounters and
+    # relic_event six, which is how often a player saw the same text in
+    # the rooms they pick deliberately. See variety2.py.
+    *VARIETY2_ENCOUNTERS,
 ]
 
 def get_encounter_by_id(encounter_id: str) -> dict | None:

@@ -2016,7 +2016,7 @@ CHAPTERS: list[dict] = [
                         # and nothing but measurement would have shown it.
                         "kind": "battle",
                         "enemies": ["Rohan's Warden", "Xender Recon Scout", "Concussion Drone"],
-                        "level": 14,
+                        "level": 16,
                         "intro": (
                             "The mast stops transmitting.\n\n"
                             "Not breaks. *Stops* — cleanly, mid-packet, the way a thing "
@@ -2953,7 +2953,7 @@ CHAPTERS: list[dict] = [
                         # frightened of the same thing.
                         "kind": "battle",
                         "enemies": ["H-Nation Vanguard", "H-Nation Border Trooper"],
-                        "level": 20,
+                        "level": 19,
                         "intro": (
                             "It goes wrong in the ordinary way these things go wrong: "
                             "somebody moves toward a vehicle, somebody else reads it as "
@@ -3289,7 +3289,7 @@ CHAPTERS: list[dict] = [
                         # site is playing.
                         "kind": "battle",
                         "enemies": ["Rohan's Assessor"],
-                        "level": 21,
+                        "level": 22,
                         "intro": (
                             "It has been standing between two of the tents the entire "
                             "time you have been on the site.\n\n"
@@ -4061,7 +4061,7 @@ CHAPTERS: list[dict] = [
                         # thing that was working rather than guarding.
                         "kind": "battle",
                         "enemies": ["Rohan's Catastrophe Soldier"],
-                        "level": 44,
+                        "level": 45,
                         "intro": (
                             "It is at the far end of the level, moving crates, and it has "
                             "been doing that since before you arrived.\n\n"
@@ -4496,7 +4496,7 @@ CHAPTERS: list[dict] = [
                         # 59% -- the step before the climax.
                         "kind": "battle",
                         "enemies": ["Rohan's Catastrophe Soldier", "Rohan's Warden"],
-                        "level": 40,
+                        "level": 42,
                         "intro": (
                             "They come in through the door you came in by, which means "
                             "they came down the lift, which means somebody sent them "
@@ -5134,7 +5134,7 @@ CHAPTERS: list[dict] = [
                         # the player is defending rather than arriving.
                         "kind": "battle",
                         "enemies": ["Rohan's Warden", "Rohan's Warden"],
-                        "level": 44,
+                        "level": 45,
                         "intro": (
                             "Whatever the sheet said, it is finished now.\n\n"
                             "They come through the wire together, and for the first time "
@@ -5366,7 +5366,7 @@ CHAPTERS: list[dict] = [
                         # 59%.
                         "kind": "battle",
                         "enemies": ["Rohan's Negadom"],
-                        "level": 41,
+                        "level": 40,
                         "intro": (
                             "The audit notices.\n\n"
                             "Not the machines in the yard — the thing at the other end of "
@@ -5665,7 +5665,7 @@ CHAPTERS: list[dict] = [
                         # directly is the moment he stops being able to.
                         "kind": "battle",
                         "enemies": ["Rohan's Herald"],
-                        "level": 44,
+                        "level": 43,
                         "intro": (
                             "\"I am going to have to stop this conversation,\" Rohan "
                             "says, and for the first time he sounds like somebody making "
@@ -6631,7 +6631,7 @@ CHAPTERS: list[dict] = [
                         # curve is in the enemies.py comment.
                         "kind": "battle",
                         "enemies": ["Rohan, At The Desk"],
-                        "level": 31,
+                        "level": 30,
                         "intro": (
                             "The door at the back of the room opens, and he does not look "
                             "round at it.\n\n"

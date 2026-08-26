@@ -590,6 +590,41 @@ class Profile(commands.Cog):
             db.close()
         await responses.send(ctx, embed=embed, view=view)
 
+    # COMMAND: /achievements
+    # What you've done, what you're missing, and what title you wear for
+    # it. Screens live in bot/cogs/_achievement_ui.py; every number comes
+    # from achievement_service.metrics, which derives from existing state
+    # rather than from counters sprinkled through gameplay.
+    @app_commands.command(
+        name="achievements",
+        description="What you've earned, your collection, and your titles.")
+    async def achievements(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
+        from bot.cogs import _achievement_ui
+        from bot.services import achievement_service
+
+        db = SessionLocal()
+        try:
+            player = get_player(db, ctx.user.id)
+            if not await require_player(ctx, player):
+                return
+            # SYNC HERE, on the screen that displays them. Achievements
+            # are derived, so this only records receipts and detects
+            # what is new -- it is not what makes them earned.
+            fresh = achievement_service.sync(db, player)
+            embed = _achievement_ui.achievements_embed(db, player)
+            view = _achievement_ui.AchievementView(db, player)
+        finally:
+            db.close()
+        await responses.send(ctx, embed=embed, view=view)
+        if fresh:
+            unlocked = [a for a in fresh if a.title]
+            note = "🏆 **Newly earned:** " + ", ".join(a.name for a in fresh[:6])
+            if unlocked:
+                note += ("\nNew title" + ("s" if len(unlocked) > 1 else "") + ": "
+                         + ", ".join(f"**{a.title}**" for a in unlocked))
+            await ctx.followup.send(note, ephemeral=True)
+
     # COMMAND: /notifications
     # Opt in or out of reminder DMs. Off by default -- see
     # bot/services/reminder_service.py for why that is not negotiable.

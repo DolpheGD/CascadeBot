@@ -387,6 +387,11 @@ _EVENT_KINDS: dict[str, set[str]] = {
     "conditional_damage": {
         "damage_bonus_if_target_healthy", "damage_scales_with_enemy_count",
         "damage_ramp_per_use", "damage_bonus_if_target_broken",
+        # Both added by the synergy pass. They are conditional on the
+        # SQUAD rather than on the target: damage_per_affliction pays off
+        # whatever the debuffers built, and damage_consumes_shield pays
+        # off whatever the shielder gave you.
+        "damage_per_affliction", "damage_consumes_shield",
     },
     "dot": {"damage_and_dot", "aoe_damage_chance_dot",
             "damage_and_void_corruption", "aoe_damage_detonate_dots"},
@@ -1128,12 +1133,38 @@ def resolve_active_ability(
                  if v.damage_stat == effect["vulnerable_damage_stat"] and v.source == ability["name"]),
                 None,
             )
+            # THE APPLIER'S GEAR CAN DEEPEN THE MARK.
+            #
+            # `vulnerability_amplifier` is read here, at the one place a
+            # Vulnerability is created, so a piece of gear that says
+            # "your marks are 30% deeper" is exactly that and cannot
+            # drift from the number on the tooltip.
+            #
+            # It exists because the vulnerability archetype had NO gear
+            # support at all. Two characters are built entirely around
+            # stacking these marks, and every other archetype in the game
+            # -- break, shields, buffs, DoTs, execute -- had passives
+            # paying it off while this one had none, so building around
+            # it meant building around a mechanic the loot table had
+            # never heard of.
+            #
+            # Applied to percent_per_stack rather than to the total, so
+            # it compounds with stacking the way the player expects: a
+            # deeper mark stacked three times is deeper three times.
+            per_stack = effect["percent_per_stack"]
+            for passive in attacker.find_passive("vulnerability_amplifier"):
+                per_stack *= 1 + passive["effect"].get("percent", 0) / 100
+
             if existing is not None:
                 existing.stacks = min(existing.max_stacks, existing.stacks + 1)
+                # A fresh application also refreshes POTENCY, so picking
+                # up the gear mid-fight is not silently worthless until
+                # the mark expires.
+                existing.percent_per_stack = max(existing.percent_per_stack, per_stack)
             else:
                 defender.vulnerabilities.append(Vulnerability(
                     damage_stat=effect["vulnerable_damage_stat"],
-                    percent_per_stack=effect["percent_per_stack"],
+                    percent_per_stack=per_stack,
                     stacks=1, max_stacks=effect["max_stacks"], source=ability["name"],
                 ))
             stacks_now = next(
@@ -2141,6 +2172,60 @@ def resolve_active_ability(
         if len(living) > 1:
             log.append(f"💥 {attacker.name}'s charges chain across {len(living)} targets!")
 
+    elif kind == "damage_per_affliction":
+        # Scales with HOW MANY afflictions the target carries, counting
+        # stat debuffs, damage-over-time effects and vulnerability stacks
+        # together.
+        #
+        # NOT damage_bonus_if_debuffed, which is binary: one debuff and
+        # one debuff only are worth exactly the same to it. That made
+        # every setup piece past the first worthless to the carry, which
+        # is why the roster's two vulnerability specialists (Sader Vorae
+        # and Caliper) had nothing in the game that paid off what they
+        # build -- their stacks made the target take more damage, but no
+        # ability anywhere cared how many there were.
+        #
+        # Counting all three affliction types together is deliberate: it
+        # means a DoT character, a debuffer and a vulnerability stacker
+        # all feed the same carry, so the payoff rewards a squad that
+        # layers pressure rather than one specific partner.
+        afflictions = (
+            len([m for m in defender.modifiers if m.percent < 0])
+            + len(defender.dots)
+            + len(defender.vulnerabilities)
+        )
+        capped = min(afflictions, effect.get("max_afflictions", 6))
+        percent = effect["damage_percent"] + effect["bonus_per_affliction"] * capped
+        _hit(attacker, defender, percent, effect.get("damage_stat", "attack"), rng, log,
+             defender_allies=defender_allies)
+        if capped:
+            log.append(
+                f"🩸 {attacker.name} tears into {capped} weak point"
+                f"{'s' if capped != 1 else ''} on {defender.name}!")
+
+    elif kind == "damage_consumes_shield":
+        # Spends the attacker's OWN shield pool to hit harder, converting
+        # every point of it at `percent_per_shield`.
+        #
+        # This is the only ability in the game that treats a shield as an
+        # offensive resource, and it exists to give shielders somebody to
+        # shield FOR. Jofrog and Bee Jee produce shields all fight; until
+        # now the only thing a shield ever did was fail to be damage.
+        #
+        # It deliberately consumes the whole pool rather than a fixed
+        # amount, so the decision is about TIMING -- swing now for a
+        # little, or hold while the shielder tops you up and swing for a
+        # lot, knowing that anything that hits you first spends it for
+        # you.
+        spent = int(getattr(attacker, "shield", 0) or 0)
+        attacker.shield = 0
+        bonus = effect.get("percent_per_shield", 0.0) * spent
+        percent = effect["damage_percent"] + min(bonus, effect.get("max_bonus_percent", 400))
+        _hit(attacker, defender, percent, effect.get("damage_stat", "attack"), rng, log,
+             defender_allies=defender_allies)
+        if spent:
+            log.append(f"⚡ {attacker.name} discharges {spent} shield into the blow!")
+
     elif kind == "damage_ramp_per_use":
         # Ramps every time it is used ON THE SAME TARGET, and resets the
         # moment the target changes. Rewards committing to one enemy for
@@ -2460,9 +2545,23 @@ def _trigger_on_low_hp(combatant: Combatant, log: list) -> None:
                     return
         return
 
-    if combatant.current_hp <= combatant.max_hp * 0.25:
-        for passive in combatant.passive_abilities:
-            if passive.get("trigger") == "on_low_hp" and passive["effect"]["kind"] == "heal_percent_max_hp":
+    for passive in combatant.passive_abilities:
+        if passive.get("trigger") == "on_low_hp" and passive["effect"]["kind"] == "heal_percent_max_hp":
+            # THRESHOLD IS AUTHORED, not hardcoded.
+            #
+            # This was a flat 0.25 in the engine while both passives that
+            # use it described themselves as firing "below 1%". The
+            # descriptions were simply wrong -- they promised a
+            # last-ditch save and delivered a quarter-health top-up --
+            # and check_descriptions could not catch it, because "1"
+            # happened to appear in the effect as charges_per_combat.
+            #
+            # Making it a key fixes both halves at once: the number in
+            # the text is now the number the engine reads, so the two
+            # cannot disagree again, and a future passive can fire at a
+            # different threshold without touching this function.
+            threshold = passive["effect"].get("hp_threshold_percent", 25)
+            if combatant.current_hp <= combatant.max_hp * threshold / 100:
                 used = combatant.charges_used.get(passive["id"], 0)
                 if used < passive["effect"].get("charges_per_combat", 1):
                     healed = combatant.heal(combatant.max_hp * passive["effect"]["percent"] / 100)

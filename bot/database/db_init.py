@@ -5,9 +5,11 @@ from bot.database.models.base_model import Base
 # create_all runs.
 from bot.database.models import (  # noqa: F401
     abyss_model,
+    achievement_model,
     base_building_model,
     card_model,
     character_model,
+    dojo_model,
     economy_model,
     equipment_model,
     expedition_model,
@@ -156,6 +158,15 @@ def _ensure_columns(conn):
     add_column("players", "last_challenge_at", "DATETIME")
     add_column("players", "challenges_today", "INTEGER DEFAULT 0")
 
+    # Equipped title. NULL means "no title", which is right for every
+    # existing player -- a title is earned, and nobody has earned one yet.
+    add_column("players", "active_title", "VARCHAR(64)")
+
+    # Dojo clear tracking. Existing players read as never having cleared
+    # anything, which is correct -- the feature did not exist.
+    add_column("players", "dojo_clears_today", "INTEGER DEFAULT 0")
+    add_column("players", "last_dojo_clear_at", "DATETIME")
+
     # Presence and reminders. Existing players read as never-seen (NULL),
     # which the away summary treats as "no absence to report" rather than
     # "away forever" -- the first command after this deploys sets it, and
@@ -186,10 +197,10 @@ def _ensure_columns(conn):
     add_column("players", "challenge_banked_points", "INTEGER DEFAULT 0")
     add_column("players", "challenge_claimed_cycle", "INTEGER DEFAULT -1")
 
-    # Booster kit claim flag. Existing players read as NOT claimed, which
-    # is the generous reading -- anybody who already received one keeps
-    # it and can receive one more, once.
-    add_column("players", "booster_kit_claimed", "BOOLEAN DEFAULT 0")
+    # booster_kit_claimed was removed with /admin_boosterkit. The column
+    # is deliberately NOT dropped from databases that already have it:
+    # SQLite drops are rewrites, the column is three bytes, and nothing
+    # reads it. A live database should not be restructured to tidy up.
 
     # Evolution Fragments -- the breakthrough material
     # (bot/game/economy/evolution_config.py). Existing players start at 0,

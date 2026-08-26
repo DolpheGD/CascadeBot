@@ -54,6 +54,110 @@ from bot.database.models.enums import Rarity
 from bot.game.combat.combatant import ULTIMATE_COOLDOWN
 
 WEAPON_SKILLS: list[dict] = [
+    # ------------------------------------------------------------------
+    # SYNERGY PASS -- gear that pays off what a SQUADMATE built.
+    #
+    # Every weapon below is deliberately mediocre on its own and good
+    # next to a specific kind of ally. That is the point: the loot table
+    # was full of "deal X% damage" and its variants, so gear choice was
+    # almost always "the bigger number", never "the one that fits who I
+    # am playing with".
+    # ------------------------------------------------------------------
+    {
+        "id": "hemorrhage_point",
+        "name": "Hemorrhage Point",
+        "min_rarity": Rarity.EPIC,
+        "resource_cost": 26,
+        "resource_type": "mana",
+        "cooldown": 2,
+        "description": (
+            "Deal 130% ATK damage, plus 26% for every debuff, burn or mark "
+            "on the target (up to 6)."
+        ),
+        "effect": {
+            "kind": "damage_per_affliction",
+            "damage_percent": 130,
+            "bonus_per_affliction": 26,
+            "max_afflictions": 6,
+            "damage_stat": "attack",
+        },
+    },
+    {
+        "id": "vivisection_edge",
+        "name": "Vivisection Edge",
+        "min_rarity": Rarity.DIVINE,
+        "resource_cost": 40,
+        "resource_type": "mana",
+        "cooldown": 3,
+        "description": (
+            "Deal 170% ATK damage, plus 40% for every debuff, burn or mark "
+            "on the target (up to 6)."
+        ),
+        "effect": {
+            "kind": "damage_per_affliction",
+            "damage_percent": 170,
+            "bonus_per_affliction": 40,
+            "max_afflictions": 6,
+            "damage_stat": "attack",
+        },
+    },
+    {
+        "id": "overcharge_lance",
+        "name": "Overcharge Lance",
+        "min_rarity": Rarity.LEGENDARY,
+        "resource_cost": 32,
+        "resource_type": "mana",
+        "cooldown": 3,
+        "description": (
+            "Spend your entire shield to deal 150% ATK damage plus 0.5% "
+            "per point spent, up to 300% extra."
+        ),
+        "effect": {
+            "kind": "damage_consumes_shield",
+            "damage_percent": 150,
+            "percent_per_shield": 0.5,
+            "max_bonus_percent": 300,
+            "damage_stat": "attack",
+        },
+    },
+    {
+        "id": "scattershot_array",
+        "name": "Scattershot Array",
+        "min_rarity": Rarity.RARE,
+        "resource_cost": 22,
+        "resource_type": "mana",
+        "cooldown": 2,
+        "description": (
+            "Hit every enemy for 95% ATK damage, rising by 20% for each "
+            "enemy beyond the first."
+        ),
+        "effect": {
+            "kind": "damage_scales_with_enemy_count",
+            "damage_percent": 95,
+            "bonus_per_enemy": 20,
+            "damage_stat": "attack",
+        },
+    },
+    {
+        "id": "reckless_broadside",
+        "name": "Reckless Broadside",
+        "min_rarity": Rarity.EPIC,
+        "resource_cost": 30,
+        "resource_type": "mana",
+        "cooldown": 3,
+        "description": (
+            "Deal 245% ATK damage, but drop your own DEF by 25% for 2 turns."
+        ),
+        "effect": {
+            "kind": "damage_all_and_debuff_self",
+            "damage_percent": 245,
+            "debuff_stat": "defense",
+            "debuff_percent": -25,
+            "duration": 2,
+            "damage_stat": "attack",
+        },
+    },
+
     # ==================================================================
     # ROSTER EXPANSION -- weapon skills.
     # Weapons are the damage pool, so most of these are damage shapes the
@@ -1322,6 +1426,31 @@ ULTIMATE_ABILITIES: list[dict] = [
 ]
 
 ARMOR_PASSIVES: list[dict] = [
+    # ------------------------------------------------------------------
+    # THE VULNERABILITY ARCHETYPE FINALLY HAS GEAR.
+    #
+    # Break has four passives, shields four, buffs three, execute four.
+    # Vulnerability stacks -- which two characters (Sader Vorae, Caliper)
+    # are built entirely around -- had ZERO. Building for them meant
+    # building for a mechanic the loot table had never heard of.
+    # ------------------------------------------------------------------
+    {
+        "id": "predators_tally",
+        "name": "Predator's Tally",
+        "min_rarity": Rarity.EPIC,
+        "trigger": "always",
+        "description": "Vulnerability marks you apply are 18% deeper.",
+        "effect": {"kind": "vulnerability_amplifier", "percent": 18},
+    },
+    {
+        "id": "augurs_lens",
+        "name": "Augur's Lens",
+        "min_rarity": Rarity.DIVINE,
+        "trigger": "always",
+        "description": "Vulnerability marks you apply are 40% deeper.",
+        "effect": {"kind": "vulnerability_amplifier", "percent": 40},
+    },
+
     {
         "id": "iron_skin",
         "name": "Iron Skin",
@@ -1368,8 +1497,9 @@ ARMOR_PASSIVES: list[dict] = [
         "name": "Second Wind",
         "min_rarity": Rarity.EPIC,
         "trigger": "on_low_hp",
-        "description": "The first time HP drops below 1% in a fight, heal 20% of max HP.",
-        "effect": {"kind": "heal_percent_max_hp", "percent": 20, "charges_per_combat": 1},
+        "description": "The first time HP drops below 25% in a fight, heal 20% of max HP.",
+        "effect": {"kind": "heal_percent_max_hp", "percent": 20,
+                   "hp_threshold_percent": 25, "charges_per_combat": 1},
     },
     {
         "id": "soul_harvest",
@@ -1896,9 +2026,9 @@ ARMOR_PASSIVES: list[dict] = [
         # cannot answer a spike; a once-per-fight heal at the cliff edge
         # can, and putting it on a card means it is a choice rather than
         # something every healer carries by default.
-        "description": "The first time your HP drops below 1% in a fight, heal 38% of max HP.",
+        "description": "The first time your HP drops below 25% in a fight, heal 38% of max HP.",
         "effect": {"kind": "heal_percent_max_hp", "percent": 38,
-                   "charges_per_combat": 1},
+                   "hp_threshold_percent": 25, "charges_per_combat": 1},
     },
 ]
 

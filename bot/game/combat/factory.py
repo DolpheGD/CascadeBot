@@ -451,7 +451,18 @@ def build_character_combatant(player_character, equipped_items: list,
     # bot/game/economy/resonance_config.py). Applied HERE, after gear and
     # before the Combatant is built, so every one of its effects lands on
     # the final numbers and nothing downstream needs to know it exists.
-    resonance = resonance_for(getattr(player_character, "dupe_count", 1))
+    # `or 1`, not just a getattr default. The getattr already intended to
+    # be defensive here and was not: it only covers a MISSING attribute,
+    # and the value that actually turns up is a present-but-None one,
+    # which sails past the default and reaches resonance_for as None.
+    # That raises a TypeError deep in the stat build, which surfaces to a
+    # player as a fight that will not start.
+    #
+    # A live row cannot be None today (dupe_count is NOT NULL with a
+    # default of 1) so this is not a bug being fixed -- it is a defence
+    # that did not defend, which is worse than no defence because it
+    # reads as though the case is handled.
+    resonance = resonance_for(getattr(player_character, "dupe_count", 1) or 1)
     if resonance > 0:
         _apply_resonance(resonance, final_stats, active_abilities, ultimate_ability)
 

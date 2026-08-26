@@ -3181,6 +3181,94 @@ ENEMY_TEMPLATES: list[dict] = [
         ],
         "ultimate_ability": get_ability_by_id(ULTIMATE_ABILITIES, "voidstorm"),
     },
+
+    # ==================================================================
+    # THE PROBLEM-SHAPE PASS.
+    #
+    # The roster fields 144 templates using 42 effect kinds, and the top
+    # of that distribution is very top-heavy: aoe_damage (40 uses),
+    # damage_and_debuff (38), damage_multiplier (31). Almost every fight
+    # therefore poses the SAME question -- "can you out-damage this" --
+    # and the answer is always the squad you already brought.
+    #
+    # These four are built from kinds no enemy had ever used, chosen
+    # because each one asks a question the player answers with TARGETING
+    # or TIMING rather than with a bigger number.
+    # ==================================================================
+    {
+        # KILL ORDER. Hits harder for every one of its packmates still
+        # standing, so the correct play is to thin the group before
+        # trading with it -- the opposite of the usual "focus the big
+        # one" instinct, and the first enemy in the game that punishes
+        # ignoring the small ones.
+        "name": "Reclamation Swarm",
+        "role": "combat",
+        "regions": ["Voidcrest Desert", "Abyssnia"],
+        "base_stats": {"attack": 19, "defense": 11, "elemental": 8, "speed": 17,
+                       "max_hp": 74, "max_mana": 999, "crit_rate": 8,
+                       "crit_damage": 155, "recharge": 18},
+        "level_scale_percent": 4,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "scattershot_array"),
+            get_ability_by_id(WEAPON_SKILLS, "quickdraw_slash"),
+        ],
+    },
+    {
+        # A TIMING WINDOW. Swings enormously and drops its own DEF doing
+        # it, so the fight has a rhythm: eat the hit, then punish while
+        # it is open. Nothing else in the roster makes itself vulnerable
+        # on purpose.
+        "name": "Overpressure Ram",
+        "role": "elite",
+        "regions": ["The Hotlands", "Voidcrest Desert"],
+        "base_stats": {"attack": 33, "defense": 24, "elemental": 10, "speed": 9,
+                       "max_hp": 260, "max_mana": 999, "crit_rate": 10,
+                       "crit_damage": 175, "recharge": 12},
+        "level_scale_percent": 4,
+        "max_poise": 14,
+        "active_abilities": [
+            get_ability_by_id(WEAPON_SKILLS, "reckless_broadside"),
+            get_ability_by_id(WEAPON_SKILLS, "bulwark_slam"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "iron_skin")],
+    },
+    {
+        # A RACE. Spends its own health to buff everything beside it, so
+        # leaving it alive is a compounding cost while killing it is
+        # tempo the player has to spend. Enemy sustain already decays
+        # steeply (see Combatant._enemy_sustain_falloff), which is what
+        # keeps a support enemy from turning a fight into a slog.
+        "name": "Choir Conduit",
+        "role": "combat",
+        "regions": ["Abyssnia", "Entrospire Deepworks"],
+        "base_stats": {"attack": 16, "defense": 15, "elemental": 20, "speed": 13,
+                       "max_hp": 96, "max_mana": 999, "crit_rate": 5,
+                       "crit_damage": 150, "recharge": 20},
+        "level_scale_percent": 4,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "transfusion_matrix"),
+            get_ability_by_id(ARTIFACT_SKILLS, "arcane_burst"),
+        ],
+    },
+    {
+        # A HEALER, and deliberately a mid-tier one. Enemy healing decays
+        # 100% -> 45% -> 20% -> 9% -> 4%, so this is a real wall on the
+        # first cast and nearly nothing by the fourth: dangerous to
+        # ignore, impossible to be ground down by.
+        "name": "Field Chaplain Unit",
+        "role": "elite",
+        "regions": ["The Wastelands", "The Hotlands"],
+        "base_stats": {"attack": 21, "defense": 19, "elemental": 17, "speed": 12,
+                       "max_hp": 205, "max_mana": 999, "crit_rate": 6,
+                       "crit_damage": 150, "recharge": 22},
+        "level_scale_percent": 4,
+        "max_poise": 12,
+        "active_abilities": [
+            get_ability_by_id(ARTIFACT_SKILLS, "restoration_wave"),
+            get_ability_by_id(WEAPON_SKILLS, "power_strike"),
+        ],
+        "passive_abilities": [get_ability_by_id(ARMOR_PASSIVES, "regen_field_generator")],
+    },
 ]
 
 # Named multi-enemy boss encounters. Each entry is a list of template names
@@ -3332,6 +3420,11 @@ def get_boss_encounter(
 # grows.
 # ----------------------------------------------------------------------
 ENEMY_SHORT_NAMES: dict[str, str] = {
+    # Added with the problem-shape pass. check_ui_labels enforces a
+    # 16-character ceiling because the combat target select shows the
+    # name and Discord truncates rather than wraps.
+    "Reclamation Swarm": "Recl. Swarm",
+    "Field Chaplain Unit": "Fld. Chaplain",
     "Boss John's Driller Prototype": "Driller Proto.",
     "Wasteland Colosseum Champion": "Colosseum Champ",
     "Propaganda Broadcast Unit": "Broadcast Unit",
