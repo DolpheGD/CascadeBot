@@ -219,6 +219,8 @@ __marimo__/
 
 
 Cascadebot.db
+Cascadebot.db-shm
+Cascadebot.db-wal
 CascadeBot.zip
 PLAN.md
 .vscode

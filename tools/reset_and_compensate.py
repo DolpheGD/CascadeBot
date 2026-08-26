@@ -496,10 +496,37 @@ def main() -> int:
         try:
             # ---- wipe, then pay -------------------------------------
             #
-            # Currencies already held are KEPT and added to, not
-            # replaced: they were earned under the old numbers too, and
-            # taking them away to hand back a computed figure would make
-            # the payout a downgrade for anybody sitting on a pile.
+            # THE PAYOUT REPLACES THE BALANCE. It does not add to it.
+            #
+            # This was the other way round -- held currency was kept and
+            # the compensation added on top -- with the reasoning that
+            # taking a pile away to hand back a computed figure would be
+            # a downgrade for anyone sitting on one. That was defensible
+            # when the payout was a simple refund. It is not defensible
+            # now, and it silently cancelled three things built on top of
+            # it:
+            #
+            #   * the saturating curve, whose entire job is to bound what
+            #     anybody carries into the fresh start. Bounding the
+            #     payout does nothing while the unbounded balance
+            #     survives next to it.
+            #   * the authenticity discount, which exists to stop granted
+            #     hoards carrying over -- and a granted hoard IS the held
+            #     balance, so discounting the payout while keeping the
+            #     balance discounts nothing.
+            #   * "delete all the progress and start over", which is not
+            #     what happens if the wallet is untouched.
+            #
+            # Measured on the live run: Sader came out with 241,000 gold
+            # against a ceiling of 45,000 -- roughly 236,000 of held gold
+            # plus the 5,000 floor. The floor was the only part the reset
+            # actually decided.
+            #
+            # _wipe_progress now zeroes every resource field, so the
+            # assignments below are the sole source of a player's
+            # post-reset balance. Assignment rather than += on purpose:
+            # if the zeroing ever regresses, this still cannot silently
+            # stack a payout on top of a hoard.
             db.query(SquadSlot).filter_by(player_id=player.id).delete()
             db.query(SquadPreset).filter_by(player_id=player.id).delete()
             db.query(InventoryItem).filter_by(player_id=player.id).delete()
@@ -507,11 +534,10 @@ def main() -> int:
             db.query(PlayerCharacter).filter_by(player_id=player.id).delete()
             _wipe_progress(db, player)
 
-            player.shards = int(player.shards or 0) + payout["shards"]
-            player.cores = int(player.cores or 0) + payout["cores"]
-            player.gold = int(player.gold or 0) + payout["gold"]
-            player.evolution_fragments = (int(player.evolution_fragments or 0)
-                                          + payout["evolution_fragments"])
+            player.shards = payout["shards"]
+            player.cores = payout["cores"]
+            player.gold = payout["gold"]
+            player.evolution_fragments = payout["evolution_fragments"]
             _mark_done(player)
             db.commit()
         except Exception as exc:  # pragma: no cover
@@ -633,6 +659,33 @@ def _relock(apply: bool) -> int:
     return 0
 
 
+# Everything a player can hold that counts as wealth. Zeroed by
+# _wipe_progress; the four with a compensation line are then reassigned
+# from the payout, and the rest stay at zero.
+WIPED_RESOURCES = (
+    # compensated
+    "gold", "shards", "cores", "evolution_fragments",
+    # not compensated -- no payout line, and gone after the reset
+    "reroll_tokens", "echoes",
+    # materials. Giftable (see gift_service.GIFTABLE), so leaving these
+    # would preserve the one resource class players could hand each other
+    # in bulk.
+    "wood", "stone", "metal", "crystal", "xendium", "permafrost_ore",
+    "void", "entropy",
+)
+
+# Progress counters that are not wealth but are still progress, so they
+# go back to their starting values too. Kept separate from the resource
+# list because they are a different kind of thing and the check treats
+# them differently -- these are not expected to equal a payout.
+RESET_TO_DEFAULT = {
+    "daily_streak": 0,
+    "vote_streak": 0,
+    "total_votes": 0,
+    "prestige_count": 0,
+    "prestige_best_level": 0,
+}
+
 _MARKER = "[reset-v1]"
 
 
@@ -729,6 +782,28 @@ def _wipe_progress(db, player) -> None:
         prologue_complete=False, grandfathered=False,
     )
     db.add(story)
+
+    # EVERY RESOURCE GOES TO ZERO.
+    #
+    # The four compensated currencies are reassigned by the caller
+    # immediately after this; the rest -- materials, echoes, reroll
+    # tokens -- have no payout line and are simply gone, which is the
+    # point. A wipe that leaves 190 xendium and 500 crystal in the wallet
+    # has not reset anybody, and materials were the one giftable resource
+    # class, so leaving them is exactly the loophole the authenticity
+    # work was trying to close.
+    #
+    # Listed explicitly rather than derived from "integer columns with a
+    # default of 0", because that description also matches pity counters,
+    # win/loss records and reminder_failures, and a wipe that guesses
+    # which columns are money is a wipe that will eventually guess wrong.
+    # tools/check_reset_balances.py fails on any Player column that is
+    # neither listed here nor explicitly classified as not-a-resource, so
+    # a new currency cannot be added without this being updated.
+    for field in WIPED_RESOURCES:
+        setattr(player, field, 0)
+    for field, value in RESET_TO_DEFAULT.items():
+        setattr(player, field, value)
 
     player.level = 1
     player.xp = 0
