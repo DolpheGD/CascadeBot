@@ -140,7 +140,8 @@ GOODWILL = 1.35
 #
 #     one character pull        120 shards
 #     one card pull             120 cores
-#     levelling one item to 50   72,275 gold
+#     one Rare craft              2,500 gold
+#     the full forge path       118,000 gold
 #     breaking through a divine     504 fragments
 #
 # ---------------------------------------------------------------------
@@ -151,11 +152,32 @@ COMPENSATION_CURVE: dict[str, tuple[int, int, int]] = {
     # a few times. Cap 6,000 = 50 pulls on top, reached asymptotically.
     "shards": (480, 6_000, 4_000),
 
-    # Floor 25,000 is a third of one item taken to 50 -- enough to start
-    # upgrading immediately. Cap 150,000 is about two maxed items, which
-    # is a real head start and nothing like the 557,000 the linear
-    # formula was about to hand out.
-    "gold": (25_000, 150_000, 120_000),
+    # GOLD IS PRICED AGAINST THE FORGE, not against item levelling, and
+    # that re-anchoring is what moved these numbers.
+    #
+    # Levelling one item to 50 costs 72,275, which made 25,000 look
+    # modest -- a third of one item. But gold's real sinks are the forge
+    # upgrade path (4,000 + 14,000 + 30,000 + 70,000 = 118,000 to max)
+    # and crafting (2,500 Rare up to 38,000 Divine), and against those
+    # the old figures read very differently:
+    #
+    #     old floor   25,000  = a free Mythic craft, for zero progress
+    #     old ceiling 175,000 = the entire forge path AND a Divine craft,
+    #                           i.e. 148% of the whole upgrade economy
+    #
+    # Floor 5,000 is two Rare crafts or the first forge upgrade with
+    # change -- a restart kit rather than a head start. Cap 40,000 puts
+    # the ceiling at 45,000, just short of forge level 3 (48,000), so the
+    # most-played account recovers most of that path and still has to
+    # play for the rest.
+    #
+    # SCALE 60,000 IS DELIBERATELY SHORT, and it is the part that
+    # tightens the top. At 120,000 the four biggest accounts spread over
+    # 51,585 gold; at 60,000 they spread over 4,783. Above roughly
+    # 100,000 raw the differences stop being things anyone played for --
+    # they record who was present while gold was being handed out -- so
+    # the curve stops paying for them and lets the top converge.
+    "gold": (5_000, 40_000, 60_000),
 
     # Floor 120 = one card pull. Cap 3,000 = 25 more.
     "cores": (120, 3_000, 2_500),

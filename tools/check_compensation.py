@@ -244,6 +244,66 @@ def main() -> int:
                         f"{raw_a:,} and {raw_b:,}")
                     break
 
+    # 12. THE GOLD PAYOUT IS PRICED AGAINST THE GOLD ECONOMY.
+    #
+    # These constants were originally justified against the cost of
+    # levelling one item to 50 (72,275), which made a 25,000 floor look
+    # like a third of one item and therefore modest. Measured against
+    # what gold is actually SPENT on -- the forge upgrade path and
+    # crafting -- the same floor was a free Mythic craft handed to an
+    # account with no progress, and the ceiling was 148% of the entire
+    # upgrade economy.
+    #
+    # Tying the assertion to forge_config means it re-derives if the
+    # forge is ever repriced, instead of drifting into another number
+    # that is only defensible against a benchmark nobody rechecked.
+    from bot.game.economy import forge_config as fc
+    from bot.database.models.enums import Rarity
+
+    forge_path = sum(step["gold"] for step in fc.FORGE_UPGRADE_COST.values())
+    mythic_craft = fc.CRAFT_COST[Rarity.MYTHIC]["gold"]
+    gold_floor, gold_cap, _ = COMPENSATION_CURVE["gold"]
+    gold_ceiling = gold_floor + gold_cap
+
+    if gold_floor >= mythic_craft:
+        failures.append(
+            f"the gold floor of {gold_floor:,} is at least a free Mythic craft "
+            f"({mythic_craft:,}) for an account with no progress -- that is a head "
+            f"start, not a restart kit")
+    if gold_ceiling >= forge_path:
+        failures.append(
+            f"the gold ceiling of {gold_ceiling:,} covers the whole forge upgrade "
+            f"path ({forge_path:,}) -- the top account is handed the upgrade "
+            f"economy instead of playing for it")
+
+    # 13. THE TOP OF THE GOLD CURVE IS ACTUALLY CONVERGED.
+    #
+    # Above roughly 100,000 raw the gaps record who was around while gold
+    # was being handed out rather than anything anyone played for, so the
+    # four biggest accounts should land close together. At the old scale
+    # of 120,000 they spread over 51,585 gold, which is more than the
+    # entire payout of everyone below them.
+    top_four = sorted((compensate("gold", row[2]) for row in LIVE_PAYOUTS),
+                      reverse=True)[:4]
+    top_gap = top_four[0] - top_four[-1]
+    if top_gap > gold_cap * 0.25:
+        failures.append(
+            f"the four largest gold accounts spread over {top_gap:,}, more than a "
+            f"quarter of the {gold_cap:,} cap -- the curve is still paying for "
+            f"differences at the top that nobody earned")
+
+    print()
+    print(f"{'gold landmark':<26}{'cost':>10}   vs compensation")
+    print(f"{'one Rare craft':<26}{fc.CRAFT_COST[Rarity.RARE]['gold']:>10,}"
+          f"   floor {gold_floor:,} = "
+          f"{gold_floor / fc.CRAFT_COST[Rarity.RARE]['gold']:.1f}x")
+    print(f"{'one Mythic craft':<26}{mythic_craft:>10,}"
+          f"   ceiling {gold_ceiling:,} = {gold_ceiling / mythic_craft:.1f}x")
+    print(f"{'full forge upgrade path':<26}{forge_path:>10,}"
+          f"   ceiling is {gold_ceiling / forge_path * 100:.0f}% of it")
+    print(f"{'top-4 spread':<26}{top_gap:>10,}   "
+          f"(limit {int(gold_cap * 0.25):,})")
+
     print()
     print(f"{'roster':<26}{'factor':>8}{'shards on 25,920 raw':>24}")
     for label, count, level in (("26 chars, never played", 26, 1),
