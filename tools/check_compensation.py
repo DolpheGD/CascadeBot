@@ -139,12 +139,128 @@ def main() -> int:
                 break
             previous = value
 
+    # ==================================================================
+    # AUTHENTICITY: the ownership discount
+    # ==================================================================
+    #
+    # Three real accounts owned more than anybody else and had played
+    # none of it -- Sader with 26 characters at level 1, Polo with 18,
+    # AIZER with 9. Under an ownership refund they collected the largest
+    # shard payouts in the game for a roster that arrived by grant.
+    #
+    # The discount that fixes that is aimed at a handful of accounts and
+    # runs against all sixteen, so what needs checking is mostly who it
+    # must NOT hit: the small genuine players who also show a low average
+    # level, for the ordinary reason that they only just started.
+    from tools.reset_and_compensate import (
+        MIN_AUTHENTICITY, OWNERSHIP_PAID, authenticity, discount)
+
+    class _Char:
+        """Minimal stand-in -- authenticity() reads level and avatar flag."""
+        def __init__(self, level):
+            self.level = level
+            self.template = type("T", (), {"is_player_avatar": False})()
+
+    def roster(count, level):
+        return [_Char(level) for _ in range(count)]
+
+    # 6. THE FLOOR SURVIVES ANY DISCOUNT.
+    #
+    # The single most important property here, and the reason discount()
+    # subtracts the floor before scaling rather than multiplying the
+    # whole payout. Nepos, Romain and Zodor own one character at level 1
+    # -- indistinguishable from a granted roster by average level alone,
+    # and they must still be paid in full at the floor.
+    for currency in columns:
+        floor = COMPENSATION_CURVE[currency][0]
+        for factor in (MIN_AUTHENTICITY, 0.5, 1.0):
+            if round(discount(currency, floor, factor)) != floor:
+                failures.append(
+                    f"{currency}: a factor of {factor} cuts into the floor "
+                    f"({round(discount(currency, floor, factor)):,} vs {floor:,}) "
+                    f"-- new players would be punished for being new")
+
+    # 7. A GIFTED ROSTER IS PAID LESS THAN A PLAYED ONE OF EQUAL SIZE.
+    # The whole point. Same holdings, same raw payout, different history.
+    raw = 25_920 * 1.35
+    gifted = discount("shards", compensate("shards", raw), authenticity(roster(26, 1)))
+    played = discount("shards", compensate("shards", raw), authenticity(roster(26, 60)))
+    if gifted >= played:
+        failures.append(
+            f"an unplayed roster is paid {gifted:,.0f} and a played roster of the "
+            f"same size {played:,.0f} -- the discount is not discriminating")
+
+    # 8. THE MOST-PLAYED ACCOUNT ENDS UP AHEAD OF THE MOST-GIFTED.
+    # Stated against the real numbers, because a discount that is
+    # directionally right and too small to reorder anybody has not
+    # actually fixed the thing it was written for -- which is exactly
+    # what happened when it was applied before the curve instead of
+    # after, and cost the top offender all of 5%.
+    top_gifted = discount("shards", compensate("shards", 25_920 * 1.35),
+                          authenticity(roster(26, 1)))
+    top_played = discount("shards", compensate("shards", 8_586 * 1.35),
+                          authenticity(roster(22, 60)))
+    if top_gifted >= top_played:
+        failures.append(
+            f"the most-gifted account still receives {top_gifted:,.0f} against the "
+            f"most-played account's {top_played:,.0f} -- the discount is too weak "
+            f"to reorder them, which was the reason for writing it")
+
+    # 9. BOUNDED, AND NEVER ZERO.
+    for count, level in ((0, 1), (1, 1), (26, 1), (26, 60), (26, 100)):
+        factor = authenticity(roster(count, level))
+        if not MIN_AUTHENTICITY <= factor <= 1.0:
+            failures.append(
+                f"{count} characters at level {level} gives a factor of {factor:.2f}, "
+                f"outside [{MIN_AUTHENTICITY}, 1.0]")
+    if authenticity([]) != 1.0:
+        failures.append(
+            "a player with no characters is discounted -- there is no ownership "
+            "payout to scale, and nothing for them to have gamed")
+
+    # 10. EFFORT-PAID CURRENCIES ARE LEFT ALONE.
+    #
+    # Gold and fragments are computed from levels and breakthroughs,
+    # which are XP and spend and cannot be handed over. A granted account
+    # already scores near zero on them with no rule required, so applying
+    # the discount there would charge it twice for the same absence.
+    if set(OWNERSHIP_PAID) & {"gold", "evolution_fragments"}:
+        failures.append(
+            "gold or fragments are being discounted -- both are already "
+            "computed from levels, so this penalises the same gap twice")
+
+    # 11. THE DISCOUNT PRESERVES ORDER among accounts with equal history.
+    # Compression is allowed to narrow gaps, never to invert them.
+    for currency in columns:
+        index = columns[currency]
+        for factor in (MIN_AUTHENTICITY, 0.6, 1.0):
+            values = sorted((row[index],
+                             discount(currency, compensate(currency, row[index]), factor))
+                            for row in LIVE_PAYOUTS)
+            for (raw_a, out_a), (raw_b, out_b) in zip(values, values[1:]):
+                if raw_b > raw_a and out_b < out_a:
+                    failures.append(
+                        f"{currency}: at factor {factor} the discount inverts "
+                        f"{raw_a:,} and {raw_b:,}")
+                    break
+
+    print()
+    print(f"{'roster':<26}{'factor':>8}{'shards on 25,920 raw':>24}")
+    for label, count, level in (("26 chars, never played", 26, 1),
+                                ("26 chars, avg level 14", 26, 14),
+                                ("26 chars, avg level 60", 26, 60),
+                                ("1 char, brand new", 1, 1)):
+        factor = authenticity(roster(count, level))
+        print(f"{label:<26}{factor:>8.2f}"
+              f"{discount('shards', compensate('shards', raw), factor):>24,.0f}")
+
     if failures:
         print()
         for failure in failures:
             print(f"  FAIL  {failure}")
         return 1
-    print("\nOK -- everyone is paid, order holds, and the spread is bounded.")
+    print("\nOK -- everyone is paid, order holds, the spread is bounded, and "
+          "granted rosters do not outearn played ones.")
     return 0
 
 

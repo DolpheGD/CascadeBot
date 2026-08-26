@@ -165,6 +165,106 @@ COMPENSATION_CURVE: dict[str, tuple[int, int, int]] = {
 }
 
 
+# ======================================================================
+# AUTHENTICITY: paying for a roster nobody played
+# ======================================================================
+#
+# THE PROBLEM, visible in the real player table before the reset ran.
+# Three accounts owned a great deal and had played almost none of it:
+#
+#     Sader   26 characters, 500 items, ZERO levels on any of them
+#     Polo    18 characters, zero levels
+#     AIZER    9 characters,  54 items, zero levels
+#
+# against accounts like Sine (22 characters, 267 items, half a million
+# gold of levelling behind them). Under a pure ownership refund the first
+# group was collecting the largest shard payouts in the game for a roster
+# that arrived by grant.
+#
+# WHERE THE CORRECTION BELONGS, AND WHERE IT DOES NOT.
+#
+# Gold and fragments need no correction at all, and this is the useful
+# realisation: both are already computed from LEVELS and BREAKTHROUGHS --
+# character levels, account levels, gear upgrades, fragment costs. Every
+# one of those is XP or spend, and neither can be handed over. A granted
+# account scores zero on them automatically, with no rule required.
+#
+# Shards are the exception. They pay per CHARACTER OWNED, which is
+# exactly the thing that can be granted wholesale, so shards are the only
+# line where ownership and effort come apart. Cores have the same shape
+# for cards.
+#
+# So the factor applies to those two and nothing else. Applying it
+# globally would double-penalise the gold line, which had already priced
+# the missing effort at zero.
+#
+# WHAT IT MEASURES: average level across the roster being paid for. A
+# character somebody actually played is levelled; one that was granted
+# and never fielded sits at 1.
+#
+# THE FLOOR IS NEVER TOUCHED. Small genuine accounts -- Nepos, Romain,
+# Zodor, one character each, barely played -- must not be caught by an
+# anti-grant rule aimed at somebody else. They own almost nothing, so
+# their earned portion is tiny and the floor is nearly all of their
+# payout, which is the correct outcome and stays true regardless of this
+# factor.
+
+# Average character level that counts as a fully played roster.
+# Deliberately low: a character taken to 10 has been used, and the
+# question here is "did you play this at all", not "did you max it".
+FULLY_PLAYED_AVERAGE_LEVEL = 10.0
+
+# What a completely unplayed roster still keeps of its earned portion.
+# Not zero -- these are testers who were present, and some of the
+# granting was done TO them rather than by them. It is a discount, not a
+# forfeit.
+MIN_AUTHENTICITY = 0.25
+
+# Currencies paid for OWNERSHIP rather than for effort, and therefore the
+# only ones this scales. See the note above.
+OWNERSHIP_PAID = ("shards", "cores")
+
+
+def authenticity(characters) -> float:
+    """0.25 - 1.0, from the average level of the roster being paid for.
+
+    An empty roster returns 1.0 rather than 0.25: a player with no
+    characters is not gaming anything, and there is no ownership payout
+    to scale in the first place.
+    """
+    roster = [c for c in characters
+              if not getattr(c.template, "is_player_avatar", False)]
+    if not roster:
+        return 1.0
+    average = sum(max(0, int(c.level or 1)) for c in roster) / len(roster)
+    played = min(1.0, average / FULLY_PLAYED_AVERAGE_LEVEL)
+    return MIN_AUTHENTICITY + (1.0 - MIN_AUTHENTICITY) * played
+
+
+def discount(currency: str, paid: float, genuine: float) -> float:
+    """Scale the EARNED portion of a payout, leaving the floor whole.
+
+    AFTER THE CURVE, NOT BEFORE. This was written the other way round
+    first -- multiply the raw figure, then compress it -- and on the real
+    table it did almost nothing: the worst offender lost 5% and stayed
+    level with the most-played account in the game.
+
+    The reason is the asymptote. An account far past the curve's scale is
+    saturated, so 35,000 raw and 11,500 raw both flatten onto the same
+    ceiling and a two-thirds cut disappears into the compression. A
+    discount applied before a saturating curve is a discount on a number
+    that no longer matters.
+
+    Applied afterwards it lands on the value the player will actually
+    see. Subtracting the floor first is what keeps the promise that
+    nobody drops below it: the floor is not part of what gets scaled, so
+    an empty or barely-played account receives exactly the same floor it
+    would have received without any of this.
+    """
+    floor = COMPENSATION_CURVE.get(currency, (0, 0, 0))[0]
+    return floor + (paid - floor) * genuine
+
+
 def compensate(currency: str, raw: float) -> int:
     """The curve above, applied to one raw refund figure.
 
@@ -322,15 +422,25 @@ def main() -> int:
         # ---- account level ------------------------------------------
         payout["gold"] += max(0, int(player.level or 1) - 1) * GOLD_PER_ACCOUNT_LEVEL
 
-        # GOODWILL FIRST, THEN THE CURVE.
+        # GOODWILL, THEN AUTHENTICITY, THEN THE CURVE. In that order.
         #
-        # Order matters and this is the right way round: goodwill scales
-        # what the player actually spent, and the curve then compresses
-        # the result. Compressing first and multiplying after would push
-        # the biggest accounts back above the cap the curve exists to
-        # impose, which would quietly undo it.
+        # Goodwill scales what was actually spent. Authenticity then
+        # discounts the lines that pay for ownership rather than effort.
+        # The curve compresses last, which is what keeps the floor
+        # untouchable: it is added AFTER the discount, so a heavily
+        # discounted account still lands on the full floor rather than a
+        # quarter of it.
+        #
+        # Doing it in any other order breaks one of the two guarantees --
+        # compressing first lets goodwill push the top back over the cap,
+        # and discounting after the curve would cut into the floor that
+        # every wiped account is owed.
+        genuine = authenticity(characters)
         for key in payout:
-            payout[key] = compensate(key, payout[key] * GOODWILL)
+            value = compensate(key, payout[key] * GOODWILL)
+            if key in OWNERSHIP_PAID:
+                value = discount(key, value, genuine)
+            payout[key] = int(round(value))
 
         print(f"{(player.username or str(player.id))[:20]:<22}"
               f"{len(characters):>6}{len(cards):>6}{len(gear):>6}"
