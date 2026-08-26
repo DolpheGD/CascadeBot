@@ -93,6 +93,98 @@ GOLD_PER_ACCOUNT_LEVEL = 2500
 GOODWILL = 1.35
 
 
+# ======================================================================
+# THE CURVE: everyone lands close together, in the same order.
+# ======================================================================
+#
+# WHY A STRAIGHT REFUND WAS WRONG. Paying back exactly what was spent is
+# the fair-sounding answer and it produced this, measured on the real
+# player table:
+#
+#     shards   25,920 top   vs  162 lowest non-zero   -> 160x
+#     gold    557,128 top   vs   75 lowest non-zero   -> 7,428x
+#     and THREE of sixteen players got nothing at all
+#
+# Those numbers are not a record of skill. They are a record of who
+# happened to be testing during the weeks when things were being handed
+# out, and carrying them into a fresh start would mean the new game
+# opens with a settled hierarchy nobody played for.
+#
+# The three zeroes are the sharper problem. Every one of these accounts
+# is being wiped WITHOUT ASKING. An involuntary reset that pays somebody
+# nothing is not compensation, it is just a deletion.
+#
+# THE SHAPE: floor + cap * (1 - e^(-raw/scale)).
+#
+#   * FLOOR   what everybody gets for having been here at all.
+#   * CAP     the most the earned portion can ever add. The payout
+#             approaches floor+cap and never exceeds it, which is
+#             exactly "the difference gets smaller the more you piled
+#             up" expressed as arithmetic rather than as a promise.
+#   * SCALE   where diminishing starts to bite: at raw == scale a
+#             player has 63% of the cap, at 2x scale 86%, at 3x 95%.
+#
+# Ordering is preserved everywhere -- the curve is strictly increasing,
+# so more progress always pays more. It just pays progressively less
+# more, which is the entire request.
+#
+# A BANDED LADDER (first N at 100%, next at 50%...) was modelled against
+# the same data and lands within a few percent of this. It was not used
+# because bands have edges: one shard either side of a boundary is worth
+# ten times less, and there is no reason for that cliff to exist here.
+# The buff ladder in combatant.py has bands for a reason this does not
+# share -- it needs to separate one source from three.
+#
+# EVERY CONSTANT IS EXPRESSED IN WHAT THE GAME CHARGES, so these can be
+# read as game outcomes rather than as numbers somebody liked:
+#
+#     one character pull        120 shards
+#     one card pull             120 cores
+#     levelling one item to 50   72,275 gold
+#     breaking through a divine     504 fragments
+#
+# ---------------------------------------------------------------------
+# floor, cap, scale -- per currency, because they are not comparable.
+# ---------------------------------------------------------------------
+COMPENSATION_CURVE: dict[str, tuple[int, int, int]] = {
+    # Floor 480 = 4 pulls, so the emptiest account still opens the gacha
+    # a few times. Cap 6,000 = 50 pulls on top, reached asymptotically.
+    "shards": (480, 6_000, 4_000),
+
+    # Floor 25,000 is a third of one item taken to 50 -- enough to start
+    # upgrading immediately. Cap 150,000 is about two maxed items, which
+    # is a real head start and nothing like the 557,000 the linear
+    # formula was about to hand out.
+    "gold": (25_000, 150_000, 120_000),
+
+    # Floor 120 = one card pull. Cap 3,000 = 25 more.
+    "cores": (120, 3_000, 2_500),
+
+    # Floor 250 = half a divine breakthrough. Cap 1,500 = three of them.
+    "evolution_fragments": (250, 1_500, 1_200),
+}
+
+
+def compensate(currency: str, raw: float) -> int:
+    """The curve above, applied to one raw refund figure.
+
+    A currency with no curve entry is returned unchanged rather than
+    silently zeroed -- an unknown currency is a missing config line, and
+    paying it straight is the safe direction to fail.
+    """
+    import math
+
+    entry = COMPENSATION_CURVE.get(currency)
+    if entry is None:
+        return int(round(raw))
+    floor, cap, scale = entry
+    if raw <= 0:
+        # The floor is paid to EVERYONE, including accounts that earned
+        # nothing. They are losing their account either way.
+        return floor
+    return int(round(floor + cap * (1 - math.exp(-raw / scale))))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--apply", action="store_true",
@@ -230,8 +322,15 @@ def main() -> int:
         # ---- account level ------------------------------------------
         payout["gold"] += max(0, int(player.level or 1) - 1) * GOLD_PER_ACCOUNT_LEVEL
 
+        # GOODWILL FIRST, THEN THE CURVE.
+        #
+        # Order matters and this is the right way round: goodwill scales
+        # what the player actually spent, and the curve then compresses
+        # the result. Compressing first and multiplying after would push
+        # the biggest accounts back above the cap the curve exists to
+        # impose, which would quietly undo it.
         for key in payout:
-            payout[key] = int(payout[key] * GOODWILL)
+            payout[key] = compensate(key, payout[key] * GOODWILL)
 
         print(f"{(player.username or str(player.id))[:20]:<22}"
               f"{len(characters):>6}{len(cards):>6}{len(gear):>6}"
@@ -347,9 +446,31 @@ def _wipe_progress(db, player) -> None:
     from bot.database.models.quest_model import PlayerQuest
     from bot.database.models.story_model import PlayerStory
 
+    # Added after the systems they belong to shipped. Verified by running
+    # the migration against a fully-progressed account and reading the
+    # result rather than assuming:
+    #
+    #   PlayerAchievement -- receipts for progress that no longer exists.
+    #       Achievements are DERIVED, so a wiped account correctly shows
+    #       them as unearned either way; what the leftover rows break is
+    #       the "newly earned" announcement, because sync() compares
+    #       against them. Without this, a returning player re-earns
+    #       "Signed On" in silence.
+    #
+    #   DojoClear -- which of other people's challenges you have beaten,
+    #       and the daily-cap history. That is progress.
+    #
+    # DojoChallenge is deliberately NOT here. A published challenge is
+    # authored content other players are playing, not the author's
+    # progress, and deleting it would take somebody else's content down
+    # as a side effect of compensating its author.
+    from bot.database.models.achievement_model import PlayerAchievement
+    from bot.database.models.dojo_model import DojoClear
+
     for model in (Expedition, PlayerQuest, PlayerStory, PlayerAbyss,
                   PlayerHarvester, PlayerLootbox, PlayerLab, PlayerResearch,
-                  PlayerForge, PlayerBase, PlayerShrine):
+                  PlayerForge, PlayerBase, PlayerShrine,
+                  PlayerAchievement, DojoClear):
         try:
             db.query(model).filter_by(player_id=player.id).delete()
         except Exception:
@@ -374,6 +495,27 @@ def _wipe_progress(db, player) -> None:
     player.challenge_wins = 0
     player.challenge_losses = 0
     player.challenges_today = 0
+
+    # The equipped title goes with the achievements that granted it.
+    #
+    # Found by running the migration and reading the result: the account
+    # came out wearing "Abyssal" -- earned for all 36 Abyss stars -- with
+    # zero Abyss stars and no way to re-claim the title. A cosmetic that
+    # cites progress the player no longer has is the one piece of the old
+    # world that would have survived visibly, on the leaderboard, where
+    # everyone could see it.
+    player.active_title = None
+
+    # Dojo daily state. The clears themselves are deleted above.
+    player.dojo_clears_today = 0
+    player.last_dojo_clear_at = None
+
+    # Challenge-cycle points. The banked cycle is progress toward a claim
+    # in a world that is being wound up; leaving it would pay out against
+    # a week that no longer exists.
+    player.challenge_points = 0
+    player.challenge_banked_points = 0
+    player.challenge_claimed_cycle = -1
 
 
 if __name__ == "__main__":

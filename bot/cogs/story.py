@@ -95,16 +95,61 @@ class _ChoiceButton(discord.ui.Button):
         await _advance_and_render(interaction, choice_id=self.option_id)
 
 
+class _ChapterSelect(discord.ui.Select):
+    """Jump to a chapter. A STATE select -- it shows which page you are
+    on and switches it, so `default` on the current page is correct and
+    re-picking it being inert is also correct."""
+
+    def __init__(self, current: int):
+        import bot.game.story.story_config as _sc
+        options = []
+        # Sliced to Discord's 25-option cap. Six chapters today; the cap
+        # is what this screen was paged to respect in the first place.
+        for index, chapter in enumerate(_sc.CHAPTERS[:25]):
+            options.append(discord.SelectOption(
+                label=chapter["name"][:100],
+                value=str(index),
+                default=index == current))
+        super().__init__(placeholder="Jump to a chapter…", options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        await _render_menu_page(interaction, int(self.values[0]))
+
+
+async def _render_menu_page(interaction: discord.Interaction, page: int) -> None:
+    db = SessionLocal()
+    try:
+        player = get_player(db, interaction.user.id)
+        if player is None:
+            await responses.send(interaction, "Use `/start` first.", ephemeral=True)
+            return
+        story = story_service.get_or_create(db, player)
+        nxt = story_service.next_mission(db, player)
+        embed = embedder.story_menu_embed(story, nxt, player, page=page)
+        view = StoryMenuView(bool(story.active_mission), nxt is not None,
+                             owner_id=player.id, page=page)
+    finally:
+        db.close()
+    await responses.edit(interaction, embed=embed, view=view)
+
+
 class StoryMenuView(OwnedView):
-    def __init__(self, has_active: bool, has_next: bool, owner_id: int | None = None):
+    def __init__(self, has_active: bool, has_next: bool, owner_id: int | None = None,
+                 page: int = 0):
         super().__init__(timeout=600, owner_id=owner_id)
+        self.page = page
         if not has_next and not has_active:
             self.remove_item(self.begin_button)
             self.remove_item(self.abandon_button)
-            return
-        self.begin_button.label = "▶ Resume" if has_active else "▶ Begin"
-        if not has_active:
-            self.remove_item(self.abandon_button)
+        else:
+            self.begin_button.label = "▶ Resume" if has_active else "▶ Begin"
+            if not has_active:
+                self.remove_item(self.abandon_button)
+        # The chapter picker is added even when there is nothing to
+        # begin: a finished story is exactly when somebody wants to look
+        # back through it.
+        if embedder.story_chapter_page_count() > 1:
+            self.add_item(_ChapterSelect(page))
 
     @discord.ui.button(label="▶ Begin", style=discord.ButtonStyle.primary)
     async def begin_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -1288,8 +1333,12 @@ async def _advance_and_render(interaction: discord.Interaction, choice_id: str |
 async def _send_menu(interaction: discord.Interaction, db, player, edit: bool):
     story = story_service.get_or_create(db, player)
     nxt = story_service.next_mission(db, player)
-    embed = embedder.story_menu_embed(story, nxt, player)
-    view = StoryMenuView(bool(story.active_mission), nxt is not None, owner_id=player.id)
+    # Opens on the chapter the player is actually in -- see
+    # embedder.default_chapter_page for why not chapter one.
+    page = embedder.story_default_chapter_page(story, nxt)
+    embed = embedder.story_menu_embed(story, nxt, player, page=page)
+    view = StoryMenuView(bool(story.active_mission), nxt is not None,
+                         owner_id=player.id, page=page)
     if edit:
         await responses.edit(interaction, embed=embed, view=view)
     else:

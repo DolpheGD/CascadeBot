@@ -54,8 +54,45 @@ def _reward_summary(totals: dict) -> str:
     return " · ".join(parts)
 
 
-def story_menu_embed(story, next_mission: dict | None, player) -> discord.Embed:
-    """The `/story` landing screen: where you are and what's next."""
+def default_chapter_page(story, next_mission: dict | None) -> int:
+    """Which chapter the menu should open on.
+
+    WHERE THE PLAYER IS, not the beginning. Opening on the prologue for
+    somebody four chapters in would make the first thing they see the
+    part they finished longest ago, and cost them two clicks every
+    single time.
+
+    Falls back to the last chapter when there is no next mission, because
+    a player who has finished everything is at the END of the story, not
+    the start of it.
+    """
+    target = (story.active_mission
+              or (next_mission or {}).get("id"))
+    if target:
+        for index, chapter in enumerate(sc.CHAPTERS):
+            if any(mission["id"] == target for mission in chapter["missions"]):
+                return index
+    return max(0, len(sc.CHAPTERS) - 1)
+
+
+def chapter_page_count() -> int:
+    return len(sc.CHAPTERS)
+
+
+def story_menu_embed(story, next_mission: dict | None, player,
+                     page: int | None = None) -> discord.Embed:
+    """The `/story` landing screen: where you are and what's next.
+
+    ONE CHAPTER PER PAGE. Every chapter used to be listed at once -- six
+    fields and forty-eight mission names on a single screen, which is a
+    wall to read and grows with every chapter written. At six chapters it
+    was 972 characters and merely hard to scan; it has a hard ceiling at
+    25 fields and 6000 characters, and the failure at that point is an
+    embed Discord refuses to send at all.
+
+    Paging fixes the readability now and removes the ceiling entirely, so
+    adding chapter six or sixteen changes nothing about this screen.
+    """
     embed = discord.Embed(title="📖 Story", color=STORY_COLOR)
 
     completed = set(story.completed_missions or [])
@@ -89,16 +126,42 @@ def story_menu_embed(story, next_mission: dict | None, player) -> discord.Embed:
             inline=False,
         )
 
-    for chapter in sc.CHAPTERS:
-        marks = []
-        for mission in chapter["missions"]:
-            done = mission["id"] in completed
-            active = story.active_mission == mission["id"]
-            marks.append(f"{'✅' if done else '▶️' if active else '⬜'} {mission['name']}")
-        embed.add_field(name=chapter["name"], value="\n".join(marks), inline=False)
+    # ---- one chapter, and a progress line for the rest --------------
+    if page is None:
+        page = default_chapter_page(story, next_mission)
+    page = max(0, min(page, len(sc.CHAPTERS) - 1))
+    chapter = sc.CHAPTERS[page]
 
+    marks = []
+    for mission in chapter["missions"]:
+        done = mission["id"] in completed
+        active = story.active_mission == mission["id"]
+        marks.append(f"{'✅' if done else '▶️' if active else '⬜'} {mission['name']}")
+    done_here = sum(1 for m in chapter["missions"] if m["id"] in completed)
+    embed.add_field(
+        name=f"{chapter['name']} — {done_here}/{len(chapter['missions'])}",
+        value="\n".join(marks)[:1024],
+        inline=False)
+
+    # A one-line map of the whole story, so paging away from a chapter
+    # does not mean losing sight of where it sits. Cheap to render and it
+    # is what the removed all-chapters view was really providing.
+    overview = []
+    for index, other in enumerate(sc.CHAPTERS):
+        cleared = sum(1 for m in other["missions"] if m["id"] in completed)
+        total = len(other["missions"])
+        marker = "✅" if cleared == total else ("▶️" if cleared else "⬜")
+        overview.append(f"**{marker} {index + 1}**" if index == page
+                        else f"{marker} {index + 1}")
+    embed.add_field(name="Chapters",
+                    value="  ".join(overview) + f"   ·  {len(completed)}/"
+                          f"{sum(len(c['missions']) for c in sc.CHAPTERS)} missions",
+                    inline=False)
+
+    footer = f"Chapter {page + 1} of {len(sc.CHAPTERS)}"
     if story.active_mission:
-        embed.set_footer(text="You have a mission in progress.")
+        footer += "  ·  You have a mission in progress."
+    embed.set_footer(text=footer)
     return embed
 
 
