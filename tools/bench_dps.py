@@ -69,6 +69,26 @@ def main() -> int:
         ending the run early and scoring conditional carries BELOW their
         plain runs. A benchmark that punishes the thing it is measuring is
         worse than no benchmark.
+
+        THE DUMMY MUST ALSO NOT HEAL, which is where this broke.
+
+        "Harmless" was enforced by zeroing attack and defence, and Eris
+        Sentinel later gained a self-heal (Aegis Protocol). It restored
+        itself to full on every enemy turn, so the HP delta this function
+        measures came out at exactly zero for seven of the eight carries.
+        The benchmark did not error or look odd -- it printed a clean
+        table of zeros and a spread of "13.0x", and it is the table the
+        DPS roster had previously been tuned against.
+
+        Two independent defences, because one was already shown not to be
+        enough:
+
+          * strip the dummy's abilities, passives and ultimate, so there
+            is nothing left to heal or buff with
+          * clamp its HP so it can never rise. Any future mechanic that
+            restores health -- a lifesteal aura, a party-wide heal, a
+            revive -- is neutralised without this needing to know about
+            it, which is the only version of this that stays true.
         """
         rng = random.Random(seed)
         party = build_party_combatants([pc(carry)] + [pc(t) for t in shell], {})
@@ -79,8 +99,21 @@ def main() -> int:
             d.base_stats["defense"] = 0
             d.base_stats["attack"] = 0
             d.max_poise = d.poise = 9_999   # never breaks; break is a separate axis
+            d.active_abilities = []
+            d.passive_abilities = []
+            d.ultimate_ability = None
             targets.append(d)
         dummy = targets[0]
+
+        def clamp(seen: dict) -> None:
+            """HP is a ratchet: it may fall, never rise."""
+            for t in targets:
+                low = seen.get(id(t), t.current_hp)
+                if t.current_hp > low:
+                    t.current_hp = low
+                seen[id(t)] = t.current_hp
+
+        seen: dict = {}
         battle = Battle(party, targets)
 
         hp_fraction = 0.35 if setup else 1.0
@@ -107,6 +140,7 @@ def main() -> int:
             if actor in battle.enemies:
                 battle.take_enemy_turn()
                 pin_party()          # held at the tested HP, never allowed to die
+                clamp(seen)          # and the enemy turn is where healing happens
                 continue
             if actor.ultimate_ready():
                 battle.take_party_action("ultimate")
@@ -117,6 +151,7 @@ def main() -> int:
                 else:
                     battle.take_party_action("attack")
             pin_party()
+            clamp(seen)
         return max(0, start - sum(t.current_hp for t in targets))
 
     rows = []

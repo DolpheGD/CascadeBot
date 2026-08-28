@@ -9,6 +9,7 @@ from bot.database.models import (  # noqa: F401
     base_building_model,
     card_model,
     character_model,
+    dispatch_model,
     dojo_model,
     economy_model,
     equipment_model,

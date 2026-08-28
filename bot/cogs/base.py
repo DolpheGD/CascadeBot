@@ -1573,6 +1573,33 @@ class Base(commands.GroupCog, name="base", description="Cascade HQ base-building
 
         await responses.send(ctx, embed=embed, view=view)
 
+    @app_commands.command(
+        name="dispatch",
+        description="Send characters you aren't fighting with on timed contracts.")
+    async def dispatch_cmd(self, ctx: discord.Interaction):
+        await responses.defer(ctx)
+        db = SessionLocal()
+        try:
+            player = get_player(db, ctx.user.id)
+            if not await require_player(ctx, player):
+                return
+            # Gated on 'base' rather than a feature of its own. Dispatch
+            # lives in the HQ and is unlocked by HQ level, so a second
+            # story gate in front of it would be a lock on a lock -- and
+            # a feature key with no unlock beat written for it would fall
+            # back to "opens when the prologue ends", which is earlier
+            # than the HQ level it actually needs.
+            if not await require_feature(ctx, db, player, 'base'):
+                return
+
+            from bot.cogs._dispatch_ui import DispatchView, board_embed
+            embed = board_embed(db, player)
+            view = DispatchView(player.id, ctx.user.id)
+        finally:
+            db.close()
+
+        await responses.send(ctx, embed=embed, view=view)
+
     @app_commands.command(name="shop", description="Browse the local shop.")
     async def shop_cmd(self, ctx: discord.Interaction):
         await responses.defer(ctx)

@@ -58,8 +58,27 @@ def main() -> int:
         dummy = build_enemy_combatant(get_template_by_name("Eris Sentinel"), 60)
         dummy.max_hp = dummy.current_hp = 50_000_000
         dummy.base_stats["attack"] = 0
+        # THE DUMMY MUST NOT HEAL ITSELF. Eris Sentinel gained a
+        # self-heal (Aegis Protocol) after this benchmark was written,
+        # and it restored the target to full on every enemy turn -- so
+        # this measured a flat 0 for three of the six comps and printed a
+        # "77x spread" that was really "three comps divided by nothing".
+        # Same failure as bench_dps, same fix, because they share a
+        # target. Abilities stripped AND the HP ratcheted, so a future
+        # heal from any source cannot revive the problem.
+        dummy.active_abilities = []
+        dummy.passive_abilities = []
+        dummy.ultimate_ability = None
         battle = Battle(party, [dummy])
         start = dummy.current_hp
+        low = start
+
+        def clamp():
+            nonlocal low
+            if dummy.current_hp > low:
+                dummy.current_hp = low
+            low = dummy.current_hp
+
         for _ in range(160):
             if battle.is_over():
                 break
@@ -70,6 +89,7 @@ def main() -> int:
                 battle.take_enemy_turn()
                 for m in party:
                     m.current_hp = m.max_hp
+                clamp()
                 continue
             if actor.ultimate_ready():
                 battle.take_party_action("ultimate")
@@ -81,6 +101,7 @@ def main() -> int:
                     battle.take_party_action("attack")
             for m in party:
                 m.current_hp = m.max_hp
+            clamp()
         return max(0, start - dummy.current_hp)
 
     rows = [(label, sum(run(names, s) for s in range(14)) // 14)

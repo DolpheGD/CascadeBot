@@ -218,6 +218,9 @@ _PAGES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
                 "`/base hq` — upgrade HQ; it gates everything else below\n"
                 "`/base harvesters` — buy, upgrade and collect passive income\n"
                 "`/base shrines` — permanent party-wide stat bonuses\n"
+                "`/base dispatch` — send characters you aren't fielding on timed "
+                "contracts for materials, gold and XP. They **can't be used in your "
+                "squad until they're back**, so it rewards a wide roster\n"
                 "`/base lab` — research permanent, account-wide upgrades\n"
                 "`/base dojo` — build your own fights, publish them, and try what other players have made\n"
                 "`/base forge` — craft gear in the slot and rarity you choose",

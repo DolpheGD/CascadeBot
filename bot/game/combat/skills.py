@@ -975,8 +975,8 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
     # with how much damage-over-time the REST of the squad brought.
     "blastix_skill": _skill(
         "blastix_skill", "Overpressure Round", 22, 1,
-        "Deal 11% ATK damage to ONE enemy and afflict them with Void Corruption: "
-        "15% ATK a turn for 2 turns.",
+        "Deal 165% ATK damage to ONE enemy and afflict them with Void Corruption: "
+        "54% ATK a turn for 2 turns.",
         # FEWER, BIGGER TICKS. 7% a turn was the correct total
         # and an unreadable number -- a damage-over-time specialist
         # whose signature effect is a single-digit percentage looks
@@ -990,26 +990,90 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         # wrong, because a 2-turn Corruption is refreshed by every cast
         # and so ticks nearly as often as a 3-turn one did. Measured,
         # not reasoned: see the number below.
-        {"kind": "damage_and_void_corruption", "damage_percent": 11, "damage_stat": "attack",
-         "dot_stat": "attack", "dot_percent": 15, "duration": 2},
+        #
+        # BUFFED, AND THE OLD NUMBERS WERE MEASURED AGAINST A BROKEN
+        # BENCH. The trim above is the one that left an 11% headline on a
+        # 5-star's signature skill, and bench_dps then stopped being able
+        # to see the consequence: the dummy it measures against gained a
+        # self-heal and every carry read as 0 damage. With that fixed,
+        # Blastix came LAST of eight carries at 10,720 plain -- below
+        # both 3-stars, and 43% behind Josh.
+        #
+        # The buff is aimed at the DoT rather than spread evenly, because
+        # the DoT is what the ultimate detonates. Raising it lifts the
+        # sustained damage and the detonation payload together, so the
+        # combo his kit is built around gets better rather than his
+        # autoattack filler.
+        #
+        # Landed at 115 / 38 after three measured passes. The first two
+        # were not enough, and either would have shipped on reasoning
+        # alone:
+        #
+        #     before      10,720 plain  13,249 crowd   LAST of eight
+        #     55 / 26     13,615        15,562         still 7th
+        #     95 / 34     16,001        17,598         5th
+        #     115 / 38    17,296        17,902         3rd
+        #     140 / 46    19,061        18,746         2nd
+        #     165 / 54    20,952        20,617         2nd, +11% on Aizer
+        #
+        # The ultimate's detonation moved with these, because the DoT is
+        # the detonation's ammo -- they are one knob, not two.
+        #
+        # HE IS NOT THE AOE KING, AND AN EARLIER VERSION OF THIS COMMENT
+        # CLAIMED HE WAS. That was read off bench_dps's crowd/plain RATIO
+        # column and stated as if it were absolute crowd damage. It never
+        # was: Josh throws 400% at every enemy and has out-damaged Blastix
+        # in the crowd column at every single one of these steps.
+        #
+        # The claim was also structurally impossible, which is the part
+        # worth keeping. Void Corruption is applied SINGLE TARGET on
+        # purpose (see effects.py -- spraying it made him "an AoE
+        # character who happened to use DoT"), so in a crowd the ultimate
+        # only ever has one corrupted enemy to detonate. His AOE cannot
+        # scale with enemy count by design.
+        #
+        # WHAT HE ACTUALLY IS: the carry who scales with his TEAM rather
+        # than with the enemy count. Total Detonation sets off everyone's
+        # damage-over-time, not just his own, and measured against a
+        # Slikrz/Blueflame shell instead of the neutral bench shell:
+        #
+        #     Blastix   20,183 -> 23,933   +19%
+        #     Josh      24,905 -> 25,621    +3%
+        #
+        # So he is second in a generic squad and level with Josh in the
+        # squad his kit is written for, which is the shape a conditional
+        # 5-star should have. Josh keeps single-target and crowd; Blastix
+        # owns "build around me".
+        {"kind": "damage_and_void_corruption", "damage_percent": 165, "damage_stat": "attack",
+         "dot_stat": "attack", "dot_percent": 54, "duration": 2},
     ),
     "blastix_ultimate": _ultimate(
         "blastix_ultimate", "Total Detonation",
-        "Deal 110% ATK damage to every enemy, then DETONATE every damage-over-time "
-        "effect on all of them — Void Corruption, burns, bleeds, anyone's — for 110% "
+        "Deal 200% ATK damage to every enemy, then DETONATE every damage-over-time "
+        "effect on all of them — Void Corruption, burns, bleeds, anyone's — for 240% "
         "of the damage it had left to deal. They are consumed.",
-        {"kind": "aoe_damage_detonate_dots", "damage_percent": 110, "damage_stat": "attack",
-         "detonate_percent": 110},
+        # The AOE base moves a little and the DETONATION moves more, for
+        # the same reason the skill's DoT was favoured over its direct
+        # hit: detonation is the payoff the whole kit sets up, and it is
+        # the only part of Blastix nobody else in the roster can do. A
+        # flat AOE buff would have made him a slightly better Josh, who
+        # already throws 400% at everything.
+        {"kind": "aoe_damage_detonate_dots", "damage_percent": 200, "damage_stat": "attack",
+         "detonate_percent": 240},
     ),
     "gostley_skill": _skill(
         "gostley_skill", "Grave Tithe", 20, 1,
-        "Deal 165% ATK damage. If it kills, heal yourself for 25% of your max HP.",
+        "Deal 200% ATK damage. If it kills, heal yourself for 25% of your max HP.",
         # The key is heal_percent_ON_KILL. Spelled "heal_percent" here
         # originally, which made Gostley's skill raise KeyError the
         # instant it actually killed something -- a crash that only fires
         # on success, so it survived every test that didn't land a
         # finishing blow.
-        {"kind": "damage_execute_heal", "damage_percent": 165, "damage_stat": "attack",
+        # 165 -> 200. Gostley benched at 14,744 plain, under a 3-star
+        # (Axel, 16,100) and a same-rarity peer (Star, 15,796). His skill
+        # was the weakest unconditional hit of any DPS in the game and it
+        # is the button he presses most turns.
+        {"kind": "damage_execute_heal", "damage_percent": 200, "damage_stat": "attack",
          "heal_percent_on_kill": 25},
     ),
     "gostley_ultimate": _ultimate(
@@ -1022,10 +1086,23 @@ CHARACTER_KIT_MAP: dict[str, dict] = {
         # for the execute branch to run. Both halves are fixed here, and
         # the text now states the real numbers: this game's rule is that
         # what an ability says is what it does.
-        "Deal 250% ATK damage — or 600% if the target is below 22% HP.",
+        # THRESHOLD 22 -> 32, which matters more than the damage numbers.
+        #
+        # Gostley's identity is finishing things, and a 22% window is
+        # narrow enough that in practice something else usually landed
+        # the kill first -- so the 600% branch, the entire reason to
+        # field him, mostly did not happen. He read as a weak generalist
+        # because he was being paid as one.
+        #
+        # Widening the window rather than raising the 600% keeps the
+        # payoff the same size and makes it ACTUALLY OCCUR, which is the
+        # difference between a conditional carry and a bad one. The
+        # conditional stays real: 32% is still a finisher's window, not a
+        # permanent state.
+        "Deal 250% ATK damage — or 600% if the target is below 32% HP.",
         {"kind": "execute_below_threshold", "damage_percent": 250,
          "execute_damage_percent": 600, "damage_stat": "attack",
-         "hp_threshold_percent": 22},
+         "hp_threshold_percent": 32},
     ),
     "daffysamlake_skill": _skill(
         "daffysamlake_skill", "Lakeside Rinse", 20, 2,

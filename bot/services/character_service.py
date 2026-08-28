@@ -122,6 +122,25 @@ def set_squad_slot(db, player, slot_index: int, character: PlayerCharacter | Non
     if character is not None and character.player_id != player.id:
         return False, "You don't own that character."
 
+    # A CHARACTER OUT ON A DISPATCH CONTRACT CANNOT BE SEATED.
+    #
+    # This is the enforcement point for the whole dispatch system, and it
+    # is here rather than in the /squad UI because it is the one function
+    # every seating path already goes through -- the squad editor, preset
+    # loading, and anything added later. Checking it in the UI would mean
+    # presets could quietly re-seat somebody who is three regions away,
+    # which is exactly the class of bug that comes from two code paths
+    # deciding one thing.
+    #
+    # Imported inside the function: character_service is imported by
+    # dispatch_service's callers, and a module-level import would close
+    # the cycle.
+    if character is not None:
+        from bot.services import dispatch_service
+        if dispatch_service.is_busy(db, player, character.id):
+            return False, (f"**{character.display_name}** is out on a dispatch "
+                           f"contract. Claim it from `/base dispatch` first.")
+
     if character is None:
         occupied = (
             db.query(SquadSlot)

@@ -164,6 +164,11 @@ command that does not exist.
   place to grind
 - `/base hq`, `/base harvesters`, `/base shrines`, `/base shop`,
   `/base lab` -- passive income, account-wide research, and the shop.
+- `/base dispatch` -- the Dispatch Board. Send characters you aren't
+  fielding on timed contracts for materials, gold and XP. Assigned
+  characters **cannot be used in your squad until they return**, so the
+  board rewards a wide roster rather than a strong one. Opens at HQ
+  level 3; slots scale to four by HQ 8.
   These live under the `/base` group, so Discord will show them as you
   type `/base`
 
