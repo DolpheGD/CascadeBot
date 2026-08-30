@@ -92,7 +92,21 @@ def display_name(combatant, budget: int = NAME_BUDGET) -> str:
     whole point -- automatic shortening is a fallback for content that
     forgot to provide one, not the intended path."""
     name = getattr(combatant, "short_name", "") or combatant.name
-    return shorten(name, budget)
+    shortened = shorten(name, budget)
+
+    # THE GLYPH IS ADDED AFTER SHORTENING, not before.
+    #
+    # `budget` is a NAME budget -- the callers that pass one are fitting
+    # a name into a column. Letting the emoji eat two of those characters
+    # would silently truncate the name to make room for decoration, which
+    # is exactly backwards: the emoji is the cheap part to lose and the
+    # name is the part that identifies the row.
+    #
+    # Party members get nothing. They already have portraits and names
+    # the player chose, and prefixing them would make the enemy glyphs
+    # stop meaning "this is an enemy".
+    emoji = getattr(combatant, "emoji", "") or ""
+    return f"{emoji} {shortened}" if emoji else shortened
 
 
 def fit_suffix(name: str, suffix: str, limit: int) -> str:

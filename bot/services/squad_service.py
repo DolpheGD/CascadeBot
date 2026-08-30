@@ -119,6 +119,36 @@ def load_preset(db, player, preset_id: int) -> tuple[SquadPreset, list[str]]:
     if wanted[0] != avatar.id:
         wanted[0] = avatar.id
 
+    # A CHARACTER OUT ON A DISPATCH CONTRACT MAY NOT BE SEATED.
+    #
+    # This function writes slot.character_id DIRECTLY rather than going
+    # through character_service.set_squad_slot, so the dispatch lock that
+    # lives there does not cover it. That is the whole bug: sending four
+    # characters out and then loading a preset that names them put them
+    # straight back in the squad, and the only reason it was not caught
+    # sooner is that tools/check_dispatch's fixture picks its contract
+    # from a time-windowed board, so whether the crew overlapped the
+    # preset varied by the hour the check happened to run.
+    #
+    # Handled the same way as a deleted character above -- cleared with a
+    # warning rather than refused. Refusing the whole load would mean one
+    # dispatched character makes a saved preset unusable, which punishes
+    # the player for using two features together.
+    #
+    # Imported inside the function: dispatch_service imports the squad
+    # models, and a module-level import closes the cycle.
+    from bot.services import dispatch_service
+
+    busy = dispatch_service.busy_character_ids(db, player)
+    if busy:
+        for index, character_id in enumerate(wanted):
+            if character_id is not None and character_id in busy:
+                wanted[index] = None
+                name = owned[character_id].display_name if character_id in owned \
+                    else f"slot {index + 1}"
+                warnings.append(
+                    f"**{name}** is out on a dispatch contract and was left out")
+
     # A character may not occupy two slots.
     seen: set[int] = set()
     for index, character_id in enumerate(wanted):

@@ -202,9 +202,39 @@ def main() -> int:
             f"for two ({two:.2f}) -- class matching is using a set, not a multiset")
 
     # ---- 2. the lock ------------------------------------------------
-    board = D.board(db, player)
-    target = next((c for c in board if c["party"] >= 2), board[0])
+    #
+    # THE CONTRACT IS CHOSEN, NOT DRAWN FROM THE BOARD.
+    #
+    # This used to take whatever D.board() offered, and the board is
+    # seeded on an 8-hour window -- so which characters ended up locked,
+    # and therefore whether they overlapped the saved preset, changed
+    # depending on the hour the check ran. It passed for a day and then
+    # failed, and the bug it was meant to catch (load_preset writing
+    # slot.character_id directly, straight past the lock) had been there
+    # the whole time.
+    #
+    # A fixed four-character contract makes the overlap certain. A check
+    # whose result depends on the clock is not a check.
+    target = max(dc.CONTRACTS, key=lambda c: c["party"])
     crew = [m.id for m in mine[:target["party"]]]
+
+    # SEAT AND SAVE THE PRESET **BEFORE** DISPATCHING, which is the only
+    # order that tests anything.
+    #
+    # The first version saved the preset after the send, and by then
+    # set_squad_slot was already refusing to seat the dispatched crew --
+    # so the preset contained only free characters and loading it could
+    # not possibly leak. Reverting the fix in squad_service left the
+    # check green, which is how it was found.
+    #
+    # A preset is a snapshot of a squad from BEFORE the contract went
+    # out. That is the real situation, and it is the only one where
+    # load_preset can put somebody back who should be away.
+    for index, member in enumerate(mine[:target["party"]]):
+        character_service.set_squad_slot(db, player, index, member)
+    db.commit()
+    preset = squad_service.save_preset(db, player, "pre-dispatch")
+
     row, error = D.send(db, player, target["id"], crew)
     if row is None:
         failures.append(f"a valid dispatch was refused: {error}")
@@ -221,33 +251,26 @@ def main() -> int:
                 "a character out on a contract was seated in the squad -- the lock "
                 "is the only thing making dispatch a decision")
 
-        # THE INDIRECT PATH, which is the one that matters. A preset
-        # saved before the dispatch went out still names those
-        # characters, and loading it must not put them back.
-        try:
-            for index, member in enumerate(mine[:4]):
-                character_service.set_squad_slot(db, player, index, member)
-        except Exception:
-            pass
-        preset = None
-        try:
-            preset = squad_service.save_preset(db, player, "probe")
-        except Exception:
-            preset = None
-        if preset is not None:
-            try:
-                squad_service.load_preset(db, player, preset.id)
-            except Exception:
-                pass
-            from bot.database.models.character_model import SquadSlot
-            seated = {s.character_id for s in
-                      db.query(SquadSlot).filter_by(player_id=player.id).all()}
-            leaked = seated & D.busy_character_ids(db, player)
-            if leaked:
-                failures.append(
-                    f"loading a squad preset re-seated {len(leaked)} dispatched "
-                    f"character(s) -- the lock is enforced in the UI but not in the "
-                    f"path presets take")
+        # THE INDIRECT PATH, which is the one that matters. The preset
+        # saved above still names the crew that is now away, and loading
+        # it must not put them back. load_preset writes slot.character_id
+        # directly rather than going through set_squad_slot, so it does
+        # not inherit that function's lock and needs its own.
+        #
+        # No try/except around any of this. Swallowing exceptions here
+        # would turn "load_preset crashed" into a pass, which is the same
+        # class of blind spot as the ordering bug above.
+        squad_service.load_preset(db, player, preset.id)
+
+        from bot.database.models.character_model import SquadSlot
+        seated = {s.character_id for s in
+                  db.query(SquadSlot).filter_by(player_id=player.id).all()}
+        leaked = seated & D.busy_character_ids(db, player)
+        if leaked:
+            failures.append(
+                f"loading a squad preset re-seated {len(leaked)} dispatched "
+                f"character(s) -- the lock is enforced in set_squad_slot but "
+                f"load_preset writes slot.character_id directly and bypasses it")
 
         # double-booking
         _, second = D.send(db, player, target["id"], crew)
@@ -271,6 +294,38 @@ def main() -> int:
         again, _ = D.claim(db, player, row.id)
         if again:
             failures.append("a contract paid out twice")
+
+    # ---- you can always still field a squad ---------------------------
+    #
+    # Sending a four-character contract while owning four characters
+    # emptied the squad outright, and get_squad() returning [] breaks
+    # every combat entry point in the game. The player could not fight
+    # until the contract returned.
+    solo = player_service.get_or_create_player(db, 90_002, "ThinRoster")
+    character_service.ensure_avatar_character(db, solo)
+    for template in templates[:3]:
+        db.add(PlayerCharacter(player_id=solo.id, template_id=template.id,
+                               level=30, talents=[], dupe_count=1))
+    thin_base = db.query(PlayerBase).filter_by(player_id=solo.id).first()
+    if thin_base is None:
+        thin_base = PlayerBase(player_id=solo.id)
+        db.add(thin_base)
+    thin_base.hq_level = 8
+    db.commit()
+
+    everyone = [c.id for c in db.query(PlayerCharacter)
+                .filter_by(player_id=solo.id).all()]
+    four = max(dc.CONTRACTS, key=lambda c: c["party"])
+    if len(everyone) == four["party"]:
+        row_all, error_all = D.send(db, solo, four["id"], everyone)
+        if row_all is not None:
+            failures.append(
+                "a player was allowed to send their entire roster -- get_squad() "
+                "then returns nothing and no fight can be started at all")
+        elif "everybody" not in error_all.lower():
+            failures.append(
+                f"sending the whole roster was refused, but with an unhelpful "
+                f"reason: {error_all!r}")
 
     # ---- slots track the HQ ------------------------------------------
     for level in range(1, 10):

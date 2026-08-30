@@ -122,6 +122,28 @@ def can_send(db, player, contract_id: str, character_ids: list[int]) -> tuple[bo
     if clash:
         return False, f"Already on a contract: {', '.join(clash)}."
 
+    # YOU MAY NOT SEND EVERYBODY.
+    #
+    # A measured bug, not a hypothetical: sending a four-character
+    # contract while owning exactly four characters emptied the squad,
+    # and get_squad() then returned [] -- which every combat entry point
+    # (expedition, domain, raid, abyss) builds a battle from. The player
+    # was left unable to fight at all until the contract came back.
+    #
+    # character_service.set_squad_slot already refuses to clear the last
+    # occupied slot for exactly this reason. send() writes to those slots
+    # directly and so never consulted that rule, which is the same
+    # "second code path around one invariant" shape as the preset bug
+    # this sits next to.
+    #
+    # Enforced on FREE CHARACTERS rather than on squad slots, because the
+    # squad can legitimately be empty at this moment (nothing seated yet)
+    # while the player still has plenty of people to seat.
+    free_after = set(owned) - busy - set(ids)
+    if not free_after:
+        return False, ("That would send everybody. Keep at least one character "
+                       "back — you can't fight without a squad.")
+
     return True, ""
 
 

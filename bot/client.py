@@ -40,6 +40,7 @@ class CascadeBot(commands.Bot):
         # network was slow" buries the bugs that are worth reading. So
         # 10062 becomes one line, and everything else still raises.
         self.tree.on_error = self._on_app_command_error
+        self.tree.interaction_check = self._time_command
 
     async def _on_app_command_error(self, interaction: discord.Interaction, error):
         from discord import app_commands
@@ -68,7 +69,64 @@ class CascadeBot(commands.Bot):
         name = interaction.command.qualified_name if interaction.command else "?"
         await responses.report_failure(interaction, original, where=f"/{name}")
 
+
+    # ------------------------------------------------------------------
+    # Command timing, and naming the work for the watchdog
+    # ------------------------------------------------------------------
+    #
+    # `interaction_check` runs before every application command, and
+    # `on_app_command_completion` after it, so between them they measure
+    # the real wall-clock cost of a command as the player experiences it.
+    #
+    # WHY THIS IS WORTH ITS OWN HOOK. The gateway warning ("Can't keep
+    # up, websocket is 20.4s behind") says the loop was blocked and
+    # nothing about by what. Per-command timings turn that into a
+    # ranked list of what to fix -- and the ContextVar set here is what
+    # lets the watchdog name the culprit rather than reporting an
+    # anonymous stall.
+    async def _time_command(self, interaction: discord.Interaction) -> bool:
+        import time as _time
+
+        name = interaction.command.qualified_name if interaction.command else "?"
+        label = f"/{name} (user {interaction.user.id})"
+        interaction.extras["_started"] = _time.perf_counter()
+        # note() rather than a ContextVar set: the watchdog runs in its
+        # own task and cannot see another task's context. See the note in
+        # watchdog.py -- the ContextVar version reported every block as
+        # "no command" while looking entirely correct.
+        from bot.utils import watchdog
+        watchdog.note(label)
+        return True
+
+    async def on_app_command_completion(self, interaction, command):
+        import time as _time
+
+        started = interaction.extras.get("_started")
+        if started is None:
+            return
+        elapsed = _time.perf_counter() - started
+        name = getattr(command, "qualified_name", "?")
+        # 3s is Discord's interaction deadline. A command that takes
+        # longer than that only worked because it deferred in time, and
+        # is one slow query away from not working at all.
+        if elapsed >= 3.0:
+            logger.warning("/%s took %.1fs -- past Discord's 3s deadline; it "
+                           "survived only because it deferred", name, elapsed)
+        elif elapsed >= 1.0:
+            logger.info("/%s took %.1fs", name, elapsed)
+
     async def setup_hook(self):
+        # WATCHDOG FIRST, before any of the slow setup below.
+        #
+        # setup_hook itself runs init_db() and seeds three catalogs
+        # synchronously, which is one of the longest blocks the process
+        # ever performs. Starting the watchdog here means that block is
+        # the first thing it reports, which is exactly right: if boot
+        # blocks for ten seconds the log should say so rather than
+        # leaving somebody wondering why the bot was late.
+        from bot.utils import watchdog
+        self._watchdog = watchdog.start(self)
+
         logger.info("Initializing database...")
         init_db()
 

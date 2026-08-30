@@ -100,6 +100,27 @@ async def defer(interaction: discord.Interaction, *, ephemeral: bool = False) ->
         raise
 
 
+def _drop_none(kwargs: dict) -> dict:
+    """Remove `view=None` / `embed=None` before dispatch.
+
+    THE TWO PATHS DISAGREE, which is exactly the asymmetry this module
+    exists to hide. `response.send_message(view=None)` is fine;
+    `followup.send(view=None)` raises
+    "expected view parameter to be of type View or LayoutView, not
+    NoneType". So the same call site works before a defer and crashes
+    after one -- and every command here defers.
+
+    That killed /adventure in production: dungeon.py renders a room and
+    legitimately has no view for some room states, passed view=None, and
+    the command died after the defer. Dropping the key means "no view"
+    reaches Discord as an absent argument, which is what the caller
+    meant.
+    """
+    return {key: value for key, value in kwargs.items()
+            if not (key in ("view", "embed", "embeds", "file", "files")
+                    and value is None)}
+
+
 async def send(interaction: discord.Interaction, *args, **kwargs) -> None:
     """Reply, whether or not the interaction was deferred.
 
@@ -110,6 +131,7 @@ async def send(interaction: discord.Interaction, *args, **kwargs) -> None:
     and picking it correctly by hand means every handler has to track
     its own reply state.
     """
+    kwargs = _drop_none(kwargs)
     try:
         if interaction.response.is_done():
             await interaction.followup.send(*args, **kwargs)

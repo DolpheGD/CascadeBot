@@ -144,6 +144,64 @@ async def _get(path: str, params: dict | None = None) -> dict:
         raise TopGGError("Top.gg took too long to respond -- try again in a minute.") from exc
 
 
+async def post_stats(bot_id: int, server_count: int,
+                     shard_count: int | None = None) -> bool:
+    """Tell top.gg how many servers the bot is in. True if it accepted.
+
+    THE ONLY WRITE THIS CLIENT MAKES. Everything else here is a
+    read-only GET for /vote, so this deliberately does not go through
+    `_get` -- sharing that function would have meant giving it a method
+    parameter and a body, and a helper that can both read and write is
+    one typo away from posting to the check endpoint.
+
+    RETURNS A BOOL RATHER THAN RAISING. Its only caller is a background
+    loop with nobody watching, and an unhandled exception inside a
+    tasks.loop cancels that loop permanently -- the failure mode the
+    scheduler cog's docstring was written about. A stats post that fails
+    is worth a log line and nothing more: the count is cosmetic, it is
+    retried on the next tick, and there is no player waiting on it.
+
+    Not posting at all is a supported state. top.gg shows a listing
+    without a pushed count, and voting works regardless, so an
+    unconfigured or failing stats post degrades to exactly the behaviour
+    this bot had before it existed.
+    """
+    if not is_configured():
+        return False
+
+    payload: dict[str, int] = {"server_count": max(0, int(server_count))}
+    if shard_count:
+        payload["shard_count"] = int(shard_count)
+
+    timeout = aiohttp.ClientTimeout(total=REQUEST_TIMEOUT_SECONDS)
+    try:
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(f"{API_BASE}/bots/{bot_id}/stats",
+                                    json=payload, headers=_headers()) as resp:
+                if resp.status == 401:
+                    logger.error(
+                        "top.gg rejected our token (401) posting stats -- "
+                        "TOPGG_TOKEN is invalid or expired")
+                    return False
+                if resp.status == 404:
+                    logger.warning(
+                        "top.gg has no listing for bot %s -- stats not posted. "
+                        "This is expected until the listing is approved.", bot_id)
+                    return False
+                if resp.status == 429:
+                    logger.info("top.gg rate-limited the stats post; will retry "
+                                "on the next tick")
+                    return False
+                if resp.status >= 400:
+                    logger.warning("top.gg returned %s posting stats", resp.status)
+                    return False
+                logger.info("Posted %s server(s) to top.gg", payload["server_count"])
+                return True
+    except (aiohttp.ClientError, TimeoutError) as exc:
+        logger.warning("top.gg stats post failed: %s", exc)
+        return False
+
+
 async def _listing_exists(bot_id: int) -> bool:
     """Whether top.gg actually has a listing for `bot_id`.
 

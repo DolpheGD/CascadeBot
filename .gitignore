@@ -227,3 +227,5 @@ PLAN.md
 .docs
 *.db
 docs/*
+# Runtime logs (see bot/utils/logger.py)
+logs/

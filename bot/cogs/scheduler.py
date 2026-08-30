@@ -56,6 +56,7 @@ class Scheduler(commands.Cog):
         self.bot = bot
         self.nightly_backup.start()
         self.reminder_sweep.start()
+        self.topgg_stats.start()
 
     async def _wait_ready(self, which: str) -> None:
         """Rule 2, with rule 1 applied to it as well.
@@ -76,6 +77,7 @@ class Scheduler(commands.Cog):
     async def cog_unload(self):
         self.nightly_backup.cancel()
         self.reminder_sweep.cancel()
+        self.topgg_stats.cancel()
 
     # ------------------------------------------------------------------
     # Nightly backup
@@ -124,6 +126,60 @@ class Scheduler(commands.Cog):
     @reminder_sweep.before_loop
     async def _before_reminders(self):
         await self._wait_ready("reminder_sweep")
+
+    # ------------------------------------------------------------------
+    # top.gg server count
+    # ------------------------------------------------------------------
+    #
+    # AN INTERVAL, NOT A FIXED TIME, and it is the one loop in this cog
+    # that should be. The other two do a piece of work that must happen
+    # once a day at a quiet hour. This one publishes a NUMBER THAT GOES
+    # STALE -- a listing showing yesterday's server count for twenty-three
+    # hours is the failure it exists to prevent, so the cadence has to be
+    # shorter than the thing it is tracking changes.
+    #
+    # 30 minutes is top.gg's own suggested floor for stats posting and
+    # well inside their rate limit. tasks.loop fires its FIRST tick as
+    # soon as before_loop returns, so a restart republishes the count
+    # immediately rather than leaving a stale figure up for half an hour
+    # -- no separate on_ready hook is needed for that.
+    @tasks.loop(minutes=30)
+    async def topgg_stats(self):
+        try:
+            from bot.config import TOPGG_BOT_ID
+            from bot.services import topgg_client
+
+            # Cheapest possible exit when nobody has configured voting.
+            # Most deployments of this bot are somebody running it for
+            # one server, and they should not be making a network call
+            # every half hour to be told they have no listing.
+            if not topgg_client.is_configured():
+                return
+
+            bot_id = TOPGG_BOT_ID or (self.bot.user.id if self.bot.user else None)
+            if bot_id is None:
+                logger.debug("top.gg stats: no bot id available yet")
+                return
+
+            await topgg_client.post_stats(
+                bot_id,
+                server_count=len(self.bot.guilds),
+                # None for an unsharded bot. Passing shard_count=1 would
+                # be worse than passing nothing: top.gg treats it as a
+                # declared shard topology and expects per-shard posts.
+                shard_count=self.bot.shard_count or None,
+            )
+        except Exception:
+            # post_stats already swallows its own network failures and
+            # returns a bool, so reaching here means something structural
+            # -- but rule 1 of this cog still applies: an escaping
+            # exception cancels the loop permanently, and a cosmetic
+            # server count is not worth losing the loop over.
+            logger.exception("top.gg stats post FAILED")
+
+    @topgg_stats.before_loop
+    async def _before_topgg(self):
+        await self._wait_ready("topgg_stats")
 
 
 async def setup(bot: commands.Bot):

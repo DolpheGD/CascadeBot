@@ -3506,3 +3506,141 @@ def short_name_for(name: str) -> str:
     full name, which is correct for the 49 templates already short
     enough to need no entry."""
     return ENEMY_SHORT_NAMES.get(name, name)
+
+
+# ----------------------------------------------------------------------
+# The Voidlands' roster, merged in from its own module.
+#
+# APPENDED AT THE END OF THE FILE, ON PURPOSE. Both structures it extends
+# are fully defined above this point, and doing it here rather than
+# splicing twelve templates into the middle of a 3,500-line literal keeps
+# a new region from being able to damage the existing one -- which has
+# happened twice, once losing short_name_for and BOSS_GROUPS entirely.
+#
+# The lookup helpers above all read ENEMY_TEMPLATES live rather than
+# caching it, so extending it here is enough for get_templates_by_role,
+# get_template_by_name and get_boss_encounter to see the new region.
+# ----------------------------------------------------------------------
+from bot.game.combat.enemies_voidlands import (  # noqa: E402
+    VOIDLANDS_ENEMIES, VOIDLANDS_SHORT_NAMES,
+)
+
+ENEMY_TEMPLATES.extend(VOIDLANDS_ENEMIES)
+ENEMY_SHORT_NAMES.update(VOIDLANDS_SHORT_NAMES)
+
+
+# ----------------------------------------------------------------------
+# THE VOIDLANDS SHARES ITS ROSTER WITH ITS NEIGHBOURS, IN BOTH DIRECTIONS.
+#
+# On its own the region fielded 6 combat and 3 elite templates against
+# Voidcrest's 19/15 and Abyssnia's 14/12. That is not a region, it is a
+# corridor with the same four fights in it -- and a player walking 45
+# rooms would see every template several times over before the finale.
+#
+# Expressed as a RULE rather than by editing forty `regions` lists,
+# because the lists live inside a 3,500-line literal that scripted edits
+# have damaged twice, and because a rule states the design where a
+# scattering of appended strings would only state the result:
+#
+#   BACKWARD -- everything that already roams Voidcrest Desert also
+#   roams the Voidlands. Voidcrest is where the Void has touched the
+#   land and the Voidlands are where it has finished, so the same things
+#   are out there; they are simply further gone.
+#
+#   FORWARD -- the Voidlands' own roster also appears in Abyssnia. This
+#   direction is what the region is FOR: Abyssnia was the second-sparsest
+#   pool in the game at 27 templates, and the things the Void makes are
+#   exactly what should be crowding the capital by that point.
+#
+# Bosses are deliberately untouched. They are keyed by `region_roles`,
+# not `regions`, and a shared finale would undo check_regions' rule that
+# every region has a final boss of its own rather than borrowing one at a
+# tier it was never balanced for.
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+# Specialists: enemies built on the 22 effect kinds no enemy had ever
+# used. Merged here for the same reason as the Voidlands roster above --
+# see enemies_specialists.py for the audit that produced them.
+#
+# Merged BEFORE the region-sharing rule below, deliberately. Several of
+# them list Voidcrest Desert, and the backward-sharing rule would then
+# also place them in the Voidlands -- which is correct and is why they
+# are extended first rather than after.
+# ----------------------------------------------------------------------
+from bot.game.combat.enemies_specialists import (  # noqa: E402
+    SPECIALIST_ENEMIES, SPECIALIST_SHORT_NAMES,
+)
+
+ENEMY_TEMPLATES.extend(SPECIALIST_ENEMIES)
+ENEMY_SHORT_NAMES.update(SPECIALIST_SHORT_NAMES)
+
+
+# ----------------------------------------------------------------------
+# The Conclave: enemy SUPPORT -- amplifiers, healers and poise crews.
+# Eight of the ten remaining enemy-unused effect kinds were team buffs,
+# which is to say the other side of every fight had no equivalent of the
+# player's Amplifier and Sustain. See enemies_conclave.py.
+# ----------------------------------------------------------------------
+from bot.game.combat.enemies_conclave import (  # noqa: E402
+    CONCLAVE_ENEMIES, CONCLAVE_SHORT_NAMES,
+)
+
+ENEMY_TEMPLATES.extend(CONCLAVE_ENEMIES)
+ENEMY_SHORT_NAMES.update(CONCLAVE_SHORT_NAMES)
+
+
+# ----------------------------------------------------------------------
+# Bulk expansion: 51 ordinary enemies spread across every region, sized
+# against each region's measured median so variety costs no difficulty.
+# The previous two batches were mechanic-led and narrow; this one is the
+# connective tissue between them. See enemies_expansion.py.
+# ----------------------------------------------------------------------
+from bot.game.combat.enemies_expansion import (  # noqa: E402
+    EXPANSION_ENEMIES, EXPANSION_SHORT_NAMES,
+)
+
+ENEMY_TEMPLATES.extend(EXPANSION_ENEMIES)
+ENEMY_SHORT_NAMES.update(EXPANSION_SHORT_NAMES)
+
+
+# ----------------------------------------------------------------------
+# Apex: eight above-curve enemies for the late regions. Harder than
+# their neighbours, but each in a way with a specific answer rather than
+# by carrying bigger numbers. See enemies_apex.py.
+# ----------------------------------------------------------------------
+from bot.game.combat.enemies_apex import (  # noqa: E402
+    APEX_ENEMIES, APEX_SHORT_NAMES,
+)
+
+ENEMY_TEMPLATES.extend(APEX_ENEMIES)
+ENEMY_SHORT_NAMES.update(APEX_SHORT_NAMES)
+
+
+# ----------------------------------------------------------------------
+# Ocellios Labs: region eight, the end of the ladder and the room the
+# game opens in. Hardest roster in CascadeBot -- every template stacks
+# two mechanics that are individually dangerous elsewhere, and the
+# finale is Stubby himself. See enemies_ocellios.py.
+# ----------------------------------------------------------------------
+from bot.game.combat.enemies_ocellios import (  # noqa: E402
+    OCELLIOS_ENEMIES, OCELLIOS_SHORT_NAMES,
+)
+
+ENEMY_TEMPLATES.extend(OCELLIOS_ENEMIES)
+ENEMY_SHORT_NAMES.update(OCELLIOS_SHORT_NAMES)
+
+
+_VOIDLANDS = "The Voidlands"
+_SHARE_BACKWARD_FROM = "Voidcrest Desert"
+_SHARE_FORWARD_TO = "Abyssnia"
+
+_voidlands_own = {t["name"] for t in VOIDLANDS_ENEMIES}
+
+for _template in ENEMY_TEMPLATES:
+    _regions = _template.get("regions")
+    if not _regions:
+        continue                      # bosses -- see the note above
+    if _SHARE_BACKWARD_FROM in _regions and _VOIDLANDS not in _regions:
+        _regions.append(_VOIDLANDS)
+    if _template["name"] in _voidlands_own and _SHARE_FORWARD_TO not in _regions:
+        _regions.append(_SHARE_FORWARD_TO)

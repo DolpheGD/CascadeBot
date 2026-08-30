@@ -172,7 +172,21 @@ def npc_line(db, story, area_id: str, char: str, content: dict) -> tuple[str, in
         if not _line_available(story, line):
             continue
         return line.get("text", ""), index, False
-    fallback = content.get("repeat") or "They don't have anything else to say right now."
+    # COERCED TO str, because a data typo here crashed a live command.
+    #
+    # Three NPC tiles were authored with `"repeat": True` -- a boolean
+    # where every other tile has the repeat LINE -- so this returned
+    # True, map_service handed it on as {"text": True}, and story.py did
+    # `(result.get("text") or "") + _reward_block(...)`, which is
+    # `True + str` and a TypeError in the player's face.
+    #
+    # The data is fixed, and so is this: content is authored by hand and
+    # the renderer is the wrong place to find out that a field is the
+    # wrong type. tools/check_map_content.py now fails on it too, so the
+    # next one is caught before it ships rather than after.
+    fallback = content.get("repeat")
+    if not isinstance(fallback, str) or not fallback:
+        fallback = "They don't have anything else to say right now."
     return fallback, None, True
 
 

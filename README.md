@@ -124,9 +124,15 @@ command that does not exist.
 - `/adventure` -- start or resume a dungeon expedition. The map is a
   planned route, Slay-the-Spire style: paths fork, and taking one locks
   you out of others, so the whole run is chosen before it is fought
+- **Adventure regions**, in order: Glacier 15, The Wastelands, The
+  Hotlands, Voidcrest Desert, The Voidlands, Abyssnia, Entrospire
+  Deepworks, and **Ocellios Labs**. Each unlocks by clearing the one
+  before it. Ocellios is optional endgame -- it gates nothing and its
+  loot ceiling is the same Divine as Entrospire, so it exists purely as
+  the hardest content in the game, at the biggest reward multipliers.
 - `/domains` -- energy-gated single battles for direct rewards, without
   committing to a full expedition
-- `/abyss` -- the hardest content in the game
+- `/abyss` -- a separate endless-floor gauntlet, run outside the region ladder
 - `/raid`, `/raid_claim` -- this server's co-op boss, and your share of it
 - `/challenge` -- fight another player's squad offline. Wins bank points
   toward weekly milestones you claim when the cycle resets

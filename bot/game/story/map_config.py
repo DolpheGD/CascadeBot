@@ -1069,7 +1069,7 @@ AREAS: dict[str, dict] = {
                 "kind": "npc",
                 "emoji": "📦",
                 "name": "The pallet stack",
-                "repeat": True,
+                "repeat": "Crates. Stacked. Judging you slightly.",
                 "lines": [
                     {"text": ("Crates from six different suppliers, stacked by "
                               "somebody with strong opinions about weight "
@@ -1164,7 +1164,7 @@ AREAS: dict[str, dict] = {
                 "kind": "npc",
                 "emoji": "🧦",
                 "name": "The drying rack",
-                "repeat": True,
+                "repeat": "Still damp. Still somebody's.",
                 "lines": [
                     {"text": "Four pairs of socks. Three people live here."},
                     {"text": ("Somebody has labelled theirs. Somebody else has "
@@ -2022,7 +2022,7 @@ AREAS: dict[str, dict] = {
                 "kind": "npc",
                 "emoji": "🐬",
                 "name": "Dolphin, sitting on the parapet",
-                "repeat": True,
+                "repeat": "He nods at the view. That is the whole conversation.",
                 "lines": [
                     {"text": ("\"I come up here when I can't remember something "
                               "and I don't want anyone watching me try.\"")},

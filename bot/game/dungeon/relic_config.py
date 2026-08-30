@@ -613,6 +613,248 @@ RELICS: list[dict] = [
             {"kind": "stat", "stat": "max_hp", "percent": -12},
         ]},
     },
+
+    # ==================================================================
+    # THE VOIDLANDS BATCH
+    # ==================================================================
+    #
+    # Twelve relics, and none of them is another flat stat percentage --
+    # the pool already had twelve of those and a thirteenth teaches
+    # nobody anything. What it was actually short of, counted across the
+    # existing fifty-one:
+    #
+    #   * CONDITIONAL relics. Almost every existing relic is
+    #     unconditionally on. The interesting decision is a relic that is
+    #     excellent in one situation and dead weight in another, because
+    #     that makes "which of these three" a real question instead of an
+    #     arithmetic one.
+    #   * TRADES BETWEEN STATS rather than a stat and a drawback. Cursed
+    #     relics all follow "big upside, flat penalty". Swapping one
+    #     resource for another is a different shape.
+    #   * relics that reward the DEFENSIVE half of the game. The pool is
+    #     heavily offensive, so a defensive run has nothing to build
+    #     toward.
+    #
+    # Rarity spread matches the existing weights (common 42, rare 27,
+    # cursed 19, legendary 12), so this batch does not shift what a
+    # typical offer looks like.
+
+    # ---- common: small, always useful, no decisions ------------------
+    {
+        "id": "anchor_stones", "name": "Anchor Stones", "emoji": "⚓",
+        "rarity": "common",
+        "description": "+13% Defense and +8% max HP. Heavy enough to stay real.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "stat", "stat": "defense", "percent": 13},
+            {"kind": "stat", "stat": "max_hp", "percent": 8},
+        ]},
+    },
+    {
+        "id": "sealed_ration_tin", "name": "Sealed Ration Tin", "emoji": "🥫",
+        "rarity": "common",
+        "description": "+11% max HP. Still sealed. Still good. Nobody asks how.",
+        "effect": {"kind": "stat", "stat": "max_hp", "percent": 11},
+    },
+    {
+        "id": "drift_table", "name": "The Drift Table", "emoji": "📖",
+        "rarity": "common",
+        "description": "+6 Recharge. Knowing when the ground goes is most of surviving it.",
+        "effect": {"kind": "stat_flat", "stat": "recharge", "amount": 6},
+    },
+
+    # ---- rare: the conditional ones ----------------------------------
+    {
+        "id": "void_seal", "name": "Void Seal", "emoji": "🔩",
+        "rarity": "rare",
+        "description": "The whole squad gains Iron Skin -- incoming damage is "
+                       "reduced the harder it hits.",
+        "effect": {"kind": "passive", "passive_id": "iron_skin"},
+    },
+    {
+        "id": "the_long_erosion", "name": "The Long Erosion", "emoji": "⏳",
+        "rarity": "rare",
+        "description": "The whole squad gains Momentum, and +9% Speed. Built for "
+                       "fights that go the distance -- worth nothing in a short one.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "passive", "passive_id": "momentum"},
+            {"kind": "stat", "stat": "speed", "percent": 9},
+        ]},
+    },
+    {
+        "id": "lost_mans_watch", "name": "The Lost Man's Watch", "emoji": "⌚",
+        "rarity": "rare",
+        "description": "The whole squad gains Second Wind -- recover when you drop "
+                       "low. Does nothing while you are winning comfortably.",
+        "effect": {"kind": "passive", "passive_id": "second_wind"},
+    },
+    {
+        "id": "ash_filter", "name": "Ash Filter", "emoji": "🫧",
+        "rarity": "rare",
+        "description": "+16% Defense and +5 Recharge. Slow, clean, and hard to stop.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "stat", "stat": "defense", "percent": 16},
+            {"kind": "stat_flat", "stat": "recharge", "amount": 5},
+        ]},
+    },
+
+    # ---- cursed: TRADES, not penalties -------------------------------
+    #
+    # Each of these takes one stat and gives it to another, so the relic
+    # is a redistribution rather than a loan. A squad already built one
+    # way should want one of these and refuse the other two, which is
+    # the decision the existing cursed relics do not offer.
+    {
+        "id": "the_deep_bargain", "name": "The Deep Bargain", "emoji": "🕳️",
+        "rarity": "cursed",
+        "description": "+50% max HP, -30% Attack. Outlast it, because you will not "
+                       "out-damage it.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "stat", "stat": "max_hp", "percent": 50},
+            {"kind": "stat", "stat": "attack", "percent": -30},
+        ]},
+    },
+    {
+        "id": "cut_the_anchor", "name": "Cut The Anchor", "emoji": "✂️",
+        "rarity": "cursed",
+        "description": "+40% Speed and +25% Attack, -45% max HP. Everything you do "
+                       "happens sooner. So does everything that happens to you.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "stat", "stat": "speed", "percent": 40},
+            {"kind": "stat", "stat": "attack", "percent": 25},
+            {"kind": "stat", "stat": "max_hp", "percent": -45},
+        ]},
+    },
+    {
+        "id": "the_null_writ", "name": "The Null Writ", "emoji": "📜",
+        "rarity": "cursed",
+        "description": "+55% Elemental, -40% Defense. The Void still recognises "
+                       "the authority. It no longer recognises the bearer.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "stat", "stat": "elemental", "percent": 55},
+            {"kind": "stat", "stat": "defense", "percent": -40},
+        ]},
+    },
+
+    # ---- legendary ---------------------------------------------------
+    {
+        "id": "hollow_gavel", "name": "The Hollow Gavel", "emoji": "🔨",
+        "rarity": "legendary",
+        "description": "The whole squad gains Executioner -- far more damage to "
+                       "wounded targets -- and +12% Attack.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "passive", "passive_id": "executioner"},
+            {"kind": "stat", "stat": "attack", "percent": 12},
+        ]},
+    },
+    {
+        "id": "the_refusal", "name": "The Refusal", "emoji": "🏛️",
+        "rarity": "legendary",
+        "description": "The whole squad gains Undying Will and +18% Defense. "
+                       "It has not ended yet. It does not intend to.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "passive", "passive_id": "undying_will"},
+            {"kind": "stat", "stat": "defense", "percent": 18},
+        ]},
+    },
+
+    # ==================================================================
+    # SECOND VOIDLANDS BATCH -- the shapes the pool still lacked
+    # ==================================================================
+    #
+    # Counted across the 63 relics before writing, rather than adding
+    # another handful of stat percentages and hoping:
+    #
+    #   * only TWO relics touch run ECONOMY (both gold_multiplier), and
+    #     none touches poise, so the break mechanic -- a whole combat
+    #     system -- had exactly one relic pointing at it
+    #   * every cursed relic trades stats for stats. None trades a stat
+    #     for a MECHANIC, which is a different and more interesting deal:
+    #     give up raw numbers to gain a behaviour
+    #   * no relic in the pool was aimed at the squad that is LOSING.
+    #     Every one assumes you are ahead and want to be further ahead
+    #
+    # These fill those three, and stay inside the existing effect shapes
+    # so nothing new has to be taught to relic_service.
+    {
+        "id": "chipped_edge", "name": "The Chipped Edge", "emoji": "🪓",
+        "rarity": "common",
+        "description": "Every hit chips 1 extra poise. Break things sooner.",
+        "effect": {"kind": "poise_damage", "bonus": 1},
+    },
+    {
+        "id": "prospectors_luck", "name": "Prospector's Luck", "emoji": "💰",
+        "rarity": "common",
+        "description": "+30% gold from this run. It all spends the same.",
+        "effect": {"kind": "gold_multiplier", "percent": 30},
+    },
+    {
+        "id": "the_widening_crack", "name": "The Widening Crack", "emoji": "🔨",
+        "rarity": "rare",
+        "description": "Every hit chips 2 extra poise, and +10% Attack. "
+                       "Everything out here is already coming apart.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "poise_damage", "bonus": 2},
+            {"kind": "stat", "stat": "attack", "percent": 10},
+        ]},
+    },
+    {
+        "id": "salvagers_eye", "name": "The Salvager's Eye", "emoji": "🔍",
+        "rarity": "rare",
+        "description": "+55% gold from this run, and +4 Recharge. Knowing what "
+                       "is worth carrying is a skill.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "gold_multiplier", "percent": 55},
+            {"kind": "stat_flat", "stat": "recharge", "amount": 4},
+        ]},
+    },
+    {
+        # FOR THE SQUAD THAT IS LOSING. Undying Will keeps a fight going
+        # that was already lost; nothing in the pool paid you for being
+        # in that state. Pairing it with Second Wind means the relic gets
+        # BETTER the worse the run is going, which is the one direction
+        # the catalog never went.
+        "id": "the_last_ten_metres", "name": "The Last Ten Metres", "emoji": "🩹",
+        "rarity": "rare",
+        "description": "The whole squad gains Second Wind and Undying Will. "
+                       "Worth nothing while you are winning.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "passive", "passive_id": "second_wind"},
+            {"kind": "passive", "passive_id": "undying_will"},
+        ]},
+    },
+    {
+        # A STAT TRADED FOR A MECHANIC, which no cursed relic did before.
+        "id": "hollowed_out", "name": "Hollowed Out", "emoji": "🕳️",
+        "rarity": "cursed",
+        "description": "The whole squad gains Vampiric Edge and Executioner, "
+                       "but -35% max HP. Take what you need. There is less of "
+                       "you to defend.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "passive", "passive_id": "vampiric_edge"},
+            {"kind": "passive", "passive_id": "executioner"},
+            {"kind": "stat", "stat": "max_hp", "percent": -35},
+        ]},
+    },
+    {
+        "id": "the_counting_debt", "name": "The Counting Debt", "emoji": "🧾",
+        "rarity": "cursed",
+        "description": "+110% gold from this run, and -22% max HP. Somebody is "
+                       "keeping a tally and it is not in your favour.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "gold_multiplier", "percent": 110},
+            {"kind": "stat", "stat": "max_hp", "percent": -22},
+        ]},
+    },
+    {
+        "id": "the_unbroken_line", "name": "The Unbroken Line", "emoji": "⛓️",
+        "rarity": "legendary",
+        "description": "Every hit chips 3 extra poise, and the whole squad "
+                       "gains Momentum. Nothing out here stays standing.",
+        "effect": {"kind": "multi", "effects": [
+            {"kind": "poise_damage", "bonus": 3},
+            {"kind": "passive", "passive_id": "momentum"},
+        ]},
+    },
 ]
 
 

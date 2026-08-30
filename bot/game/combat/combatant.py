@@ -292,6 +292,13 @@ class Combatant:
     # access to the template catalog.
     short_name: str = ""
 
+    # Identity glyph, shown in front of the name wherever a combatant is
+    # listed. Carried here for the same reason as short_name: a battle
+    # restored from the database renders identically to a live one
+    # without the renderer needing the template catalog. Empty for party
+    # members, who are identified by their portrait and their own names.
+    emoji: str = ""
+
     mana: int = 0
     max_mana: int = 0
     energy: int = 0

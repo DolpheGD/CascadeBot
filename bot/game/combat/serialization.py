@@ -35,6 +35,7 @@ def combatant_to_dict(c: Combatant) -> dict:
         "level": c.level,
         "character_class": c.character_class,
         "short_name": c.short_name,
+        "emoji": getattr(c, "emoji", ""),
         "mana": c.mana,
         "max_mana": c.max_mana,
         "energy": c.energy,
@@ -104,6 +105,7 @@ def combatant_from_dict(data: dict) -> Combatant:
         # string just means "use the full name", which is what those
         # battles already did.
         short_name=data.get("short_name", ""),
+        emoji=data.get("emoji", ""),
         mana=data["mana"],
         max_mana=data["max_mana"],
         energy=data["energy"],

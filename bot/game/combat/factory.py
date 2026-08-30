@@ -34,6 +34,7 @@ import math
 from bot.database.models.enums import ItemType
 from bot.game.combat.combatant import STAT_KEYS, ULTIMATE_COOLDOWN, Combatant
 from bot.game.combat.enemies import short_name_for
+from bot.game.combat.enemies_emoji import emoji_for
 from bot.game.economy.resonance_config import bonus_total, resonance_for
 from bot.game.combat.skills import (
     get_character_passive,
@@ -1055,6 +1056,7 @@ def build_enemy_combatant(template: dict, level: int = 1, hp_multiplier: float =
     return Combatant(
         name=template["name"],
         short_name=short_name_for(template["name"]),
+        emoji=emoji_for(template["name"], template.get("role", "combat")),
         is_player=False,
         base_stats=base_stats,
         current_hp=base_stats["max_hp"],

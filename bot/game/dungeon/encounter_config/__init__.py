@@ -150,6 +150,7 @@ from bot.game.dungeon.encounter_config.comedy import COMEDY_ENCOUNTERS
 from bot.game.dungeon.encounter_config.relic_event import RELIC_EVENT_ENCOUNTERS
 from bot.game.dungeon.encounter_config.variety import VARIETY_ENCOUNTERS
 from bot.game.dungeon.encounter_config.variety2 import VARIETY2_ENCOUNTERS
+from bot.game.dungeon.encounter_config.voidlands import VOIDLANDS_ENCOUNTERS
 
 # One flat list, in the order the modules are listed above. Nothing depends
 # on that order -- callers always filter by room type or look up by id.
@@ -182,6 +183,11 @@ ENCOUNTERS: list[dict] = [
     # relic_event six, which is how often a player saw the same text in
     # the rooms they pick deliberately. See variety2.py.
     *VARIETY2_ENCOUNTERS,
+    # Void-flavoured rooms, written for the Voidlands and weighted at the
+    # pools that were thinnest -- campfire, relic_event and puzzle. Not
+    # region-locked, because no encounter is: see voidlands.py for why
+    # that is the point rather than a compromise.
+    *VOIDLANDS_ENCOUNTERS,
 ]
 
 def get_encounter_by_id(encounter_id: str) -> dict | None:

@@ -107,6 +107,55 @@ from bot.database.models.enums import Rarity
 # content problem (its boss pool), not a scaling constant, and it wants
 # its own pass rather than a number nudged until the benchmark goes
 # green.
+#
+# ----------------------------------------------------------------------
+# THAT DIAGNOSIS WAS WRONG, AND SO WAS THE BENCHMARK IT CAME FROM.
+# ----------------------------------------------------------------------
+#
+# Abyssnia never had a boss-pool problem. tools/sim_expedition had THREE
+# independent bugs, each of which alone made its output unusable, and the
+# paragraph above is what happens when you reason carefully from numbers
+# that were never measurements:
+#
+#   1. BOSS ROOMS WERE NOT THE GAME'S BOSS ROOMS. The sim drew 1-3
+#      templates at random from the boss pool, the way it builds a combat
+#      room. dungeon_service calls get_boss_encounter, which returns ONE
+#      boss or a curated group. Abyssnia's elite_squad_weights are
+#      {1:10, 2:35, 3:55}, so the sim stacked THREE random bosses 55% of
+#      the time. The runs were dying to "Dorve, Rohan" -- a pairing the
+#      game cannot generate. That is the "boss count" the note above was
+#      describing.
+#
+#   2. EVERY BATTLE ROLLED ITS OWN DICE. fight() built Battle(party,
+#      enemies) with no rng, and Battle falls back to an unseeded
+#      random.Random(). The same seed returned
+#      [False, True, False, True, True] across five identical repeats.
+#      Every figure ever printed by this tool was one sample from an
+#      unknown distribution.
+#
+#   3. THE DEFAULT TABLE WAS GEARLESS. run() supports gear; __main__
+#      never passed any. The headline numbers were for a naked squad,
+#      which the docstring warns is "a floor nobody plays at" -- and were
+#      then read as though they were forecasts.
+#
+# With all three fixed and every region measured at its OWN
+# expected_squad_level and expected_gear_rarity, reproducibly and across
+# processes:
+#
+#   before this pass    100  100  100   80   92   30   60
+#   after               100  100  100   80   78   65   60
+#                       Gla  Was  Hot  Voi  VLd  Aby  Ent
+#
+# So the two real faults were much smaller than "the endgame is
+# unreachable": the Voidlands was EASIER than Voidcrest (92% vs 80%) and
+# Abyssnia was harder than the region after it (30% vs 60%). The
+# Voidlands went 27/35 -> 30/39 and Abyssnia 40/50 -> 33/42, which is the
+# first time either number has been set against a benchmark that
+# reproduces.
+#
+# The lesson is worth more than the numbers: three separate people-hours
+# of tuning went into offsets chosen to satisfy a tool that was rolling
+# dice. Before trusting a benchmark, run it twice.
 # EXPECTED SQUAD LEVEL / GEAR: what a player is assumed to bring here.
 #
 # The game had no such concept, and both tools/bench_roles.py and
@@ -239,6 +288,60 @@ REGION_DIFFICULTY: dict[str, dict] = {
         "combat_squad_weights": {2: 10, 3: 25, 4: 35, 5: 30},
         "elite_squad_weights": {1: 30, 2: 50, 3: 20},
     },
+    "The Voidlands": {
+        # REGION FIVE, INSERTED RATHER THAN APPENDED.
+        #
+        # The ladder's expected squad levels ran 8, 22, 38, 52, 70, 85 --
+        # steps of 14, 16, 14, 18, 15. The 52 -> 70 jump into Abyssnia was
+        # the widest in the game and it sat at the worst possible place:
+        # the point where Mythic gear stops being enough and Divine has
+        # not started dropping yet, so the only way across was grinding
+        # Voidcrest for levels rather than progressing.
+        #
+        # 61 splits it into 9 and 9. Nothing else in the ladder needed
+        # touching, and Abyssnia and Entrospire keep every number they
+        # had -- only their `tier` moved, because tier is purely the sort
+        # key that ordered_regions() and the unlock chain derive from.
+        #
+        # WHY IT DOES NOT RAISE THE LOOT CEILING. Mythic, same as
+        # Voidcrest, with a higher rarity_weight_bonus (270 against 220).
+        # Divine is Abyssnia's threshold and moving it earlier would make
+        # this region a strictly-better Voidcrest and Abyssnia a
+        # strictly-worse one. What this tier sells is BETTER ODDS at the
+        # same ceiling, which is the honest version of a bridge region.
+        #
+        # The squad weights lean harder than Voidcrest's but stop short
+        # of Abyssnia's 55% five-stacks -- this is where a player learns
+        # to handle a five-enemy room, not where they are punished for
+        # not already being able to.
+        #
+        # OFFSETS SOLVED, NOT INTERPOLATED. The obvious answer -- split
+        # the difference between Voidcrest's 24/33 and Abyssnia's 40/50
+        # -- gave 32/41, and tools/sim_expedition put the region at 4%
+        # against Abyssnia's own 4%: a "bridge" exactly as hard as the
+        # thing it was bridging to. 29/37 did not move it either. 27/35
+        # is where the ordering finally came out right:
+        #
+        #     squad 60, no gear     Voidcrest  Voidlands  Abyssnia
+        #     three sim runs         42-50%      4-16%       0%
+        #
+        # Treat those as an ORDERING, not as targets. That sim models a
+        # gearless squad, which the note at the top of this file already
+        # warns is a floor nobody plays at, and its run-to-run spread on
+        # this region alone is 4% to 16%. The authoritative number for
+        # the finale is check_final_bosses, which puts The Quorum Eternal
+        # at 71% from full health and 46% from 60% -- between Voidcrest's
+        # 79/58 and Abyssnia's 58/42, which is the whole brief.
+        "expected_squad_level": 61, "expected_gear_rarity": Rarity.MYTHIC, "expected_gear_level": 31,
+        "tier": 5, "difficulty_label": "Merciless",
+        "final_boss_level_delta": -18, "level_offset": 30, "combat_level_offset": 39,
+        "reward_multiplier": 5.4,
+        "gold_multiplier": 30.0,
+        "max_item_rarity": Rarity.MYTHIC, "max_lootbox_tier": "mythic",
+        "rarity_weight_bonus": 270,
+        "combat_squad_weights": {2: 5, 3: 20, 4: 35, 5: 40},
+        "elite_squad_weights": {1: 20, 2: 45, 3: 35},
+    },
     "Abyssnia": {
         # The glittering capital of Acatrya itself (see docs/WORLD_LORE.md)
         # -- named in the world doc from the start but never actually
@@ -251,8 +354,8 @@ REGION_DIFFICULTY: dict[str, dict] = {
         # loot ceiling: a genuine "hardest content in the game" tier
         # rather than a "strictly better loot" tier.
         "expected_squad_level": 70, "expected_gear_rarity": Rarity.DIVINE, "expected_gear_level": 34,
-        "tier": 5, "difficulty_label": "Nightmare",
-        "final_boss_level_delta": -16, "level_offset": 40, "combat_level_offset": 50, "reward_multiplier": 6.5,
+        "tier": 6, "difficulty_label": "Nightmare",
+        "final_boss_level_delta": -16, "level_offset": 33, "combat_level_offset": 42, "reward_multiplier": 6.5,
         "gold_multiplier": 45.0,
         "max_item_rarity": Rarity.DIVINE, "max_lootbox_tier": "mythic",
         "rarity_weight_bonus": 320,
@@ -313,7 +416,7 @@ REGION_DIFFICULTY: dict[str, dict] = {
         # and at 46/57 it was measurably the hardest content in the game.
         # The comment was right and the numbers were wrong.
         "expected_squad_level": 85, "expected_gear_rarity": Rarity.DIVINE, "expected_gear_level": 35,
-        "tier": 6, "difficulty_label": "Terminal",
+        "tier": 7, "difficulty_label": "Terminal",
         "final_boss_level_delta": -24, "level_offset": 43, "combat_level_offset": 52,
         "reward_multiplier": 8.5,
         "gold_multiplier": 70.0,
@@ -334,6 +437,53 @@ REGION_DIFFICULTY: dict[str, dict] = {
         # the enemy kits where it belongs.
         "combat_squad_weights": {3: 22, 4: 40, 5: 38},
         "elite_squad_weights": {1: 22, 2: 40, 3: 38},
+    },
+    "Ocellios Labs": {
+        # REGION EIGHT. THE END OF THE LADDER, AND THE START OF THE STORY.
+        #
+        # Ocellios is where the game opens: the Player wakes here mid-
+        # collapse with Stubby's mechs hacked hostile and escapes east
+        # into Glacier 15 (docs/STORY_MODE.md). Axel was a test subject
+        # here. It is the source of Void-matter synthesis and of every
+        # rumour in the setting -- unauthorised experiments,
+        # disappearances, research that pushed too close to whatever
+        # killed Eris.
+        #
+        # So the last region is the first room. A player who reaches it
+        # is walking back into the place that made them, at level 100,
+        # to meet what was still in there.
+        #
+        # EXISTS FOR DIFFICULTY, NOT FOR PROGRESSION. Every other region
+        # is a rung: it gates the next one and drops gear you need. This
+        # one gates nothing, because there is nothing after it. Its
+        # rarity ceiling is Divine and its lootbox tier Mythic -- exactly
+        # Entrospire's, exactly the hard ceiling of both systems -- so it
+        # cannot be a mandatory farm. What it offers is the biggest
+        # reward and gold multipliers in the game for the hardest content
+        # in the game, which is the honest shape for optional endgame:
+        # worth doing, never required.
+        #
+        # EXPECTED SQUAD LEVEL IS THE LEVEL CAP. 100, with Divine gear at
+        # 35 (upgrade_level_cap(DIVINE) -- the actual maximum a player can
+        # reach). Every other region assumes you arrive mid-growth; this
+        # one assumes you have finished growing and asks whether that is
+        # enough.
+        #
+        # OFFSETS SOLVED, NOT PICKED -- see the note below the table.
+        "expected_squad_level": 100, "expected_gear_rarity": Rarity.DIVINE,
+        "expected_gear_level": 35,
+        "tier": 8, "difficulty_label": "Absolute",
+        "final_boss_level_delta": -20, "level_offset": 52,
+        "combat_level_offset": 62, "reward_multiplier": 11.0,
+        "gold_multiplier": 110.0,
+        "max_item_rarity": Rarity.DIVINE, "max_lootbox_tier": "mythic",
+        "rarity_weight_bonus": 560,
+        # The heaviest crowds in the game, but only just -- Entrospire
+        # learned the hard way that piling on bodies makes a region an
+        # attrition check with exactly one answer (two healers). The
+        # difficulty here lives in the enemy kits, not the head count.
+        "combat_squad_weights": {3: 18, 4: 40, 5: 42},
+        "elite_squad_weights": {1: 18, 2: 40, 3: 42},
     },
 }
 
