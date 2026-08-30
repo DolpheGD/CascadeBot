@@ -284,11 +284,35 @@ def _maybe_roll_encounter(room_type: RoomType, rng: random.Random) -> dict | Non
 
 
 def get_active_expedition(db, player_id: int) -> Expedition | None:
-    return (
+    expedition = (
         db.query(Expedition)
         .filter_by(player_id=player_id, status=ExpeditionStatus.ACTIVE)
         .first()
     )
+    if expedition is None:
+        return None
+
+    # Older runs could leave the final boss marked complete while the
+    # expedition remained ACTIVE. Treat that terminal state as a completed
+    # run before callers try to resume it; otherwise /adventure renders the
+    # finished map forever and refuses to start a new expedition.
+    graph = expedition.graph or {}
+    boss_nodes = graph.get("boss_nodes")
+    if not boss_nodes:
+        boss_node = graph.get("boss_node")
+        boss_nodes = [boss_node] if boss_node else []
+    final_boss = boss_nodes[-1] if boss_nodes else None
+    if (
+        final_boss
+        and not expedition.combat_state
+        and not expedition.pending_interaction
+        and graph.get("nodes", {}).get(final_boss, {}).get("completed")
+    ):
+        expedition.status = ExpeditionStatus.COMPLETED
+        db.commit()
+        return None
+
+    return expedition
 
 
 def has_completed_region(db, player_id: int, region: str) -> bool:
