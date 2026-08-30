@@ -212,12 +212,16 @@ def map_embed(area: dict, grid: str, legend: list[str], standing_on: str | None,
     if exits:
         embed.add_field(name="Ways out", value="\n".join(exits)[:1024], inline=False)
 
+    # Keep the field structure stable between ordinary and interactive tiles.
+    # Zero-width content reserves the field without displaying a placeholder.
+    embed.add_field(
+        name="You're standing on" if standing_on else "\u200b",
+        value=(("🔒 " if locked else "") + standing_on
+               if standing_on else "\u200b"),
+        inline=False,
+    )
+
     if standing_on:
-        embed.add_field(
-            name="You're standing on",
-            value=("🔒 " if locked else "") + standing_on,
-            inline=False,
-        )
         embed.set_footer(text="Press ✋ to interact.")
     else:
         embed.set_footer(text="Move with the arrows.")
