@@ -946,6 +946,14 @@ class Dungeon(commands.Cog):
                     message = "Resuming your expedition..."
                 entry_kind = None  # figure out from expedition state below
 
+            # Older runs can have reached a boss node without persisting the
+            # battle that should have started there. A terminal boss has no
+            # paths to render, so re-enter it before building the resume view.
+            if dungeon_service.is_stranded_in_boss_room(expedition):
+                result = dungeon_service.enter_node(db, expedition, player)
+                message = result["message"]
+                entry_kind = result["kind"]
+
             if expedition.combat_state:
                 embed, view, summary = _combat_entry_view_and_embed(db, expedition, player, avatar_url)
                 if summary is not None:

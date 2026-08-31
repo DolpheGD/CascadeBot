@@ -360,6 +360,23 @@ def is_in_interaction(expedition: Expedition | None) -> bool:
     return expedition is not None and bool(expedition.pending_interaction)
 
 
+def is_stranded_in_boss_room(expedition: Expedition | None) -> bool:
+    """Returns whether a run is sitting in an unresolved terminal boss room.
+
+    A few older runs were persisted after navigation reached the final node but
+    before the boss battle was created. Since that node has no outgoing edges,
+    resuming it as a normal map leaves the player with no way forward.
+    """
+    if expedition is None or expedition.status != ExpeditionStatus.ACTIVE:
+        return False
+    if expedition.combat_state or expedition.pending_interaction:
+        return False
+
+    graph = expedition.graph or {}
+    node = graph.get("nodes", {}).get(expedition.current_node_id, {})
+    return node.get("room_type") == RoomType.BOSS.value and not node.get("completed", False)
+
+
 def start_expedition(db, player, region: str, num_floors: int | None = None) -> Expedition:
     """`num_floors` is normally left unset so the generator rolls a random
     number of bosses (2-4 regular + 1 guaranteed final = 3-5 total) and
