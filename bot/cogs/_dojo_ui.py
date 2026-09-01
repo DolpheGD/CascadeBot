@@ -21,7 +21,7 @@ from bot.database.session import SessionLocal
 from bot.game.economy import dojo_config as cfg
 from bot.services import dojo_service
 from bot.services.player_service import get_player
-from bot.utils import combat_ui, embedder, responses
+from bot.utils import combat_ui, embedder, paging, responses
 from bot.utils.ui_guard import OwnedView
 
 DOJO_COLOUR = discord.Colour.dark_teal()
@@ -174,46 +174,61 @@ class _EnemySelect(discord.ui.Select):
 # ----------------------------------------------------------------------
 
 class DojoView(OwnedView):
-    def __init__(self, db, player):
+    def __init__(self, db, player, page: int = 0):
         super().__init__(timeout=300, owner_id=player.id)
+        self.page = page
+        self.db = db
+        self.player = player
         mine = dojo_service.list_own(db, player)
-        playable = dojo_service.list_published(db, limit=25)
+        playable = dojo_service.list_published(db, limit=250)
         if playable:
-            self.add_item(_PlaySelect(playable))
+            self.add_item(_PlaySelect(playable, page=page))
+            paging.add_page_buttons(self, page, len(playable), _PlaySelect.PER_PAGE, row=2)
         if mine:
-            self.add_item(_ManageSelect(mine))
+            self.add_item(_ManageSelect(mine, page=page))
+
+    async def rerender(self, interaction: discord.Interaction, page: int):
+        await responses.edit(interaction, embed=dojo_embed(self.db, self.player), view=DojoView(self.db, self.player, page=page))
 
 
 class _PlaySelect(discord.ui.Select):
-    def __init__(self, challenges):
+    PER_PAGE = paging.SELECT_OPTION_LIMIT
+
+    def __init__(self, challenges, page: int = 0):
+        shown = paging.window(challenges, page, self.PER_PAGE)
         super().__init__(
-            placeholder="Play a published challenge…",
+            placeholder=paging.placeholder_for("Play a published challenge…", page, len(challenges), self.PER_PAGE),
             options=[
                 discord.SelectOption(
                     label=f"{c.name}"[:100],
                     value=str(c.id),
                     description=f"Lv.{c.level} · {describe_enemies(c)}"[:100])
-                for c in challenges[:25]
+                for c in shown
             ],
         )
+        self.page = page
 
     async def callback(self, interaction: discord.Interaction):
         await _start_challenge(interaction, int(self.values[0]))
 
 
 class _ManageSelect(discord.ui.Select):
-    def __init__(self, challenges):
+    PER_PAGE = paging.SELECT_OPTION_LIMIT
+
+    def __init__(self, challenges, page: int = 0):
+        shown = paging.window(challenges, page, self.PER_PAGE)
         super().__init__(
-            placeholder="Publish or unpublish one of yours…",
+            placeholder=paging.placeholder_for("Publish or unpublish one of yours…", page, len(challenges), self.PER_PAGE),
             options=[
                 discord.SelectOption(
                     label=f"{'📢' if c.published else '📝'} {c.name}"[:100],
                     value=str(c.id),
                     description=(f"`{c.share_code}` · "
                                  f"{'published' if c.published else 'draft'}")[:100])
-                for c in challenges[:25]
+                for c in shown
             ],
         )
+        self.page = page
 
     async def callback(self, interaction: discord.Interaction):
         db = SessionLocal()
@@ -233,7 +248,7 @@ class _ManageSelect(discord.ui.Select):
                 await responses.send(interaction, str(exc), ephemeral=True)
                 return
             await responses.edit(interaction, embed=dojo_embed(db, player),
-                                 view=DojoView(db, player))
+                                 view=DojoView(db, player, page=getattr(self.view, 'page', 0)))
             await interaction.followup.send(
                 f"{'📢 Published' if challenge.published else '📝 Unpublished'} "
                 f"**{challenge.name}** (`{challenge.share_code}`).",

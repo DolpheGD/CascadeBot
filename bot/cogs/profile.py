@@ -36,21 +36,15 @@ from bot.utils import embedder
 class CharacterProfileSelect(discord.ui.Select):
     """Lets the player switch which of their owned characters /profile is
     showing -- previously this only ever showed the avatar."""
+    PER_PAGE = paging.SELECT_OPTION_LIMIT
+
     def __init__(self, page: int, current_character_id: int, owned: list):
-        # SORTED so the character being viewed is always on the first
-        # page, then by level. With more than 25 owned characters this
-        # select can only show a window (Discord's ceiling), and the one
-        # thing that must never fall off the edge is the one you're
-        # looking at -- otherwise the menu shows no selection and looks
-        # broken. Full paging lives on the squad picker, where being
-        # unable to reach a character actually blocks play; here the
-        # sort is enough, because switching to anyone is one more click
-        # either way.
         ordered = sorted(
             owned,
             key=lambda pc: (pc.id != current_character_id, -pc.level,
                             -pc.effective_star, pc.display_name),
         )
+        shown = paging.window(ordered, page, self.PER_PAGE)
         options = [
             discord.SelectOption(
                 label=names.fit_suffix(
@@ -59,16 +53,22 @@ class CharacterProfileSelect(discord.ui.Select):
                 value=str(pc.id),
                 default=(pc.id == current_character_id),
             )
-            for pc in paging.window(ordered, 0)
+            for pc in shown
         ]
         super().__init__(
-            placeholder=paging.placeholder_for("Switch character", 0, len(ordered)),
+            placeholder=paging.placeholder_for(
+                "Switch character", page, len(ordered), self.PER_PAGE),
             options=options, min_values=1, max_values=1,
         )
         self.page = page
 
     async def callback(self, interaction: discord.Interaction):
-        await _render_profile_page(interaction, self.page, character_id=int(self.values[0]))
+        await _render_profile_page(
+            interaction,
+            self.view.page,
+            character_id=int(self.values[0]),
+            character_page=self.page,
+        )
 
 
 
@@ -180,32 +180,60 @@ def evolve_embed(character) -> discord.Embed:
 
 class EvolveView(OwnedView):
     def __init__(self, character, owner_id: int | None = None,
-                 roster: list | None = None):
+                 roster: list | None = None, page: int = 0):
         super().__init__(timeout=600, owner_id=owner_id)
+        self.page = page
+        self.character_id = character.id
         if roster:
-            self.add_item(_EvolveCharacterSelect(roster, character.id))
+            self.add_item(_EvolveCharacterSelect(roster, character.id, page=page))
+            paging.add_page_buttons(self, page, len(roster), _EvolveCharacterSelect.PER_PAGE, row=2)
         allowed, _ = evolution_service.can_evolve(character)
         if allowed:
             self.add_item(_EvolveButton(character.id))
 
+    async def rerender(self, interaction: discord.Interaction, page: int):
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            if player is None:
+                await responses.send(interaction, "Use `/start` first.", ephemeral=True)
+                return
+            roster = evolution_service.evolvable_characters(db, player)
+            character = next((c for c in roster if c.id == self.character_id), None)
+            if character is None:
+                await responses.send(interaction, "You don't own that character.", ephemeral=True)
+                return
+            await responses.edit(
+                interaction,
+                embed=evolve_embed(character),
+                view=EvolveView(character, owner_id=player.id, roster=roster, page=page),
+            )
+        finally:
+            db.close()
+
 
 class _EvolveCharacterSelect(discord.ui.Select):
-    def __init__(self, roster: list, current_id: int):
+    PER_PAGE = paging.SELECT_OPTION_LIMIT
+
+    def __init__(self, roster: list, current_id: int, page: int = 0):
+        ordered = sorted(
+            roster,
+            key=lambda pc: (pc.id != current_id, -pc.level, -pc.effective_star, pc.display_name),
+        )
+        shown = paging.window(ordered, page, self.PER_PAGE)
         super().__init__(
-            placeholder="Pick a character…",
+            placeholder=paging.placeholder_for("Pick a character…", page, len(ordered), self.PER_PAGE),
             options=[
                 discord.SelectOption(
-                    label=names.fit_suffix(
-                        pc.display_name, f"(Lv{pc.level}, {pc.star_label()})", 100),
-                    value=str(pc.id),
-                    default=(pc.id == current_id),
+                   label=names.fit_suffix(
+                       pc.display_name, f"(Lv{pc.level}, {pc.star_label()})", 100),
+                   value=str(pc.id),
+                   default=(pc.id == current_id),
                 )
-                # Sliced to Discord's 25-option cap. A roster can exceed
-                # it, and an over-long select fails with a 400 that shows
-                # up only as a dead interaction.
-                for pc in roster[:25]
+                for pc in shown
             ],
         )
+        self.page = page
 
     async def callback(self, interaction: discord.Interaction):
         db = SessionLocal()
@@ -223,7 +251,7 @@ class _EvolveCharacterSelect(discord.ui.Select):
             await responses.edit(
                 interaction,
                 embed=evolve_embed(character),
-                view=EvolveView(character, owner_id=player.id, roster=roster))
+                view=EvolveView(character, owner_id=player.id, roster=roster, page=self.page))
         finally:
             db.close()
 
@@ -276,33 +304,45 @@ class _EvolveButton(discord.ui.Button):
             await responses.edit(
                 interaction,
                 embed=evolve_embed(character),
-                view=EvolveView(character, owner_id=player.id, roster=roster))
+                view=EvolveView(character, owner_id=player.id, roster=roster, page=getattr(self.view, 'page', 0)))
             await interaction.followup.send(embed=done)
         finally:
             db.close()
 
 
 class TalentView(OwnedView):
-    def __init__(self, character, owner_id: int | None = None):
+    def __init__(self, character, owner_id: int | None = None, page: int = 0):
         super().__init__(timeout=600, owner_id=owner_id)
+        self.page = page
         self.character_id = character.id
         state = talent_service.summary(character)
         buyable = [n for nodes in state["branches"].values() for n in nodes
                    if n["buyable"]]
         if buyable:
-            self.add_item(_TalentBuySelect(buyable))
+            self.add_item(_TalentBuySelect(buyable, page=page))
+            paging.add_page_buttons(self, page, len(buyable), _TalentBuySelect.PER_PAGE, row=2)
         self.add_item(_TalentResetButton())
+
+    async def rerender(self, interaction: discord.Interaction, page: int):
+        db = SessionLocal()
+        try:
+            player = get_player(db, interaction.user.id)
+            character = _owned_character(db, player, self.character_id)
+            if character is None:
+                await responses.send(interaction, "That isn't your character.", ephemeral=True)
+                return
+            await responses.edit(interaction, embed=talent_embed(character), view=TalentView(character, owner_id=player.id, page=page))
+        finally:
+            db.close()
 
 
 class _TalentBuySelect(discord.ui.Select):
-    def __init__(self, buyable: list[dict]):
-        # Sliced to Discord's hard cap. There are 13 nodes in a tree and
-        # at most a handful are ever buyable at once, so this will not
-        # trigger -- it is here because an unpaged select is what took
-        # the equip button down with a 400 that never surfaced as an
-        # error, only as a dead interaction.
+    PER_PAGE = paging.SELECT_OPTION_LIMIT
+
+    def __init__(self, buyable: list[dict], page: int = 0):
+        shown = paging.window(buyable, page, self.PER_PAGE)
         super().__init__(
-            placeholder="Learn a talent…",
+            placeholder=paging.placeholder_for("Learn a talent…", page, len(buyable), self.PER_PAGE),
             options=[
                 discord.SelectOption(
                     label=f"{n['name']} ({n['cost']}pt)"[:100],
@@ -313,9 +353,10 @@ class _TalentBuySelect(discord.ui.Select):
                                     else f"+{n['effect']['flat']:g} ")
                                  + n['effect']['stat'].replace('_', ' '))[:100],
                 )
-                for n in buyable[:25]
+                for n in shown
             ],
         )
+        self.page = page
 
     async def callback(self, interaction: discord.Interaction):
         db = SessionLocal()
@@ -333,7 +374,7 @@ class _TalentBuySelect(discord.ui.Select):
                 return
             embed = talent_embed(character)
             embed.set_footer(text=f"Learned {node['name']}.")
-            view = TalentView(character, owner_id=player.id)
+            view = TalentView(character, owner_id=player.id, page=getattr(self.view, 'page', 0))
         finally:
             db.close()
         await responses.edit(interaction, embed=embed, view=view)
@@ -365,25 +406,31 @@ class _TalentResetButton(discord.ui.Button):
 
 
 class ProfilePageView(OwnedView):
-    def __init__(self, page: int, character_id: int | None = None, owned: list | None = None, owner_id: int | None = None):
+    def __init__(self, page: int, character_id: int | None = None, owned: list | None = None,
+                 owner_id: int | None = None, character_page: int = 0):
         super().__init__(timeout=120, owner_id=owner_id)
         self.page = page
         self.character_id = character_id
+        self.character_page = max(0, min(character_page, max(0, paging.page_count(len(owned or []), CharacterProfileSelect.PER_PAGE) - 1))) if owned else 0
         if owned and len(owned) > 1 and character_id is not None:
-            self.add_item(CharacterProfileSelect(page, character_id, owned))
+            self.add_item(CharacterProfileSelect(self.character_page, character_id, owned))
         self.prev_button.disabled = page <= 0
         self.next_button.disabled = page >= embedder.PROFILE_PAGE_COUNT - 1
+        paging.add_page_buttons(self, self.character_page, len(owned or []), CharacterProfileSelect.PER_PAGE, row=2)
 
     @discord.ui.button(label="◀ Prev", style=discord.ButtonStyle.secondary, row=1)
     async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await _render_profile_page(interaction, max(0, self.page - 1), character_id=self.character_id)
+        await _render_profile_page(interaction, max(0, self.page - 1), character_id=self.character_id, character_page=self.character_page)
 
     @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary, row=1)
     async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await _render_profile_page(interaction, min(embedder.PROFILE_PAGE_COUNT - 1, self.page + 1), character_id=self.character_id)
+        await _render_profile_page(interaction, min(embedder.PROFILE_PAGE_COUNT - 1, self.page + 1), character_id=self.character_id, character_page=self.character_page)
+
+    async def rerender(self, interaction: discord.Interaction, page: int):
+        await _render_profile_page(interaction, self.page, character_id=self.character_id, character_page=page)
 
 
-async def _render_profile_page(interaction: discord.Interaction, page: int, character_id: int | None = None):
+async def _render_profile_page(interaction: discord.Interaction, page: int, character_id: int | None = None, character_page: int = 0):
     db = SessionLocal()
     try:
         player = get_player(db, interaction.user.id)
@@ -404,7 +451,7 @@ async def _render_profile_page(interaction: discord.Interaction, page: int, char
             page=page,
             db=db,
         )
-        view = ProfilePageView(page, character_id=character.id, owned=owned, owner_id=player.id)
+        view = ProfilePageView(page, character_id=character.id, owned=owned, owner_id=player.id, character_page=character_page)
     finally:
         db.close()
 
