@@ -16,6 +16,7 @@ from discord.ext import commands
 from bot.database.models.card_model import PlayerCard
 from bot.database.session import SessionLocal
 from bot.game.economy import card_config as cc
+from bot.game.economy import resonance_config
 from bot.services import card_service, character_service
 from bot.services.currency_service import format_currency
 from bot.services.player_service import get_player
@@ -296,14 +297,15 @@ class CardCharacterSelect(discord.ui.Select):
 
 
 class CardActionButton(discord.ui.DynamicItem[discord.ui.Button],
-                       template=r"cascade_card_act:(?P<action>unequip|level):(?P<card_id>\d+)"):
-    LABELS = {"unequip": "Unequip", "level": "Level +1"}
+                       template=r"cascade_card_act:(?P<action>unequip|level|sell):(?P<card_id>\d+)"):
+    LABELS = {"unequip": "Unequip", "level": "Level +1", "sell": "Sell"}
 
     def __init__(self, action: str, card_id: int, label: str | None = None,
                  disabled: bool = False):
         super().__init__(discord.ui.Button(
             label=label or self.LABELS[action],
             style=discord.ButtonStyle.secondary if action == "unequip"
+            else discord.ButtonStyle.danger if action == "sell"
             else discord.ButtonStyle.success,
             custom_id=f"cascade_card_act:{action}:{card_id}", disabled=disabled,
         ))
@@ -329,11 +331,14 @@ class CardActionButton(discord.ui.DynamicItem[discord.ui.Button],
                 return
             if self.action == "unequip":
                 _, message = card_service.unequip_card(db, card)
+            elif self.action == "sell":
+                _, message = card_service.sell_card(db, player, card)
             else:
                 _, message = card_service.level_up_card(db, player, card, 1)
         finally:
             db.close()
-        await _render_cards(interaction, selected=self.card_id, note=message)
+        await _render_cards(interaction, selected=None if self.action == "sell" else self.card_id,
+                          note=message)
 
 
 class CardPageButton(discord.ui.DynamicItem[discord.ui.Button],
@@ -428,6 +433,9 @@ class CardsView(OwnedView):
             self.add_item(CardCharacterSelect(selected.id, characters))
             if selected.character_id is not None:
                 self.add_item(CardActionButton("unequip", selected.id))
+            self.add_item(CardActionButton(
+                "sell", selected.id,
+                label=f"Sell for {resonance_config.card_cost(selected.template.star_rating):,} ✴️"))
             # NO +10 button. Card levels cost materials from a band that
             # shifts as the card climbs, so a ten-level jump can span two
             # bands and quietly spend a resource the player was saving --

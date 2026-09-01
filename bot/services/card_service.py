@@ -13,9 +13,10 @@ import random
 from bot.database.models.card_model import CardTemplate, PlayerCard
 from bot.database.models.character_model import PlayerCharacter
 from bot.game.economy import card_config as cc
+from bot.game.economy import resonance_config
 from bot.game.loot import abilities as ability_pools
 from bot.services import pull_service
-from bot.services.currency_service import format_currency, spend_currency
+from bot.services.currency_service import add_currency, format_currency, spend_currency
 
 _POOL_BY_NAME = {
     "weapon": ability_pools.WEAPON_SKILLS,
@@ -298,3 +299,27 @@ def grant_card(db, player, card_id: str) -> PlayerCard | None:
     db.add(card)
     db.commit()
     return card
+
+
+def sell_card(db, player, card: PlayerCard | int) -> tuple[bool, str]:
+    """Sell a card back into Echoes at the same value the shop uses.
+
+    Owned cards are deleted after the Echoes are awarded, and any equipped
+    card is first removed from that character so the sell cannot leave a
+    ghosted equipment slot behind.
+    """
+    if isinstance(card, int):
+        card = db.get(PlayerCard, card)
+    if card is None:
+        return False, "That card is gone."
+    if card.player_id != player.id:
+        return False, "That isn't your card."
+
+    if card.character_id is not None:
+        card.character_id = None
+
+    value = resonance_config.card_cost(card.template.star_rating)
+    add_currency(db, player, "echoes", value)
+    db.delete(card)
+    db.commit()
+    return True, f"Sold **{card.display_name}** for **{value:,} ✴️**."

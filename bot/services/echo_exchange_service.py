@@ -196,6 +196,31 @@ def purchase_card(db, player, card_id: str) -> dict:
     return {"template": template, "card": card, "cost": cost}
 
 
+def sell_card(db, player, card: PlayerCard | int) -> dict:
+    """Sell a card back to Echoes at the same value used by the shop.
+
+    This is the player-facing mirror of card_service.sell_card: both use
+    the same catalog price table, so buying and selling a 5★ card always
+    loop through the same number.
+    """
+    if isinstance(card, int):
+        card = db.get(PlayerCard, card)
+    if card is None:
+        raise ExchangeError("That card isn't available.")
+    if card.player_id != player.id:
+        raise ExchangeError("That isn't your card.")
+
+    ok, message = card_service.sell_card(db, player, card)
+    if not ok:
+        raise ExchangeError(message)
+
+    return {
+        "card": card,
+        "echoes": resonance_config.card_cost(card.template.star_rating),
+        "message": message,
+    }
+
+
 # ----------------------------------------------------------------------
 # The conversion counter
 # ----------------------------------------------------------------------
