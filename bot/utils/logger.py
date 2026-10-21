@@ -24,11 +24,34 @@ the whole picture rather than our half of it.
 
 from __future__ import annotations
 
+import codecs
 import logging
 import logging.handlers
 import os
 import sys
 from pathlib import Path
+
+
+def _utf8_stdout() -> object:
+    """Use a UTF-8 console stream so Windows terminals can handle emoji and
+    star glyphs without blowing up mid-log.
+
+    Some hosts default stdout to cp1252, which raises UnicodeEncodeError for
+    characters like "★" or "✨" even though the log file itself is UTF-8.
+    Reconfiguring the stream is the cleanest fix when available; otherwise we
+    wrap the underlying buffer with a UTF-8 writer that replaces unsupported
+    characters instead of crashing the whole bot.
+    """
+    stream = sys.stdout
+    if hasattr(stream, "reconfigure"):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+            return stream
+        except Exception:
+            pass
+    if hasattr(stream, "buffer"):
+        return codecs.getwriter("utf-8")(stream.buffer, errors="replace")
+    return stream
 
 from bot.config import DEBUG
 
@@ -76,7 +99,7 @@ def setup_logging() -> None:
 
     level = logging.DEBUG if DEBUG else logging.INFO
 
-    console = logging.StreamHandler(sys.stdout)
+    console = logging.StreamHandler(_utf8_stdout())
     console.setFormatter(logging.Formatter(
         fmt="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",

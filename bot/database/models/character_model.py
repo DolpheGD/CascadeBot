@@ -42,6 +42,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm.exc import DetachedInstanceError
 
 from bot.database.models.base_model import Base
 from bot.database.models.enums import CharacterClass
@@ -222,10 +223,40 @@ class PlayerCharacter(Base):
     def xp_to_next_level(self) -> int:
         return round(self.XP_BASE * (self.XP_GROWTH ** (self.level - 1)))
 
+    @property
+    def _resolved_template(self) -> "CharacterTemplate":
+        """Return a live template object even after the owning session closes.
+
+        Several UI flows construct a list of PlayerCharacter rows inside a
+        session and then read their label/grade data after the session is
+        closed. When the template relationship is still lazy, SQLAlchemy
+        raises DetachedInstanceError. Raising by itself is a bug in the UI
+        layer; this helper resolves the template from the instance cache or
+        a fresh session, then caches it back on the instance so later reads
+        stay safe and cheap.
+        """
+        template = self.__dict__.get("template")
+        if template is not None:
+            return template
+        try:
+            return self.template
+        except DetachedInstanceError:
+            from bot.database.session import SessionLocal
+
+            db = SessionLocal()
+            try:
+                template = db.get(CharacterTemplate, self.template_id)
+                if template is None:
+                    raise ValueError(f"missing character template {self.template_id!r}")
+                self.template = template
+                return template
+            finally:
+                db.close()
+
     def effective_class(self) -> CharacterClass:
         if self.current_class is not None:
             return self.current_class
-        return self.template.character_class
+        return self._resolved_template.character_class
 
     @property
     def display_name(self) -> str:
@@ -234,7 +265,7 @@ class PlayerCharacter(Base):
         bot/game/combat/factory.py::build_character_combatant). Falls back
         to the template's own name (e.g. "You" for the avatar) unless the
         player has set a custom_name for this specific PlayerCharacter."""
-        return self.custom_name or self.template.name
+        return self.custom_name or self._resolved_template.name
 
     @property
     def effective_star(self) -> int:
@@ -253,7 +284,7 @@ class PlayerCharacter(Base):
         them off effective_star would make an evolved Andy cost more at
         the shop than an un-evolved one, for everyone.
         """
-        return min(MAX_STAR, self.template.star_rating + int(self.evolution_stage or 0))
+        return min(MAX_STAR, self._resolved_template.star_rating + int(self.evolution_stage or 0))
 
     @property
     def is_evolved(self) -> bool:

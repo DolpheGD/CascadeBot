@@ -90,8 +90,8 @@ VOTE_STREAK_GRACE_HOURS = 36
 # in the game. Worth knowing if the gacha ever needs tightening: this is
 # the number to look at first, and VOTE_SHARDS_PER_STREAK is the gentler
 # lever, since it only affects players who have already committed.
-VOTE_BASE_SHARDS = 200
-VOTE_SHARDS_PER_STREAK = 5
+VOTE_BASE_SHARDS = 800
+VOTE_SHARDS_PER_STREAK = 80
 
 # ----------------------------------------------------------------------
 # CORES FROM VOTING -- the other half of the same reward.
@@ -106,8 +106,8 @@ VOTE_SHARDS_PER_STREAK = 5
 # per character and permanent, so the same nominal number buys more
 # lasting power -- 120 cores is one Card pull against a vote's ~1.7
 # character pulls.
-VOTE_BASE_CORES = 120
-VOTE_CORES_PER_STREAK = 4
+VOTE_BASE_CORES = 350
+VOTE_CORES_PER_STREAK = 35
 VOTE_STREAK_CAP = 20  # streak stops scaling any reward past this
 
 # ----------------------------------------------------------------------
@@ -123,26 +123,26 @@ VOTE_STREAK_CAP = 20  # streak stops scaling any reward past this
 # Epic item's lifetime cost per day, so a committed voter keeps pace with
 # mid-rarity gear without ever approaching a Divine item's 504 from
 # voting alone.
-VOTE_BASE_FRAGMENTS = 25
-VOTE_FRAGMENTS_PER_STREAK = 2
+VOTE_BASE_FRAGMENTS = 120
+VOTE_FRAGMENTS_PER_STREAK = 25
 
 # Bonus shards every N consecutive votes, on top of the scaled amount.
 VOTE_SHARD_MILESTONE_INTERVAL = 5
-VOTE_SHARD_MILESTONE_AMOUNT = 150
+VOTE_SHARD_MILESTONE_AMOUNT = 600
 
 # Gold and reroll tokens. Gold is now the headline currency here -- see
 # the block above.
-VOTE_BASE_GOLD = 2_000
-VOTE_GOLD_PER_STREAK = 300
-VOTE_REROLL_TOKENS = 20
+VOTE_BASE_GOLD = 12_000
+VOTE_GOLD_PER_STREAK = 3_000
+VOTE_REROLL_TOKENS = 75
 
 # Materials: two from a streak-appropriate tier, same tier groupings
 # everything else in the game uses (enums.MATERIAL_TIERS). Reaches the
 # top tier faster than /daily does -- 15 votes is ~8 days of voting
 # twice daily, versus /daily's 30 calendar days.
 VOTE_MATERIAL_TIER_STREAK_THRESHOLDS = [1, 4, 9, 15]  # parallel to MATERIAL_TIERS
-VOTE_MATERIAL_BASE_AMOUNT = 12
-VOTE_MATERIAL_PER_STREAK = 2
+VOTE_MATERIAL_BASE_AMOUNT = 40
+VOTE_MATERIAL_PER_STREAK = 8
 
 # Guaranteed lootbox per vote, escalating with streak. Starts at epic --
 # a tier /daily only reaches at a 7-day streak -- and tops out at mythic,

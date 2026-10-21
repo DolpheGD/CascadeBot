@@ -199,11 +199,20 @@ PERCENT_STAT_CAPS = {"crit_rate": 50, "crit_damage": 300, "recharge": 60}
 # worth doing -- a character who only gets tankier as they level is not a
 # character who is getting stronger.
 LEVEL_POWER_PER_LEVEL = 0.008
+# HP is the one stat that should feel the level climb most strongly.
+# A slightly steeper slope here keeps late-game characters from feeling
+# paper-thin while leaving the rest of the stat spread intact.
+LEVEL_HP_POWER_PER_LEVEL = 0.011
 
 
 def level_power_multiplier(level: int) -> float:
     """Compounding-ish bonus for character level. Exactly 1.0 at level 1."""
     return 1 + LEVEL_POWER_PER_LEVEL * max(0, int(level or 1) - 1)
+
+
+def max_hp_level_multiplier(level: int) -> float:
+    """Slightly steeper HP-only scaling so higher levels feel sturdier."""
+    return 1 + LEVEL_HP_POWER_PER_LEVEL * max(0, int(level or 1) - 1)
 
 
 def base_character_stats(player_character) -> dict:
@@ -217,12 +226,13 @@ def base_character_stats(player_character) -> dict:
     template = player_character.template
     levels = max(0, player_character.level - 1)
     power = level_power_multiplier(player_character.level)
+    hp_power = max_hp_level_multiplier(player_character.level)
     stats = {
         "attack": (template.base_attack + template.growth_attack * levels) * power,
         "defense": (template.base_defense + template.growth_defense * levels) * power,
         "elemental": (template.base_elemental + template.growth_elemental * levels) * power,
         "speed": (template.base_speed + template.growth_speed * levels) * power,
-        "max_hp": (template.base_hp + template.growth_hp * levels) * power,
+        "max_hp": (template.base_hp + template.growth_hp * levels) * hp_power,
         "max_mana": (template.base_mana + template.growth_mana * levels) * power,
         "crit_rate": template.base_crit_rate,
         "crit_damage": template.base_crit_damage,

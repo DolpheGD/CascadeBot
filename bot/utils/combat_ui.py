@@ -18,7 +18,7 @@ import discord
 
 from bot.utils import names
 from bot.game.combat import effects
-from bot.utils import embedder
+from bot.utils import embedder, responses
 
 
 class InfoPageView(discord.ui.View):
@@ -61,8 +61,10 @@ class InfoPageView(discord.ui.View):
 
     async def _rerender(self, interaction: discord.Interaction, page: int):
         view = InfoPageView(self.battle, page)
-        await interaction.response.edit_message(
-            embed=embedder.battle_info_embed(self.battle, page), view=view
+        await responses.edit(
+            interaction,
+            embed=embedder.battle_info_embed(self.battle, page),
+            view=view,
         )
 
     @discord.ui.button(label="◀", style=discord.ButtonStyle.secondary)
@@ -114,8 +116,10 @@ class LogPageView(discord.ui.View):
 
     async def _rerender(self, interaction: discord.Interaction, page: int):
         view = LogPageView(self.battle, page)
-        await interaction.response.edit_message(
-            embed=embedder.battle_log_embed(self.battle, page), view=view
+        await responses.edit(
+            interaction,
+            embed=embedder.battle_log_embed(self.battle, page),
+            view=view,
         )
 
     @discord.ui.button(label="⏮", style=discord.ButtonStyle.secondary)

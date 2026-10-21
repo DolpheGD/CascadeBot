@@ -19,6 +19,7 @@ reward they came back for.
 from __future__ import annotations
 
 import discord
+from sqlalchemy.orm import joinedload
 
 from bot.game.economy import dispatch_config as dc
 from bot.services import dispatch_service as D
@@ -270,9 +271,13 @@ class DispatchView(discord.ui.View):
         try:
             player = get_player(db, self.user_id)
             busy = D.busy_character_ids(db, player)
-            available = [c for c in db.query(PlayerCharacter)
-                         .filter_by(player_id=player.id).all()
-                         if c.id not in busy]
+            available = [
+                c for c in db.query(PlayerCharacter)
+                .options(joinedload(PlayerCharacter.template))
+                .filter_by(player_id=player.id)
+                .all()
+                if c.id not in busy
+            ]
         finally:
             db.close()
 

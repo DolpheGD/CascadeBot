@@ -7,13 +7,13 @@ from __future__ import annotations
 
 from bot.database.models.enums import MaterialType
 
-DAILY_BASE_GOLD = 100
-DAILY_GOLD_PER_STREAK_DAY = 15   # additional gold per consecutive day, capped below
+DAILY_BASE_GOLD = 2_500
+DAILY_GOLD_PER_STREAK_DAY = 500   # additional gold per consecutive day, capped below
 DAILY_STREAK_GOLD_CAP_DAYS = 20  # streak bonus stops growing past this many days
 
 # Bonus shards awarded on top of gold every N days of an unbroken streak.
 DAILY_SHARD_MILESTONE_INTERVAL = 7
-DAILY_SHARD_MILESTONE_AMOUNT = 150
+DAILY_SHARD_MILESTONE_AMOUNT = 500
 
 # CORES on the same 7-day milestone -- the reliable, no-skill source.
 #
@@ -27,7 +27,7 @@ DAILY_SHARD_MILESTONE_AMOUNT = 150
 # 25 a week is a quarter of a ten-pull -- slow enough that it is not the
 # way anyone builds a collection, steady enough that the banner is never
 # fully closed to you.
-DAILY_CORE_MILESTONE_AMOUNT = 300
+DAILY_CORE_MILESTONE_AMOUNT = 1_200
 
 # Cores on EVERY claim, not only the weekly milestone.
 #
@@ -36,7 +36,7 @@ DAILY_CORE_MILESTONE_AMOUNT = 300
 # slow. A small daily trickle plus the weekly lump is the same total
 # shaped better: you are always making progress, and the seventh day is
 # still an event.
-DAILY_CORE_BASE = 40
+DAILY_CORE_BASE = 200
 
 # EVOLUTION FRAGMENTS on every claim, plus a weekly lump.
 #
@@ -50,13 +50,13 @@ DAILY_CORE_BASE = 40
 # dailies is 82 fragments, which is most of an Epic item's entire
 # lifetime cost of 36 -- so a casual player does keep pace with the gear
 # they are realistically wearing.
-DAILY_EVOLUTION_FRAGMENT_BASE = 6
-DAILY_EVOLUTION_FRAGMENT_MILESTONE = 40
+DAILY_EVOLUTION_FRAGMENT_BASE = 40
+DAILY_EVOLUTION_FRAGMENT_MILESTONE = 200
 
 # Reroll tokens on every claim -- a small, reliable source of the equipment
 # reroll/substat currency, separate from dungeon drops. Part of making
 # dailies feel more impactful now that dungeon gold was trimmed down.
-DAILY_REROLL_TOKENS = 10
+DAILY_REROLL_TOKENS = 50
 
 # Lootbox tier for the guaranteed daily box escalates with streak length --
 # starts at "rare" (not "common": /daily should feel worth doing from day
@@ -83,8 +83,8 @@ DAILY_MATERIAL_TIERS: list[tuple[MaterialType, MaterialType]] = [
     (MaterialType.VOID, MaterialType.ENTROPY),
 ]
 DAILY_MATERIAL_TIER_STREAK_THRESHOLDS = [1, 7, 14, 30]  # parallel to DAILY_MATERIAL_TIERS
-DAILY_MATERIAL_BASE_AMOUNT = 5
-DAILY_MATERIAL_PER_STREAK_DAY = 1
+DAILY_MATERIAL_BASE_AMOUNT = 30
+DAILY_MATERIAL_PER_STREAK_DAY = 6
 DAILY_MATERIAL_STREAK_CAP_DAYS = 20
 
 # A streak survives if the player claims again within this many hours of
