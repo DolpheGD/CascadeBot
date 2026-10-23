@@ -105,22 +105,76 @@ class HQUpgradeButton(discord.ui.DynamicItem[discord.ui.Button], template=r"casc
             db.close()
 
 
+class HQCustomizeButton(discord.ui.DynamicItem[discord.ui.Button], template=r"cascade_hq_customize"):
+    def __init__(self, label: str = "Customize HQ"):
+        super().__init__(discord.ui.Button(
+            label=label[:80], style=discord.ButtonStyle.secondary, custom_id="cascade_hq_customize"
+        ))
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match):
+        return cls()
+
+    async def callback(self, interaction: discord.Interaction):
+        if not await check_message_owner(interaction):
+            return
+        await responses.send(
+            interaction,
+            "Use `/base customize` to rename your HQ, pick a theme, and add a short motto.",
+            ephemeral=True,
+        )
+
+
 class HQView(OwnedView):
     def __init__(self, upgrade_button: HQUpgradeButton, owner_id: int | None = None):
         super().__init__(timeout=None, owner_id=owner_id)
         self.add_item(upgrade_button)
+        self.add_item(HQCustomizeButton())
+
+
+HQ_THEME_COLORS = {
+    "standard": discord.Color.blurple(),
+    "sunset": discord.Color.orange(),
+    "storm": discord.Color.dark_blue(),
+    "ember": discord.Color.dark_orange(),
+    "verdant": discord.Color.green(),
+}
+
+HQ_THEME_LABELS = {
+    "standard": "Standard",
+    "sunset": "Sunset",
+    "storm": "Storm",
+    "ember": "Ember",
+    "verdant": "Verdant",
+}
+
+HQ_BADGE_LABELS = {
+    "crest": "Crest",
+    "sun": "Sun",
+    "storm": "Storm",
+    "forge": "Forge",
+    "garden": "Garden",
+    "lab": "Lab",
+}
 
 
 def _build_hq_embed(db, player) -> discord.Embed:
     base = base_service.get_or_create_base(db, player)
+    title = base_service.get_hq_name(db, player)
+    badge = HQ_BADGE_LABELS.get((base.custom_badge or "crest").strip().lower(), "Crest")
+    theme = HQ_THEME_LABELS.get((base.custom_theme or "standard").strip().lower(), "Standard")
     embed = discord.Embed(
-        title=f"Cascade HQ -- Level {base.hq_level}",
-        color=discord.Color.blurple(),
+        title=f"{title} -- Level {base.hq_level}",
+        color=HQ_THEME_COLORS.get((base.custom_theme or "standard").strip().lower(), discord.Color.blurple()),
     )
-    embed.description = (
-        "Your base of operations. Harvesters, shrines, the Research Lab, the Forge "
-        "and the shop all grow with HQ level -- use `/harvesters`, `/shrines`, `/lab`, `/forge` and `/shop`."
-    )
+    identity = f"Badge: {badge} | Theme: {theme}"
+    if base.custom_motto:
+        embed.description = f"*{base.custom_motto}*\n\n{identity}\nYour base of operations. Harvesters, shrines, the Research Lab, the Forge and the shop all grow with HQ level -- use `/harvesters`, `/shrines`, `/lab`, `/forge` and `/shop`."
+    else:
+        embed.description = (
+            f"{identity}\nYour base of operations. Harvesters, shrines, the Research Lab, the Forge "
+            "and the shop all grow with HQ level -- use `/harvesters`, `/shrines`, `/lab`, `/forge` and `/shop`."
+        )
 
     if is_max_hq_level(base.hq_level):
         embed.add_field(name="Status", value="Cascade HQ is at its maximum level.", inline=False)
@@ -1094,7 +1148,7 @@ def _forge_candidates(db, player, *, same_type_as=None) -> list:
     if same_type_as is not None:
         query = query.filter(InventoryItem.item_type == same_type_as.item_type,
                              InventoryItem.id != same_type_as.id)
-    return query.order_by(InventoryItem.id.desc()).limit(25).all()
+    return query.order_by(InventoryItem.id.desc()).all()
 
 
 class ForgeModeSelect(discord.ui.Select):
@@ -1152,28 +1206,28 @@ class ForgeItemSelect(discord.ui.Select):
     transfer. `mode` is carried in the custom_id so the callback knows
     which operation the click belongs to."""
 
-    def __init__(self, mode: str, items: list, placeholder: str):
+    def __init__(self, mode: str, items: list, placeholder: str, page: int = 0):
         # BEST FIRST, and the placeholder says when there are more.
         #
         # This lists INVENTORY, which is unbounded -- a played account
-        # holds hundreds of items against Discord's 25-option ceiling. It
-        # used to slice an unsorted list, so which items the forge would
-        # even offer you was effectively arbitrary. Sorting by rarity and
-        # level puts the ones worth forging in front, and saying "25 of
-        # 180" stops the menu pretending it's showing everything.
+        # holds hundreds of items against Discord's 25-option ceiling. The
+        # menu pages through the full list so players can actually see all
+        # of their valid options instead of the first 25 and nothing else.
         ordered = _forge_item_order(items)
+        window = paging.window(ordered, page)
         options = [
             discord.SelectOption(
                 label=names.fit_suffix(item.display_name, f"+{item.item_level}", 100),
                 value=str(item.id),
                 description=f"{item.rarity.value.title()} {item.slot.value}"[:100],
             )
-            for item in paging.window(ordered, 0)
+            for item in window
         ] or [discord.SelectOption(label="Nothing available", value="none")]
-        super().__init__(placeholder=paging.placeholder_for(placeholder, 0, len(ordered)),
+        super().__init__(placeholder=paging.placeholder_for(placeholder, page, len(ordered)),
                          options=options,
                          custom_id=f"cascade_forge_item:{mode}", min_values=1, max_values=1)
         self.mode = mode
+        self.page = page
 
     async def callback(self, interaction: discord.Interaction):
         if self.values[0] == "none":
@@ -1228,22 +1282,24 @@ class ForgeItemSelect(discord.ui.Select):
 
 
 class ForgeTransferTargetSelect(discord.ui.Select):
-    def __init__(self, source, items: list):
+    def __init__(self, source, items: list, page: int = 0):
         ordered = _forge_item_order(items)
+        window = paging.window(ordered, page)
         options = [
             discord.SelectOption(
                 label=names.fit_suffix(item.display_name, f"+{item.item_level}", 100),
                 value=str(item.id),
                 description=f"{item.rarity.value.title()} {item.slot.value}"[:100],
             )
-            for item in paging.window(ordered, 0)
+            for item in window
         ] or [discord.SelectOption(label="No compatible item", value="none")]
         super().__init__(placeholder=paging.placeholder_for(
-                             f"Put {source.display_name}'s ability onto", 0, len(ordered)),
+                             f"Put {source.display_name}'s ability onto", page, len(ordered)),
                          options=options,
                          custom_id=f"cascade_forge_target:{source.id}",
                          min_values=1, max_values=1)
         self.source_id = source.id
+        self.page = page
 
     async def callback(self, interaction: discord.Interaction):
         if self.values[0] == "none":
@@ -1290,12 +1346,29 @@ class ForgeView(OwnedView):
     Forge is a menu you open, use, and close -- there's nothing here
     worth surviving anything."""
 
-    def __init__(self, buttons: list, selects: list, owner_id: int | None = None):
+    def __init__(self, buttons: list, selects: list, owner_id: int | None = None,
+                 db=None, player=None, slot: str = "weapon", mode: str = "craft",
+                 source=None, page: int = 0):
         super().__init__(timeout=300, owner_id=owner_id)
+        self.db = db
+        self.player = player
+        self.slot = slot
+        self.mode = mode
+        self.source = source
+        self.page = page
         for select in selects:
             self.add_item(select)
         for b in buttons:
             self.add_item(b)
+
+    async def rerender(self, interaction: discord.Interaction, page: int):
+        if self.db is None or self.player is None:
+            return
+        await responses.edit(
+            interaction,
+            embed=_build_forge_embed(self.db, self.player, slot=self.slot, mode=self.mode, source=self.source),
+            view=_build_forge_view(self.db, self.player, slot=self.slot, mode=self.mode, source=self.source, page=page),
+        )
 
 
 def _build_forge_embed(db, player, slot: str = "weapon", mode: str = "craft",
@@ -1399,7 +1472,7 @@ def _build_forge_embed(db, player, slot: str = "weapon", mode: str = "craft",
 
 
 def _build_forge_view(db, player, slot: str = "weapon", mode: str = "craft",
-                      source=None) -> ForgeView:
+                      source=None, page: int = 0) -> ForgeView:
     forge = forge_service.get_or_create_forge(db, player)
     buttons: list = []
     selects: list = [ForgeModeSelect(mode, forge.level)]
@@ -1414,16 +1487,18 @@ def _build_forge_view(db, player, slot: str = "weapon", mode: str = "craft",
         selects.append(ForgeItemSelect(
             mode, candidates,
             placeholder="Salvage which item..." if mode == "salvage" else "Reforge which item...",
+            page=page,
         ))
     elif mode == "transfer":
         if source is None:
             selects.append(ForgeItemSelect(
                 "transfer", candidates,
                 placeholder="Take the ability FROM...",
+                page=page,
             ))
         else:
             selects.append(ForgeTransferTargetSelect(
-                source, _forge_candidates(db, player, same_type_as=source)
+                source, _forge_candidates(db, player, same_type_as=source), page=page
             ))
 
     cost = forge_config.forge_upgrade_cost(forge.level)
@@ -1433,9 +1508,17 @@ def _build_forge_view(db, player, slot: str = "weapon", mode: str = "craft",
         cost_text = "/".join(format_currency(c, a) for c, a in cost.items())
         buttons.append(ForgeUpgradeButton(label=f"Upgrade Forge to Lv{forge.level + 1} ({cost_text})"))
 
+    if mode in ("salvage", "reforge") and len(candidates) > paging.SELECT_OPTION_LIMIT:
+        paging.add_page_buttons(buttons, page, len(candidates), row=1)
+    elif mode == "transfer" and source is not None and len(_forge_candidates(db, player, same_type_as=source)) > paging.SELECT_OPTION_LIMIT:
+        paging.add_page_buttons(buttons, page, len(_forge_candidates(db, player, same_type_as=source)), row=1)
+    elif mode == "transfer" and source is None and len(candidates) > paging.SELECT_OPTION_LIMIT:
+        paging.add_page_buttons(buttons, page, len(candidates), row=1)
+
     # Discord allows 5 action rows; each select takes one. Two selects
     # plus a row of buttons stays comfortably inside that.
-    return ForgeView(buttons, selects, owner_id=player.id)
+    return ForgeView(buttons, selects, owner_id=player.id, db=db, player=player,
+                    slot=slot, mode=mode, source=source, page=page)
 
 
 # ----------------------------------------------------------------------
@@ -1538,6 +1621,34 @@ class Base(commands.GroupCog, name="base", description="Cascade HQ base-building
         finally:
             db.close()
         await responses.send(ctx, embed=embed, view=view)
+
+    @app_commands.command(
+        name="customize",
+        description="Rename your HQ, pick a theme, and add a motto.")
+    @app_commands.describe(
+        name="Optional HQ name. Leave blank to keep the default.",
+        theme="Theme: standard, sunset, storm, ember, verdant.",
+        badge="Badge: crest, sun, storm, forge, garden, lab.",
+        motto="Optional short motto for your HQ.",
+    )
+    async def customize_cmd(self, ctx: discord.Interaction, name: str | None = None, theme: str | None = None, badge: str | None = None, motto: str | None = None):
+        await responses.defer(ctx)
+        db = SessionLocal()
+        try:
+            player = get_player(db, ctx.user.id)
+            if not await require_player(ctx, player):
+                return
+            if not await require_feature(ctx, db, player, 'base'):
+                return
+            ok, message = base_service.set_hq_identity(db, player, name=name, theme=theme, badge=badge, motto=motto)
+            if not ok:
+                await responses.send(ctx, message, ephemeral=True)
+                return
+            embed = _build_hq_embed(db, player)
+            view = _build_hq_view(db, player)
+        finally:
+            db.close()
+        await responses.send(ctx, content=message, embed=embed, view=view)
 
     @app_commands.command(name="shrines", description="View, build, and upgrade your shrines.")
     async def shrines_cmd(self, ctx: discord.Interaction):

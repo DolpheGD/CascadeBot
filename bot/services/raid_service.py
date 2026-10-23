@@ -52,8 +52,12 @@ from bot.game.economy.raid_config import (
     boss_hp_multiplier,
     contribution_tier,
     get_difficulty,
+    get_modifier,
     get_tier,
     lootbox_for,
+    modifier_pool_multiplier,
+    modifier_reward_multiplier,
+    pick_modifier_for_tier,
     pool_hp_for,
     raid_boss_level,
     raid_duration,
@@ -198,7 +202,8 @@ def start_raid(db, player, guild_id: int, rng: random.Random | None = None) -> G
         )
 
     now = dt.datetime.now(dt.timezone.utc)
-    pool = pool_hp_for(tier)
+    modifier = pick_modifier_for_tier(tier, rng)
+    pool = int(round(pool_hp_for(tier) * modifier_pool_multiplier(modifier)))
     raid = GuildRaid(
         guild_id=guild_id,
         boss_name=rng.choice(tier["boss_pool"]),
@@ -207,6 +212,7 @@ def start_raid(db, player, guild_id: int, rng: random.Random | None = None) -> G
         current_hp=pool,
         status="active",
         tier=tier["id"],
+        modifier_id=modifier["id"],
         started_at=now,
         ends_at=now + raid_duration(tier),
         summoned_by=player.id,
@@ -491,6 +497,7 @@ def claim_reward(db, player, raid: GuildRaid) -> dict:
     tier = get_tier(raid.tier) or RAID_TIERS[0]
     share = contribution_share(db, raid, row)
     multiplier, label = contribution_tier(share)
+    modifier_bonus = modifier_reward_multiplier(raid)
 
     # The absolute half of "harder pays more". contribution_tier already
     # rewards difficulty RELATIVELY (harder attacks bank more credit, so
@@ -498,7 +505,7 @@ def claim_reward(db, player, raid: GuildRaid) -> dict:
     # even if the whole server did too, in which case shares are
     # unchanged and the relative half does nothing at all.
     difficulty_bonus = difficulty_reward_bonus(row.best_difficulty)
-    payout = reward_preview(tier, multiplier * difficulty_bonus)
+    payout = reward_preview(tier, multiplier * difficulty_bonus * modifier_bonus)
     for currency, amount in payout["currencies"].items():
         add_currency(db, player, currency, amount)
 
@@ -520,6 +527,7 @@ def claim_reward(db, player, raid: GuildRaid) -> dict:
         "label": label,
         "multiplier": multiplier,
         "difficulty_bonus": difficulty_bonus,
+        "modifier_bonus": modifier_bonus,
         "best_difficulty": row.best_difficulty or DEFAULT_RAID_DIFFICULTY,
         "reward_lines": payout["lines"],
         "damage_dealt": row.damage_dealt,

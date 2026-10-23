@@ -52,6 +52,10 @@ class PlayerBase(Base):
         BigInteger, ForeignKey("players.id", ondelete="CASCADE"), primary_key=True
     )
     hq_level: Mapped[int] = mapped_column(Integer, default=1)
+    custom_name: Mapped[str] = mapped_column(String(64), default="Cascade HQ")
+    custom_theme: Mapped[str] = mapped_column(String(24), default="standard")
+    custom_badge: Mapped[str] = mapped_column(String(24), default="crest")
+    custom_motto: Mapped[str] = mapped_column(String(128), default="")
 
     player: Mapped["Player"] = relationship(back_populates="base")
 

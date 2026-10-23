@@ -191,8 +191,8 @@ CONTRACTS: list[dict] = [
     {
         "id": "timber_run",
         "name": "Timber Run",
-        "description": "The mill south of town is behind on its quota and paying "
-                       "for hands. Unglamorous, close, and back before dark.",
+        "description": "The sawmill down south is behind quota and willing to pay for hands. "
+                       "Short haul, quick cash, and back before sunset.",
         "party": 1, "hours": 2, "level": 10,
         "prefers": [],
         "rewards": {"wood": 130, "gold": 170},
@@ -200,8 +200,8 @@ CONTRACTS: list[dict] = [
     {
         "id": "quarry_shift",
         "name": "Quarry Shift",
-        "description": "Cutting stone on the north face. The foreman does not ask "
-                       "questions and does not give references.",
+        "description": "Stonecutters on the north face are short on bodies and not asking too many "
+                       "questions. The work is brutal and the pay is honest.",
         "party": 1, "hours": 3, "level": 12,
         "prefers": [],
         "rewards": {"stone": 190, "gold": 270},
@@ -209,8 +209,8 @@ CONTRACTS: list[dict] = [
     {
         "id": "courier_route",
         "name": "Courier Route",
-        "description": "Six sealed packages, four districts, one afternoon. "
-                       "Whoever goes should be quick and incurious.",
+        "description": "Six sealed parcels, four districts, and a single afternoon. The job wants "
+                       "someone fast, quiet, and not especially interested in anybody else's problems.",
         "party": 1, "hours": 2, "level": 14,
         "prefers": [CharacterClass.DPS],
         "rewards": {"gold": 430},
@@ -218,8 +218,8 @@ CONTRACTS: list[dict] = [
     {
         "id": "clinic_rotation",
         "name": "Clinic Rotation",
-        "description": "The free clinic in the lower ward is short-staffed again. "
-                       "Someone who can keep people alive would be useful.",
+        "description": "The free clinic in the lower ward is short-staffed again. Someone who knows "
+                       "how to keep people alive would be a real help.",
         "party": 2, "hours": 4, "level": 16,
         "prefers": [CharacterClass.SUSTAIN],
         "rewards": {"gold": 950, "xp": 1_300},
@@ -229,9 +229,8 @@ CONTRACTS: list[dict] = [
     {
         "id": "survey_the_shelf",
         "name": "Survey The Shelf",
-        "description": "Map the ice shelf before the season closes it. Wants "
-                       "somebody who reads terrain and somebody who can carry them "
-                       "out if it goes wrong.",
+        "description": "The ice shelf closes in fast. Someone needs to map the routes before the "
+                       "weather turns mean, and someone else needs to be ready to drag them out.",
         "party": 2, "hours": 6, "level": 24,
         "prefers": [CharacterClass.AMPLIFIER, CharacterClass.SUSTAIN],
         "rewards": {"stone": 260, "metal": 110, "gold": 1_000},
@@ -239,9 +238,8 @@ CONTRACTS: list[dict] = [
     {
         "id": "escort_the_assessor",
         "name": "Escort The Assessor",
-        "description": "An insurance assessor needs to reach three sites and come "
-                       "back with all her fingers. Bring people who can discourage "
-                       "trouble without starting it.",
+        "description": "An insurance assessor needs to hit three sites and come back with all ten "
+                       "fingers. Bring people who can discourage trouble without starting it.",
         "party": 3, "hours": 6, "level": 28,
         "prefers": [CharacterClass.SUPPORT_DPS, CharacterClass.SUPPORT_DPS,
                     CharacterClass.SUSTAIN],
@@ -250,8 +248,8 @@ CONTRACTS: list[dict] = [
     {
         "id": "salvage_the_relay",
         "name": "Salvage The Relay",
-        "description": "A comms relay went dark eleven months ago. Whatever is "
-                       "still bolted to it is worth more than the relay was.",
+        "description": "A comms relay went dark eleven months ago. Whatever is still bolted to it is "
+                       "worth more than the relay ever was.",
         "party": 3, "hours": 8, "level": 32,
         "prefers": [CharacterClass.AMPLIFIER, CharacterClass.DPS],
         "rewards": {"metal": 210, "crystal": 120, "gold": 1_300},
@@ -259,8 +257,8 @@ CONTRACTS: list[dict] = [
     {
         "id": "night_market_security",
         "name": "Night Market Security",
-        "description": "The market runs from dusk to dawn and the stallholders have "
-                       "pooled a purse. Long, dull, occasionally violent.",
+        "description": "The market runs from dusk to dawn and the stallholders have put together a purse. "
+                       "It is long, dull, and occasionally violent, which is still cheaper than a riot.",
         "party": 3, "hours": 8, "level": 30,
         "prefers": [CharacterClass.DPS, CharacterClass.SUSTAIN],
         "rewards": {"gold": 3_400, "xp": 2_800},
@@ -268,8 +266,8 @@ CONTRACTS: list[dict] = [
     {
         "id": "tutor_the_intake",
         "name": "Tutor The Intake",
-        "description": "A dozen new recruits and nobody to drill them. Whoever goes "
-                       "will learn as much as they teach.",
+        "description": "A dozen new recruits and nobody to drill them. Whoever goes will be teaching "
+                       "as much as learning, which is a fair trade if the recruits survive it.",
         "party": 2, "hours": 6, "level": 26,
         "prefers": [CharacterClass.SUPPORT_DPS],
         "rewards": {"xp": 4_200, "gold": 500},
@@ -279,8 +277,8 @@ CONTRACTS: list[dict] = [
     {
         "id": "deep_core_dig",
         "name": "Deep Core Dig",
-        "description": "Twelve hours below the frost line. The seam is rich and the "
-                       "air is not. Send people who can take a shift each.",
+        "description": "Twelve hours below the frost line. The seam is rich and the air is not. "
+                       "This is a job for people who can take a shift each and still stand up afterwards.",
         "party": 4, "hours": 12, "level": 40,
         "prefers": [CharacterClass.SUSTAIN, CharacterClass.SUSTAIN],
         "rewards": {"crystal": 250, "xendium": 95, "metal": 280, "gold": 2_400},
@@ -288,8 +286,8 @@ CONTRACTS: list[dict] = [
     {
         "id": "the_long_convoy",
         "name": "The Long Convoy",
-        "description": "Four regions, no relief, and a cargo manifest nobody will "
-                       "read aloud. Pays accordingly.",
+        "description": "Four regions, no relief, a cargo manifest nobody wants to read aloud, and a "
+                       "paygrade that reflects the kind of route this is.",
         "party": 4, "hours": 12, "level": 44,
         "prefers": [CharacterClass.DPS, CharacterClass.AMPLIFIER,
                     CharacterClass.SUSTAIN, CharacterClass.SUPPORT_DPS],
@@ -298,8 +296,8 @@ CONTRACTS: list[dict] = [
     {
         "id": "permafrost_prospect",
         "name": "Permafrost Prospect",
-        "description": "The old prospectors' charts are wrong, which is why the ore "
-                       "is still there. Ten hours of being wrong carefully.",
+        "description": "The old prospectors' charts are wrong, which is exactly why the ore is still there. "
+                       "Ten hours of being wrong carefully, and trying not to die in the process.",
         "party": 3, "hours": 10, "level": 42,
         "prefers": [CharacterClass.AMPLIFIER, CharacterClass.AMPLIFIER],
         "rewards": {"permafrost_ore": 110, "crystal": 200, "gold": 2_000},
@@ -307,8 +305,8 @@ CONTRACTS: list[dict] = [
     {
         "id": "the_quiet_archive",
         "name": "The Quiet Archive",
-        "description": "Catalogue what the Lab could not. Nothing in there is "
-                       "dangerous. That is what the last team reported.",
+        "description": "The Lab could not catalogue what is in here. If it has been left alone for this long, "
+                       "it is either harmless or very patient. The last team reported the first one.",
         "party": 4, "hours": 14, "level": 48,
         "prefers": [CharacterClass.AMPLIFIER, CharacterClass.SUPPORT_DPS,
                     CharacterClass.SUSTAIN],
@@ -317,8 +315,8 @@ CONTRACTS: list[dict] = [
     {
         "id": "hold_the_line",
         "name": "Hold The Line",
-        "description": "A relief garrison, sixteen hours, at the edge of somewhere "
-                       "that keeps getting closer. Bring everyone you can spare.",
+        "description": "Relief garrison duty, sixteen hours, and the edge of a place that keeps getting "
+                       "closer. Bring everyone you can spare and pray they are enough.",
         "party": 4, "hours": 16, "level": 52,
         "prefers": [CharacterClass.DPS, CharacterClass.DPS,
                     CharacterClass.SUSTAIN, CharacterClass.SUSTAIN],

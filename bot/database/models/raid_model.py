@@ -93,6 +93,7 @@ class GuildRaid(Base):
     status: Mapped[str] = mapped_column(String(16), default="active", index=True)
 
     tier: Mapped[str] = mapped_column(String(16), default="standard")
+    modifier_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
 
     # Who brought this raid to the server. Several raids run at once now
     # (see raid_config.PLAYER_SUMMON_COOLDOWN), so "whose is this" is a

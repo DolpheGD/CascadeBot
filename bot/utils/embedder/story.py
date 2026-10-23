@@ -98,8 +98,8 @@ def story_menu_embed(story, next_mission: dict | None, player,
     completed = set(story.completed_missions or [])
     if next_mission is None:
         embed.description = (
-            "You're up to date with everything written so far.\n"
-            "*More chapters are coming.*"
+            "You're all caught up for now.\n"
+            "*The board is quiet, which feels strange for this line of work.*"
         )
     else:
         chapter = sc.chapter_of(next_mission["id"])

@@ -34,11 +34,11 @@ from __future__ import annotations
 # What an author may build
 # ----------------------------------------------------------------------
 
-# Enemy stacks per challenge, and copies per stack. Three stacks of four
-# is twelve bodies, which is already well past what any authored fight in
-# the game fields -- the cap is here to stop a challenge that takes ten
-# minutes to resolve, not to stop a hard one.
-MAX_ENEMY_STACKS = 3
+# Enemy stacks per challenge, and copies per stack. Five stacks lets a
+# challenge field a broad mix of enemy types without turning into a full
+# boss gauntlet. The total-body limit still keeps fights readable and keeps
+# the dojo from becoming a short-form dungeon editor.
+MAX_ENEMY_STACKS = 5
 MAX_COUNT_PER_STACK = 4
 MAX_TOTAL_ENEMIES = 6
 

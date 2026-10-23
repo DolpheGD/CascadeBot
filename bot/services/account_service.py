@@ -74,9 +74,12 @@ def account_summary(db, player) -> dict:
     so a future /leaderboard entry or achievement check can ask the same
     question and get the same answer."""
     from bot.database.models.character_model import CharacterTemplate, PlayerCharacter
+    from bot.database.models.dispatch_model import PlayerDispatch
     from bot.database.models.equipment_model import InventoryItem
+    from bot.database.models.quest_model import PlayerQuest
+    from bot.game.economy import dispatch_config
     from bot.game.economy.resonance_config import MAX_RESONANCE, resonance_for
-    from bot.services import base_service, character_service, domain_service
+    from bot.services import base_service, character_service, domain_service, research_service
 
     characters = db.query(PlayerCharacter).filter_by(player_id=player.id).all()
     total_levels = sum(c.level for c in characters)
@@ -94,6 +97,23 @@ def account_summary(db, player) -> dict:
 
     base = base_service.get_or_create_base(db, player)
     progress = account_progress(total_levels)
+    completed_research, total_research = research_service.research_progress(db, player.id)
+    completed_quests = db.query(PlayerQuest).filter_by(player_id=player.id, is_completed=True).count()
+    active_dispatches = db.query(PlayerDispatch).filter_by(player_id=player.id, claimed=False).count()
+    dispatch_slots = dispatch_config.slots_for_hq(base.hq_level)
+
+    # The player's account-level loop is already built from roster totals,
+    # but the rest of the game progress should also matter when the player
+    # asks "how far along am I". This keeps the visible account summary in
+    # sync with the systems that feed it: HQ growth, dispatch work, lab
+    # projects, and quest completion.
+    campaign_power = (
+        total_levels * 12 +
+        (base.hq_level * 220) +
+        (completed_research * 110) +
+        (completed_quests * 90) +
+        (squad_power // 4)
+    )
 
     return {
         **progress,
@@ -102,7 +122,16 @@ def account_summary(db, player) -> dict:
         "resonance_maxed": sum(1 for c in characters if resonance_for(c.dupe_count) >= MAX_RESONANCE),
         "highest_character": max((c.level for c in characters), default=0),
         "squad_power": squad_power,
+        "campaign_power": campaign_power,
         "items_owned": db.query(InventoryItem).filter_by(player_id=player.id).count(),
         "hq_level": base.hq_level,
+        "hq_name": base_service.get_hq_name(db, player),
+        "hq_theme": (base.custom_theme or "standard").strip().lower(),
+        "hq_badge": (base.custom_badge or "crest").strip().lower(),
+        "committed_dispatches": active_dispatches,
+        "dispatch_slots": dispatch_slots,
+        "research_projects_completed": completed_research,
+        "research_projects_total": total_research,
+        "completed_quests": completed_quests,
         "roster_levels_for_gates": domain_service.roster_total_levels(db, player),
     }

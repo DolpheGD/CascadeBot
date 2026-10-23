@@ -142,20 +142,20 @@ class EnemyPickView(OwnedView):
 
     def __init__(self, owner_id: int, page: int = 0):
         super().__init__(timeout=300, owner_id=owner_id)
+        self.page = page
         self.add_item(_EnemySelect(page))
+        paging.add_page_buttons(self, page, len(dojo_service.known_enemy_names()), row=1)
+
+    async def rerender(self, interaction: discord.Interaction, page: int):
+        await responses.edit(interaction, view=EnemyPickView(self.owner_id, page=page))
 
 
 class _EnemySelect(discord.ui.Select):
     def __init__(self, page: int = 0):
         names = dojo_service.known_enemy_names()
-        # Discord's hard 25-option cap. There are ~100 buildable enemies,
-        # so this is a WINDOW, and the placeholder says so -- an unpaged
-        # select silently drops everything past 25 and looks like the
-        # roster is smaller than it is.
-        window = names[page * 25:(page + 1) * 25]
+        window = paging.window(names, page)
         super().__init__(
-            placeholder=f"Pick enemies ({page * 25 + 1}-{page * 25 + len(window)} "
-                        f"of {len(names)})…",
+            placeholder=paging.placeholder_for("Pick enemies…", page, len(names)),
             min_values=1, max_values=min(cfg.MAX_ENEMY_STACKS, len(window)),
             options=[discord.SelectOption(label=n[:100], value=n[:100]) for n in window],
         )

@@ -93,11 +93,57 @@ def ensure_base_catalog_seeded(db) -> None:
 def get_or_create_base(db, player) -> PlayerBase:
     base = db.get(PlayerBase, player.id)
     if base is None:
-        base = PlayerBase(player_id=player.id, hq_level=1)
+        base = PlayerBase(
+            player_id=player.id,
+            hq_level=1,
+            custom_name="Cascade HQ",
+            custom_theme="standard",
+            custom_badge="crest",
+            custom_motto="",
+        )
         db.add(base)
         db.commit()
         db.refresh(base)
     return base
+
+
+def get_hq_name(db, player) -> str:
+    base = get_or_create_base(db, player)
+    return (base.custom_name or "Cascade HQ").strip() or "Cascade HQ"
+
+
+def get_hq_badge(db, player) -> str:
+    base = get_or_create_base(db, player)
+    return (base.custom_badge or "crest").strip().lower() or "crest"
+
+
+def set_hq_identity(db, player, *, name: str | None = None, theme: str | None = None, badge: str | None = None, motto: str | None = None) -> tuple[bool, str]:
+    base = get_or_create_base(db, player)
+    cleaned_name = (name or "").strip() if name is not None else base.custom_name.strip() if base.custom_name else ""
+    cleaned_theme = (theme or "standard").strip().lower() if theme is not None else (base.custom_theme or "standard").strip().lower()
+    cleaned_badge = (badge or "crest").strip().lower() if badge is not None else (base.custom_badge or "crest").strip().lower()
+    cleaned_motto = (motto or "").strip() if motto is not None else (base.custom_motto or "").strip()
+
+    if cleaned_name:
+        if len(cleaned_name) > 64:
+            return False, "Base names can be up to 64 characters long."
+        base.custom_name = cleaned_name
+    elif name is not None:
+        base.custom_name = "Cascade HQ"
+
+    if cleaned_theme not in {"standard", "sunset", "storm", "ember", "verdant"}:
+        return False, "That HQ theme is not available."
+    base.custom_theme = cleaned_theme
+
+    if cleaned_badge not in {"crest", "sun", "storm", "forge", "garden", "lab"}:
+        return False, "That HQ badge is not available."
+    base.custom_badge = cleaned_badge
+
+    if len(cleaned_motto) > 128:
+        return False, "HQ mottos can be up to 128 characters long."
+    base.custom_motto = cleaned_motto
+    db.commit()
+    return True, "HQ identity updated."
 
 
 def get_hq_level(db, player) -> int:

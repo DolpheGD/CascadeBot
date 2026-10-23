@@ -28,6 +28,7 @@ from bot.game.economy.research_config import (
     lab_upgrade_cost,
     research_duration,
 )
+from bot.services import quest_service
 from bot.services.currency_service import format_currency, spend_currency
 from bot.utils.time_utils import as_utc
 
@@ -197,6 +198,8 @@ def collect_research(db, player) -> list[dict]:
         project = get_project(row.project_id)
         if project:
             unlocked.append(project)
+    if finished:
+        quest_service.record_progress(db, player, "complete_research", amount=len(finished))
     db.commit()
     return unlocked
 

@@ -16,8 +16,10 @@ from bot.game.economy.raid_config import (
     attacks_per_player,
     contribution_tier,
     get_difficulty,
+    get_modifier,
     get_tier,
     lootbox_for,
+    modifier_reward_multiplier,
     rewards_for,
 )
 from bot.utils.embedder._shared import _bar, fit_field
@@ -174,6 +176,7 @@ def raid_status_embed(raid, participants: list, viewer_id: int | None = None,
     """The live raid board: shared HP, who's contributed what, and the
     viewer's own standing."""
     tier = get_tier(raid.tier) or {}
+    modifier = get_modifier(getattr(raid, "modifier_id", None))
     defeated = raid.status == "defeated"
 
     embed = discord.Embed(
@@ -182,10 +185,16 @@ def raid_status_embed(raid, participants: list, viewer_id: int | None = None,
     )
 
     fraction = raid.hp_fraction()
+    modifier_line = ""
+    if modifier:
+        modifier_line = (
+            f"\n{modifier['emoji']} **{modifier['name']}** — {modifier['description']} "
+            f"(reward +{modifier_reward_multiplier(modifier):.0%})"
+        )
     embed.description = (
         f"**{'💀 DEFEATED' if defeated else 'Lv.' + str(raid.boss_level)}**\n"
         f"❤️ {_short_num(raid.current_hp)} / {_short_num(raid.max_hp)}\n"
-        f"{_bar(raid.current_hp, raid.max_hp, length=14)}  {fraction * 100:.1f}%"
+        f"{_bar(raid.current_hp, raid.max_hp, length=14)}  {fraction * 100:.1f}%{modifier_line}"
     )
 
     total = sum(p.damage_dealt for p in participants) or 1
@@ -232,12 +241,13 @@ def raid_status_embed(raid, participants: list, viewer_id: int | None = None,
     # their current standing is what makes the contribution table
     # something to compete on rather than a statistic to scroll past.
     if tier:
+        modifier_bonus = modifier_reward_multiplier(modifier) if modifier else 1.0
         viewer = next((p for p in participants if p.player_id == viewer_id), None)
         if viewer is not None and viewer.damage_dealt > 0:
             multiplier, label = contribution_tier(viewer.damage_dealt / total)
             embed.add_field(
                 name=f"🎁 Your reward at this rate — {label} ({multiplier}×)",
-                value=reward_line(tier, multiplier),
+                value=reward_line(tier, multiplier * modifier_bonus),
                 inline=False,
             )
         else:
@@ -245,7 +255,7 @@ def raid_status_embed(raid, participants: list, viewer_id: int | None = None,
             embed.add_field(
                 name="🎁 Rewards",
                 value=(
-                    f"{reward_line(tier, floor_multiplier)}\n"
+                    f"{reward_line(tier, floor_multiplier * modifier_bonus)}\n"
                     "*for turning up at all — more the harder you hit.*"
                 ),
                 inline=False,

@@ -241,7 +241,9 @@ def claim(db, player, dispatch_id: int) -> tuple[dict[str, int], str]:
     # cap and the Research Lab's character_xp_percent perk. A second
     # implementation of levelling is the "two code paths computing one
     # value" failure this project keeps paying for.
-    from bot.services import combat_service, currency_service
+    from bot.services import combat_service, currency_service, quest_service
+
+    quest_service.record_progress(db, player, "claim_dispatch")
 
     levelled: list[dict] = []
     for key, amount in rewards.items():

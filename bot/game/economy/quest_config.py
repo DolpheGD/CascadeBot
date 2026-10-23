@@ -10,13 +10,13 @@ Each quest dict has:
   - "goal_type": a string key that bot/services/quest_service.py's
     `record_progress()` call sites (scattered through combat_service,
     dungeon_service, daily_service, character_gacha_service, harvester_service,
-    lootbox_service, item_upgrade_service, vote_service) report progress
-    against. Valid values: "win_battles", "defeat_boss", "defeat_elite",
-    "complete_adventures", "upgrade_gear", "claim_daily", "gacha_pulls",
-    "buy_harvester", "collect_harvester", "open_lootboxes", "vote" -- see
-    dungeon_service.resolve_battle_end for the "defeat_elite"/
-    "defeat_boss"/"win_battles" split.
-
+    lootbox_service, item_upgrade_service, vote_service, dispatch_service,
+    research_service) report progress against. Valid values: "win_battles",
+    "defeat_boss", "defeat_elite", "complete_adventures", "upgrade_gear",
+    "claim_daily", "gacha_pulls", "buy_harvester", "collect_harvester",
+    "open_lootboxes", "vote", "claim_dispatch", "complete_research",
+    "hq_level" -- see dungeon_service.resolve_battle_end for the
+    "defeat_elite"/"defeat_boss"/"win_battles" split.
     A "vote" quest only ever advances on an instance with top.gg voting
     configured (TOPGG_TOKEN set). Keep such quests out of BEGINNER_QUESTS
     for that reason -- a beginner quest that can never complete would
@@ -53,28 +53,28 @@ from __future__ import annotations
 BEGINNER_QUESTS: list[dict] = [
     {
         "id": "beginner_first_win",
-        "description": "Win a battle.",
+        "description": "Get a win under your belt.",
         "goal_type": "win_battles",
         "goal_count": 1,
         "reward": {"gold": 120},
     },
     {
         "id": "beginner_first_adventure",
-        "description": "Complete an expedition (win or lose).",
+        "description": "Finish one expedition, win or lose.",
         "goal_type": "complete_adventures",
         "goal_count": 1,
         "reward": {"gold": 120},
     },
     {
         "id": "beginner_first_upgrade",
-        "description": "Level up a piece of gear.",
+        "description": "Sharpen one piece of gear.",
         "goal_type": "upgrade_gear",
         "goal_count": 1,
         "reward": {"reroll_tokens": 8},
     },
     {
         "id": "beginner_first_daily",
-        "description": "Claim your daily reward with `/daily`.",
+        "description": "Claim the daily reward from `/daily`.",
         "goal_type": "claim_daily",
         "goal_count": 1,
         "reward": {"gold": 80},
@@ -88,21 +88,21 @@ BEGINNER_QUESTS: list[dict] = [
     },
     {
         "id": "beginner_first_harvester",
-        "description": "Buy your first harvester with `/harvesters`.",
+        "description": "Get your first harvester running.",
         "goal_type": "buy_harvester",
         "goal_count": 1,
         "reward": {"gold": 120},
     },
     {
         "id": "beginner_first_lootbox",
-        "description": "Open a lootbox.",
+        "description": "Open a lootbox and see what came with it.",
         "goal_type": "open_lootboxes",
         "goal_count": 1,
         "reward": {"gold": 48},
     },
     {
         "id": "beginner_first_elite",
-        "description": "Defeat an elite encounter.",
+        "description": "Beat an elite encounter.",
         "goal_type": "defeat_elite",
         "goal_count": 1,
         "reward": {"gold": 96, "reroll_tokens": 3},
@@ -129,14 +129,14 @@ BEGINNER_QUESTS: list[dict] = [
     # ------------------------------------------------------------------
     {
         "id": "beginner_hq_two",
-        "description": "Upgrade Cascade HQ to level 2 with `/base`.",
+        "description": "Push Cascade HQ to level 2 with `/base`.",
         "goal_type": "hq_level",
         "goal_count": 2,
         "reward": {"gold": 400, "wood": 60, "stone": 60},
     },
     {
         "id": "beginner_floor_twenty",
-        "description": "Reach floor 20 of an expedition.",
+        "description": "Make it to floor 20 in an expedition.",
         "goal_type": "reach_floor",
         "goal_count": 20,
         "reward": {"gold": 600, "cores": 240, "evolution_fragments": 40},
@@ -209,16 +209,32 @@ BASIC_QUEST_POOL: list[dict] = [
     # TOPGG_TOKEN set it can't be cleared at all (see the module docstring).
     {
         "id": "basic_vote",
-        "description": "Vote for CascadeBot on top.gg.",
+        "description": "Give CascadeBot a vote on top.gg.",
         "goal_type": "vote",
         "goal_count": 1,
         "reward": {"shards": 60, "gold": 150},
         "weight": 5,
     },
+    {
+        "id": "basic_claim_dispatch",
+        "description": "Claim three dispatch contracts from the board.",
+        "goal_type": "claim_dispatch",
+        "goal_count": 3,
+        "reward": {"gold": 220, "wood": 26, "stone": 26},
+        "weight": 10,
+    },
+    {
+        "id": "basic_complete_research",
+        "description": "Collect a finished research project from the lab.",
+        "goal_type": "complete_research",
+        "goal_count": 1,
+        "reward": {"gold": 180, "cores": 45, "evolution_fragments": 12},
+        "weight": 8,
+    },
     # ---- upgrade_gear ----
     {
         "id": "basic_upgrade_gear",
-        "description": "Level up a piece of gear.",
+        "description": "Sharpen one piece of gear.",
         "goal_type": "upgrade_gear",
         "goal_count": 1,
         "reward": {"gold": 100, "wood": 17, "stone": 17},
@@ -226,7 +242,7 @@ BASIC_QUEST_POOL: list[dict] = [
     },
     {
         "id": "basic_upgrade_gear_twice",
-        "description": "Level up gear 2 times.",
+        "description": "Sharpen gear twice.",
         "goal_type": "upgrade_gear",
         "goal_count": 2,
         "reward": {"gold": 170, "wood": 26, "stone": 26, "metal": 8},
@@ -234,7 +250,7 @@ BASIC_QUEST_POOL: list[dict] = [
     },
     {
         "id": "basic_upgrade_gear_thrice",
-        "description": "Level up gear 3 times.",
+        "description": "Sharpen gear three times.",
         "goal_type": "upgrade_gear",
         "goal_count": 3,
         "reward": {"gold": 305, "wood": 42, "stone": 42, "metal": 17, "crystal": 8},
@@ -244,7 +260,7 @@ BASIC_QUEST_POOL: list[dict] = [
     # ---- complete_adventures ----
     {
         "id": "basic_one_adventure",
-        "description": "Complete an expedition (win or lose).",
+        "description": "Finish one expedition, win or lose.",
         "goal_type": "complete_adventures",
         "goal_count": 1,
         "reward": {"gold": 120},
@@ -252,7 +268,7 @@ BASIC_QUEST_POOL: list[dict] = [
     },
     {
         "id": "basic_three_adventures",
-        "description": "Complete 3 expeditions (win or lose).",
+        "description": "Finish three expeditions, win or lose.",
         "goal_type": "complete_adventures",
         "goal_count": 3,
         "reward": {"gold": 255, "shards": 8},
@@ -260,7 +276,7 @@ BASIC_QUEST_POOL: list[dict] = [
     },
     {
         "id": "basic_five_adventures",
-        "description": "Complete 5 expeditions (win or lose).",
+        "description": "Finish five expeditions, win or lose.",
         "goal_type": "complete_adventures",
         "goal_count": 5,
         "reward": {"gold": 440, "shards": 14, "reroll_tokens": 5},
@@ -270,7 +286,7 @@ BASIC_QUEST_POOL: list[dict] = [
     # ---- win_battles ----
     {
         "id": "basic_win_battles",
-        "description": "Win 5 battles.",
+        "description": "Win five fights.",
         "goal_type": "win_battles",
         "goal_count": 5,
         "reward": {"gold": 170, "reroll_tokens": 5},
@@ -278,7 +294,7 @@ BASIC_QUEST_POOL: list[dict] = [
     },
     {
         "id": "basic_win_battles_ten",
-        "description": "Win 10 battles.",
+        "description": "Win ten fights.",
         "goal_type": "win_battles",
         "goal_count": 10,
         "reward": {"gold": 375, "reroll_tokens": 10, "shards": 8},
@@ -286,7 +302,7 @@ BASIC_QUEST_POOL: list[dict] = [
     },
     {
         "id": "basic_win_battles_twenty",
-        "description": "Win 20 battles.",
+        "description": "Win twenty fights.",
         "goal_type": "win_battles",
         "goal_count": 20,
         "reward": {"gold": 765, "reroll_tokens": 20, "shards": 17},
@@ -296,7 +312,7 @@ BASIC_QUEST_POOL: list[dict] = [
     # ---- defeat_elite ----
     {
         "id": "basic_defeat_elite",
-        "description": "Defeat an elite encounter.",
+        "description": "Beat an elite encounter.",
         "goal_type": "defeat_elite",
         "goal_count": 1,
         "reward": {"gold": 155, "reroll_tokens": 3},
@@ -304,7 +320,7 @@ BASIC_QUEST_POOL: list[dict] = [
     },
     {
         "id": "basic_defeat_elite_twice",
-        "description": "Defeat 2 elite encounters.",
+        "description": "Beat two elite encounters.",
         "goal_type": "defeat_elite",
         "goal_count": 2,
         "reward": {"gold": 340, "shards": 10, "reroll_tokens": 7},
@@ -312,7 +328,7 @@ BASIC_QUEST_POOL: list[dict] = [
     },
     {
         "id": "basic_defeat_elite_thrice",
-        "description": "Defeat 3 elite encounters.",
+        "description": "Beat three elite encounters.",
         "goal_type": "defeat_elite",
         "goal_count": 3,
         "reward": {"gold": 580, "shards": 20, "reroll_tokens": 10},
@@ -330,7 +346,7 @@ BASIC_QUEST_POOL: list[dict] = [
     },
     {
         "id": "basic_defeat_boss_twice",
-        "description": "Defeat 2 bosses.",
+        "description": "Defeat two bosses.",
         "goal_type": "defeat_boss",
         "goal_count": 2,
         "reward": {"gold": 440, "shards": 17, "reroll_tokens": 7},
@@ -340,7 +356,7 @@ BASIC_QUEST_POOL: list[dict] = [
     # ---- collect_harvester ----
     {
         "id": "basic_collect_harvesters",
-        "description": "Collect from a harvester 2 times.",
+        "description": "Collect from a harvester twice.",
         "goal_type": "collect_harvester",
         "goal_count": 2,
         "reward": {"metal": 17, "crystal": 17},
@@ -348,7 +364,7 @@ BASIC_QUEST_POOL: list[dict] = [
     },
     {
         "id": "basic_collect_harvesters_four",
-        "description": "Collect from a harvester 4 times.",
+        "description": "Collect from a harvester four times.",
         "goal_type": "collect_harvester",
         "goal_count": 4,
         "reward": {"metal": 34, "crystal": 34, "gold": 100},
@@ -356,7 +372,7 @@ BASIC_QUEST_POOL: list[dict] = [
     },
     {
         "id": "basic_collect_harvesters_six",
-        "description": "Collect from a harvester 6 times.",
+        "description": "Collect from a harvester six times.",
         "goal_type": "collect_harvester",
         "goal_count": 6,
         "reward": {"metal": 60, "crystal": 60, "gold": 205, "xendium": 8},
@@ -374,7 +390,7 @@ BASIC_QUEST_POOL: list[dict] = [
     },
     {
         "id": "basic_open_lootboxes",
-        "description": "Open 2 lootboxes.",
+        "description": "Open two lootboxes.",
         "goal_type": "open_lootboxes",
         "goal_count": 2,
         "reward": {"gold": 135},
@@ -382,7 +398,7 @@ BASIC_QUEST_POOL: list[dict] = [
     },
     {
         "id": "basic_open_lootboxes_four",
-        "description": "Open 4 lootboxes.",
+        "description": "Open four lootboxes.",
         "goal_type": "open_lootboxes",
         "goal_count": 4,
         "reward": {"gold": 305, "shards": 8},
@@ -392,7 +408,7 @@ BASIC_QUEST_POOL: list[dict] = [
     # ---- gacha_pulls ----
     {
         "id": "basic_gacha_pull",
-        "description": "Pull the gacha once.",
+        "description": "Pull once from the gacha.",
         "goal_type": "gacha_pulls",
         "goal_count": 1,
         "reward": {"shards": 8},
@@ -400,7 +416,7 @@ BASIC_QUEST_POOL: list[dict] = [
     },
     {
         "id": "basic_gacha_pull_thrice",
-        "description": "Pull the gacha 3 times.",
+        "description": "Pull three times from the gacha.",
         "goal_type": "gacha_pulls",
         "goal_count": 3,
         "reward": {"shards": 26, "gold": 84},

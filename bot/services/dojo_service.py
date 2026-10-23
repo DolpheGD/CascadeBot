@@ -76,21 +76,16 @@ def clean_text(raw: str | None, limit: int, what: str) -> str | None:
 
 
 def known_enemy_names() -> list[str]:
-    """Every enemy an author may put in a challenge.
+    """Every enemy template the dojo may accept.
 
-    BOSSES AND ESCORTS ARE EXCLUDED. A boss is balanced around being the
-    end of a run with a full squad and a level offset; dropped into a
-    dojo fight at an author-chosen level it is either trivial or
-    impossible, and neither is interesting. Escort templates
-    (boss_group_member) are excluded because they are designed as
-    somebody else's supporting cast and are nonsense alone.
+    The dojo is meant to let an author build any fair encounter from the
+    game's existing enemy roster, not a curated subset. This keeps the
+    authoring surface honest and lets the player test a wider range of
+    challenge ideas without fighting the menu.
     """
     from bot.game.combat.enemies import ENEMY_TEMPLATES
 
-    return sorted(
-        t["name"] for t in ENEMY_TEMPLATES
-        if t.get("role") in ("combat", "elite")
-    )
+    return sorted({t["name"] for t in ENEMY_TEMPLATES if t.get("name")})
 
 
 def validate_enemies(enemies: list[dict]) -> list[dict]:

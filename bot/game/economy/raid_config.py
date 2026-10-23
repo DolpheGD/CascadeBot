@@ -38,6 +38,7 @@ at least the participation tier -- turning up is always worth something.
 from __future__ import annotations
 
 import datetime as dt
+import random
 
 # ----------------------------------------------------------------------
 # PACING DEFAULTS.
@@ -211,6 +212,75 @@ MIN_RAID_BOSS_LEVEL = 5
 
 def get_difficulty(difficulty_id: str) -> dict | None:
     return next((d for d in RAID_DIFFICULTIES if d["id"] == difficulty_id), None)
+
+
+# Raid modifiers add a second strategic layer without changing the basic
+# progression model. They raise the boss pool and the payouts together so
+# there is a real reason to take on the messier version of the fight.
+RAID_MODIFIERS: list[dict] = [
+    {
+        "id": "reckless",
+        "name": "Reckless",
+        "emoji": "🔥",
+        "description": "The boss hits harder and the entire raid pays better for the chaos.",
+        "pool_multiplier": 1.20,
+        "reward_multiplier": 1.20,
+    },
+    {
+        "id": "shrouded",
+        "name": "Shrouded",
+        "emoji": "🌫️",
+        "description": "The boss is harder to pin down and the combatants push a bigger payout.",
+        "pool_multiplier": 1.35,
+        "reward_multiplier": 1.35,
+    },
+    {
+        "id": "fortified",
+        "name": "Fortified",
+        "emoji": "🛡️",
+        "description": "The raid is better protected, but the server gets a steadier reward for clearing it.",
+        "pool_multiplier": 1.10,
+        "reward_multiplier": 1.15,
+    },
+]
+
+
+def get_modifier(modifier_id: str | None) -> dict | None:
+    return next((m for m in RAID_MODIFIERS if m["id"] == modifier_id), None)
+
+
+def modifier_for_raid(raid) -> dict | None:
+    if raid is None:
+        return None
+    return get_modifier(getattr(raid, "modifier_id", None))
+
+
+def modifier_pool_multiplier(raid_or_modifier) -> float:
+    if isinstance(raid_or_modifier, dict):
+        modifier = raid_or_modifier
+    else:
+        modifier = modifier_for_raid(raid_or_modifier)
+    return float((modifier or {}).get("pool_multiplier", 1.0))
+
+
+def modifier_reward_multiplier(raid_or_modifier) -> float:
+    if isinstance(raid_or_modifier, dict):
+        modifier = raid_or_modifier
+    else:
+        modifier = modifier_for_raid(raid_or_modifier)
+    return float((modifier or {}).get("reward_multiplier", 1.0))
+
+
+def pick_modifier_for_tier(tier: dict | None, rng: random.Random | None = None) -> dict:
+    options = RAID_MODIFIERS
+    if tier is None:
+        return options[0]
+    if tier["id"] in {"patrol", "skirmish"}:
+        options = [m for m in RAID_MODIFIERS if m["id"] in {"fortified", "reckless"}]
+    elif tier["id"] in {"incursion", "standard"}:
+        options = [m for m in RAID_MODIFIERS if m["id"] in {"reckless", "shrouded"}]
+    rng = rng or random.Random()
+    return rng.choice(options)
 
 
 def raid_boss_level(raid_level: int, difficulty: dict) -> int:

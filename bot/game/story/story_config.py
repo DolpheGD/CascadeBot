@@ -35,42 +35,44 @@ This reversed a previous rule. The old constraint was that the avatar
 never talks, on the grounds that any line written for a renameable,
 class-switchable character is a line put in someone else's mouth.
 
-The cost of that was a protagonist who was furniture: every scene was
-other people talking AT a silent figure, which is fine for a corridor
-and hopeless for an RPG where the point is that you're a person in a
-room with other people.
+The cost of that was a protagonist who was a prop: every scene was
+other people talking at a silent figure, which works for a corridor and
+falls apart for an RPG where the point is that the player is in the
+room with everyone else.
 
-So the player talks -- but only through `choice` options, never in
-`dialogue` beats. An option's `label` IS the line they say, written in
+So the player talks, but only through `choice` options, never in
+`dialogue` beats. An option's `label` is the line they say, written in
 quotes:
 
-    {"id": "blunt", "label": "\\"So you were watching me.\\"", ...}
+    {"id": "blunt", "label": "\"So you were watching me.\"", ...}
 
-That keeps the character yours: the game never puts words in your mouth
-unprompted, it offers you words and you pick. The `text` under each
-option is the narration of what happens next, not more of your dialogue.
+That keeps the character the player's: the game never plants words in
+their mouth on its own, it hands them a few and lets them choose. The
+`text` under each option is the narration of what happens next, not a
+second speech bubble.
 
 ----------------------------------------------------------------------
 TONE
 ----------------------------------------------------------------------
-Mixed, deliberately, and the mix is the point. This is a game about
-people doing a dangerous job badly-funded, so it should be funny far
-more often than it is grim -- and the grim parts land because of the
-contrast, not in spite of it.
+The tone should feel lived in, not polished until it loses all heat.
+This is a game about people doing a dangerous job with bad funding, so
+it should be funny a lot and bleak only when it earns it. The dark
+moments land harder because the jokes are already there.
 
-  * FUNNY is the default register. Jofrog taking idioms literally,
-    Blueflame saying something bleak far too cheerfully, Refender being
-    insufferably correct.
-  * SERIOUS is earned, not constant. Rex, the convoy, what Josh is
-    actually doing. When it turns, it turns without a joke to cushion it.
-  * EXCITING is structural: every mission should have a thing that
-    happens, not just a conversation about a thing that happened.
-  * SAD is rationed. Used well, once a chapter, it does more than five
-    attempts at it.
+  * FUNNY is the default register. Jofrog takes idioms literally,
+    Blueflame says bleak things with a grin, and Refender is
+    insufferably right about everything.
+  * SERIOUS is earned, not constant. Rex, the convoy, and what Josh is
+    really doing should hit like a door closing.
+  * EXCITING is structural. Every mission should do something, not just
+    explain the thing that happened.
+  * SAD is saved for the moments that deserve it. Use it sparingly and
+    it means something.
 
-The failure mode to avoid is uniform dryness -- everyone deadpan, every
-scene the same temperature. Characters should disagree in register as
-well as in opinion.
+The thing to avoid is everyone sounding like the same voice in different
+shirts. Characters should disagree in register as well as in opinion.
+Keep the writing grounded, plainspoken, and specific. Let the player feel
+that these people have history, bad habits, and a reason to keep going.
 """
 
 from __future__ import annotations
@@ -127,13 +129,13 @@ CHAPTERS: list[dict] = [
             {
                 "id": "pr1_wake_up",
                 "name": "Wake Up",
-                "summary": "Ocellios Lab is coming down. You are inside it.",
+                "summary": "The lab is coming apart. You are in the middle of it.",
                 "beats": [
                     {
                         "kind": "dialogue",
                         "speaker": "Ocellios Lab",
                         "text": (
-                            "**CONTAINMENT FAULT — SECTOR 9 — EVACUATE**\n\n"
+                            "**CONTAINMENT FAULT  -  SECTOR 9  -  EVACUATE**\n\n"
                             "You come to on a floor that is at eleven degrees and getting "
                             "worse. There's a restraint frame beside you with the cuffs "
                             "already open.\n\n"
@@ -146,11 +148,11 @@ CHAPTERS: list[dict] = [
                         "kind": "dialogue",
                         "speaker": "Ocellios Lab",
                         "text": (
-                            "Something's gone through the lab's mech control and left it "
-                            "wrong. A D-class unit turns towards you and doesn't run its "
-                            "greeting routine.\n\n"
-                            "Your hands are producing light.\n\n"
-                            "That's new information. There is no time to have feelings "
+                            "Something has gone through the lab's mech control and left it "
+                            "bent out of shape. A D-class unit turns toward you and skips "
+                            "its greeting routine.\n\n"
+                            "Your hands are glowing.\n\n"
+                            "That's not a good sign, and there isn't time to get worked up "
                             "about it."
                         ),
                     },
@@ -216,7 +218,7 @@ CHAPTERS: list[dict] = [
                 "beats": [
                     {
                         "kind": "dialogue",
-                        "speaker": "Sector 9 — East Corridor",
+                        "speaker": "Sector 9  -  East Corridor",
                         "text": (
                             "Both ends are burning. The east end is burning less, which "
                             "is the closest thing to good news available.\n\n"
@@ -238,18 +240,18 @@ CHAPTERS: list[dict] = [
                         "intro": "It comes down the corridor at a walk, which is somehow worse.",
                         "on_win": (
                             "It goes down hard and takes a long moment about it.\n\n"
-                            "In the quiet afterwards you can hear the building settling — "
+                            "In the quiet afterwards you can hear the building settling  -  "
                             "a sound like a very large animal getting comfortable."
                         ),
                         "on_lose": "You come to further down the corridor. Something dragged you.",
                     },
                     {
                         "kind": "dialogue",
-                        "speaker": "???",
+                        "speaker": "---",
                         "text": (
-                            "A voice, close, and far too calm for the circumstances:\n\n"
-                            "\"Left. **Left.** Other left — there we go.\"\n\n"
-                            "A hand takes your elbow and steers you through a gap that "
+                            "A voice comes out of the dark, close enough to feel warm:\n\n"
+                            "\"Left. Left. Other left. There. That's it.\"\n\n"
+                            "A hand catches your elbow and steers you through a gap that "
                             "wasn't there a second ago."
                         ),
                     },
@@ -268,7 +270,7 @@ CHAPTERS: list[dict] = [
                             "idling with its door open and a man in the doorway who does "
                             "not look surprised to see you.\n\n"
                             "\"You're the one from Sector Nine.\" He steps back to make "
-                            "room. \"Get in, don't get in — the offer's the same either "
+                            "room. \"Get in, don't get in  -  the offer's the same either "
                             "way and the building isn't.\""
                         ),
                     },
@@ -278,7 +280,7 @@ CHAPTERS: list[dict] = [
                         "options": [
                             {
                                 "id": "who",
-                                "label": "\"Who are you, and how did you know I was in there?\"",
+                                "label": "\"Who are you, and how did you know I was in there-\"",
                                 "text": (
                                     "\"Dolphe. Team Cascade.\" He says it like both facts "
                                     "are mildly embarrassing.\n\n"
@@ -291,7 +293,7 @@ CHAPTERS: list[dict] = [
                             },
                             {
                                 "id": "hands",
-                                "label": "\"My hands were doing something. Do you know what?\"",
+                                "label": "\"My hands were doing something. Do you know what-\"",
                                 "text": (
                                     "He looks at them. Properly, for two full seconds.\n\n"
                                     "\"No,\" he says. \"And I'd rather find out with you "
@@ -316,13 +318,13 @@ CHAPTERS: list[dict] = [
                         "kind": "dialogue",
                         "speaker": "Dolphe",
                         "text": (
-                            "The transport turns south and the lab goes out of the window "
-                            "behind you, one storey at a time.\n\n"
-                            "\"We clean up what the Cascade left behind,\" he says, to the "
-                            "windscreen. \"It's dangerous, it doesn't pay, and about a "
-                            "third of what we do is paperwork.\"\n\n"
-                            "\"I'm telling you the boring part first. Everyone else leads "
-                            "with the heroics and then people are annoyed later.\""
+                            "The transport turns south and the lab slips out of the window "
+                            "behind you, one level at a time.\n\n"
+                            "\"We clean up what Cascade left behind,\" he says to the "
+                            "windshield. \"It's dangerous, it doesn't pay, and a third of "
+                            "the job is paperwork. That's the part I tell people first.\"\n\n"
+                            "\"Everybody else starts with the heroics and then acts shocked "
+                            "when they get the rest of the story.\""
                         ),
                     },
                     {
@@ -338,9 +340,9 @@ CHAPTERS: list[dict] = [
                         "feature": "inventory",
                         "text": (
                             "**`/inventory` is open.**\n\n"
-                            "Equip what's in the bag — unequipped gear does nothing at "
-                            "all, which is the single most common way to be needlessly "
-                            "bad at this."
+                            "Equip what's in the bag. Unused gear is just dead weight, and "
+                            "nothing gets people killed faster than being underprepared in "
+                            "the one way that feels totally avoidable."
                         ),
                     },
                 ],
@@ -362,12 +364,11 @@ CHAPTERS: list[dict] = [
                         "speaker": "Dolphe",
                         "text": (
                             "Cascade Central is a converted freight depot with a crooked "
-                            "banner in it. Dolphe is under the banner, reading something, "
-                            "and doesn't look up.\n\n"
-                            "\"Right. The board.\" He taps it without turning round. "
-                            "\"Things that need doing, in the order somebody decided they "
-                            "needed doing. That somebody is usually me and I'm usually "
-                            "about seventy percent right.\""
+                            "banner hanging in it. Dolphe is under the banner reading a "
+                            "page of notes and doesn't look up.\n\n"
+                            "\"Right. The board.\" He taps it without turning around. "
+                            "\"Jobs that need doing, in the order somebody decided they "
+                            "needed doing. Usually me. Usually about seventy percent right.\""
                         ),
                     },
                     {
@@ -376,7 +377,7 @@ CHAPTERS: list[dict] = [
                         "options": [
                             {
                                 "id": "pay",
-                                "label": "\"You said it doesn't pay. Was that a joke?\"",
+                                "label": "\"You said it doesn't pay. Was that a joke-\"",
                                 "text": (
                                     "\"Half of one.\" He finally looks up. \"It pays. It "
                                     "pays badly, late, and in materials more often than "
@@ -389,7 +390,7 @@ CHAPTERS: list[dict] = [
                             },
                             {
                                 "id": "why_me",
-                                "label": "\"Why me? You said I was an extra.\"",
+                                "label": "\"Why me- You said I was an extra.\"",
                                 "text": (
                                     "\"You were.\" He puts the paper down.\n\n"
                                     "\"Then you walked out of a Sector Nine collapse under "
@@ -408,11 +409,11 @@ CHAPTERS: list[dict] = [
                         "text": (
                             "**`/quests` is open.**\n\n"
                             "Standing objectives that pay out as you go. You don't stop "
-                            "and *do* quests — you play, and they notice.\n\n"
+                            "and *do* quests  -  you play, and they notice.\n\n"
                             "The starter set is the one to actually finish. Clearing "
                             "all of it pays a lump of Shards big enough to matter, and "
-                            "the last few ask for real work — a base upgrade, a deep "
-                            "run — so it doubles as a list of what you should be "
+                            "the last few ask for real work  -  a base upgrade, a deep "
+                            "run  -  so it doubles as a list of what you should be "
                             "learning to do next."
                         ),
                     },
@@ -429,7 +430,7 @@ CHAPTERS: list[dict] = [
                             "She hands you a laminated badge. The name field reads "
                             "**YOU** in the flat grey of a default nobody chose.\n\n"
                             "\"Printer does that. It'll keep doing that until you tell "
-                            "it otherwise — `/rename`, whatever you want on it.\"\n\n"
+                            "it otherwise  -  `/rename`, whatever you want on it.\"\n\n"
                             "She's already walking. \"Mine said BEE for a year. I let "
                             "it. Different situation.\""
                         ),
@@ -446,11 +447,11 @@ CHAPTERS: list[dict] = [
                         "speaker": "Jofrog",
                         "text": (
                             "The Ops Deck has six screens. Four show the same thing, one "
-                            "shows a card game, and one is off.\n\n"
+                            "is playing a card game, and one is off.\n\n"
                             "A large robot is standing at parade rest facing a wall.\n\n"
                             "\"You are the new one. I have been looking forward to this "
-                            "for eleven hours.\" He turns round. \"I have prepared a "
-                            "demonstration.\""
+                            "for eleven hours.\" He turns. \"I prepared a demonstration. "
+                            "It is a little personal, but it is also the right lesson.\""
                         ),
                     },
                     {
@@ -459,9 +460,9 @@ CHAPTERS: list[dict] = [
                         "text": (
                             "\"Four of you go out. That is the rule. Not three.\"\n\n"
                             "He produces a chart. It is hand-drawn and meticulous.\n\n"
-                            "\"I have run the numbers on three. The numbers are rude. I "
-                            "will not read them aloud because there is a policy about "
-                            "morale, and I am the policy.\""
+                            "\"I ran the numbers on three. The numbers were rude. I am "
+                            "not reading them aloud because there is a policy about morale, "
+                            "and I am the policy.\""
                         ),
                     },
                     {
@@ -509,7 +510,7 @@ CHAPTERS: list[dict] = [
                         "on_win": (
                             "\"Good.\" He sounds delighted, and slightly surprised at "
                             "being delighted.\n\n"
-                            "\"You did nothing wrong. This is inconvenient — I had "
+                            "\"You did nothing wrong. This is inconvenient  -  I had "
                             "prepared notes.\""
                         ),
                         "on_lose": (
@@ -522,9 +523,9 @@ CHAPTERS: list[dict] = [
                         "feature": "squad",
                         "text": (
                             "**`/squad` is open.**\n\n"
-                            "Four slots, any character in any slot. Bring one of each "
-                            "role if you can — DPS, Support DPS, Amplifier, Sustain. "
-                            "Jofrog has a chart about this and would love to be asked."
+                            "Four slots, any character in any slot. If you can, bring one of "
+                            "each role: DPS, Support DPS, Amplifier, and Sustain. Jofrog has a "
+                            "chart about this and would love to be asked about it."
                         ),
                     },
                     {
@@ -551,9 +552,9 @@ CHAPTERS: list[dict] = [
                         "options": [
                             {
                                 "id": "class_hit",
-                                "label": "\"What should I be right now?\"",
+                                "label": "\"What should I be right now-\"",
                                 "text": (
-                                    "\"Right now? Whatever is missing.\" He shrugs, which "
+                                    "\"Right now- Whatever is missing.\" He shrugs, which "
                                     "on him is a structural event.\n\n"
                                     "\"You are one person and there are four jobs. Look "
                                     "at who you have got, find the hole, be the hole. "
@@ -581,14 +582,14 @@ CHAPTERS: list[dict] = [
                         "text": (
                             "**`/pull` is open.**\n\n"
                             "Shards bring people in. You'll need more than one body "
-                            "before Dolphe sends you anywhere real — see the previous "
+                            "before Dolphe sends you anywhere real  -  see the previous "
                             "paragraph about the numbers being rude.\n\n"
                             "The banner has four buttons and you should press all of "
                             "them at least once: **×1** and **×10** roll, **📜 History** "
                             "shows your last hundred results, and **📊 Rates** shows the "
                             "actual odds and how close you are to a guarantee.\n\n"
                             "That last part matters. A 5★ is **guaranteed by pull 50**, "
-                            "and from pull 30 the odds climb every roll — so a dry "
+                            "and from pull 30 the odds climb every roll  -  so a dry "
                             "streak is a countdown, not bad luck."
                         ),
                     },
@@ -633,7 +634,7 @@ CHAPTERS: list[dict] = [
                         "options": [
                             {
                                 "id": "agree",
-                                "label": "\"So — never gear for damage. Got it.\"",
+                                "label": "\"So  -  never gear for damage. Got it.\"",
                                 "text": (
                                     "\"No.\" He takes the whetstone back. \"That is the "
                                     "same mistake facing the other way.\"\n\n"
@@ -689,24 +690,24 @@ CHAPTERS: list[dict] = [
                             "She pulls a flat case out from under the bench and does not "
                             "open it straight away.\n\n"
                             "\"Everything in that crate, you'll replace. Month, maybe "
-                            "two. That's fine — that's what it's for.\"\n\n"
+                            "two. That's fine  -  that's what it's for.\"\n\n"
                             "\"This isn't that.\""
                         ),
                     },
                     {
                         "kind": "choice",
                         "prompt": (
-                            "Inside is a card. Not a component, not a chip — a card, "
+                            "Inside is a card. Not a component, not a chip  -  a card, "
                             "printed and worn at the corners, with something written on "
                             "it in a hand that isn't hers."
                         ),
                         "options": [
                             {
                                 "id": "card_what",
-                                "label": "\"What is it?\"",
+                                "label": "\"What is it-\"",
                                 "text": (
                                     "\"Nobody's sure. They come out of the Cascade like "
-                                    "this — already old, already about something.\"\n\n"
+                                    "this  -  already old, already about something.\"\n\n"
                                     "She turns it over. \"One per person. Big numbers, and "
                                     "one thing it does that nothing else does. You don't "
                                     "find them. They find their way to you.\""
@@ -715,7 +716,7 @@ CHAPTERS: list[dict] = [
                             },
                             {
                                 "id": "card_whose",
-                                "label": "\"Whose handwriting is that?\"",
+                                "label": "\"Whose handwriting is that-\"",
                                 "text": (
                                     "She looks at it for a second longer than the question "
                                     "needs.\n\n"
@@ -731,12 +732,12 @@ CHAPTERS: list[dict] = [
                         "feature": "cards",
                         "text": (
                             "**`/cards` and `/cardpull` are open.**\n\n"
-                            "Cards run on **Cores**, not Shards — a separate pull with "
+                            "Cards run on **Cores**, not Shards  -  a separate pull with "
                             "its own count. One card per character, three big stats, and "
                             "an ability strong enough that gear no longer rolls anything "
                             "like it.\n\n"
                             "The banner is **the same screen** as `/pull`: ×1, ×10, "
-                            "History, Rates, and the same guarantees — 5★ by pull 50, "
+                            "History, Rates, and the same guarantees  -  5★ by pull 50, "
                             "climbing odds from pull 30, 4★ by pull 10. Learn one and "
                             "you have learned both.\n\n"
                             "The counts are separate, though. Pulling here never moves "
@@ -800,7 +801,7 @@ CHAPTERS: list[dict] = [
                         "options": [
                             {
                                 "id": "aligners",
-                                "label": "\"What do the World Aligners actually do?\"",
+                                "label": "\"What do the World Aligners actually do-\"",
                                 "text": (
                                     "\"Same as you lot. We just do it angrier.\"\n\n"
                                     "He thinks about it while chewing.\n\n"
@@ -812,7 +813,7 @@ CHAPTERS: list[dict] = [
                             },
                             {
                                 "id": "josh",
-                                "label": "\"Who's Josh? Your lot keep saying the name.\"",
+                                "label": "\"Who's Josh- Your lot keep saying the name.\"",
                                 "text": (
                                     "The cheerfulness doesn't move. Something underneath "
                                     "it does.\n\n"
@@ -820,7 +821,7 @@ CHAPTERS: list[dict] = [
                                     "met and he's currently doing something extremely "
                                     "stupid about it.\"\n\n"
                                     "\"You'll meet him. Don't take it personally when he "
-                                    "doesn't like you — it isn't about you.\""
+                                    "doesn't like you  -  it isn't about you.\""
                                 ),
                                 "sets": {"pro_asked_josh": True},
                             },
@@ -834,7 +835,7 @@ CHAPTERS: list[dict] = [
                             "You've pulled by now, which means you've had the other "
                             "thing happen: the same face twice.\n\n"
                             "A duplicate isn't a wasted pull. It pays **Echoes**, and "
-                            "Echoes buy a specific character outright — no rolling, no "
+                            "Echoes buy a specific character outright  -  no rolling, no "
                             "luck. It's slow on purpose. It is also the only way in "
                             "this building to get exactly what you wanted."
                         ),
@@ -860,7 +861,7 @@ CHAPTERS: list[dict] = [
                         "kind": "dialogue",
                         "speaker": "Dolphe",
                         "text": (
-                            "\"Right — you're settled, so you get the other half.\"\n\n"
+                            "\"Right  -  you're settled, so you get the other half.\"\n\n"
                             "He hands you a clipboard with a genuine expression of "
                             "apology.\n\n"
                             "\"Half of this outfit is going out and hitting things. The "
@@ -927,7 +928,7 @@ CHAPTERS: list[dict] = [
                             "the problem, and they see you at the same moment you see them."
                         ),
                         "on_win": (
-                            "They run. You let them — Dolphe was specific about that, and "
+                            "They run. You let them  -  Dolphe was specific about that, and "
                             "annoyingly right about why.\n\n"
                             "The relay comes back up while you're still standing there. "
                             "Six more years, probably."
@@ -978,7 +979,7 @@ CHAPTERS: list[dict] = [
                         "options": [
                             {
                                 "id": "ask",
-                                "label": "\"Was that ours?\"",
+                                "label": "\"Was that ours-\"",
                                 "text": (
                                     "\"Yes.\"\n\n"
                                     "He doesn't turn round.\n\n"
@@ -1068,7 +1069,7 @@ CHAPTERS: list[dict] = [
                         "options": [
                             {
                                 "id": "yard_ask_rex",
-                                "label": "\"Who's Rex?\"",
+                                "label": "\"Who's Rex-\"",
                                 "text": (
                                     "He stops moving.\n\n"
                                     "That's the whole answer, and it lasts about four "
@@ -1160,7 +1161,7 @@ CHAPTERS: list[dict] = [
                         "options": [
                             {
                                 "id": "rohan_who",
-                                "label": "\"Who are you?\"",
+                                "label": "\"Who are you-\"",
                                 "text": (
                                     "\"Rohan.\" As though that settles it. As though you "
                                     "should have known.\n\n"
@@ -1174,7 +1175,7 @@ CHAPTERS: list[dict] = [
                                 "label": "*Look at your hands. Say nothing.*",
                                 "text": (
                                     "He follows your eyes down, and something in his "
-                                    "face resolves — not surprise. Confirmation.\n\n"
+                                    "face resolves  -  not surprise. Confirmation.\n\n"
                                     "\"Thank you,\" he says. \"That was the answer.\"\n\n"
                                     "You did not say anything. That appears not to have "
                                     "mattered."
@@ -1205,7 +1206,7 @@ CHAPTERS: list[dict] = [
                             "to spend myself finding out.\"\n\n"
                             "At the gate he pauses, without turning round.\n\n"
                             "\"I have sent something that will tell me. Try to survive "
-                            "it — the data is worthless otherwise.\""
+                            "it  -  the data is worthless otherwise.\""
                         ),
                     },
                 ],
@@ -1343,15 +1344,15 @@ CHAPTERS: list[dict] = [
                     },
                     {
                         "kind": "choice",
-                        "prompt": "\"Anything before you go?\"",
+                        "prompt": "\"Anything before you go-\"",
                         "options": [
                             {
                                 "id": "ready",
                                 "label": "\"No. I'm good.\"",
                                 "text": (
                                     "\"Good.\" He steps aside.\n\n"
-                                    "\"For what it's worth — and I've been doing this long "
-                                    "enough that it's worth something — you're going to be "
+                                    "\"For what it's worth  -  and I've been doing this long "
+                                    "enough that it's worth something  -  you're going to be "
                                     "fine at this. Which is not the same as safe. I want to "
                                     "be accurate.\""
                                 ),
@@ -1359,7 +1360,7 @@ CHAPTERS: list[dict] = [
                             },
                             {
                                 "id": "name",
-                                "label": "\"Whose name is that on the door?\"",
+                                "label": "\"Whose name is that on the door-\"",
                                 "text": (
                                     "He looks at it for a while.\n\n"
                                     "\"Someone who wrote GOOD LUCK for the person after "
@@ -1407,7 +1408,7 @@ CHAPTERS: list[dict] = [
                             "Jofrog has left a bag by the door with a label on it in "
                             "very careful handwriting: **FOR THE FIRST ONE**.\n\n"
                             "There is a second label underneath, crossed out, reading "
-                            "*FOR LUCK* — apparently reconsidered."
+                            "*FOR LUCK*  -  apparently reconsidered."
                         ),
                         "grant": {"xp": 100, "gold": 1200, "lootbox": ("rare", 3), "shards": 120},
                     },
@@ -1428,7 +1429,7 @@ CHAPTERS: list[dict] = [
     },
 
     # ======================================================================
-    # CHAPTER ONE — THE WORLD ALIGNERS
+    # CHAPTER ONE  -  THE WORLD ALIGNERS
     # ======================================================================
     #
     # WHAT THIS CHAPTER IS ABOUT, in one line: four people leave a good
@@ -1545,7 +1546,7 @@ CHAPTERS: list[dict] = [
                         "options": [
                             {
                                 "id": "c1_ask_why_me",
-                                "label": "\"Why tell me? I've been here nine days.\"",
+                                "label": "\"Why tell me- I've been here nine days.\"",
                                 "text": (
                                     "\"Because you've been here nine days,\" Josh says. "
                                     "\"Everyone else has had two years to get used to how "
@@ -1558,7 +1559,7 @@ CHAPTERS: list[dict] = [
                             },
                             {
                                 "id": "c1_ask_dolphe",
-                                "label": "\"What does Dolphe think about all this?\"",
+                                "label": "\"What does Dolphe think about all this-\"",
                                 "text": (
                                     "\"He thinks we're right and he thinks we're going to "
                                     "get hurt, and he's decided he can hold both of those "
@@ -1572,7 +1573,7 @@ CHAPTERS: list[dict] = [
                             },
                             {
                                 "id": "c1_ask_bad",
-                                "label": "\"You're describing paperwork. What's the real reason?\"",
+                                "label": "\"You're describing paperwork. What's the real reason-\"",
                                 "text": (
                                     "Refender's hands stop moving.\n\n"
                                     "\"The paperwork *is* the real reason,\" she says. \"I "
@@ -1597,9 +1598,9 @@ CHAPTERS: list[dict] = [
                             "Dolphe's coat, standing the way Dolphe stands, and getting "
                             "about seventy percent of it.\n\n"
                             "\"Team,\" he says, in Dolphe's voice. \"I've reviewed the "
-                            "situation and I—\"\n\n"
+                            "situation and I - \"\n\n"
                             "\"Dolphin.\"\n\n"
-                            "\"—and I'm going to stop doing that,\" he finishes, in his own."
+                            "\" - and I'm going to stop doing that,\" he finishes, in his own."
                         ),
                     },
                     {
@@ -1640,8 +1641,8 @@ CHAPTERS: list[dict] = [
                             "size should move.\n\n"
                             "\"There's something in the lot,\" he says. \"It's been there "
                             "since before you arrived. I thought it was a *generator*.\"\n\n"
-                            "It is not a generator. It stands up — unhurried, on four "
-                            "legs it had folded under itself — turns its housing toward "
+                            "It is not a generator. It stands up  -  unhurried, on four "
+                            "legs it had folded under itself  -  turns its housing toward "
                             "the open shutter, and holds there.\n\n"
                             "Not aiming. *Reading.*"
                         ),
@@ -1707,7 +1708,7 @@ CHAPTERS: list[dict] = [
                         "text": (
                             "\"Here's the part that took me a year to believe.\"\n\n"
                             "\"Xender didn't cover it up. There's no cover-up. The filings "
-                            "are *public* — they're dull, they're numbered, and they're "
+                            "are *public*  -  they're dull, they're numbered, and they're "
                             "sitting in an archive anyone can walk into.\"\n\n"
                             "He taps the bottom of the sheet, where somebody has written in "
                             "small letters: *they are not hiding it. nobody is looking.*\n\n"
@@ -1738,7 +1739,7 @@ CHAPTERS: list[dict] = [
                         "kind": "dialogue",
                         "speaker": "Jofrog",
                         "text": (
-                            "\"Can I do the last bit?\" Jofrog says. \"I've been practising "
+                            "\"Can I do the last bit-\" Jofrog says. \"I've been practising "
                             "the last bit.\"\n\n"
                             "He lays down a photograph, taken from very far away, of a "
                             "drilling machine the size of a house lying in two pieces.\n\n"
@@ -1766,7 +1767,7 @@ CHAPTERS: list[dict] = [
                             "\"Everyone who's ever seen one calls him Mr. R, because "
                             "that's all anyone's got.\" He says it as lightly as he says "
                             "everything. \"Fourteen months and one letter. He's not "
-                            "shy — he's *tidy*.\""
+                            "shy  -  he's *tidy*.\""
                         ),
                     },
                     {
@@ -1792,11 +1793,11 @@ CHAPTERS: list[dict] = [
                             },
                             {
                                 "id": "c1_hole",
-                                "label": "\"There's a hole in it. Why hasn't he touched Cascade?\"",
+                                "label": "\"There's a hole in it. Why hasn't he touched Cascade-\"",
                                 "text": (
                                     "\"*Thank* you,\" says Refender, with feeling.\n\n"
                                     "\"It is the correct question and Josh hates it. "
-                                    "Nineteen Xender teams and not one Cascade convoy — "
+                                    "Nineteen Xender teams and not one Cascade convoy  -  "
                                     "until the spring, when we lost six people on a road "
                                     "he has no reason to care about.\"\n\n"
                                     "\"Either those are unrelated, or he has started, and I "
@@ -1830,10 +1831,10 @@ CHAPTERS: list[dict] = [
                         "text": (
                             "\"So here's what I want to do, and it's small, and that's "
                             "deliberate.\"\n\n"
-                            "He puts his hand flat on a map at the edge of the table — "
+                            "He puts his hand flat on a map at the edge of the table  -  "
                             "an ordinary regional map, the kind that comes free with a "
                             "fuel card.\n\n"
-                            "\"There's a signal relay at Ashfield. It's ours — Cascade's — "
+                            "\"There's a signal relay at Ashfield. It's ours  -  Cascade's  -  "
                             "it's been there nine years and it does nothing but pass "
                             "traffic along the northern line.\"\n\n"
                             "\"Every one of those nineteen teams went past it. And three "
@@ -1921,7 +1922,7 @@ CHAPTERS: list[dict] = [
                         "text": (
                             "The relay is a nine-year-old mast in a wire cage, and there "
                             "is nothing wrong with it.\n\n"
-                            "\"No damage. No tampering. The seals are the original seals — "
+                            "\"No damage. No tampering. The seals are the original seals  -  "
                             "I can see the batch stamp from here.\" Refender walks the "
                             "fence line twice anyway. \"It is in better condition than the "
                             "one at Central.\"\n\n"
@@ -1945,7 +1946,7 @@ CHAPTERS: list[dict] = [
                                 "label": "\"He's not attacking Cascade. He's reading it.\"",
                                 "text": (
                                     "\"Yes,\" Refender says. \"For at least three weeks, "
-                                    "and possibly for nine years — I can only prove three.\"\n\n"
+                                    "and possibly for nine years  -  I can only prove three.\"\n\n"
                                     "\"Every route filing. Every convoy schedule. Every "
                                     "one of Josh's fourteen reports, incidentally, since "
                                     "he filed them all through this line.\"\n\n"
@@ -1957,7 +1958,7 @@ CHAPTERS: list[dict] = [
                             },
                             {
                                 "id": "c1_who_installed",
-                                "label": "\"Who's had access to this mast?\"",
+                                "label": "\"Who's had access to this mast-\"",
                                 "text": (
                                     "\"Cascade maintenance, on a nine-year rota. Eleven "
                                     "names.\" She has clearly had this answer ready since "
@@ -1999,7 +2000,7 @@ CHAPTERS: list[dict] = [
                             "\"I don't know how I know it. I don't know *any* handwriting. "
                             "I've got two years of knowing things and this isn't in them.\"\n\n"
                             "He steps back from the plate like it has moved.\n\n"
-                            "\"Can we — is it alright if I wait in the van?\""
+                            "\"Can we  -  is it alright if I wait in the van-\""
                         ),
                     },
                     {
@@ -2019,7 +2020,7 @@ CHAPTERS: list[dict] = [
                         "level": 16,
                         "intro": (
                             "The mast stops transmitting.\n\n"
-                            "Not breaks. *Stops* — cleanly, mid-packet, the way a thing "
+                            "Not breaks. *Stops*  -  cleanly, mid-packet, the way a thing "
                             "stops when somebody decides it should.\n\n"
                             "\"Right,\" says Blueflame, with enormous cheer. \"So he's "
                             "listening to us listening to him.\"\n\n"
@@ -2035,7 +2036,7 @@ CHAPTERS: list[dict] = [
                             "\"Camera log,\" she says. \"Again. And a routing table.\"\n\n"
                             "She turns the screen so you can see the top line of it.\n\n"
                             "\"It was not sending to Xender. It was sending **north**, to "
-                            "somewhere with no name on any map I own — and it has been "
+                            "somewhere with no name on any map I own  -  and it has been "
                             "doing it since the spring.\""
                         ),
                         "on_lose": (
@@ -2067,14 +2068,14 @@ CHAPTERS: list[dict] = [
                     {
                         "kind": "reward",
                         "text": (
-                            "Refender writes the whole of it up in a single evening — the "
-                            "mast, the delay, the routing table, the nineteen teams — and "
+                            "Refender writes the whole of it up in a single evening  -  the "
+                            "mast, the delay, the routing table, the nineteen teams  -  and "
                             "sends it to Cascade Central before anyone can argue about "
                             "whether to.\n\n"
                             "The reply comes back in **forty minutes**, which is not "
                             "eleven weeks.\n\n"
                             "It says: *Understood. Northern line is dark as of now. Don't "
-                            "go back to Ashfield. — D*\n\n"
+                            "go back to Ashfield.  -  D*\n\n"
                             "Jofrog reads it twice and puts the kettle on, which is what "
                             "Jofrog does with news of any temperature."
                         ),
@@ -2232,7 +2233,7 @@ CHAPTERS: list[dict] = [
                             "walking. It's been walking for about a mile and it hasn't "
                             "sped up once.\"\n\n"
                             "\"Refender says it's putting out a carrier signal. Not "
-                            "sending anything. Just — being on.\"\n\n"
+                            "sending anything. Just  -  being on.\"\n\n"
                             "He considers the door frame for a second.\n\n"
                             "\"It's coming to *this* building. Not the depot. This one.\""
                         ),
@@ -2247,7 +2248,7 @@ CHAPTERS: list[dict] = [
                             "routing table forty minutes before that thing stepped onto "
                             "the road.\"\n\n"
                             "\"He wasn't watching the depot. He was watching the "
-                            "*line* — and the second we said his name on it, he sent "
+                            "*line*  -  and the second we said his name on it, he sent "
                             "something to the one building that could prove Rex was right "
                             "first.\"\n\n"
                             "He checks his weapon without looking at it.\n\n"
@@ -2271,7 +2272,7 @@ CHAPTERS: list[dict] = [
                                     "something else.\n\n"
                                     "\"Two years of the northern line,\" she says. \"If we "
                                     "lose the room we still have the evidence. Thank you "
-                                    "for saying it out loud — Josh was not going to.\"\n\n"
+                                    "for saying it out loud  -  Josh was not going to.\"\n\n"
                                     "Josh does not argue, which is how you know she's "
                                     "right."
                                 ),
@@ -2292,7 +2293,7 @@ CHAPTERS: list[dict] = [
                             },
                             {
                                 "id": "c1_get_dolphin_out",
-                                "label": "\"Where's Dolphin?\"",
+                                "label": "\"Where's Dolphin-\"",
                                 "text": (
                                     "There is a short, bad silence.\n\n"
                                     "Then Jofrog says, \"Van,\" with enormous relief, and "
@@ -2323,7 +2324,7 @@ CHAPTERS: list[dict] = [
                         "intro": (
                             "It comes up the last of the road at the same walking pace it "
                             "has held for a mile, and stops at the workshop door.\n\n"
-                            "It is tall, and it is *finished* — no field welds, no "
+                            "It is tall, and it is *finished*  -  no field welds, no "
                             "scavenged plate, nothing about it improvised. Somebody built "
                             "this in a place with proper tools and enough time.\n\n"
                             "It looks at the four of you. Then it looks past you, at the "
@@ -2338,7 +2339,7 @@ CHAPTERS: list[dict] = [
                             "Inside, where a manufacturer's plate would go, one character "
                             "is scratched into the metal by hand. **R**.\n\n"
                             "Underneath it, in the same hand, much smaller, a second "
-                            "line — and this one is not a letter. It is a date.\n\n"
+                            "line  -  and this one is not a letter. It is a date.\n\n"
                             "It is the 14th."
                         ),
                         "on_lose": (
@@ -2415,8 +2416,8 @@ CHAPTERS: list[dict] = [
                             "years, and a man I've never met walks in and reads the last "
                             "thing he wrote inside a morning.\"\n\n"
                             "\"I'm not having a go. I want to be clear that I'm not "
-                            "having a go.\" A pause. \"What did the writing look like? "
-                            "Was it — was he in a hurry?\"\n\n"
+                            "having a go.\" A pause. \"What did the writing look like- "
+                            "Was it  -  was he in a hurry-\"\n\n"
                             "\"No,\" you tell him, because it is true. It was the "
                             "neatest page in the book.\n\n"
                             "He nods for a while without saying anything."
@@ -2430,7 +2431,7 @@ CHAPTERS: list[dict] = [
                             "printout on the table. \"Twice in one day, which for them is "
                             "a sprint.\"\n\n"
                             "\"The northern line is dark. Every relay on it is being "
-                            "physically inspected — not audited, *inspected*, by people "
+                            "physically inspected  -  not audited, *inspected*, by people "
                             "standing next to it. Dolphe has moved four teams onto it and "
                             "he has done it in under a week.\"\n\n"
                             "She lets that sit for exactly as long as it deserves.\n\n"
@@ -2479,7 +2480,7 @@ CHAPTERS: list[dict] = [
                                     "\"For what it's worth. Nine days ago I'd have said "
                                     "you were a Cascade asset with an interesting medical "
                                     "history.\" A pause. \"I'd have been wrong, and I "
-                                    "wouldn't have checked. So — that's mine to fix, and "
+                                    "wouldn't have checked. So  -  that's mine to fix, and "
                                     "I'm fixing it.\""
                                 ),
                                 "sets": {"c1_let_josh_go": True},
@@ -2503,7 +2504,7 @@ CHAPTERS: list[dict] = [
                             },
                             {
                                 "id": "c1_ask_rex",
-                                "label": "\"What was he like? Rex.\"",
+                                "label": "\"What was he like- Rex.\"",
                                 "text": (
                                     "It is the first time anyone has asked him that "
                                     "instead of asking about the accident.\n\n"
@@ -2513,7 +2514,7 @@ CHAPTERS: list[dict] = [
                                     "The kettle. He did it to the kettle.\"\n\n"
                                     "Something in his face gives way about a millimetre.\n\n"
                                     "\"He was right about the mast and I told him he "
-                                    "needed a holiday. That's — yeah. That's the one I've "
+                                    "needed a holiday. That's  -  yeah. That's the one I've "
                                     "got.\"\n\n"
                                     "He picks his coat up off the back of a chair he never "
                                     "sat in."
@@ -2539,7 +2540,7 @@ CHAPTERS: list[dict] = [
                             "like it to be the face.\"\n\n"
                             "He straightens the coat.\n\n"
                             "\"Anyway. If you're going anywhere and you need someone who "
-                            "gets nodded at — I'm about.\""
+                            "gets nodded at  -  I'm about.\""
                         ),
                     },
                     {
@@ -2551,7 +2552,7 @@ CHAPTERS: list[dict] = [
                             "hallway, in very careful handwriting, under the four that "
                             "were already there.\n\n"
                             "Nobody asked him to. Nobody says anything about it either, "
-                            "which — from this lot — is the loudest possible way of "
+                            "which  -  from this lot  -  is the loudest possible way of "
                             "agreeing."
                         ),
                         "grant": {"xp": 320, "gold": 4000, "item": "epic", "evolution_fragments": 160,
@@ -2646,7 +2647,7 @@ CHAPTERS: list[dict] = [
                         "speaker": "Dolphin",
                         "text": ("\"Here's the bit I haven't said downstairs,\" he "
                                  "says. \"When Refender read out that list of "
-                                 "nineteen teams — I knew the numbers were wrong "
+                                 "nineteen teams  -  I knew the numbers were wrong "
                                  "before he finished. Not guessed. *Knew.* Like "
                                  "somebody had read them to me before.\"\n\n"
                                  "\"I don't know what that means. I'd like it to "
@@ -2667,7 +2668,7 @@ CHAPTERS: list[dict] = [
     },
 
     # ======================================================================
-    # CHAPTER TWO — THE FORTY MILES
+    # CHAPTER TWO  -  THE FORTY MILES
     # ======================================================================
     #
     # WHAT THIS CHAPTER IS ABOUT: the answer to the nineteen teams, and
@@ -2735,7 +2736,7 @@ CHAPTERS: list[dict] = [
                             "Jofrog has the note. He has read it several times and is "
                             "holding it as though it might be needed as evidence.\n\n"
                             "\"It's four lines,\" he says. \"I'll do them all.\"\n\n"
-                            "*Gone north. Don't follow — I mean it, and I know that's not "
+                            "*Gone north. Don't follow  -  I mean it, and I know that's not "
                             "worth much from me.*\n\n"
                             "*Refender: the tape goes to Cascade whatever happens. All of "
                             "it, not the useful bits.*\n\n"
@@ -2754,8 +2755,8 @@ CHAPTERS: list[dict] = [
                             "rude.\"\n\n"
                             "He is already dressed for outside, which he was not five "
                             "minutes ago.\n\n"
-                            "\"For the record — and I'd like this minuted too, Refender, "
-                            "since we're doing minutes — I have never once talked anyone "
+                            "\"For the record  -  and I'd like this minuted too, Refender, "
+                            "since we're doing minutes  -  I have never once talked anyone "
                             "out of anything.\"\n\n"
                             "\"He's had two years of people managing him. What he hasn't "
                             "had is anyone turn up.\""
@@ -2823,7 +2824,7 @@ CHAPTERS: list[dict] = [
                             "Dolphin is in the van when you get to it. He has been in it "
                             "for some time. He has brought a flask.\n\n"
                             "\"Right, so, before anyone says it,\" he says. \"I know. I "
-                            "know I'm not — I'm aware of what I am on a trip like this. "
+                            "know I'm not  -  I'm aware of what I am on a trip like this. "
                             "I'm a coat.\"\n\n"
                             "He turns the flask over a couple of times.\n\n"
                             "\"But that thing stopped when it got level with me. And "
@@ -2883,7 +2884,7 @@ CHAPTERS: list[dict] = [
                             "\"Van tracks,\" Blueflame says, from a crouch about ten "
                             "metres up the verge. He sounds delighted, which he always "
                             "does, and this time it does not fit.\n\n"
-                            "\"Ours. Well — Josh's. Same tread, four hours cold, and they "
+                            "\"Ours. Well  -  Josh's. Same tread, four hours cold, and they "
                             "go *round* the post through the ditch and back onto the road "
                             "past it.\"\n\n"
                             "He straightens up.\n\n"
@@ -2908,7 +2909,7 @@ CHAPTERS: list[dict] = [
                                     "The second is what the sergeant says, before you have "
                                     "opened your mouth:\n\n"
                                     "\"Are you going north or are you coming back from "
-                                    "it?\"\n\n"
+                                    "it-\"\n\n"
                                     "It is not a challenge. It is the tone of a man who "
                                     "asks it a lot and has stopped liking either answer."
                                 ),
@@ -2920,7 +2921,7 @@ CHAPTERS: list[dict] = [
                                 "text": (
                                     "The van gets about sixty metres before the ground "
                                     "gives and a floodlight finds you, and by then it is a "
-                                    "conversation anyway — just a worse one, conducted "
+                                    "conversation anyway  -  just a worse one, conducted "
                                     "loudly, at an angle.\n\n"
                                     "\"YOU ARE THE THIRD SET THIS MONTH,\" somebody "
                                     "shouts, with what is unmistakably exhaustion rather "
@@ -2960,7 +2961,7 @@ CHAPTERS: list[dict] = [
                             "reaching for something, and after that nobody is deciding "
                             "anything.\n\n"
                             "\"NOT AT THE VAN,\" Refender is shouting. \"THERE IS A "
-                            "CIVILIAN IN THE—\"\n\n"
+                            "CIVILIAN IN THE - \"\n\n"
                             "The Vanguard puts itself between the hut and all of you, "
                             "which even at the time reads less like an attack and more "
                             "like somebody standing in a doorway."
@@ -2991,7 +2992,7 @@ CHAPTERS: list[dict] = [
                             "gate unarmed, and stands in front of Refender with the air of "
                             "a man completing a form he has completed many times.\n\n"
                             "\"You are the third this month,\" he says. \"The other two "
-                            "went north. Do you want to know how many came back?\"\n\n"
+                            "went north. Do you want to know how many came back-\"\n\n"
                             "He does not wait, because they all know the number.\n\n"
                             "\"Come inside. The officer will want to see you, and I would "
                             "like to stop having this conversation on a road.\""
@@ -3032,10 +3033,10 @@ CHAPTERS: list[dict] = [
                             "this and find that neither prepared version works.\n\n"
                             "\"I put you south,\" Dolpo says. \"I put you nine hundred "
                             "kilometres south and I paid a man to keep you in work and "
-                            "you have driven *here*. To the one place—\"\n\n"
+                            "you have driven *here*. To the one place - \"\n\n"
                             "He stops himself, visibly, and starts again lower.\n\n"
                             "\"Fourteen months I have sat on this gate. Do you know what "
-                            "the job is? The job is: nobody goes north. That is the whole "
+                            "the job is- The job is: nobody goes north. That is the whole "
                             "job. I requested it. I requested the worst posting in the "
                             "service and I have held it for fourteen months so that the "
                             "road would have somebody on it who would not be curious.\""
@@ -3069,7 +3070,7 @@ CHAPTERS: list[dict] = [
                         "options": [
                             {
                                 "id": "c2_ask_about_dolphin",
-                                "label": "\"He doesn't remember anything before two years ago. Do you know why?\"",
+                                "label": "\"He doesn't remember anything before two years ago. Do you know why-\"",
                                 "text": (
                                     "The room goes very quiet.\n\n"
                                     "\"Yes,\" Dolpo says.\n\n"
@@ -3091,7 +3092,7 @@ CHAPTERS: list[dict] = [
                             },
                             {
                                 "id": "c2_ask_what_is_north",
-                                "label": "\"What is at the end of the road?\"",
+                                "label": "\"What is at the end of the road-\"",
                                 "text": (
                                     "\"A man, and a cut in the rock, and machinery,\" "
                                     "Dolpo says. \"That is all any of my three teams got "
@@ -3100,7 +3101,7 @@ CHAPTERS: list[dict] = [
                                     "once come south of this post, and I have stopped "
                                     "believing that is because he cannot.\"\n\n"
                                     "\"He takes what walks in. Then, mostly, he sends it "
-                                    "out again — which is the part command could not "
+                                    "out again  -  which is the part command could not "
                                     "process, and the part that made me request this "
                                     "gate.\""
                                 ),
@@ -3137,7 +3138,7 @@ CHAPTERS: list[dict] = [
                             "without saying anything.\n\n"
                             "About a mile up the road:\n\n"
                             "\"Nineteen,\" he says. \"He said I was nineteen. That's "
-                            "the bit I keep getting stuck on. Not the — not the rest of "
+                            "the bit I keep getting stuck on. Not the  -  not the rest of "
                             "it. Just that somebody knew how old I was and I "
                             "didn't.\"\n\n"
                             "He turns the flask over a few times.\n\n"
@@ -3218,7 +3219,7 @@ CHAPTERS: list[dict] = [
                             "nobody's saying, because somebody has to and it may as well "
                             "be the one who enjoys it.\"\n\n"
                             "\"There's no bodies. There's no blood, there's no burning, "
-                            "there's no — anything. Nineteen teams of eight, and the worst "
+                            "there's no  -  anything. Nineteen teams of eight, and the worst "
                             "thing that has happened at this site is that the washing up "
                             "got done.\"\n\n"
                             "He toes a guy line, and it is taut, and properly pegged.\n\n"
@@ -3361,7 +3362,7 @@ CHAPTERS: list[dict] = [
                             "Jofrog opens crate 11 because it is nearest and because "
                             "somebody has to.\n\n"
                             "\"Instruments,\" he says. \"Logs. Somebody's glasses, in a "
-                            "case. There's a — there's a birthday card in here.\"\n\n"
+                            "case. There's a  -  there's a birthday card in here.\"\n\n"
                             "He is being extremely careful with all of it.\n\n"
                             "\"It's all labelled. Team number, name, date. Every crate's "
                             "the same. Somebody packed up eight people's things "
@@ -3536,7 +3537,7 @@ CHAPTERS: list[dict] = [
                         "options": [
                             {
                                 "id": "c2_ask_returned",
-                                "label": "\"Returned where?\"",
+                                "label": "\"Returned where-\"",
                                 "text": (
                                     "\"To circulation,\" he says, and makes a small mark "
                                     "on the clipboard.\n\n"
@@ -3545,7 +3546,7 @@ CHAPTERS: list[dict] = [
                                     "One hundred and forty-four people walked south from "
                                     "this site and are alive today.\"\n\n"
                                     "\"None of them recall being here. That is not "
-                                    "cruelty, it is *hygiene* — a person who cannot report "
+                                    "cruelty, it is *hygiene*  -  a person who cannot report "
                                     "on a site does not need to be prevented from "
                                     "reporting on it.\"\n\n"
                                     "Beside you, very quietly, Dolphin says: \"...Eleven "
@@ -3574,7 +3575,7 @@ CHAPTERS: list[dict] = [
                             },
                             {
                                 "id": "c2_ask_why_watch_me",
-                                "label": "\"Then why have you been watching me since Ocellios?\"",
+                                "label": "\"Then why have you been watching me since Ocellios-\"",
                                 "text": (
                                     "\"Because you are not on the inventory,\" Rohan says, "
                                     "with something that on a warmer man would be "
@@ -3587,7 +3588,7 @@ CHAPTERS: list[dict] = [
                                     "\"I have sent four machines to look at you and each "
                                     "of them came back with the same nothing. Do you "
                                     "understand how rare it is that I have to come and see "
-                                    "for myself?\""
+                                    "for myself-\""
                                 ),
                                 "sets": {"c2_asked_why_watched": True},
                             },
@@ -3602,8 +3603,8 @@ CHAPTERS: list[dict] = [
                             "\"Two years,\" he says. \"Two years of telling people there "
                             "was a man, and being handled, and filing reports up a line he "
                             "was standing on.\"\n\n"
-                            "\"And I get down here and he's — \" his voice goes, and he "
-                            "takes it back — \"he's *polite*. He's got a clipboard. He's "
+                            "\"And I get down here and he's  -  \" his voice goes, and he "
+                            "takes it back  -  \"he's *polite*. He's got a clipboard. He's "
                             "been answering me like I'm a supplier.\"\n\n"
                             "He looks at Rohan.\n\n"
                             "\"Say his name. You've said everything else. Say the name of "
@@ -3641,7 +3642,7 @@ CHAPTERS: list[dict] = [
                         ),
                         "on_win": (
                             "It takes everything, and when it finally stops it stops "
-                            "*folded* — settling down onto its own footprint, the way a "
+                            "*folded*  -  settling down onto its own footprint, the way a "
                             "thing does when somebody switches it off rather than when "
                             "somebody kills it.\n\n"
                             "The floor is very quiet.\n\n"
@@ -3688,9 +3689,9 @@ CHAPTERS: list[dict] = [
                             "asked and without filing it anywhere.\n\n"
                             "Josh works the whole time and does not say anything to "
                             "anyone.\n\n"
-                            "At the top, on the last trip, he stops by crate 19 — which is "
+                            "At the top, on the last trip, he stops by crate 19  -  which is "
                             "lighter than the others, because one man's effects do not "
-                            "fill a crate — and he stands there with his hand on the lid "
+                            "fill a crate  -  and he stands there with his hand on the lid "
                             "the way Jofrog did, and then he picks it up himself and "
                             "carries it to the van."
                         ),
@@ -3755,8 +3756,8 @@ CHAPTERS: list[dict] = [
                                 "label": "Look at what they were walking towards.",
                                 "text": ("Nothing. Snow, rock, more snow, and the "
                                          "curve of the world.\n\n"
-                                         "Except — and you have to be standing in "
-                                         "exactly this spot to catch it — there is "
+                                         "Except  -  and you have to be standing in "
+                                         "exactly this spot to catch it  -  there is "
                                          "a straight line out there where the snow "
                                          "sits differently. Something under it, "
                                          "buried, running dead straight for as far "
@@ -3794,7 +3795,7 @@ CHAPTERS: list[dict] = [
     },
 
     # ======================================================================
-    # CHAPTER THREE — BELOW THE CUT
+    # CHAPTER THREE  -  BELOW THE CUT
     # ======================================================================
     #
     # WHAT THIS CHAPTER IS ABOUT: the answer to KEPT, and the discovery
@@ -3872,14 +3873,14 @@ CHAPTERS: list[dict] = [
                         "speaker": "Dolpo",
                         "text": (
                             "Dolpo has come south for this, in uniform, without telling "
-                            "his command — which he mentions in passing, the way you would "
+                            "his command  -  which he mentions in passing, the way you would "
                             "mention the weather.\n\n"
                             "\"Twenty-two teams,\" he says. \"Nineteen of Xender's, three "
                             "of ours. My nation has been holding a gate on that road for "
                             "fourteen months and calling it a training posting.\"\n\n"
                             "\"I am here to say the following out loud in front of "
                             "witnesses, because I intend to be quoted.\"\n\n"
-                            "\"The H-Nation has known. Not the whole of it — six people, "
+                            "\"The H-Nation has known. Not the whole of it  -  six people, "
                             "of whom I am the most junior. We knew, and we chose a fence, "
                             "and the fence has held and it has also meant that nobody "
                             "went and looked for two years.\""
@@ -3914,7 +3915,7 @@ CHAPTERS: list[dict] = [
                         "options": [
                             {
                                 "id": "c3_go_back_together",
-                                "label": "\"We go back down. All three of us — Cascade, Aligners, H-Nation.\"",
+                                "label": "\"We go back down. All three of us  -  Cascade, Aligners, H-Nation.\"",
                                 "text": (
                                     "\"Agreed,\" Dolphe says, before anyone can start "
                                     "structuring it. \"And to be clear about the shape: "
@@ -3996,7 +3997,7 @@ CHAPTERS: list[dict] = [
                             "\"He's had two years of being the only person who believed "
                             "it. That's a horrible way to live and it's also the entire "
                             "shape of him now. If we go down there and find out he was "
-                            "right about *everything*—\"\n\n"
+                            "right about *everything* - \"\n\n"
                             "He doesn't finish it, which from Blueflame is the loudest "
                             "punctuation available."
                         ),
@@ -4051,7 +4052,7 @@ CHAPTERS: list[dict] = [
                             "He stops at the pending shelf, which has three boxes on it, "
                             "and they are not the shape of equipment.\n\n"
                             "\"I don't like this floor,\" he says, in a small voice for a "
-                            "man his size. \"Nothing here's wrong. It's all — it's all "
+                            "man his size. \"Nothing here's wrong. It's all  -  it's all "
                             "*tidy*. I keep waiting for the bit that's wrong and it's just "
                             "shelves.\""
                         ),
@@ -4068,7 +4069,7 @@ CHAPTERS: list[dict] = [
                             "It sets the one it is holding down properly, square to the "
                             "others, before it turns round.\n\n"
                             "\"It finished the job first,\" Blueflame says. \"Did anyone "
-                            "else see that? It finished the *job* first.\""
+                            "else see that- It finished the *job* first.\""
                         ),
                         "on_win": (
                             "It goes down beside the stack it was building and does not "
@@ -4119,10 +4120,10 @@ CHAPTERS: list[dict] = [
                             "words of a routine all-clear printed on it.\n\n"
                             "There is a man sitting at it. He is about fifty. He has a mug "
                             "at his elbow, two thirds full, with a ring in the bottom.\n\n"
-                            "He finishes the line he is on — Survey Team 4, all clear, "
-                            "nothing to report — and switches off the microphone properly, "
+                            "He finishes the line he is on  -  Survey Team 4, all clear, "
+                            "nothing to report  -  and switches off the microphone properly, "
                             "and only then looks up.\n\n"
-                            "\"Oh,\" he says. \"Hello. Are you the new intake?\""
+                            "\"Oh,\" he says. \"Hello. Are you the new intake-\""
                         ),
                     },
                     {
@@ -4136,10 +4137,10 @@ CHAPTERS: list[dict] = [
                             "polite about a word it does not have.\n\n"
                             "\"That's me,\" he says, pleasantly. \"It's on the tin.\" He "
                             "taps a name badge, printed, laminated, clipped on straight. "
-                            "\"Sorry — have we met? I'm terrible. I've been on the desk a "
+                            "\"Sorry  -  have we met- I'm terrible. I've been on the desk a "
                             "while.\"\n\n"
                             "\"Fourteen months,\" says Refender, very quietly.\n\n"
-                            "\"Is it? Feels about right.\""
+                            "\"Is it- Feels about right.\""
                         ),
                     },
                     {
@@ -4168,14 +4169,14 @@ CHAPTERS: list[dict] = [
                             },
                             {
                                 "id": "c3_ask_him_to_come",
-                                "label": "\"Would you come upstairs with us? Just up. Nothing else.\"",
+                                "label": "\"Would you come upstairs with us- Just up. Nothing else.\"",
                                 "text": (
                                     "He considers it seriously, which is the worst part.\n\n"
                                     "\"I'd have to get someone to cover the hour,\" he "
                                     "says. \"You can't just leave the hour.\"\n\n"
                                     "Then, after a moment, with a small frown, as though "
                                     "something has snagged:\n\n"
-                                    "\"...Who would I get? There's nobody on the rota "
+                                    "\"...Who would I get- There's nobody on the rota "
                                     "after Tuesday.\"\n\n"
                                     "He sits with that. Nobody helps him with it.\n\n"
                                     "\"I'll get my coat,\" he says."
@@ -4190,11 +4191,11 @@ CHAPTERS: list[dict] = [
                                     "does not shout.\n\n"
                                     "He picks up the mug, looks at the ring in the bottom "
                                     "of it, and washes it out in the little sink in the "
-                                    "corner — outside first, then in — and puts it back "
+                                    "corner  -  outside first, then in  -  and puts it back "
                                     "exactly where it was.\n\n"
                                     "\"You always did that,\" he says. \"You washed the "
                                     "outside. Drove me mad.\"\n\n"
-                                    "\"Did I?\" says Rex, delighted. \"That's a good one. "
+                                    "\"Did I-\" says Rex, delighted. \"That's a good one. "
                                     "Nobody's told me a thing about myself in "
                                     "*ages*.\"\n\n"
                                     "Josh has to leave the room for a minute after that."
@@ -4214,7 +4215,7 @@ CHAPTERS: list[dict] = [
                         "text": (
                             "You have seen that mug before.\n\n"
                             "Not this one. The other one, nine hundred kilometres south, "
-                            "on a bench under a light that has been on for two years — "
+                            "on a bench under a light that has been on for two years  -  "
                             "washed on the outside, put back in its own ring.\n\n"
                             "Whoever has been keeping that workshop has been doing to a "
                             "room what this man does to a mug, and neither of them knows "
@@ -4242,8 +4243,8 @@ CHAPTERS: list[dict] = [
                     {
                         "kind": "reward",
                         "text": (
-                            "Refender takes the card off the desk — the printed all-clear, "
-                            "the one he has read twice a day for fourteen months — and "
+                            "Refender takes the card off the desk  -  the printed all-clear, "
+                            "the one he has read twice a day for fourteen months  -  and "
                             "folds it into her jacket.\n\n"
                             "\"Evidence,\" she says, and nobody believes her, and nobody "
                             "says so."
@@ -4305,7 +4306,7 @@ CHAPTERS: list[dict] = [
                                 "text": (
                                     "\"Yes,\" Refender says. Her voice does not change at "
                                     "all, which is how you know.\n\n"
-                                    "\"And we passed. Eleven weeks was *adequate* — "
+                                    "\"And we passed. Eleven weeks was *adequate*  -  "
                                     "adequate for his purposes, meaning slow enough that "
                                     "he could proceed.\"\n\n"
                                     "\"I have spent two years being angry at a report. I "
@@ -4323,8 +4324,8 @@ CHAPTERS: list[dict] = [
                                     "Josh's is the thickest by a wide margin and goes back "
                                     "two years.\n\n"
                                     "Yours is the thinnest. It contains four photographs "
-                                    "taken from a distance, a single line of text — "
-                                    "*origin unestablished* — and nothing else at all.\n\n"
+                                    "taken from a distance, a single line of text  -  "
+                                    "*origin unestablished*  -  and nothing else at all.\n\n"
                                     "Dolphin's has one sheet in it. He does not open it, "
                                     "and nobody makes him."
                                 ),
@@ -4335,7 +4336,7 @@ CHAPTERS: list[dict] = [
                                 "label": "\"We take all of it. Every folder, upstairs, today.\"",
                                 "text": (
                                     "\"Every folder is a person,\" Jofrog says "
-                                    "immediately. \"That's — there's families in here who "
+                                    "immediately. \"That's  -  there's families in here who "
                                     "don't know. We can't leave them in a *basement*.\"\n\n"
                                     "\"We cannot carry it either,\" Refender says. \"Not "
                                     "today, not in three vans.\"\n\n"
@@ -4356,7 +4357,7 @@ CHAPTERS: list[dict] = [
                         "level": 39,
                         "intro": (
                             "The line stops.\n\n"
-                            "Not breaks — stops, cleanly, mid-cycle, the way things stop "
+                            "Not breaks  -  stops, cleanly, mid-cycle, the way things stop "
                             "down here when somebody decides they should.\n\n"
                             "The thing that comes off the end of it is not a Warden. It is "
                             "what the Wardens are being built *by*, and it has been at the "
@@ -4369,7 +4370,7 @@ CHAPTERS: list[dict] = [
                             "somehow reads worse than if it had kept climbing.\n\n"
                             "\"Three hundred and twelve of those,\" Blueflame says. \"And "
                             "we've now met four. Anyone want to do the sum out loud or "
-                            "shall we all just carry it privately?\""
+                            "shall we all just carry it privately-\""
                         ),
                         "on_lose": (
                             "You come round with the line running again and the counter "
@@ -4406,7 +4407,7 @@ CHAPTERS: list[dict] = [
                         "speaker": "Refender",
                         "text": (
                             "The desk is at the centre of Level R and it is the only "
-                            "untidy thing on it — because it is in use.\n\n"
+                            "untidy thing on it  -  because it is in use.\n\n"
                             "A ledger, open, handwritten, in the hand you have now seen on "
                             "a driller, a housing plate and a clipboard.\n\n"
                             "It is not a diary. It is an *inventory of the region*: "
@@ -4415,7 +4416,7 @@ CHAPTERS: list[dict] = [
                             "have two, and one of those is new.\n\n"
                             "\"He is not planning an attack,\" Refender says slowly. \"He "
                             "is planning an **audit**. He intends to go through this "
-                            "region the way he went through those teams — establish what "
+                            "region the way he went through those teams  -  establish what "
                             "each thing is, and dispose of it accordingly.\""
                         ),
                     },
@@ -4426,7 +4427,7 @@ CHAPTERS: list[dict] = [
                             "Dolphin, who has been quiet since Level A, is standing at the "
                             "end of the desk with a page held flat under both hands.\n\n"
                             "\"There's a section on me,\" he says.\n\n"
-                            "\"It's — it's not long. It says where I was found. It says "
+                            "\"It's  -  it's not long. It says where I was found. It says "
                             "what was removed and it says why.\" His voice is very "
                             "level, which it never is. \"It says *returned to circulation, "
                             "monitored*, and there's a column of dates going all the way "
@@ -4590,7 +4591,7 @@ CHAPTERS: list[dict] = [
                         "options": [
                             {
                                 "id": "c3_what_are_you",
-                                "label": "\"What are you actually doing here?\"",
+                                "label": "\"What are you actually doing here-\"",
                                 "text": (
                                     "\"Establishing what is here,\" he says, \"so that it "
                                     "can be dealt with correctly. There is a great deal in "
@@ -4628,9 +4629,9 @@ CHAPTERS: list[dict] = [
                                     "\"You've got a column of dates on me,\" Dolphin says. "
                                     "\"Going up to last month.\"\n\n"
                                     "\"I have.\"\n\n"
-                                    "\"Why check? You took it. It's gone. What's there to "
-                                    "check?\"\n\n"
-                                    "And Rohan pauses — actually pauses, for the first "
+                                    "\"Why check- You took it. It's gone. What's there to "
+                                    "check-\"\n\n"
+                                    "And Rohan pauses  -  actually pauses, for the first "
                                     "time in three chapters.\n\n"
                                     "\"Because in your case,\" he says, \"the inventory "
                                     "did not come out the same way twice.\"\n\n"
@@ -4722,7 +4723,7 @@ CHAPTERS: list[dict] = [
                             "You asked him to come north, months ago, and he said no and "
                             "meant it and it cost him.\n\n"
                             "As the last van passes he steps forward and puts a hand flat "
-                            "on the side of it — once, briefly, the way you would touch a "
+                            "on the side of it  -  once, briefly, the way you would touch a "
                             "wall you were leaving.\n\n"
                             "\"Tell him,\" he says, through the window, to nobody in "
                             "particular. \"Tell my brother I said the coat suits him.\""
@@ -4742,8 +4743,8 @@ CHAPTERS: list[dict] = [
                     {
                         "kind": "reward",
                         "text": (
-                            "Refender's report goes to Cascade, the H-Nation and — at "
-                            "Dolpo's insistence and over some objection — Xender, who lost "
+                            "Refender's report goes to Cascade, the H-Nation and  -  at "
+                            "Dolpo's insistence and over some objection  -  Xender, who lost "
                             "nineteen teams and have not been told why.\n\n"
                             "It is forty pages. It is finished in a night. Nobody refers "
                             "it to a desk.\n\n"
@@ -4827,7 +4828,7 @@ CHAPTERS: list[dict] = [
                         "emoji": "🔢",
                         "name": "The fourth row's intake number",
                         "text": ("Every row in the ledger has an intake number. "
-                                 "The fourth row's has been scratched out — but "
+                                 "The fourth row's has been scratched out  -  but "
                                  "the numbering is sequential and the rows either "
                                  "side of it are intact.\n\n"
                                  "Optional. Rex will read it out eventually "
@@ -4861,7 +4862,7 @@ CHAPTERS: list[dict] = [
                                  "says.\n\n"
                                  "\"I have been in this building before. Not on "
                                  "the plan, not in the log, not in anybody's "
-                                 "record — but my hands knew the stairwell was "
+                                 "record  -  but my hands knew the stairwell was "
                                  "behind the racking, and I did not tell them "
                                  "to.\"\n\n"
                                  "\"So either I am also in this ledger somewhere, "
@@ -4883,7 +4884,7 @@ CHAPTERS: list[dict] = [
     },
 
     # ======================================================================
-    # CHAPTER FOUR — THE AUDIT
+    # CHAPTER FOUR  -  THE AUDIT
     # ======================================================================
     #
     # WHAT THIS CHAPTER IS ABOUT: he stops waiting for people to come to
@@ -4937,7 +4938,7 @@ CHAPTERS: list[dict] = [
                             "within ninety seconds of the others.\n\n"
                             "Refender takes them in order.\n\n"
                             "\"Ashfield. Two of them, standing at the fence, not "
-                            "approaching. Kettleford — four, in the square, counting "
+                            "approaching. Kettleford  -  four, in the square, counting "
                             "*doors*. The H-Nation post reports six on the road, walking "
                             "past the gate without stopping.\"\n\n"
                             "She puts the last handset down.\n\n"
@@ -5002,11 +5003,11 @@ CHAPTERS: list[dict] = [
                             },
                             {
                                 "id": "c4_ask_what_he_counts",
-                                "label": "\"What is he actually counting? That tells us what he does next.\"",
+                                "label": "\"What is he actually counting- That tells us what he does next.\"",
                                 "text": (
                                     "Refender stops halfway through folding the map.\n\n"
                                     "\"Doors,\" she says. \"Kettleford said doors. Not "
-                                    "people, not weapons — *doors*.\"\n\n"
+                                    "people, not weapons  -  *doors*.\"\n\n"
                                     "\"He is establishing capacity. How much of a thing "
                                     "each place is.\" She sits down, which she does not "
                                     "do. \"He counted nineteen survey teams and returned "
@@ -5032,7 +5033,7 @@ CHAPTERS: list[dict] = [
                             "She opens it flat on the table.\n\n"
                             "\"It is not evidence. It is a **schedule**. And because we "
                             "took it off his desk, we now know the order he intends to do "
-                            "them in — which he has presumably also worked out, and has "
+                            "them in  -  which he has presumably also worked out, and has "
                             "not changed.\"\n\n"
                             "\"Sixteen Freight is fourth.\""
                         ),
@@ -5101,7 +5102,7 @@ CHAPTERS: list[dict] = [
                                 "label": "\"Don't let it finish the sheet. Open now.\"",
                                 "text": (
                                     "The first shot takes the nearer one off its feet, "
-                                    "and the second one does not react at all — it "
+                                    "and the second one does not react at all  -  it "
                                     "carries on down the fence line, counting, for "
                                     "another eleven posts before it turns.\n\n"
                                     "\"It finished the section,\" Josh says. \"We shot "
@@ -5118,8 +5119,8 @@ CHAPTERS: list[dict] = [
                                     "He walks to the middle of the yard in the coat and "
                                     "stands there with his hands out from his sides.\n\n"
                                     "The nearer machine stops counting. It looks at him "
-                                    "for eleven seconds — everybody counts them "
-                                    "afterwards and everybody agrees on eleven — and then "
+                                    "for eleven seconds  -  everybody counts them "
+                                    "afterwards and everybody agrees on eleven  -  and then "
                                     "it goes back to the fence and starts the section "
                                     "again from the beginning.\n\n"
                                     "\"It recounted,\" Refender says. \"It saw him and it "
@@ -5139,7 +5140,7 @@ CHAPTERS: list[dict] = [
                             "Whatever the sheet said, it is finished now.\n\n"
                             "They come through the wire together, and for the first time "
                             "in four chapters there is something behind you that you "
-                            "cannot afford to lose — a shabby building with four camp "
+                            "cannot afford to lose  -  a shabby building with four camp "
                             "beds in it and a kettle that everybody has strong opinions "
                             "about."
                         ),
@@ -5154,7 +5155,7 @@ CHAPTERS: list[dict] = [
                         "on_lose": (
                             "They do not take the building.\n\n"
                             "They finish the count, and they leave, and the sheet goes "
-                            "with them — which is the entire problem, because a sheet "
+                            "with them  -  which is the entire problem, because a sheet "
                             "that leaves is a sheet that gets acted on."
                         ),
                     },
@@ -5170,7 +5171,7 @@ CHAPTERS: list[dict] = [
                             "She looks up.\n\n"
                             "\"It could not close the entry. It is not permitted to leave "
                             "an entry open, so it stayed, and kept counting, and did not "
-                            "act — and while it did that we killed it.\"\n\n"
+                            "act  -  and while it did that we killed it.\"\n\n"
                             "A pause.\n\n"
                             "\"He is a *stall*. I am going to have to say that to his "
                             "face at some point and I am not looking forward to it.\""
@@ -5259,7 +5260,7 @@ CHAPTERS: list[dict] = [
                                 "text": (
                                     "You hold the light. He works.\n\n"
                                     "Twice he says \"thanks\" without looking up, and "
-                                    "once he says \"no, the other one — no, that one, "
+                                    "once he says \"no, the other one  -  no, that one, "
                                     "yes\" before you have moved, because he saw where "
                                     "your hand was going.\n\n"
                                     "At about six he says, to the board rather than to "
@@ -5271,9 +5272,9 @@ CHAPTERS: list[dict] = [
                             },
                             {
                                 "id": "c4_ask_about_the_chair",
-                                "label": "\"What do you remember? Honestly. Anything at all.\"",
+                                "label": "\"What do you remember- Honestly. Anything at all.\"",
                                 "text": (
-                                    "\"A desk,\" he says. \"A card. The top of the hour — "
+                                    "\"A desk,\" he says. \"A card. The top of the hour  -  "
                                     "I still feel the top of the hour, it's like a "
                                     "*tide*.\"\n\n"
                                     "He sets the iron down.\n\n"
@@ -5301,7 +5302,7 @@ CHAPTERS: list[dict] = [
                             "The tools are laid out in the order you would use them.\n\n"
                             "You have stood in a room laid out like this before, nine "
                             "hundred kilometres south, under a light that has been on for "
-                            "two years — and so, you realise, has he, every day, without "
+                            "two years  -  and so, you realise, has he, every day, without "
                             "ever going in.\n\n"
                             "\"That's how he does it,\" Josh says. \"That's exactly how "
                             "he does it.\"\n\n"
@@ -5338,7 +5339,7 @@ CHAPTERS: list[dict] = [
                             "because there are three hundred and twelve of them and they "
                             "are extremely quiet.\n\n"
                             "\"They're not talking to each other,\" Rex says. \"That's "
-                            "what took so long — I kept looking for a network. There "
+                            "what took so long  -  I kept looking for a network. There "
                             "isn't one. They each report to the same place, one at a "
                             "time, in a rota.\"\n\n"
                             "He is enjoying himself, which nobody has the heart to "
@@ -5354,8 +5355,8 @@ CHAPTERS: list[dict] = [
                             "\"Level C,\" Refender says. \"He labels downward, so C is "
                             "below R. That is not an alphabet, it is a *depth*.\"\n\n"
                             "She has the ledger open and is going through it fast.\n\n"
-                            "\"Everything we have seen so far — the cut, the crates, the "
-                            "line, three hundred Wardens — was on levels he had "
+                            "\"Everything we have seen so far  -  the cut, the crates, the "
+                            "line, three hundred Wardens  -  was on levels he had "
                             "**finished**. Swept. Squared. Rota on the wall.\"\n\n"
                             "\"I would like to see one he has not finished. I think it is "
                             "the only way any of us will ever learn anything about him "
@@ -5369,7 +5370,7 @@ CHAPTERS: list[dict] = [
                         "level": 40,
                         "intro": (
                             "The audit notices.\n\n"
-                            "Not the machines in the yard — the thing at the other end of "
+                            "Not the machines in the yard  -  the thing at the other end of "
                             "them. Eleven minutes after Rex locks onto the signal, "
                             "something comes up the access road that has not been "
                             "counting anything.\n\n"
@@ -5397,7 +5398,7 @@ CHAPTERS: list[dict] = [
                             "They go north in six vehicles, in daylight, along a road "
                             "that has a fence-post count and a name.\n\n"
                             "Dolpo's people wave them through the gate without stopping "
-                            "them, and then — for the first time in fifteen months — two "
+                            "them, and then  -  for the first time in fifteen months  -  two "
                             "of the four fall in behind and come along."
                         ),
                         "grant": {"xp": 520, "gold": 12000, "item": "mythic", "evolution_fragments": 420,
@@ -5443,7 +5444,7 @@ CHAPTERS: list[dict] = [
                             "He looks up, and for once the coat and the voice and the "
                             "whole apparatus are simply not there.\n\n"
                             "\"That's the only time he's ever asked a question. In any of "
-                            "it. Pages and pages and he *tells* you things — and the one "
+                            "it. Pages and pages and he *tells* you things  -  and the one "
                             "question in the whole lot is me.\""
                         ),
                     },
@@ -5474,7 +5475,7 @@ CHAPTERS: list[dict] = [
                                     "\"I'd like a say in that, actually,\" Dolphin says, "
                                     "and everybody stops.\n\n"
                                     "\"Everyone's been very kind about me the whole way "
-                                    "up this road. Kind and — sort of *around* me. I've "
+                                    "up this road. Kind and  -  sort of *around* me. I've "
                                     "been in the van a lot.\"\n\n"
                                     "\"This is the one thing in the entire world that "
                                     "only I can do. You don't get to take that off me to "
@@ -5485,7 +5486,7 @@ CHAPTERS: list[dict] = [
                             },
                             {
                                 "id": "c4_ask_dolphin",
-                                "label": "\"Dolphin. What do you want to do?\"",
+                                "label": "\"Dolphin. What do you want to do-\"",
                                 "text": (
                                     "Nobody has asked him that in four chapters and it "
                                     "visibly lands.\n\n"
@@ -5608,7 +5609,7 @@ CHAPTERS: list[dict] = [
                                     "times.\"\n\n"
                                     "For the first time since the prologue's south yard, "
                                     "he does not have an answer ready. He does not "
-                                    "concede. He simply — stops, for about four seconds, "
+                                    "concede. He simply  -  stops, for about four seconds, "
                                     "in a way that no machine of his has ever managed."
                                 ),
                                 "sets": {"c4_told_him_person": True},
@@ -5674,7 +5675,7 @@ CHAPTERS: list[dict] = [
                             "have been standing here having it.\"\n\n"
                             "He steps back through the open door.\n\n"
                             "What comes forward is the largest thing he has ever sent, "
-                            "and it is not new — it is scarred, and repaired, and it has "
+                            "and it is not new  -  it is scarred, and repaired, and it has "
                             "been used."
                         ),
                         "on_win": (
@@ -5684,7 +5685,7 @@ CHAPTERS: list[dict] = [
                             "stopped. All of them. Three hundred and twelve, at "
                             "once.\"\n\n"
                             "He listens for a while longer.\n\n"
-                            "\"They're not withdrawing. They're just — standing there. "
+                            "\"They're not withdrawing. They're just  -  standing there. "
                             "Every one of them has stopped counting and none of them has "
                             "been told what to do next.\"\n\n"
                             "The audit is not over. The audit is **paused**, which is a "
@@ -5709,7 +5710,7 @@ CHAPTERS: list[dict] = [
                             "He has the folder. He took it off the stool on the way past "
                             "and nobody stopped him.\n\n"
                             "\"After I said all that. He went to the desk and he wrote it "
-                            "down, and I watched him do it, and he wasn't — he wasn't "
+                            "down, and I watched him do it, and he wasn't  -  he wasn't "
                             "filing me. He was *taking a note*.\"\n\n"
                             "He closes the folder.\n\n"
                             "\"I've been an entry for two years. I think I've just been "
@@ -5762,7 +5763,7 @@ CHAPTERS: list[dict] = [
                         "kind": "dialogue",
                         "speaker": "Jofrog",
                         "text": ("\"Two of the six aren't here any more,\" he "
-                                 "says. \"And before you ask — no, they didn't "
+                                 "says. \"And before you ask  -  no, they didn't "
                                  "die. That's the bit nobody says out loud.\"\n\n"
                                  "\"They took work with Entrospire. Good work. "
                                  "Sensible work, with a pension. And then about a "
@@ -5821,7 +5822,7 @@ CHAPTERS: list[dict] = [
                         "kind": "reward",
                         "text": ("The photograph stays where it is. Somebody has "
                                  "been careful, over nine years, never to cut the "
-                                 "other two out of it — and now you know that was "
+                                 "other two out of it  -  and now you know that was "
                                  "a decision somebody made, and kept making."),
                         "grant": {"xp": 620, "gold": 34000, "evolution_fragments": 1200,
                                   "cores": 1700, "item": "mythic",
@@ -5833,7 +5834,7 @@ CHAPTERS: list[dict] = [
     },
 
     # ======================================================================
-    # CHAPTER FIVE — UNRESOLVABLE
+    # CHAPTER FIVE  -  UNRESOLVABLE
     # ======================================================================
     #
     # WHAT THIS CHAPTER IS ABOUT: the revised audit stops counting and
@@ -5911,7 +5912,7 @@ CHAPTERS: list[dict] = [
                             "The reports come in over four hours and Refender writes them "
                             "on the wall as they arrive, because there is no longer time "
                             "to file anything.\n\n"
-                            "\"Two settlements evacuated ahead of contact — those are "
+                            "\"Two settlements evacuated ahead of contact  -  those are "
                             "ours, that is Cascade doing its job in under a day and I "
                             "will be grateful for it later.\"\n\n"
                             "\"Four have been *entered*. No casualties reported. People "
@@ -5967,7 +5968,7 @@ CHAPTERS: list[dict] = [
                                 "id": "c5_use_the_crack",
                                 "label": "\"Then we widen it. If one unresolvable person stops a machine, make more.\"",
                                 "text": (
-                                    "There is a silence of a very particular kind — the "
+                                    "There is a silence of a very particular kind  -  the "
                                     "one where four people have all had the same thought "
                                     "and are waiting to see who is mad enough to say "
                                     "it.\n\n"
@@ -5992,7 +5993,7 @@ CHAPTERS: list[dict] = [
                                     "He is already moving.\n\n"
                                     "\"We can be there in ninety minutes. Cascade can't. "
                                     "That's the whole argument for existing that we've "
-                                    "ever had — let's go and be right about it.\""
+                                    "ever had  -  let's go and be right about it.\""
                                 ),
                                 "sets": {"c5_chose_kettleford": True},
                             },
@@ -6023,7 +6024,7 @@ CHAPTERS: list[dict] = [
                             "Kettleford is a square, a chapel, a shop and about thirty "
                             "houses, and there is a queue in the middle of it.\n\n"
                             "That is the thing nobody is able to process for the first "
-                            "several seconds. Not a panic. A **queue** — ninety people, "
+                            "several seconds. Not a panic. A **queue**  -  ninety people, "
                             "in a line, waiting their turn, because the machine at the "
                             "front of it has been polite and clear and has told them "
                             "this will not hurt.\n\n"
@@ -6079,7 +6080,7 @@ CHAPTERS: list[dict] = [
                                     "can.\n\n"
                                     "Jofrog does it. He walks up to the chapel steps and "
                                     "says, to forty people who do not know where they "
-                                    "are, \"Right — everyone follow me, we're going to go "
+                                    "are, \"Right  -  everyone follow me, we're going to go "
                                     "and have a sit down,\" and forty people get up and "
                                     "follow him, because somebody finally told them what "
                                     "to do next."
@@ -6095,7 +6096,7 @@ CHAPTERS: list[dict] = [
                         "level": 54,
                         "intro": (
                             "The thing at the head of the queue stops what it is doing, "
-                            "and turns, and — this is the part that stays with everyone — "
+                            "and turns, and  -  this is the part that stays with everyone  -  "
                             "it asks the next person in line to wait a moment.\n\n"
                             "Then it comes across the square.\n\n"
                             "\"It said *excuse me*,\" Blueflame says, with no cheer at "
@@ -6170,10 +6171,10 @@ CHAPTERS: list[dict] = [
                             "got simpler each time, which Refender says is how you can "
                             "tell he is right.\n\n"
                             "\"Every unit reports what it establishes. The report has to "
-                            "close. If it can't close, the unit can't act — it stands "
+                            "close. If it can't close, the unit can't act  -  it stands "
                             "there and recounts, we've watched it happen.\"\n\n"
                             "He underlines something.\n\n"
-                            "\"His receiver's mine. I mean — it's the same design, I've "
+                            "\"His receiver's mine. I mean  -  it's the same design, I've "
                             "seen the boards, whoever built his was working off the same "
                             "idea I was.\" A pause; he does not chase it. \"Point is I "
                             "know exactly what shape it wants. And I can send it "
@@ -6189,7 +6190,7 @@ CHAPTERS: list[dict] = [
                         "options": [
                             {
                                 "id": "c5_ask_if_it_hurts",
-                                "label": "\"Does it hurt anyone? Ours or his?\"",
+                                "label": "\"Does it hurt anyone- Ours or his-\"",
                                 "text": (
                                     "\"No,\" says Rex. \"That's why I like it.\"\n\n"
                                     "\"It doesn't break anything. It doesn't take anything "
@@ -6204,7 +6205,7 @@ CHAPTERS: list[dict] = [
                             },
                             {
                                 "id": "c5_whats_the_catch",
-                                "label": "\"What's the catch? There's always a catch with him.\"",
+                                "label": "\"What's the catch- There's always a catch with him.\"",
                                 "text": (
                                     "\"It works once,\" Refender says. \"He revised his "
                                     "whole method in eleven days after one man confused "
@@ -6219,14 +6220,14 @@ CHAPTERS: list[dict] = [
                             },
                             {
                                 "id": "c5_dolphin_content",
-                                "label": "\"What do we actually put in the box?\"",
+                                "label": "\"What do we actually put in the box-\"",
                                 "text": (
                                     "Everybody looks at Dolphin, who has been sitting on "
                                     "the table pretending not to listen for nine "
                                     "hours.\n\n"
                                     "\"Oh,\" he says. \"Right. Yeah. Me.\"\n\n"
                                     "\"It's my file. Word for word, the bit he wrote down "
-                                    "after I talked at him — the coat, the brother who "
+                                    "after I talked at him  -  the coat, the brother who "
                                     "isn't, the four people who came up a road with me.\" "
                                     "He shrugs, and it very nearly works. \"He couldn't "
                                     "file it the first time. I've been carrying the only "
@@ -6242,7 +6243,7 @@ CHAPTERS: list[dict] = [
                         "kind": "dialogue",
                         "speaker": "Rex",
                         "text": (
-                            "Late on, when it is mostly finished, Rex says — to the "
+                            "Late on, when it is mostly finished, Rex says  -  to the "
                             "board, not to anyone:\n\n"
                             "\"You asked me once what I remembered. I said a desk, a "
                             "card, the top of the hour and a second cup.\"\n\n"
@@ -6322,15 +6323,15 @@ CHAPTERS: list[dict] = [
                             "The response takes four minutes, which is the fastest he has "
                             "ever done anything.\n\n"
                             "It does not come down the lift. It comes through the wall of "
-                            "Level C — the unfinished wall, the one he never got round to "
-                            "— because that was always the shortest route and he has "
+                            "Level C  -  the unfinished wall, the one he never got round to "
+                            " -  because that was always the shortest route and he has "
                             "never once taken a longer one."
                         ),
                         "on_win": (
                             "The transmitter survives, which was the entire point, and "
                             "Rex is lying on top of it when the room stops moving.\n\n"
                             "\"Still sending,\" he says, muffled. \"Still sending, still "
-                            "sending — somebody help me up, I've done my back.\"\n\n"
+                            "sending  -  somebody help me up, I've done my back.\"\n\n"
                             "Across nineteen settlements, three hundred and twelve "
                             "machines have stopped in the middle of what they were doing, "
                             "and are recounting."
@@ -6350,7 +6351,7 @@ CHAPTERS: list[dict] = [
                             "the wall came in.\n\n"
                             "The counter above it starts at C and runs down through nine "
                             "more letters, and the last one is not in any alphabet "
-                            "Refender has seen — and she has, as she points out, seen "
+                            "Refender has seen  -  and she has, as she points out, seen "
                             "several.\n\n"
                             "\"He came up through a wall rather than use it,\" she says. "
                             "\"I would like everybody to hold on to that when we get to "
@@ -6551,7 +6552,7 @@ CHAPTERS: list[dict] = [
                                 "id": "c5_offer_the_answer",
                                 "label": "\"Then decide something. Start with the ninety people in Kettleford.\"",
                                 "text": (
-                                    "\"I do not have the authority to—\"\n\n"
+                                    "\"I do not have the authority to - \"\n\n"
                                     "\"You have three hundred and twelve machines and "
                                     "eleven floors and *nobody has written to you in four "
                                     "years*,\" you tell him. \"There is nobody left to "
@@ -6592,7 +6593,7 @@ CHAPTERS: list[dict] = [
                                     "says.\n\n"
                                     "\"Yes.\"\n\n"
                                     "\"Do you want to know the bit that would've closed "
-                                    "it?\"\n\n"
+                                    "it-\"\n\n"
                                     "Rohan actually leans forward, which is the most "
                                     "undignified thing he has done in five chapters.\n\n"
                                     "\"You'd have had to ask me,\" Dolphin says. \"Not "
@@ -6648,7 +6649,7 @@ CHAPTERS: list[dict] = [
                             "and neither will I.\""
                         ),
                         "on_win": (
-                            "He goes down once and gets up, because of course he does — "
+                            "He goes down once and gets up, because of course he does  -  "
                             "and the second time he stays down, sitting rather than "
                             "falling, with his back against his own desk.\n\n"
                             "Everybody in the party is still standing. After five "
@@ -6659,7 +6660,7 @@ CHAPTERS: list[dict] = [
                             "observes with what appears to be professional "
                             "curiosity.\n\n"
                             "Then he reaches up to the desk, finds the pen without "
-                            "looking, and writes one line — and it is not a report, "
+                            "looking, and writes one line  -  and it is not a report, "
                             "because he addresses it to nobody, and it is four words "
                             "long.\n\n"
                             "**All units: stand down.**"
@@ -6683,7 +6684,7 @@ CHAPTERS: list[dict] = [
                             "\"What is your name.\"\n\n"
                             "Not *what are you*. Four years of establishing what things "
                             "are, eleven floors of it, four hundred and six closed "
-                            "entries — and the first question he has ever asked a person "
+                            "entries  -  and the first question he has ever asked a person "
                             "is that one.\n\n"
                             "\"Dolphin,\" says Dolphin. \"It's not the one I was born "
                             "with. I picked it.\"\n\n"
@@ -6696,7 +6697,7 @@ CHAPTERS: list[dict] = [
                         "text": (
                             "Three hundred and twelve machines stand down inside four "
                             "minutes, and stay down.\n\n"
-                            "The files come out over six weeks — four hundred and six of "
+                            "The files come out over six weeks  -  four hundred and six of "
                             "them, carried up eleven floors by hand, sorted by Cascade, "
                             "cross-checked by the H-Nation and delivered by whoever could "
                             "be spared. Ninety people in Kettleford are told what their "

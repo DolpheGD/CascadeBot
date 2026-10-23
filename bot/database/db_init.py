@@ -129,6 +129,7 @@ def _ensure_columns(conn):
     # NULL means "never summoned", which reads as off cooldown -- the
     # generous default, and correct for everyone who played before this.
     add_column("players", "last_raid_summon_at", "DATETIME")
+    add_column("guild_raids", "modifier_id", "VARCHAR(32)")
     add_column("guild_raids", "summoned_by", "BIGINT")
 
     # Cores -- the Character Card pull currency. Existing players start
@@ -182,6 +183,13 @@ def _ensure_columns(conn):
     add_column("players", "reminders_enabled", "BOOLEAN DEFAULT 0")
     add_column("players", "last_reminder_at", "DATETIME")
     add_column("players", "reminder_failures", "INTEGER DEFAULT 0")
+
+    # HQ personalization. Existing bases read as the default names and
+    # palettes so nobody is forced to choose one retroactively.
+    add_column("player_bases", "custom_name", "VARCHAR(64)")
+    add_column("player_bases", "custom_theme", "VARCHAR(24) DEFAULT 'standard'")
+    add_column("player_bases", "custom_badge", "VARCHAR(24) DEFAULT 'crest'")
+    add_column("player_bases", "custom_motto", "VARCHAR(128)")
 
     # Challenge cycles. Existing players start in the CURRENT cycle with
     # zero points and nothing banked, which is the only defensible

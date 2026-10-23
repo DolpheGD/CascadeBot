@@ -284,9 +284,9 @@ AREAS: dict[str, dict] = {
     # is a good way to start a game and the rest was corridor.
     # ==================================================================
     "lab_cell": {
-        "name": "Sector 9 — Containment",
+        "name": "Sector 9: Containment",
         "region": "Ocellios Lab",
-        "blurb": "Three metres square. The ceiling is coming down.",
+        "blurb": "Three metres of bad luck and a ceiling that keeps getting closer.",
         "grid": [
             "#####",
             "#R.f#",
@@ -337,9 +337,9 @@ AREAS: dict[str, dict] = {
     },
 
     "lab_corridor": {
-        "name": "Sector 9 — East Corridor",
+        "name": "Sector 9: East Corridor",
         "region": "Ocellios Lab",
-        "blurb": "On fire at both ends. Only one end is passable.",
+        "blurb": "Both ends are on fire. One of them is still passable.",
         "grid": [
             "#########",
             "#@.....a#",
@@ -385,9 +385,9 @@ AREAS: dict[str, dict] = {
     },
 
     "lab_yard": {
-        "name": "Ocellios Lab — The Yard",
+        "name": "Ocellios Lab: The Yard",
         "region": "Ocellios Lab",
-        "blurb": "Snow, sirens, and one vehicle that is not running away.",
+        "blurb": "Snow, sirens, and one transport that has not run away. That's a good sign.",
         "grid": [
             "#########",
             "#ss#P#ss#",
@@ -412,16 +412,15 @@ AREAS: dict[str, dict] = {
                 "to": [5, 3],
                 "one_way": True,   # nobody drives back to Sector 9
                 "requires_mission": "pr3_pickup",
-                "locked_text": "There's a transport idling by the fence and a man in the doorway waiting on an answer.",
-            },
+                "locked_text":                 "A transport is idling by the fence and a man is waiting in the doorway for an answer.",            },
             "P": {
                 "kind": "note",
                 "emoji": "🏢",
                 "name": "The lab, behind you",
                 "text": (
-                    "Sector 9 is coming apart one storey at a time, unhurriedly, like "
-                    "something deciding to sit down.\n\n"
-                    "Nobody else has come out of it."
+                    "Sector 9 is coming apart one level at a time, slow and deliberate, like "
+                    "something settling in for the long haul.\n\n"
+                    "Nobody else has made it out of it."
                 ),
             },
             "w": {
@@ -457,9 +456,9 @@ AREAS: dict[str, dict] = {
     # hub people stop walking around in.
     # ==================================================================
     "hub_atrium": {
-        "name": "Cascade Central — The Atrium",
+        "name": "Cascade Central: The Atrium",
         "region": "Team Cascade",
-        "blurb": "Somebody has hung a banner. It is slightly crooked and nobody has fixed it.",
+        "blurb": "A banner hangs crooked in the middle of the room. Nobody has bothered to fix it.",
         # TALL, now that height is nearly free (see MAX_HEIGHT). The
         # Atrium is the room the player walks through most often in the
         # whole game, so it gets the space: a mezzanine at the top with
@@ -533,9 +532,9 @@ AREAS: dict[str, dict] = {
                 "lines": [
                     {"text": ("Industrial, ancient, and covered in handwritten notes.\n\n"
                               "**DO NOT USE SETTING 3**\n"
-                              "*(setting 3 is fine — R)*\n"
+                              "*(setting 3 is fine  -  R)*\n"
                               "**IT IS NOT FINE**\n"
-                              "*(it is fine if you hold the lever — R)*\n"
+                              "*(it is fine if you hold the lever  -  R)*\n"
                               "**THAT IS NOT THE SAME AS FINE**")},
                     {"text": ("You try setting 3.\n\nIt is, broadly, fine. You do have to "
                               "hold the lever.")},
@@ -604,7 +603,7 @@ AREAS: dict[str, dict] = {
                 "emoji": "📌",
                 "name": "The crooked banner",
                 "lines": [
-                    {"text": ("**TEAM CASCADE — WE PUT IT BACK**\n\n"
+                    {"text": ("**TEAM CASCADE  -  WE PUT IT BACK**\n\n"
                               "Hand-painted, and hung about four degrees off true.\n\n"
                               "Someone has pencilled underneath, in much smaller letters: "
                               "*mostly*.")},
@@ -632,28 +631,28 @@ AREAS: dict[str, dict] = {
             "M": {
                 "kind": "exit",
                 "emoji": "🚪",
-                "name": "East — the Ops Deck",
+                "name": "East  -  the Ops Deck",
                 "to_area": "hub_ops",
                 "to": [1, 3],
             },
             "W": {
                 "kind": "exit",
                 "emoji": "🚪",
-                "name": "West — the Armory",
+                "name": "West  -  the Armory",
                 "to_area": "hub_armory",
                 "to": [7, 3],
             },
             "S": {
                 "kind": "exit",
                 "emoji": "🚪",
-                "name": "South — the Mess",
+                "name": "South  -  the Mess",
                 "to_area": "hub_mess",
                 "to": [4, 1],
             },
             "Y": {
                 "kind": "exit",
                 "emoji": "🧱",
-                "name": "The back door — the yard",
+                "name": "The back door  -  the yard",
                 "to_area": "hub_yard",
                 "to": [3, 4],
             },
@@ -661,7 +660,7 @@ AREAS: dict[str, dict] = {
     },
 
     "hub_ops": {
-        "name": "Cascade Central — The Ops Deck",
+        "name": "Cascade Central  -  The Ops Deck",
         "region": "Team Cascade",
         "blurb": "Six screens, four of them showing the same thing, one showing a card game.",
         "grid": [
@@ -738,7 +737,7 @@ AREAS: dict[str, dict] = {
             "W": {
                 "kind": "exit",
                 "emoji": "🚪",
-                "name": "West — the Atrium",
+                "name": "West  -  the Atrium",
                 "to_area": "hub_atrium",
                 "to": [9, 4],
             },
@@ -746,7 +745,7 @@ AREAS: dict[str, dict] = {
     },
 
     "hub_armory": {
-        "name": "Cascade Central — The Armory",
+        "name": "Cascade Central  -  The Armory",
         "region": "Team Cascade",
         "blurb": "Everything is labelled. The labels are in a handwriting that takes itself seriously.",
         "grid": [
@@ -802,7 +801,7 @@ AREAS: dict[str, dict] = {
             "E": {
                 "kind": "exit",
                 "emoji": "🚪",
-                "name": "East — the Atrium",
+                "name": "East  -  the Atrium",
                 "to_area": "hub_atrium",
                 "to": [1, 4],
             },
@@ -810,7 +809,7 @@ AREAS: dict[str, dict] = {
     },
 
     "hub_mess": {
-        "name": "Cascade Central — The Mess",
+        "name": "Cascade Central  -  The Mess",
         "region": "Team Cascade",
         "blurb": "Warm, loud, and the only room in the building anyone decorated on purpose.",
         "grid": [
@@ -852,7 +851,7 @@ AREAS: dict[str, dict] = {
             "N": {
                 "kind": "exit",
                 "emoji": "🚪",
-                "name": "North — the Atrium",
+                "name": "North  -  the Atrium",
                 "to_area": "hub_atrium",
                 "to": [5, 5],
             },
@@ -883,7 +882,7 @@ AREAS: dict[str, dict] = {
             "G": {
                 "kind": "exit",
                 "emoji": "🚪",
-                "name": "South — the Gatehouse",
+                "name": "South  -  the Gatehouse",
                 "to_area": "hub_gate",
                 "to": [4, 2],
             },
@@ -891,7 +890,7 @@ AREAS: dict[str, dict] = {
     },
 
     "hub_gate": {
-        "name": "Cascade Central — The Gatehouse",
+        "name": "Cascade Central  -  The Gatehouse",
         "region": "Team Cascade",
         "blurb": "The last warm room before the cold one. Somebody has written GOOD LUCK on the door in marker.",
         # Grown by two rows for Act Three. The Gatehouse is where every
@@ -976,7 +975,7 @@ AREAS: dict[str, dict] = {
             "N": {
                 "kind": "exit",
                 "emoji": "🚪",
-                "name": "North — the Mess",
+                "name": "North  -  the Mess",
                 "to_area": "hub_mess",
                 "to": [4, 5],
             },
@@ -988,7 +987,7 @@ AREAS: dict[str, dict] = {
             "A": {
                 "kind": "exit",
                 "emoji": "🛻",
-                "name": "The car park — somebody's waiting",
+                "name": "The car park  -  somebody's waiting",
                 "to_area": "aligner_dock",
                 "to": [3, 2],
                 "requires_mission": "pr11_the_gate",
@@ -1010,7 +1009,7 @@ AREAS: dict[str, dict] = {
     },
 
     # ==================================================================
-    # CHAPTER ONE — THE WORLD ALIGNERS
+    # CHAPTER ONE  -  THE WORLD ALIGNERS
     #
     # A second hub, deliberately built as the ANTI-Cascade-Central.
     # Cascade Central is warm, decorated, over-staffed and institutional;
@@ -1037,7 +1036,7 @@ AREAS: dict[str, dict] = {
     # happened to them.
     # ==================================================================
     "hub_yard": {
-        "name": "Cascade Central — The Back Yard",
+        "name": "Cascade Central  -  The Back Yard",
         "region": "Team Cascade",
         "blurb": "Gravel, a pallet stack, and the board everybody actually reads.",
         "grid": [
@@ -1105,14 +1104,14 @@ AREAS: dict[str, dict] = {
             "S": {
                 "kind": "exit",
                 "emoji": "🚪",
-                "name": "In — the Atrium",
+                "name": "In  -  the Atrium",
                 "to_area": "hub_atrium",
                 "to": [6, 12],
             },
             "N": {
                 "kind": "exit",
                 "emoji": "🛏",
-                "name": "The side door — the bunks",
+                "name": "The side door  -  the bunks",
                 "to_area": "hub_bunks",
                 "to": [1, 3],
                 # GATED, and it was not.
@@ -1136,7 +1135,7 @@ AREAS: dict[str, dict] = {
     },
 
     "hub_bunks": {
-        "name": "Cascade Central — The Bunks",
+        "name": "Cascade Central  -  The Bunks",
         "region": "Team Cascade",
         "blurb": "Eight beds, four of them made, and a window somebody keeps opening.",
         "grid": [
@@ -1156,7 +1155,7 @@ AREAS: dict[str, dict] = {
             "Y": {
                 "kind": "exit",
                 "emoji": "🚪",
-                "name": "Out — the back yard",
+                "name": "Out  -  the back yard",
                 "to_area": "hub_yard",
                 "to": [7, 4],
             },
@@ -1206,7 +1205,7 @@ AREAS: dict[str, dict] = {
     },
 
     "aligner_dock": {
-        "name": "Sixteen Freight — The Dock",
+        "name": "Sixteen Freight  -  The Dock",
         "region": "World Aligners",
         "blurb": "A loading bay somebody has been living in. The shutters only open halfway now.",
         # Tightened from 11x8 after check_story measured 10% interactive
@@ -1239,20 +1238,20 @@ AREAS: dict[str, dict] = {
                 "name": "The shutter",
                 "text": ("It opens to about waist height and stops. There is a toolbox "
                          "open underneath it and a job written on the lid in marker.\n\n"
-                         "**FIX SHUTTER** — and under that, in a different hand, "
+                         "**FIX SHUTTER**  -  and under that, in a different hand, "
                          "*it's fine, we duck*."),
             },
             "C": {
                 "kind": "exit",
                 "emoji": "🚪",
-                "name": "The road back — Cascade Central",
+                "name": "The road back  -  Cascade Central",
                 "to_area": "hub_gate",
                 "to": [3, 6],
             },
             "N": {
                 "kind": "exit",
                 "emoji": "🚧",
-                "name": "Inward — the floor",
+                "name": "Inward  -  the floor",
                 "to_area": "aligner_floor",
                 "to": [5, 2],
             },
@@ -1275,12 +1274,12 @@ AREAS: dict[str, dict] = {
                 "lines": [
                     {"text": ("He is wearing a coat that is very nearly Dolphe's coat, in "
                               "a blue that is very nearly Dolphe's blue.\n\n"
-                              "\"Oh — hello. Hi. You're the lab one.\" He straightens up "
+                              "\"Oh  -  hello. Hi. You're the lab one.\" He straightens up "
                               "and does a voice that is almost exactly Dolphe's voice, "
                               "and then stops doing it, because you are clearly not "
                               "fooled.\n\n"
                               "\"Sorry. Force of habit. I'm Dolphin.\"")},
-                    {"text": ("\"So the coat thing is — right, so. Josh needs someone to "
+                    {"text": ("\"So the coat thing is  -  right, so. Josh needs someone to "
                               "walk into Cascade rooms and be *nodded at*. That's the "
                               "whole job. I get nodded at.\"\n\n"
                               "He seems genuinely proud of this.\n\n"
@@ -1293,7 +1292,7 @@ AREAS: dict[str, dict] = {
                               "Have you seen the things he has to decide? No thank you.\"")},
                     {"text": ("\"Can I ask you something and you not make it weird.\"\n\n"
                               "He does not wait.\n\n"
-                              "\"Do you think Refender would — no. No, forget it. She "
+                              "\"Do you think Refender would  -  no. No, forget it. She "
                               "corrected my *posture* last week. Out loud. In front of "
                               "Jofrog.\"\n\n"
                               "He goes quiet for slightly too long.\n\n\"It was still the "
@@ -1324,7 +1323,7 @@ AREAS: dict[str, dict] = {
     },
 
     "aligner_floor": {
-        "name": "Sixteen Freight — The Floor",
+        "name": "Sixteen Freight  -  The Floor",
         "region": "World Aligners",
         "blurb": "Four people, a table meant for forty, and every light that still works pointed at one wall.",
         "grid": [
@@ -1367,7 +1366,7 @@ AREAS: dict[str, dict] = {
                 # there is something to defend it from.
                 "kind": "exit",
                 "emoji": "🚧",
-                "name": "Out — the yard",
+                "name": "Out  -  the yard",
                 "to_area": "depot_yard",
                 "to": [5, 4],
                 "requires_mission": "c3m6_the_bottom",
@@ -1390,14 +1389,14 @@ AREAS: dict[str, dict] = {
             "D": {
                 "kind": "exit",
                 "emoji": "🚧",
-                "name": "Out — the Dock",
+                "name": "Out  -  the Dock",
                 "to_area": "aligner_dock",
                 "to": [3, 4],
             },
             "U": {
                 "kind": "exit",
                 "emoji": "🪜",
-                "name": "Up — the roof",
+                "name": "Up  -  the roof",
                 "to_area": "aligner_roof",
                 "to": [7, 2],
                 "requires_mission": "c1m4_still_switched_on",
@@ -1407,7 +1406,7 @@ AREAS: dict[str, dict] = {
             "S": {
                 "kind": "exit",
                 "emoji": "🗄",
-                "name": "Through — the Records room",
+                "name": "Through  -  the Records room",
                 "to_area": "aligner_records",
                 "to": [4, 4],
             },
@@ -1450,7 +1449,7 @@ AREAS: dict[str, dict] = {
                               "difficulty. If he were merely grieving I could look after "
                               "him. He is grieving *and* right, and those need opposite "
                               "handling.\"")},
-                    {"text": ("On Dolphin, if you ask: \"He is not a spy. I checked — "
+                    {"text": ("On Dolphin, if you ask: \"He is not a spy. I checked  -  "
                               "thoroughly, and he never noticed, which rather settles "
                               "it.\"\n\nA pause.\n\n\"He is lonely and he is useful and "
                               "those are allowed to be two separate facts about a person. "
@@ -1505,7 +1504,7 @@ AREAS: dict[str, dict] = {
     },
 
     "aligner_records": {
-        "name": "Sixteen Freight — Records",
+        "name": "Sixteen Freight  -  Records",
         "region": "World Aligners",
         "blurb": "Two years of one man's work, on one wall, in one handwriting.",
         # One legend entry per CHARACTER, not per idea: check_story
@@ -1546,7 +1545,7 @@ AREAS: dict[str, dict] = {
                     ("The drawers are labelled, top to bottom: ROUTES, OUTAGES, "
                      "HAULAGE, ASSETS."),
                     ("Refender, when you ask: \"Josh set that. He sets every "
-                     "combination the same way — first letters, in the order "
+                     "combination the same way  -  first letters, in the order "
                      "he'd file them.\""),
                     ("Filed the way Josh files things, those four subjects read "
                      "Assets, Haulage, Outages, Routes."),
@@ -1606,7 +1605,7 @@ AREAS: dict[str, dict] = {
             "L": {
                 "kind": "exit",
                 "emoji": "🚧",
-                "name": "Back — the Floor",
+                "name": "Back  -  the Floor",
                 "to_area": "aligner_floor",
                 "to": [8, 2],
             },
@@ -1631,9 +1630,9 @@ AREAS: dict[str, dict] = {
                               "and meant to come back.")},
                     {"text": ("Taped under the lip of the bench, where you would only find "
                               "it by not looking:\n\n"
-                              "A workshop key, and a note that says *R — south building, "
+                              "A workshop key, and a note that says *R  -  south building, "
                               "I've moved your good screwdriver, it's behind the thing you "
-                              "said wasn't a shelf. — J*")},
+                              "said wasn't a shelf.  -  J*")},
                 ],
                 "repeat": "The chair is still at that angle.",
             },
@@ -1641,7 +1640,7 @@ AREAS: dict[str, dict] = {
     },
 
     # ------------------------------------------------------------------
-    # REX'S WORKSHOP — the chapter's quiet room, and its loudest one.
+    # REX'S WORKSHOP  -  the chapter's quiet room, and its loudest one.
     #
     # The whole point of this area is that NOBODY EXPLAINS IT. Josh
     # cannot go in and does not pretend otherwise; Refender has been in
@@ -1654,7 +1653,7 @@ AREAS: dict[str, dict] = {
     # the room Rohan sends something into.
     # ------------------------------------------------------------------
     "rex_workshop": {
-        "name": "The South Building — Rex's Workshop",
+        "name": "The South Building  -  Rex's Workshop",
         "region": "World Aligners",
         "blurb": "Still powered. Still warm. Two years is not long enough for the dust to settle properly.",
         "grid": [
@@ -1671,7 +1670,7 @@ AREAS: dict[str, dict] = {
             "H": {
                 "kind": "exit",
                 "emoji": "🚪",
-                "name": "Out — back to the Floor",
+                "name": "Out  -  back to the Floor",
                 "to_area": "aligner_floor",
                 "to": [4, 5],
             },
@@ -1726,7 +1725,7 @@ AREAS: dict[str, dict] = {
                 # stays somewhere you can walk back from.
                 "kind": "exit",
                 "emoji": "🧭",
-                "name": "North — the access road",
+                "name": "North  -  the access road",
                 "to_area": "north_checkpoint",
                 "to": [5, 5],
                 "requires_mission": "c2m1_the_fourteenth",
@@ -1747,7 +1746,7 @@ AREAS: dict[str, dict] = {
     },
 
     # ==================================================================
-    # CHAPTER TWO — THE FORTY MILES
+    # CHAPTER TWO  -  THE FORTY MILES
     #
     # The country north of Ashfield, where nineteen survey teams went in
     # and none came out. Three areas, and they are deliberately the
@@ -1783,7 +1782,7 @@ AREAS: dict[str, dict] = {
     # shape for side content, and it was sitting there unused.
     # ==================================================================
     "the_drifts": {
-        "name": "The North — The Drifts",
+        "name": "The North  -  The Drifts",
         "region": "The North",
         "blurb": "West off the survey road. Nobody surveyed this part.",
         "grid": [
@@ -1800,7 +1799,7 @@ AREAS: dict[str, dict] = {
             "S": {
                 "kind": "exit",
                 "emoji": "🛤",
-                "name": "Back — the survey site",
+                "name": "Back  -  the survey site",
                 "to_area": "survey_site",
                 "to": [3, 5],
             },
@@ -1824,11 +1823,11 @@ AREAS: dict[str, dict] = {
                 "kind": "hunt",
                 "emoji": "❄",
                 "name": "Something under the drift",
-                "text": ("The drift moves. Not with the wind — against it, once, "
+                "text": ("The drift moves. Not with the wind  -  against it, once, "
                          "and then it is still, and then it is not.\n\n"
                          "Optional. It is not on the way to anything, nobody "
                          "would ever know, and if it goes badly you simply walk "
-                         "away — losing here costs you nothing at all."),
+                         "away  -  losing here costs you nothing at all."),
                 # Solved, not authored: 49% health cost / 70% win against
                 # the squad that can first open this door (level 22, via
                 # c2m4). Chapter Two's hardest required fight costs 38%.
@@ -1862,7 +1861,7 @@ AREAS: dict[str, dict] = {
     },
 
     "lab_subbasement": {
-        "name": "Ocellios Lab — Sub-Basement",
+        "name": "Ocellios Lab  -  Sub-Basement",
         "region": "Ocellios Lab",
         "blurb": "Under the floor you woke up on. It did not collapse with the rest.",
         "grid": [
@@ -1893,7 +1892,7 @@ AREAS: dict[str, dict] = {
                               "A-RAIL", "B-RAIL", "C-RAIL", "D-RAIL"],
                 "clues": [
                     "SUPPLY goes to A-RAIL. That one is still connected; the others are not.",
-                    "The fridge is on the B rail — it is written on the fridge.",
+                    "The fridge is on the B rail  -  it is written on the fridge.",
                     "The maintenance card says PUMP and VENT share the last two rails, pump first.",
                     "So: pump to C, vent to D.",
                 ],
@@ -1912,7 +1911,7 @@ AREAS: dict[str, dict] = {
             "L": {
                 "kind": "exit",
                 "emoji": "🪜",
-                "name": "Up — Level C",
+                "name": "Up  -  Level C",
                 "to_area": "level_c",
                 "to": [5, 5],
             },
@@ -1992,7 +1991,7 @@ AREAS: dict[str, dict] = {
     },
 
     "aligner_roof": {
-        "name": "World Aligners — The Roof",
+        "name": "World Aligners  -  The Roof",
         "region": "World Aligners",
         "blurb": "Flat, gritty, and the only place in the building nobody argues.",
         "grid": [
@@ -2008,7 +2007,7 @@ AREAS: dict[str, dict] = {
             "S": {
                 "kind": "exit",
                 "emoji": "🪜",
-                "name": "Down — the floor",
+                "name": "Down  -  the floor",
                 "to_area": "aligner_floor",
                 "to": [6, 3],
             },
@@ -2032,7 +2031,7 @@ AREAS: dict[str, dict] = {
                     {"text": ("\"I know I'm not him. I do know that. I'd just "
                               "like to know what I *am*, and every time I get "
                               "close the thought slides off.\"")},
-                    {"text": ("\"If it turns out Rohan did this to me — I don't "
+                    {"text": ("\"If it turns out Rohan did this to me  -  I don't "
                               "know what I'd want to happen. That's the part that "
                               "scares me. Not the not-knowing. The not-caring "
                               "what the answer costs.\"")},
@@ -2062,7 +2061,7 @@ AREAS: dict[str, dict] = {
                 "text": ("It has been sitting on the relay mast for a while, and "
                          "it has been listening. When it notices you noticing, it "
                          "stops pretending to be part of the mast.\n\n"
-                         "Optional — Blueflame has walked past it every day for a "
+                         "Optional  -  Blueflame has walked past it every day for a "
                          "week. Losing costs nothing; it just goes back to "
                          "pretending."),
                 # Solved: 41% cost / 82% win at level 14, against a
@@ -2082,7 +2081,7 @@ AREAS: dict[str, dict] = {
     },
 
     "north_checkpoint": {
-        "name": "The Forty Miles — Border Post",
+        "name": "The Forty Miles  -  Border Post",
         "region": "The North",
         "blurb": "Somebody has put a fence across a road that goes nowhere, and staffed it.",
         "grid": [
@@ -2099,7 +2098,7 @@ AREAS: dict[str, dict] = {
             "S": {
                 "kind": "exit",
                 "emoji": "🧭",
-                "name": "South — back to the workshop",
+                "name": "South  -  back to the workshop",
                 "to_area": "rex_workshop",
                 "to": [5, 4],
             },
@@ -2120,7 +2119,7 @@ AREAS: dict[str, dict] = {
             "V": {
                 "kind": "exit",
                 "emoji": "🛤",
-                "name": "Onward — the survey road",
+                "name": "Onward  -  the survey road",
                 "to_area": "survey_site",
                 "to": [4, 5],
                 "requires_mission": "c2m3_dolpo",
@@ -2151,7 +2150,7 @@ AREAS: dict[str, dict] = {
     },
 
     "survey_site": {
-        "name": "The Forty Miles — Survey Point 9",
+        "name": "The Forty Miles  -  Survey Point 9",
         "region": "The North",
         "blurb": "Nineteen teams came here. The equipment is all still running.",
         "grid": [
@@ -2167,7 +2166,7 @@ AREAS: dict[str, dict] = {
             "W": {
                 "kind": "exit",
                 "emoji": "🌨",
-                "name": "West — off the road, into the drifts",
+                "name": "West  -  off the road, into the drifts",
                 "to_area": "the_drifts",
                 "to": [3, 5],
                 "requires_mission": "c2m4_survey_point_nine",
@@ -2184,7 +2183,7 @@ AREAS: dict[str, dict] = {
                          "Four of the nineteen teams pitched in the inner ring. "
                          "The register says which ring, not which pitch, but the "
                          "duty log on the mess tent says enough to work it out.\n\n"
-                         "Optional — it is a clipboard, and nothing is stopping "
+                         "Optional  -  it is a clipboard, and nothing is stopping "
                          "you walking past it."),
                 "subjects": ["Team 4", "Team 9", "Team 11", "Team 19"],
                 "values": ["North pitch", "East pitch", "South pitch", "West pitch"],
@@ -2214,7 +2213,7 @@ AREAS: dict[str, dict] = {
             "S": {
                 "kind": "exit",
                 "emoji": "🛤",
-                "name": "Back — the border post",
+                "name": "Back  -  the border post",
                 "to_area": "north_checkpoint",
                 "to": [1, 4],
             },
@@ -2235,7 +2234,7 @@ AREAS: dict[str, dict] = {
             "L": {
                 "kind": "exit",
                 "emoji": "🕳",
-                "name": "Down — the cut",
+                "name": "Down  -  the cut",
                 "to_area": "the_cut",
                 "to": [3, 4],
                 "requires_mission": "c2m5_nineteen",
@@ -2284,7 +2283,7 @@ AREAS: dict[str, dict] = {
     },
 
     "the_cut": {
-        "name": "The Forty Miles — The Cut",
+        "name": "The Forty Miles  -  The Cut",
         "region": "The North",
         "blurb": "A trench in the rock, machined, going down further than the light does.",
         "grid": [
@@ -2299,7 +2298,7 @@ AREAS: dict[str, dict] = {
             "U": {
                 "kind": "exit",
                 "emoji": "🕳",
-                "name": "Up — the survey site",
+                "name": "Up  -  the survey site",
                 "to_area": "survey_site",
                 "to": [6, 5],
             },
@@ -2359,7 +2358,7 @@ AREAS: dict[str, dict] = {
     },
 
     # ==================================================================
-    # CHAPTER THREE — BELOW THE CUT
+    # CHAPTER THREE  -  BELOW THE CUT
     #
     # Two areas, and the design brief for both is: THIS IS A WORKPLACE.
     #
@@ -2374,7 +2373,7 @@ AREAS: dict[str, dict] = {
     # to be ORGANISED, and the player supplies the rest.
     # ==================================================================
     "level_a": {
-        "name": "Below The Cut — Level A",
+        "name": "Below The Cut  -  Level A",
         "region": "The North",
         "blurb": "Swept concrete, good lighting, and a rota on the wall with names on it.",
         "grid": [
@@ -2391,7 +2390,7 @@ AREAS: dict[str, dict] = {
             "U": {
                 "kind": "exit",
                 "emoji": "🛗",
-                "name": "Up — the cut",
+                "name": "Up  -  the cut",
                 "to_area": "the_cut",
                 "to": [3, 3],
             },
@@ -2412,7 +2411,7 @@ AREAS: dict[str, dict] = {
             "B": {
                 "kind": "exit",
                 "emoji": "🛗",
-                "name": "Down — Level R",
+                "name": "Down  -  Level R",
                 "to_area": "the_works",
                 "to": [5, 5],
                 "requires_mission": "c3m3_the_voice",
@@ -2433,7 +2432,7 @@ AREAS: dict[str, dict] = {
                 "name": "The shelving",
                 "text": ("Industrial racking, floor to ceiling, every shelf labelled in "
                          "the same neat hand.\n\n"
-                         "*SPARES — TRACK*. *SPARES — OPTICAL*. *RETURNS, PROCESSED*. "
+                         "*SPARES  -  TRACK*. *SPARES  -  OPTICAL*. *RETURNS, PROCESSED*. "
                          "*RETURNS, PENDING*.\n\n"
                          "The pending shelf has three boxes on it. They are not "
                          "equipment boxes. They are the size of a person's effects."),
@@ -2441,7 +2440,7 @@ AREAS: dict[str, dict] = {
             "C": {
                 "kind": "cache",
                 "emoji": "📦",
-                "name": "Spares — optical",
+                "name": "Spares  -  optical",
                 "text": ("A shelf of parts, catalogued, most of which came off "
                          "machines you have fought.\n\n"
                          "Whoever keeps this store is better at it than anyone at "
@@ -2454,7 +2453,7 @@ AREAS: dict[str, dict] = {
     },
 
     "the_works": {
-        "name": "Below The Cut — Level R",
+        "name": "Below The Cut  -  Level R",
         "region": "The North",
         "blurb": "The bottom of the letters. Whatever he is doing, this is where it is done.",
         "grid": [
@@ -2470,7 +2469,7 @@ AREAS: dict[str, dict] = {
             "L": {
                 "kind": "exit",
                 "emoji": "🛗",
-                "name": "Up — Level A",
+                "name": "Up  -  Level A",
                 "to_area": "level_a",
                 "to": [4, 5],
             },
@@ -2505,7 +2504,7 @@ AREAS: dict[str, dict] = {
                          "screwed to the panel above them.\n\n"
                          "The card is a start-up order. Somebody has been "
                          "following it for years, because the laminate is worn "
-                         "through in six places and the wear is not even — the "
+                         "through in six places and the wear is not even  -  the "
                          "same fingers, the same order, every time.\n\n"
                          "Optional. Throw them out of order and the interlock "
                          "trips and resets itself, and you can simply walk away."),
@@ -2571,7 +2570,7 @@ AREAS: dict[str, dict] = {
                 # is that Rohan stopped waiting for people to come to him.
                 "kind": "exit",
                 "emoji": "🛗",
-                "name": "Down — Level C",
+                "name": "Down  -  Level C",
                 "to_area": "level_c",
                 "to": [5, 5],
                 "requires_mission": "c4m4_the_other_end",
@@ -2593,7 +2592,7 @@ AREAS: dict[str, dict] = {
     },
 
     # ==================================================================
-    # CHAPTER FOUR — THE AUDIT
+    # CHAPTER FOUR  -  THE AUDIT
     #
     # Two areas, and the pairing is the chapter's argument.
     #
@@ -2608,7 +2607,7 @@ AREAS: dict[str, dict] = {
     # one Rohan has not finished.
     # ==================================================================
     "depot_yard": {
-        "name": "Sixteen Freight — The Yard",
+        "name": "Sixteen Freight  -  The Yard",
         "region": "World Aligners",
         "blurb": "Sandbags, three factions' vehicles, and somebody's washing still on the line.",
         "grid": [
@@ -2625,7 +2624,7 @@ AREAS: dict[str, dict] = {
             "R": {
                 "kind": "exit",
                 "emoji": "🚧",
-                "name": "Inside — the Floor",
+                "name": "Inside  -  the Floor",
                 "to_area": "aligner_floor",
                 "to": [6, 6],
             },
@@ -2719,7 +2718,7 @@ AREAS: dict[str, dict] = {
     },
 
     "level_c": {
-        "name": "Below The Cut — Level C",
+        "name": "Below The Cut  -  Level C",
         "region": "The North",
         "blurb": "The first room down here that isn't finished, because he ran out of time.",
         "grid": [
@@ -2735,14 +2734,14 @@ AREAS: dict[str, dict] = {
             "U": {
                 "kind": "exit",
                 "emoji": "🛗",
-                "name": "Up — Level R",
+                "name": "Up  -  Level R",
                 "to_area": "the_works",
                 "to": [5, 2],
             },
             "S": {
                 "kind": "exit",
                 "emoji": "🪜",
-                "name": "Down — a stairwell that isn't on the plan",
+                "name": "Down  -  a stairwell that isn't on the plan",
                 "to_area": "lab_subbasement",
                 "to": [4, 5],
                 "requires_mission": "c3m5_inventory",
@@ -2780,7 +2779,7 @@ AREAS: dict[str, dict] = {
                 "kind": "note",
                 "emoji": "🧾",
                 "name": "The unfinished column",
-                "text": ("A tally sheet, half filled in, abandoned mid-line — the first "
+                "text": ("A tally sheet, half filled in, abandoned mid-line  -  the first "
                          "unfinished thing anybody has seen down here.\n\n"
                          "The pen is on the floor beside it, where it was dropped rather "
                          "than put down.\n\n"
@@ -2822,7 +2821,7 @@ AREAS: dict[str, dict] = {
             "O": {
                 "kind": "exit",
                 "emoji": "🛗",
-                "name": "Down — the last shaft",
+                "name": "Down  -  the last shaft",
                 "to_area": "the_last_letter",
                 "to": [4, 4],
                 "requires_mission": "c5m4_unresolvable",
@@ -2835,7 +2834,7 @@ AREAS: dict[str, dict] = {
     },
 
     # ==================================================================
-    # THE LAST LETTER — the bottom of the shaft.
+    # THE LAST LETTER  -  the bottom of the shaft.
     #
     # Deliberately the SMALLEST area in the game. Four chapters spent
     # descending through rooms that got larger and better organised, and
@@ -2847,7 +2846,7 @@ AREAS: dict[str, dict] = {
     # to deliver.
     # ==================================================================
     "the_last_letter": {
-        "name": "Below The Cut — The Last Letter",
+        "name": "Below The Cut  -  The Last Letter",
         "region": "The North",
         "blurb": "A small room at the bottom of eleven, with a desk in it and nothing else running.",
         "grid": [
@@ -2862,7 +2861,7 @@ AREAS: dict[str, dict] = {
             "U": {
                 "kind": "exit",
                 "emoji": "🛗",
-                "name": "Up — Level C",
+                "name": "Up  -  Level C",
                 "to_area": "level_c",
                 "to": [7, 5],
             },
@@ -2902,7 +2901,7 @@ AREAS: dict[str, dict] = {
                 "kind": "note",
                 "emoji": "🗓",
                 "name": "The last thing that arrived",
-                "text": ("One sheet, kept flat under glass — the only object down here "
+                "text": ("One sheet, kept flat under glass  -  the only object down here "
                          "anybody has bothered to protect.\n\n"
                          "It is an instruction. It is four years old. It is in a hand "
                          "that is not his:\n\n"
