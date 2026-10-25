@@ -31,6 +31,7 @@ from discord.ext import commands
 from bot.utils import responses
 from discord import app_commands
 
+from bot.utils.embedder._shared import FIELD_VALUE_LIMIT
 from bot.utils.guild_decorator import guild_decorator
 
 
@@ -54,12 +55,14 @@ _PAGES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
                 "`/story` — **the main mode.** Start here.\n"
                 "`/squad` — set your 4-character team (slot 1 is always your avatar)\n"
                 "`/presets` — save named lineups and swap between them\n"
-
                 "`/talents` — spend talent points on a character (one per 5 levels, free respec)\n"
                 "`/evolve` — raise a 3★ or 4★ up the star ladder with echoes, gold "
                 "and evolution fragments. A native 5★ stays stronger.\n"
                 "`/class` — switch your avatar between DPS / Support DPS / Amplifier / Sustain\n"
-                "`/rename` — name your avatar\n"
+                "`/rename` — name your avatar",
+            ),
+            (
+                "Your characters (cont.)",
                 "`/profile` — your account: level, roster, power and currencies\n"
                 "`/achievements` — what you've earned, your collection, and the titles you can wear\n"
                 "`/notifications` — reminder DMs when things are going to waste. **Off by default**, at most one a day\n"
@@ -279,6 +282,51 @@ _PAGES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
 _PAGE_INDEX = {key: i for i, (key, *_rest) in enumerate(_PAGES)}
 
 
+def _chunk_field_value(value: str, limit: int = FIELD_VALUE_LIMIT) -> list[str]:
+    """Split a long field value into chunks that each stay under Discord's
+    1024-character cap while keeping the original line structure. The help
+    pages intentionally read like a reference, so whole bullet lines are kept
+    together and the next chunk starts at the next line instead of in the
+    middle of a sentence."""
+    if len(value) <= limit:
+        return [value]
+
+    lines = value.splitlines()
+    chunks: list[str] = []
+    current: list[str] = []
+    current_len = 0
+
+    def flush_current() -> None:
+        nonlocal current, current_len
+        if current:
+            chunks.append("\n".join(current))
+            current = []
+            current_len = 0
+
+    for line in lines:
+        line_len = len(line)
+        if current and current_len + 1 + line_len > limit:
+            flush_current()
+        current.append(line)
+        current_len += line_len + (1 if current else 0)
+
+    flush_current()
+
+    # A single extremely long line can still exceed the cap even after the
+    # line-based split above; hard-truncate that last impossible case rather
+    # than letting the whole embed fail to send.
+    out: list[str] = []
+    for chunk in chunks:
+        if len(chunk) <= limit:
+            out.append(chunk)
+            continue
+        while len(chunk) > limit:
+            out.append(chunk[: limit - 1] + "…")
+            chunk = chunk[limit - 1:]
+        out.append(chunk)
+    return out or [value[: limit - 1] + "…"]
+
+
 def _build_help_embed(page: int, avatar_url: str | None = None) -> discord.Embed:
     page = max(0, min(page, len(_PAGES) - 1))
     key, label, emoji, description, fields = _PAGES[page]
@@ -291,7 +339,12 @@ def _build_help_embed(page: int, avatar_url: str | None = None) -> discord.Embed
     if avatar_url and page == 0:
         embed.set_thumbnail(url=avatar_url)
     for name, value in fields:
-        embed.add_field(name=name, value=value, inline=False)
+        for i, chunk in enumerate(_chunk_field_value(value)):
+            embed.add_field(
+                name=name if i == 0 else f"{name} (cont.)",
+                value=chunk,
+                inline=False,
+            )
     embed.set_footer(text="Gold is the common currency; Shards are for the character gacha.")
     return embed
 
