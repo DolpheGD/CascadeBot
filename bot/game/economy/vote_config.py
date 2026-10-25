@@ -226,14 +226,15 @@ def compute_vote_materials(streak: int) -> dict[str, int]:
 
 
 def compute_vote_lootboxes(streak: int) -> list[str]:
-    """The guaranteed box escalates in tier with the streak; milestone
-    streaks grant an additional, separately-tiered box on top."""
+    """Vote rewards are a major recurring income source. Each vote gives a
+    steady trio of current-tier boxes, and the milestone streaks add a larger
+    bonus box to keep the reward ladder visible."""
     base_tier = VOTE_LOOTBOX_PROGRESSION[0][1]
     for threshold, tier in VOTE_LOOTBOX_PROGRESSION:
         if streak >= threshold:
             base_tier = tier
 
-    tiers = [base_tier]
+    tiers = [base_tier, base_tier, base_tier]
     for interval, tier in VOTE_LOOTBOX_MILESTONES.items():
         if streak % interval == 0:
             tiers.append(tier)

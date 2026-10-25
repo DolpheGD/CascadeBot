@@ -41,8 +41,12 @@ ITEM_DROP_CHANCE = {"combat": 0.5, "elite": 0.75, "boss": 1.0}
 # fight). Elites guarantee both -- at minimum a Common lootbox, per spec --
 # so they read as clearly worth seeking out rather than just a harder
 # regular fight for a similar payout.
+#
+# The beginner ladder was still producing too many high-end boxes from the
+# early game, so normal combat rolls are pulled back slightly while keeping
+# a small chance for the better tiers to still appear on lucky runs.
 MATERIAL_DROP_CHANCE = {"combat": 0.55, "elite": 1.0, "boss": 1.0}
-LOOTBOX_DROP_CHANCE = {"combat": 0.35, "elite": 1.0, "boss": 1.0}
+LOOTBOX_DROP_CHANCE = {"combat": 0.25, "elite": 1.0, "boss": 1.0}
 
 # ----------------------------------------------------------------------
 # EVOLUTION FRAGMENTS FROM EVERY FIGHT.

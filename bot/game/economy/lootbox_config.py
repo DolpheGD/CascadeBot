@@ -69,44 +69,49 @@ LOOTBOX_TEMPLATES: list[dict] = [
     },
 ]
 
+# Keep the box ladder rewarding but not explosive. The goal is a steady
+# grind: better tiers are meaningfully better, but the ultra-rare end is a
+# spike instead of a flood that overwhelms the progression curve.
+# Lower-end regions should mostly churn Common/Uncommon gear, but a rare
+# high-tier result should still be visible when the player gets lucky.
 LOOTBOX_RARITY_WEIGHTS: dict[str, dict[Rarity, float]] = {
     "common": {
-        Rarity.COMMON: 55.0,
-        Rarity.UNCOMMON: 32.0,
-        Rarity.RARE: 11.0,
-        Rarity.EPIC: 2.0,
+        Rarity.COMMON: 70.0,
+        Rarity.UNCOMMON: 22.0,
+        Rarity.RARE: 7.0,
+        Rarity.EPIC: 1.0,
     },
     "uncommon": {
-        Rarity.COMMON: 25.0,
-        Rarity.UNCOMMON: 42.0,
-        Rarity.RARE: 25.0,
+        Rarity.COMMON: 30.0,
+        Rarity.UNCOMMON: 44.0,
+        Rarity.RARE: 18.0,
         Rarity.EPIC: 7.0,
         Rarity.LEGENDARY: 1.0,
     },
     "rare": {
-        Rarity.UNCOMMON: 30.0,
-        Rarity.RARE: 42.0,
-        Rarity.EPIC: 22.0,
-        Rarity.LEGENDARY: 5.5,
-        Rarity.MYTHIC: 0.5,
+        Rarity.UNCOMMON: 12.0,
+        Rarity.RARE: 46.0,
+        Rarity.EPIC: 28.0,
+        Rarity.LEGENDARY: 12.0,
+        Rarity.MYTHIC: 2.0,
     },
     "epic": {
-        Rarity.RARE: 32.0,
-        Rarity.EPIC: 42.0,
-        Rarity.LEGENDARY: 21.0,
-        Rarity.MYTHIC: 4.5,
-        Rarity.DIVINE: 0.5,
+        Rarity.RARE: 20.0,
+        Rarity.EPIC: 44.0,
+        Rarity.LEGENDARY: 24.0,
+        Rarity.MYTHIC: 10.0,
+        Rarity.DIVINE: 2.0,
     },
     "legendary": {
-        Rarity.EPIC: 28.0,
+        Rarity.EPIC: 18.0,
         Rarity.LEGENDARY: 42.0,
-        Rarity.MYTHIC: 26.0,
-        Rarity.DIVINE: 4.0,
+        Rarity.MYTHIC: 30.0,
+        Rarity.DIVINE: 10.0,
     },
     "mythic": {
-        Rarity.LEGENDARY: 30.0,
-        Rarity.MYTHIC: 55.0,
-        Rarity.DIVINE: 15.0,
+        Rarity.LEGENDARY: 20.0,
+        Rarity.MYTHIC: 58.0,
+        Rarity.DIVINE: 22.0,
     },
 }
 

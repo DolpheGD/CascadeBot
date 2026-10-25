@@ -126,15 +126,15 @@ def compute_daily_reward(streak: int) -> tuple[int, int, int]:
 
 
 def compute_daily_lootboxes(streak: int) -> list[str]:
-    """The guaranteed base-tier box escalates in tier as the streak grows
-    (see DAILY_LOOTBOX_BASE_PROGRESSION); milestone streaks grant an
-    additional, separately-tiered bonus box on top."""
+    """Daily rewards should feel like a real box payout, not a consolation
+    prize. Each claim grants three boxes of the current tier, then milestone
+    streaks add a larger bonus box on top."""
     base_tier = DAILY_LOOTBOX_BASE_PROGRESSION[0][1]
     for threshold, tier in DAILY_LOOTBOX_BASE_PROGRESSION:
         if streak >= threshold:
             base_tier = tier
 
-    tiers = [base_tier]
+    tiers = [base_tier, base_tier, base_tier]
     for milestone_days, tier in DAILY_LOOTBOX_MILESTONES.items():
         if streak % milestone_days == 0:
             tiers.append(tier)

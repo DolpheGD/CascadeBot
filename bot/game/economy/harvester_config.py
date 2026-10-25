@@ -22,7 +22,7 @@ HARVESTER_TEMPLATES: list[dict] = [
         "currency": "gold",
         "unlock_cost": 0,  # free starter harvester
         "unlock_currency": "gold",
-        "base_rate_per_hour": 10.0,
+        "base_rate_per_hour": 18.0,
         "level_scaling_exponent": 1.0,
         "max_level": 20,
         "max_accumulation_hours": 12.0,
